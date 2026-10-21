@@ -17,6 +17,14 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 | Billing (LookUp+) | ⬜ developer toggle only; wire RevenueCat or StoreKit 2 / Play Billing before TestFlight |
 | iOS background task registration in `AppDelegate.swift` | ✅ written, unverified on a Mac (no Xcode in the authoring environment) |
 
+## Screens
+
+Rendered from the real widgets with sample data (`flutter test --update-goldens --run-skipped --tags screenshots test/screenshots`):
+
+| Onboarding | Now | Upcoming | Look sheet | Settings |
+|---|---|---|---|---|
+| ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/5-settings.png) |
+
 ## Run it
 
 ```bash

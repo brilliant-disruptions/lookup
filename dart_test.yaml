@@ -1,0 +1,3 @@
+tags:
+  screenshots:
+    skip: "Preview renders; run with: flutter test --update-goldens --tags screenshots test/screenshots"

@@ -12,19 +12,23 @@ class CompassArrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
+    final label = Theme.of(context).textTheme.labelLarge ?? const TextStyle();
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(painter: _Painter(azimuthDeg, c.primary, c.onSurface.withValues(alpha: 0.35))),
+      child: CustomPaint(
+        painter: _Painter(azimuthDeg, c.primary, c.onSurface.withValues(alpha: 0.35), label),
+      ),
     );
   }
 }
 
 class _Painter extends CustomPainter {
-  _Painter(this.az, this.accent, this.muted);
+  _Painter(this.az, this.accent, this.muted, this.label);
   final double az;
   final Color accent;
   final Color muted;
+  final TextStyle label;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -40,7 +44,9 @@ class _Painter extends CustomPainter {
     for (var i = 0; i < 4; i++) {
       final a = i * math.pi / 2 - math.pi / 2;
       final p = center + Offset(math.cos(a), math.sin(a)) * (r - 16);
-      tp.text = TextSpan(text: labels[i], style: TextStyle(color: i == 0 ? accent : muted, fontSize: 13, fontWeight: FontWeight.w600));
+      tp.text = TextSpan(
+          text: labels[i],
+          style: label.copyWith(color: i == 0 ? accent : muted, fontSize: 13, fontWeight: FontWeight.w600));
       tp.layout();
       tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
     }

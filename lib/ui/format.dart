@@ -10,9 +10,10 @@ String fmtDay(DateTime utc) {
   final today = DateTime(now.year, now.month, now.day);
   final d = DateTime(l.year, l.month, l.day);
   final diff = d.difference(today).inDays;
-  if (diff == 0) return 'Tonight';
-  if (diff == 1) return 'Tomorrow';
-  return DateFormat.EEEE().format(l);
+  final morning = l.hour < 12;
+  if (diff == 0) return morning ? 'This morning' : 'Tonight';
+  if (diff == 1) return morning ? 'Tomorrow morning' : 'Tomorrow night';
+  return morning ? '${DateFormat.EEEE().format(l)} morning' : DateFormat.EEEE().format(l);
 }
 
 String fmtCountdown(Duration d) {
