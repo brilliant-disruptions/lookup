@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
+import 'fancy/foil_text.dart';
+import 'fancy/ornament_rule.dart';
+import 'fancy/rise.dart';
+import 'fancy/starfield.dart';
 import 'theme.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -36,24 +40,43 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      body: SafeArea(
+      body: Starfield(
+        density: 0.0005,
+        child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
-              const Eyebrow('LookUp', color: LookUpColors.blue),
-              const SizedBox(height: 14),
-              Text('LookUp taps you when something is about to fly over.',
-                  style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Rise(
+                index: 0,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    FoilText('LookUp', style: displaySerif(context, size: 54, weight: FontWeight.w600)),
+                    Text('.', style: displaySerif(context, size: 54, weight: FontWeight.w700, color: LookUpColors.blue)),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Rise(index: 1, child: Eyebrow('Step outside right now')),
+              const SizedBox(height: 22),
+              const Rise(index: 2, child: OrnamentRule()),
+              const SizedBox(height: 22),
+              Rise(
+                index: 3,
+                child: Text('It taps you when something is about to fly over.',
+                    style: displaySerif(context, size: 34, weight: FontWeight.w500, italic: true, height: 1.1)),
+              ),
               const SizedBox(height: 16),
-              Text(
+              Rise(index: 4, child: Text(
                 'The space station. A fresh Starlink train. An aurora. '
                 'A few minutes before, with which way to face. '
                 'Quiet when it\'s cloudy. No account, no setup.',
-                style: t.bodyLarge?.copyWith(color: LookUpColors.grey),
-              ),
+                style: t.bodyLarge?.copyWith(color: LookUpColors.grey, height: 1.45),
+              )),
               const Spacer(),
               if (_error != null)
                 Padding(
@@ -71,6 +94,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

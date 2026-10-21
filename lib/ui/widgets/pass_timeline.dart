@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/sky_event.dart';
 import '../../domain/sky/direction.dart';
+import '../fancy/stat_tile.dart';
 import '../format.dart';
 import '../theme.dart';
 
@@ -37,32 +38,19 @@ class PassTimeline extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _Label('Rises ${compassAbbrev(event.riseAzimuthDeg)}', fmtTime(event.start)),
-            _Label('Peak ${event.peakElevationDeg.round()}° ${compassAbbrev(event.peakAzimuthDeg)}', fmtTime(event.peak),
-                align: CrossAxisAlignment.center),
-            _Label('Sets ${compassAbbrev(event.setAzimuthDeg)}', fmtTime(event.end),
-                align: CrossAxisAlignment.end),
+            StatTile(k: 'Rises', v: compassAbbrev(event.riseAzimuthDeg), s: fmtTime(event.start)),
+            StatTile(
+                k: 'Peak',
+                v: '${event.peakElevationDeg.round()}°',
+                s: '${fmtTime(event.peak)} ${compassAbbrev(event.peakAzimuthDeg)}',
+                align: CrossAxisAlignment.center,
+                valueColor: LookUpColors.blue),
+            StatTile(k: 'Sets', v: compassAbbrev(event.setAzimuthDeg), s: fmtTime(event.end), align: CrossAxisAlignment.end),
           ],
         ),
       ],
     );
   }
-}
-
-class _Label extends StatelessWidget {
-  const _Label(this.top, this.bottom, {this.align = CrossAxisAlignment.start});
-  final String top, bottom;
-  final CrossAxisAlignment align;
-  @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: align,
-        children: [
-          Text(top.toUpperCase(),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontSize: 10.5, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
-          Text(bottom, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LookUpColors.grey)),
-        ],
-      );
 }
 
 class _ArcPainter extends CustomPainter {

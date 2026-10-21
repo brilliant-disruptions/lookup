@@ -93,6 +93,12 @@ Future<void> _loadFonts() async {
     '${cache.path}/Roboto-Black.ttf',
   ]);
   await load('MaterialIcons', ['${cache.path}/MaterialIcons-Regular.otf']);
+  // App-bundled fonts (pubspec `fonts:`) are not auto-loaded by flutter_test.
+  await load('Cormorant', [
+    'assets/fonts/CormorantGaramond-Variable.ttf',
+    'assets/fonts/CormorantGaramond-Italic-Variable.ttf',
+  ]);
+  await load('SplineMono', ['assets/fonts/SplineSansMono-Variable.ttf']);
   final emoji = File('/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf');
   if (emoji.existsSync()) await load('Noto Color Emoji', [emoji.path]);
 }
@@ -124,6 +130,7 @@ void main() {
     await tester.pumpWidget(settings == null ? _app(w) : _app(w, settings: settings));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 900)); // let staggered rises settle
   }
 
   Future<void> shot(WidgetTester tester, Widget w, String name, {LookUpSettings? settings}) async {
@@ -139,6 +146,7 @@ void main() {
     await mount(t, const HomeShell());
     await t.tap(find.text('Upcoming'));
     await t.pump(const Duration(milliseconds: 600));
+    await t.pump(const Duration(milliseconds: 1200));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/3-upcoming.png'));
   });
 

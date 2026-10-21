@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/settings.dart';
 import '../state/providers.dart';
+import 'fancy/ornament_rule.dart';
 import 'theme.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -19,7 +20,7 @@ class SettingsScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('SETTINGS')),
+      appBar: AppBar(title: Text('Settings', style: displaySerif(context, size: 26, weight: FontWeight.w600))),
       body: ListView(
         children: [
           const _Header('Location'),
@@ -187,7 +188,7 @@ class _Header extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
-        child: Eyebrow(text, color: LookUpColors.blue),
+        padding: const EdgeInsets.fromLTRB(16, 26, 16, 6),
+        child: OrnamentRule(label: text, color: LookUpColors.greyDim),
       );
 }

@@ -38,3 +38,13 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    # Display serif (Dearly's ceremonial voice) and data mono, both OFL.
+    - family: Cormorant
+      fonts:
+        - asset: assets/fonts/CormorantGaramond-Variable.ttf
+        - asset: assets/fonts/CormorantGaramond-Italic-Variable.ttf
+          style: italic
+    - family: SplineMono
+      fonts:
+        - asset: assets/fonts/SplineSansMono-Variable.ttf

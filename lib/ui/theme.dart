@@ -125,6 +125,39 @@ ThemeData buildLookUpTheme() {
   );
 }
 
+/// Dearly's ceremonial display serif, for hero moments and numerals.
+/// Variable font: set both [weight] (for fallback fonts) and the wght axis.
+TextStyle displaySerif(BuildContext context,
+    {double size = 32, FontWeight weight = FontWeight.w600, Color? color, bool italic = false, double? height}) {
+  final w = _wght(weight);
+  return TextStyle(
+    fontFamily: 'Cormorant',
+    fontSize: size,
+    fontWeight: weight,
+    fontVariations: [FontVariation('wght', w)],
+    fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+    color: color ?? LookUpColors.white,
+    height: height ?? 1.05,
+    letterSpacing: -0.3,
+  );
+}
+
+/// Tabular data voice: times, degrees, counts.
+TextStyle monoData(BuildContext context,
+    {double size = 13, FontWeight weight = FontWeight.w500, Color? color, double letterSpacing = 0}) {
+  return TextStyle(
+    fontFamily: 'SplineMono',
+    fontSize: size,
+    fontWeight: weight,
+    fontVariations: [FontVariation('wght', _wght(weight))],
+    color: color ?? LookUpColors.white,
+    letterSpacing: letterSpacing,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
+}
+
+double _wght(FontWeight w) => w.value.toDouble();
+
 /// Small uppercase tracked label, the SpaceX webcast style.
 class Eyebrow extends StatelessWidget {
   const Eyebrow(this.text, {super.key, this.color = LookUpColors.grey});

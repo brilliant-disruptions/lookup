@@ -5,6 +5,9 @@ import 'package:share_plus/share_plus.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
 import '../state/providers.dart';
+import 'fancy/foil_text.dart';
+import 'fancy/ornament_rule.dart';
+import 'fancy/stat_tile.dart';
 import 'format.dart';
 import 'theme.dart';
 import 'widgets/compass_arrow.dart';
@@ -39,19 +42,19 @@ class LookSheet extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(eventTitle(event), style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(
+            Text(eventTitle(event), style: displaySerif(context, size: 38, weight: FontWeight.w500)),
+            const SizedBox(height: 2),
+            FoilText(
               over
                   ? 'That one\'s over'
                   : live
-                      ? 'Happening now — ${fmtCountdown(event.end.difference(nowUtc))} left'
+                      ? 'Now — ${fmtCountdown(event.end.difference(nowUtc))} left'
                       : 'in ${fmtCountdown(event.start.difference(nowUtc))}',
-              style: t.titleLarge?.copyWith(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800),
+              style: displaySerif(context, size: 44, weight: FontWeight.w600, italic: true, height: 1.0),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Center(child: CompassArrow(azimuthDeg: isAurora ? 0 : event.riseAzimuthDeg)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               isAurora
                   ? 'Face north. Get away from streetlights and give your eyes five minutes.'
@@ -59,21 +62,27 @@ class LookSheet extends ConsumerWidget {
               textAlign: TextAlign.center,
               style: t.bodyLarge,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
+            const OrnamentRule(),
+            const SizedBox(height: 16),
             if (!isAurora) PassTimeline(event: event, now: now),
             if (isAurora)
-              Text('Window: ${fmtTime(event.start)} – ${fmtTime(event.end)}', textAlign: TextAlign.center, style: t.bodyMedium?.copyWith(color: LookUpColors.grey)),
-            const SizedBox(height: 12),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                StatTile(k: 'From', v: fmtTime(event.start), align: CrossAxisAlignment.center),
+                StatTile(k: 'Until', v: fmtTime(event.end), align: CrossAxisAlignment.center),
+                StatTile(k: 'Kp', v: (event.details['kp'] as num?)?.toStringAsFixed(1) ?? '–', align: CrossAxisAlignment.center),
+              ]),
+            const SizedBox(height: 14),
             Text(
               [
                 if (event.details['brightness'] is String) '${event.details['brightness']}',
                 cloudWord(event.cloudCoverPercent),
                 if (event.isEstimate) 'estimate (orbit data is a few days old)',
-              ].join(' · '),
+              ].join('  ·  ').toUpperCase(),
               textAlign: TextAlign.center,
-              style: t.bodySmall?.copyWith(color: LookUpColors.grey, letterSpacing: 0.5),
+              style: t.labelSmall?.copyWith(color: LookUpColors.greyDim, letterSpacing: 1.8, fontSize: 10.5, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             Row(children: [
               Expanded(
                 child: OutlinedButton.icon(

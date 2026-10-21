@@ -25,6 +25,24 @@ Rendered from the real widgets with sample data (`flutter test --update-goldens 
 |---|---|---|---|---|
 | ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/5-settings.png) |
 
+## Design
+
+Black, white and one electric blue (SpaceX/Starlink-inspired), dressed with elements borrowed from the Dearly/Woven design system in `app-ideas/bloved/design-system` and translated to night:
+
+| Dearly | LookUp |
+|---|---|
+| Cormorant Garamond display serif for ceremonial moments | Same face (`assets/fonts`, OFL) for event names, the countdown and stat numerals; italic for the countdown |
+| Gold-foil text | `FoilText`: a starlight silver-blue sheen (gold variant kept for share cards) |
+| Invitation double-hairline frame | `InviteFrame`: blue outer hairline, grey inner, soft blue glow |
+| Paper grain | `Grain`: 4 % film grain on the hero panel |
+| Warm paper page | `Starfield`: deterministic stars fading out behind content |
+| Ornament rule "— ◆ —" | `OrnamentRule` for section headers |
+| StatTile (overline / display value / caption) | `StatTile` for rise / peak / set |
+| `.dearly-rise` staggered entrance | `Rise`: 12 px transform-only rise, 70 ms stagger |
+| Spline Sans Mono for data | Same face for times and degrees |
+
+All in `lib/ui/fancy/`. Emoji were dropped (Dearly's rule: warmth comes from type, not 🎉).
+
 ## Run it
 
 ```bash

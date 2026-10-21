@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/sky_event.dart';
 import '../state/providers.dart';
+import 'fancy/foil_text.dart';
+import 'fancy/invite_frame.dart';
+import 'fancy/ornament_rule.dart';
+import 'fancy/rise.dart';
+import 'fancy/starfield.dart';
 import 'format.dart';
 import 'look_sheet.dart';
 import 'theme.dart';
@@ -15,8 +20,13 @@ class NowScreen extends ConsumerWidget {
     final home = ref.watch(homeProvider);
     final settings = ref.watch(settingsProvider).value;
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('LookUp'),
+        backgroundColor: Colors.transparent,
+        title: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text('LookUp', style: displaySerif(context, size: 26, weight: FontWeight.w600)),
+          Text('.', style: displaySerif(context, size: 26, weight: FontWeight.w700, color: LookUpColors.blue)),
+        ]),
         actions: [
           if (settings?.placeName != null)
             Padding(
@@ -25,17 +35,18 @@ class NowScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: RefreshIndicator(
+      body: Starfield(
+        child: RefreshIndicator(
         onRefresh: () => ref.read(homeProvider.notifier).refresh(force: true),
         child: home.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ListView(children: [Padding(padding: const EdgeInsets.all(24), child: Text('$e'))]),
           data: (d) => ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 64, 16, 32),
             children: [
-              if (d.next == null) const _EmptyCard() else _NextCard(event: d.next!),
-              const SizedBox(height: 12),
-              if (d.auroraOutlook != null) _OutlookCard(d.auroraOutlook!),
+              Rise(index: 0, child: d.next == null ? const _EmptyCard() : _NextCard(event: d.next!)),
+              const SizedBox(height: 14),
+              if (d.auroraOutlook != null) Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
               ..._then(d),
               if (d.errors.isNotEmpty)
                 Padding(
@@ -52,6 +63,7 @@ class NowScreen extends ConsumerWidget {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -63,10 +75,10 @@ class NowScreen extends ConsumerWidget {
     if (rest.isEmpty) return const [];
     return [
       const Padding(
-        padding: EdgeInsets.fromLTRB(4, 24, 4, 10),
-        child: Eyebrow('Then'),
+        padding: EdgeInsets.fromLTRB(4, 26, 4, 14),
+        child: OrnamentRule(label: 'Then'),
       ),
-      for (final e in rest) _SmallRow(e),
+      for (final (i, e) in rest.indexed) Rise(index: 2 + i, child: _SmallRow(e)),
     ];
   }
 }
@@ -81,31 +93,37 @@ class _NextCard extends ConsumerWidget {
     final t = Theme.of(context).textTheme;
     final live = !now.toUtc().isBefore(event.start);
     final until = event.start.difference(now.toUtc());
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(6),
-        onTap: () => showLookSheet(context, event),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+    return InviteFrame(
+      onTap: () => showLookSheet(context, event),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Text(eventEmoji(event), style: const TextStyle(fontSize: 22)),
-                const SizedBox(width: 8),
                 Eyebrow(live ? 'Happening now' : 'Next up', color: live ? LookUpColors.blue : LookUpColors.grey),
                 const Spacer(),
                 _CloudChip(event.cloudCoverPercent),
               ]),
-              const SizedBox(height: 10),
-              Text(eventTitle(event), style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Text(live ? 'Go outside now' : 'in ${fmtCountdown(until)}',
-                  style: t.displaySmall?.copyWith(fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
-              const SizedBox(height: 6),
-              Text('${fmtDay(event.start)} · ${fmtTime(event.start)}', style: t.bodyMedium?.copyWith(color: LookUpColors.grey)),
               const SizedBox(height: 14),
-              Text(eventSubtitle(event), style: t.bodyLarge),
+              Text(eventTitle(event), style: displaySerif(context, size: 40, weight: FontWeight.w500)),
+              const SizedBox(height: 2),
+              FoilText(
+                live ? 'Go outside now' : 'in ${fmtCountdown(until)}',
+                style: displaySerif(context, size: 58, weight: FontWeight.w600, italic: true, height: 1.0),
+              ),
+              const SizedBox(height: 10),
+              Row(children: [
+                Text(fmtDay(event.start).toUpperCase(),
+                    style: t.labelSmall?.copyWith(color: LookUpColors.grey, letterSpacing: 2, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 10),
+                Container(width: 1, height: 10, color: LookUpColors.line),
+                const SizedBox(width: 10),
+                Text(fmtTime(event.start), style: monoData(context, size: 13, color: LookUpColors.grey)),
+              ]),
+              const SizedBox(height: 16),
+              Container(height: 1, color: LookUpColors.line),
+              const SizedBox(height: 14),
+              Text(eventSubtitle(event), style: t.bodyLarge?.copyWith(height: 1.4)),
               if (event.isEstimate)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -118,8 +136,6 @@ class _NextCard extends ConsumerWidget {
                 ),
             ],
           ),
-        ),
-      ),
     );
   }
 }
@@ -129,11 +145,19 @@ class _OutlookCard extends StatelessWidget {
   final SkyEvent e;
   @override
   Widget build(BuildContext context) => Card(
-        child: ListTile(
-          leading: const Text('🌌', style: TextStyle(fontSize: 22)),
-          title: Text(eventTitle(e)),
-          subtitle: Text(eventSubtitle(e)),
-          trailing: _CloudChip(e.cloudCoverPercent),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(eventTitle(e), style: displaySerif(context, size: 24, weight: FontWeight.w500)),
+                const SizedBox(height: 4),
+                Text(eventSubtitle(e), style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),
+              ]),
+            ),
+            const SizedBox(width: 12),
+            _CloudChip(e.cloudCoverPercent),
+          ]),
         ),
       );
 }
@@ -142,13 +166,36 @@ class _SmallRow extends StatelessWidget {
   const _SmallRow(this.e);
   final SkyEvent e;
   @override
-  Widget build(BuildContext context) => Card(
-        child: ListTile(
-          onTap: () => showLookSheet(context, e),
-          leading: Text(eventEmoji(e), style: const TextStyle(fontSize: 22)),
-          title: Text(eventTitle(e)),
-          subtitle: Text('${fmtDay(e.start)} · ${fmtTime(e.start)} · ${e.peakElevationDeg.round()}° peak'),
-          trailing: _CloudChip(e.cloudCoverPercent),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Card(
+          child: InkWell(
+            onTap: () => showLookSheet(context, e),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(eventTitle(e), style: displaySerif(context, size: 24, weight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 2,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(fmtDay(e.start).toUpperCase(),
+                            style: const TextStyle(color: LookUpColors.grey, fontSize: 10.5, letterSpacing: 1.8, fontWeight: FontWeight.w700)),
+                        Text('${fmtTime(e.start)} · ${e.peakElevationDeg.round()}°',
+                            style: monoData(context, size: 12, color: LookUpColors.grey)),
+                      ],
+                    ),
+                  ]),
+                ),
+                const SizedBox(width: 12),
+                _CloudChip(e.cloudCoverPercent),
+              ]),
+            ),
+          ),
         ),
       );
 }
@@ -184,7 +231,7 @@ class _EmptyCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Nothing worth going out for yet', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              Text('Nothing worth going out for yet', style: TextStyle(fontFamily: 'Cormorant', fontSize: 30, fontWeight: FontWeight.w600)),
               SizedBox(height: 8),
               Text('Visible passes come in cycles of a couple of weeks. We\'ll tap you when the next one is on. Pull down to refresh.',
                   style: TextStyle(color: LookUpColors.grey)),
