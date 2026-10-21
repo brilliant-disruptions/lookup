@@ -5,6 +5,7 @@ import '../domain/models/sky_event.dart';
 import '../state/providers.dart';
 import 'format.dart';
 import 'look_sheet.dart';
+import 'theme.dart';
 
 class NowScreen extends ConsumerWidget {
   const NowScreen({super.key});
@@ -20,7 +21,7 @@ class NowScreen extends ConsumerWidget {
           if (settings?.placeName != null)
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: Center(child: Text(settings!.placeName!, style: const TextStyle(color: Colors.white60))),
+              child: Center(child: Eyebrow(settings!.placeName!)),
             ),
         ],
       ),
@@ -40,13 +41,12 @@ class NowScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Text('Some data didn\'t refresh: ${d.errors.length} source(s). Using the last good copy.',
-                      style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                      style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
                 ),
               if (d.lastRefresh != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text('Updated ${fmtDay(d.lastRefresh!).toLowerCase()} ${fmtTime(d.lastRefresh!)}',
-                      style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                  child: Eyebrow('Updated ${fmtDay(d.lastRefresh!)} ${fmtTime(d.lastRefresh!)}', color: LookUpColors.greyDim),
                 ),
             ],
           ),
@@ -63,8 +63,8 @@ class NowScreen extends ConsumerWidget {
     if (rest.isEmpty) return const [];
     return [
       const Padding(
-        padding: EdgeInsets.fromLTRB(4, 20, 4, 8),
-        child: Text('Then', style: TextStyle(color: Colors.white60, fontWeight: FontWeight.w600)),
+        padding: EdgeInsets.fromLTRB(4, 24, 4, 10),
+        child: Eyebrow('Then'),
       ),
       for (final e in rest) _SmallRow(e),
     ];
@@ -83,7 +83,7 @@ class _NextCard extends ConsumerWidget {
     final until = event.start.difference(now.toUtc());
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(6),
         onTap: () => showLookSheet(context, event),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -93,7 +93,7 @@ class _NextCard extends ConsumerWidget {
               Row(children: [
                 Text(eventEmoji(event), style: const TextStyle(fontSize: 22)),
                 const SizedBox(width: 8),
-                Text(live ? 'Happening now' : 'Next up', style: t.labelLarge?.copyWith(color: Colors.white60)),
+                Eyebrow(live ? 'Happening now' : 'Next up', color: live ? LookUpColors.blue : LookUpColors.grey),
                 const Spacer(),
                 _CloudChip(event.cloudCoverPercent),
               ]),
@@ -103,18 +103,18 @@ class _NextCard extends ConsumerWidget {
               Text(live ? 'Go outside now' : 'in ${fmtCountdown(until)}',
                   style: t.displaySmall?.copyWith(fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
               const SizedBox(height: 6),
-              Text('${fmtDay(event.start)} · ${fmtTime(event.start)}', style: t.bodyMedium?.copyWith(color: Colors.white70)),
+              Text('${fmtDay(event.start)} · ${fmtTime(event.start)}', style: t.bodyMedium?.copyWith(color: LookUpColors.grey)),
               const SizedBox(height: 14),
               Text(eventSubtitle(event), style: t.bodyLarge),
               if (event.isEstimate)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text('Estimate — orbit data is a few days old', style: t.bodySmall?.copyWith(color: Colors.amber)),
+                  child: Text('Estimate — orbit data is a few days old', style: t.bodySmall?.copyWith(color: LookUpColors.warn)),
                 ),
               if (event.plusOnly && !(ref.watch(settingsProvider).value?.isPlus ?? false))
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: Text('LookUp+ taps you 10 minutes before this one.', style: t.bodySmall?.copyWith(color: Colors.white60)),
+                  child: Text('LookUp+ taps you 10 minutes before this one.', style: t.bodySmall?.copyWith(color: LookUpColors.grey)),
                 ),
             ],
           ),
@@ -166,9 +166,11 @@ class _CloudChip extends StatelessWidget {
                 ? Icons.cloud_queue
                 : Icons.cloud;
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 16, color: Colors.white60),
-      const SizedBox(width: 4),
-      Text(cloudWord(cover), style: const TextStyle(color: Colors.white60, fontSize: 12)),
+      Icon(icon, size: 15, color: LookUpColors.grey),
+      const SizedBox(width: 5),
+      Text(cloudWord(cover).toUpperCase(),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: LookUpColors.grey, fontSize: 10.5, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
     ]);
   }
 }
@@ -185,7 +187,7 @@ class _EmptyCard extends StatelessWidget {
               Text('Nothing worth going out for yet', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
               SizedBox(height: 8),
               Text('Visible passes come in cycles of a couple of weeks. We\'ll tap you when the next one is on. Pull down to refresh.',
-                  style: TextStyle(color: Colors.white70)),
+                  style: TextStyle(color: LookUpColors.grey)),
             ],
           ),
         ),

@@ -150,8 +150,8 @@ void main() {
         Align(
           alignment: Alignment.bottomCenter,
           child: Material(
-            color: const Color(0xFF121A30),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            color: const Color(0xFF0E0F11),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.only(top: 22),
               child: LookSheet(event: _events.first),

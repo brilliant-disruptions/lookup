@@ -6,6 +6,7 @@ import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
 import '../state/providers.dart';
 import 'format.dart';
+import 'theme.dart';
 import 'widgets/compass_arrow.dart';
 import 'widgets/pass_timeline.dart';
 
@@ -61,7 +62,7 @@ class LookSheet extends ConsumerWidget {
             const SizedBox(height: 20),
             if (!isAurora) PassTimeline(event: event, now: now),
             if (isAurora)
-              Text('Window: ${fmtTime(event.start)} – ${fmtTime(event.end)}', textAlign: TextAlign.center, style: t.bodyMedium?.copyWith(color: Colors.white70)),
+              Text('Window: ${fmtTime(event.start)} – ${fmtTime(event.end)}', textAlign: TextAlign.center, style: t.bodyMedium?.copyWith(color: LookUpColors.grey)),
             const SizedBox(height: 12),
             Text(
               [
@@ -70,7 +71,7 @@ class LookSheet extends ConsumerWidget {
                 if (event.isEstimate) 'estimate (orbit data is a few days old)',
               ].join(' · '),
               textAlign: TextAlign.center,
-              style: t.bodySmall?.copyWith(color: Colors.white54),
+              style: t.bodySmall?.copyWith(color: LookUpColors.grey, letterSpacing: 0.5),
             ),
             const SizedBox(height: 20),
             Row(children: [

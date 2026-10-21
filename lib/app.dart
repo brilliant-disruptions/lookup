@@ -4,25 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/providers.dart';
 import 'ui/home_shell.dart';
 import 'ui/onboarding_screen.dart';
+import 'ui/theme.dart';
 
 class LookUpApp extends ConsumerWidget {
   const LookUpApp({super.key});
 
-  static final theme = ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF8FB3FF),
-      brightness: Brightness.dark,
-      surface: const Color(0xFF0B1020),
-    ),
-    scaffoldBackgroundColor: const Color(0xFF070B16),
-    cardTheme: const CardThemeData(
-      color: Color(0xFF121A30),
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
-    ),
-  );
+  static final theme = buildLookUpTheme();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

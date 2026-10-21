@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models/sky_event.dart';
 import '../../domain/sky/direction.dart';
 import '../format.dart';
+import '../theme.dart';
 
 /// rise → peak → set over a horizon line, with progress when live.
 class PassTimeline extends StatelessWidget {
@@ -56,8 +57,10 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: align,
         children: [
-          Text(top, style: Theme.of(context).textTheme.labelMedium),
-          Text(bottom, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white60)),
+          Text(top.toUpperCase(),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontSize: 10.5, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
+          Text(bottom, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: LookUpColors.grey)),
         ],
       );
 }

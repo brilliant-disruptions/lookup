@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
+import 'theme.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -42,8 +43,8 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
-              const Text('🛰️', style: TextStyle(fontSize: 56)),
-              const SizedBox(height: 20),
+              const Eyebrow('LookUp', color: LookUpColors.blue),
+              const SizedBox(height: 14),
               Text('LookUp taps you when something is about to fly over.',
                   style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 16),
@@ -51,7 +52,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
                 'The space station. A fresh Starlink train. An aurora. '
                 'A few minutes before, with which way to face. '
                 'Quiet when it\'s cloudy. No account, no setup.',
-                style: t.bodyLarge?.copyWith(color: Colors.white70),
+                style: t.bodyLarge?.copyWith(color: LookUpColors.grey),
               ),
               const Spacer(),
               if (_error != null)
@@ -62,11 +63,11 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
               FilledButton(
                 onPressed: _busy ? null : _go,
                 style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                child: Text(_busy ? 'One moment…' : 'Allow location & alerts'),
+                child: Text(_busy ? 'ONE MOMENT…' : 'ALLOW LOCATION & ALERTS'),
               ),
               const SizedBox(height: 8),
               Text('We only use a rough location, and it never leaves your phone.',
-                  style: t.bodySmall?.copyWith(color: Colors.white54)),
+                  style: t.bodySmall?.copyWith(color: LookUpColors.greyDim)),
             ],
           ),
         ),

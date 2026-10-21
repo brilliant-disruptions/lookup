@@ -5,6 +5,7 @@ import '../domain/models/sky_event.dart';
 import '../state/providers.dart';
 import 'format.dart';
 import 'look_sheet.dart';
+import 'theme.dart';
 
 class UpcomingScreen extends ConsumerWidget {
   const UpcomingScreen({super.key});
@@ -13,7 +14,7 @@ class UpcomingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Next 7 nights')),
+      appBar: AppBar(title: const Text('NEXT 7 NIGHTS')),
       body: home.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
@@ -30,8 +31,8 @@ class UpcomingScreen extends ConsumerWidget {
             children: [
               for (final g in groups.entries) ...[
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-                  child: Text(g.key, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white70)),
+                  padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+                  child: Eyebrow(g.key),
                 ),
                 for (final e in g.value)
                   Padding(
@@ -47,7 +48,8 @@ class UpcomingScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(fmtTime(e.start), style: const TextStyle(fontWeight: FontWeight.w600)),
-                            Text(cloudWord(e.cloudCoverPercent), style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                            Text(cloudWord(e.cloudCoverPercent).toUpperCase(),
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 10, letterSpacing: 1.2, color: LookUpColors.grey)),
                           ],
                         ),
                       ),
