@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../data/local_store.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
 import '../state/providers.dart';
@@ -22,12 +23,31 @@ Future<void> showLookSheet(BuildContext context, SkyEvent event) =>
     );
 
 /// What the notification opens: countdown, where to look, timeline, share.
-class LookSheet extends ConsumerWidget {
+/// After the event: "Did you see it?" (spec §3.3), stored on-device.
+class LookSheet extends ConsumerStatefulWidget {
   const LookSheet({super.key, required this.event});
   final SkyEvent event;
+  @override
+  ConsumerState<LookSheet> createState() => _LookSheetState();
+}
+
+class _LookSheetState extends ConsumerState<LookSheet> {
+  bool? _seen;
+  bool _askingWhy = false;
+
+  SkyEvent get event => widget.event;
+
+  Future<void> _answer(bool seen, {String? reason}) async {
+    await ref.read(storeProvider).addFeedback(SeenFeedback(eventId: event.id, seen: seen, at: DateTime.now().toUtc(), reason: reason));
+    if (!mounted) return;
+    setState(() {
+      _seen = seen;
+      _askingWhy = !seen && reason == null;
+    });
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final now = ref.watch(clockProvider).value ?? DateTime.now();
     final t = Theme.of(context).textTheme;
     final nowUtc = now.toUtc();
@@ -83,26 +103,65 @@ class LookSheet extends ConsumerWidget {
               style: t.labelSmall?.copyWith(color: LookUpColors.greyDim, letterSpacing: 1.8, fontSize: 10.5, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 22),
-            Row(children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => SharePlus.instance.share(ShareParams(text: shareText(event, place))),
-                  icon: const Icon(Icons.ios_share),
-                  label: const Text('Share'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.check),
-                  label: Text(over || live ? 'I saw it!' : 'Got it'),
-                ),
-              ),
-            ]),
+            if (over || live) _feedbackRow(context, place) else _plainRow(context, place),
           ],
         ),
       ),
     );
+  }
+
+  Widget _plainRow(BuildContext context, String? place) => Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => SharePlus.instance.share(ShareParams(text: shareText(event, place))),
+            icon: const Icon(Icons.ios_share),
+            label: const Text('Share'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.check),
+            label: const Text('Got it'),
+          ),
+        ),
+      ]);
+
+  Widget _feedbackRow(BuildContext context, String? place) {
+    final t = Theme.of(context).textTheme;
+    if (_seen == true) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Glad you caught it.', textAlign: TextAlign.center, style: displaySerif(context, size: 24, italic: true, weight: FontWeight.w500)),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: () => SharePlus.instance.share(ShareParams(text: shareText(event, place))),
+          icon: const Icon(Icons.ios_share),
+          label: const Text('Share it'),
+        ),
+      ]);
+    }
+    if (_askingWhy) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('What got in the way?', textAlign: TextAlign.center, style: t.titleMedium),
+        const SizedBox(height: 10),
+        Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
+          for (final (label, key) in const [('Clouds', 'clouds'), ('Too low', 'too-low'), ('Missed it', 'missed')])
+            OutlinedButton(onPressed: () => _answer(false, reason: key), child: Text(label)),
+        ]),
+      ]);
+    }
+    if (_seen == false) {
+      return const Text('Thanks. We\'ll be pickier next time.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('Did you see it?', textAlign: TextAlign.center, style: displaySerif(context, size: 26, weight: FontWeight.w500)),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: OutlinedButton(onPressed: () => _answer(false), child: const Text('No'))),
+        const SizedBox(width: 12),
+        Expanded(child: FilledButton(onPressed: () => _answer(true), child: const Text('Yes!'))),
+      ]),
+    ]);
   }
 }

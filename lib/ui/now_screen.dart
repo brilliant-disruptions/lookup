@@ -10,6 +10,7 @@ import 'fancy/rise.dart';
 import 'fancy/starfield.dart';
 import 'format.dart';
 import 'look_sheet.dart';
+import 'paywall_sheet.dart';
 import 'theme.dart';
 
 class NowScreen extends ConsumerWidget {
@@ -131,8 +132,15 @@ class _NextCard extends ConsumerWidget {
                 ),
               if (event.plusOnly && !(ref.watch(settingsProvider).value?.isPlus ?? false))
                 Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text('LookUp+ taps you 10 minutes before this one.', style: t.bodySmall?.copyWith(color: LookUpColors.grey)),
+                  padding: const EdgeInsets.only(top: 14),
+                  child: GestureDetector(
+                    onTap: () => showPaywall(context, reason: event),
+                    child: Row(children: [
+                      const Eyebrow('LookUp+ taps you 10 min before', color: LookUpColors.blue),
+                      const Spacer(),
+                      Icon(Icons.arrow_forward, size: 16, color: LookUpColors.blue),
+                    ]),
+                  ),
                 ),
             ],
           ),

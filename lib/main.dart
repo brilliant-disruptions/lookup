@@ -17,6 +17,7 @@ Future<void> main() async {
   } catch (_) {
     // Background refresh is best effort (unsupported on some platforms).
   }
+  await container.read(plusServiceProvider).start();
   runApp(UncontrolledProviderScope(
     container: container,
     child: const LookUpApp(),

@@ -14,16 +14,19 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 | `lib/data/` — Celestrak (OMM JSON), NOAA SWPC (Kp 1-min, 3-day forecast, Ovation), Open-Meteo cloud cover, on-device store | ✅ |
 | `lib/services/` — refresh orchestration (fetch → compute → plan → schedule), local notifications, location, WorkManager background refresh | ✅ written, needs device testing |
 | `lib/ui/` — onboarding, Now, Upcoming, Settings, Look sheet (compass + timeline + share) | ✅ written, needs device testing |
-| Billing (LookUp+) | ⬜ developer toggle only; wire RevenueCat or StoreKit 2 / Play Billing before TestFlight |
+| Billing (LookUp+) | ✅ `in_app_purchase` (StoreKit 2 / Play Billing), paywall sheet, restore; products `lookup_plus_monthly`, `lookup_plus_yearly`, `lookup_plus_lifetime` must be created in App Store Connect and Play Console. No server-side receipt validation yet |
+| "Did you see it?" feedback | ✅ on the Look sheet after an event, stored on-device |
+| Launcher icon | ✅ generated from `assets/icon/` |
+| CI | ✅ GitHub Actions: analyze, test, release APK artifact |
 | iOS background task registration in `AppDelegate.swift` | ✅ written, unverified on a Mac (no Xcode in the authoring environment) |
 
 ## Screens
 
 Rendered from the real widgets with sample data (`flutter test --update-goldens --run-skipped --tags screenshots test/screenshots`):
 
-| Onboarding | Now | Upcoming | Look sheet | Settings |
-|---|---|---|---|---|
-| ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/5-settings.png) |
+| Onboarding | Now | Upcoming | Look sheet | Settings | Paywall |
+|---|---|---|---|---|---|
+| ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
 
 ## Design
 
@@ -47,7 +50,7 @@ All in `lib/ui/fancy/`. Emoji were dropped (Dearly's rule: warmth comes from typ
 
 ```bash
 flutter pub get
-flutter test            # 34 domain/service tests, no device needed
+flutter test            # 36 domain/service tests, no device needed
 flutter run             # iOS simulator or Android emulator
 ```
 

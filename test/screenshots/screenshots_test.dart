@@ -19,6 +19,8 @@ import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/look_sheet.dart';
 import 'package:lookup/ui/onboarding_screen.dart';
+import 'package:lookup/ui/paywall_sheet.dart';
+import 'package:lookup/services/plus_service.dart';
 
 final _now = DateTime.now();
 
@@ -62,6 +64,13 @@ class _FakeSettings extends SettingsNotifier {
   final LookUpSettings s;
   @override
   Future<LookUpSettings> build() async => s;
+}
+
+class _FakePlus implements PlusService {
+  @override
+  Future<List<PlusOffer>> offers() async => const [];
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
 class _FakeHome extends HomeNotifier {
@@ -115,6 +124,7 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
       settingsProvider.overrideWith(() => _FakeSettings(settings)),
       homeProvider.overrideWith(_FakeHome.new),
       clockProvider.overrideWith((_) => Stream.value(_now)),
+      plusServiceProvider.overrideWithValue(_FakePlus()),
     ],
     child: MaterialApp(theme: theme, debugShowCheckedModeBanner: false, home: home),
   );
@@ -169,6 +179,28 @@ void main() {
       ]),
     );
     await shot(t, sheet, '4-look-sheet');
+  });
+
+  testWidgets('paywall', (t) async {
+    final sheet = Scaffold(
+      body: Stack(children: [
+        const HomeShell(),
+        Container(color: Colors.black54),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            color: const Color(0xFF0E0F11),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 22),
+              child: PaywallSheet(reason: _events[2]),
+            ),
+          ),
+        ),
+      ]),
+    );
+    await shot(t, sheet, '6-paywall',
+        settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true));
   });
 
   testWidgets('settings', (t) async {

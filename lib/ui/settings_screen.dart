@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/settings.dart';
 import '../state/providers.dart';
 import 'fancy/ornament_rule.dart';
+import 'paywall_sheet.dart';
 import 'theme.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -105,12 +106,21 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Aurora ignores quiet hours'),
           ),
           const _Header('LookUp+'),
-          SwitchListTile(
-            value: s.isPlus,
-            onChanged: (v) => set((s) => s.copyWith(isPlus: v)),
-            title: const Text('LookUp+ (developer toggle)'),
-            subtitle: const Text('Aurora now, Starlink trains, Tiangong. Billing wires in before TestFlight.'),
+          ListTile(
+            leading: const Icon(Icons.auto_awesome),
+            title: Text(s.isPlus ? 'You have LookUp+' : 'Get LookUp+'),
+            subtitle: Text(s.isPlus
+                ? 'Aurora now, Starlink trains, Tiangong, go-now nudge'
+                : 'Aurora now, Starlink trains, Tiangong. From \$2.99/mo.'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => showPaywall(context),
           ),
+          if (!s.isPlus)
+            ListTile(
+              leading: const SizedBox(width: 24),
+              title: const Text('Restore purchases'),
+              onTap: () => ref.read(plusServiceProvider).restore(),
+            ),
           const _Header('Debug'),
           ListTile(
             leading: const Icon(Icons.notifications_active_outlined),

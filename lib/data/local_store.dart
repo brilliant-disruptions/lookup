@@ -68,6 +68,7 @@ class LocalStore {
   static const _kAurora = 'aurora';
   static const _kClouds = 'clouds';
   static const _kLastRefresh = 'last_refresh';
+  static const _kFeedback = 'feedback';
   static String _kElements(String key) => 'elements_$key';
 
   Future<LookUpSettings> loadSettings() async {
@@ -167,4 +168,41 @@ class LocalStore {
 
   Future<void> saveLastRefresh(DateTime t) =>
       _prefs.setString(_kLastRefresh, t.toUtc().toIso8601String());
+}
+
+/// "Did you see it?" answers, kept on-device (spec §6). Phase 1 uploads an
+/// anonymised aggregate to tune thresholds.
+class SeenFeedback {
+  const SeenFeedback({required this.eventId, required this.seen, required this.at, this.reason});
+  final String eventId;
+  final bool seen;
+  final DateTime at;
+  final String? reason; // clouds | too-low | missed
+
+  Map<String, Object?> toJson() => {'e': eventId, 's': seen, 't': at.toIso8601String(), 'r': reason};
+  factory SeenFeedback.fromJson(Map<String, Object?> j) => SeenFeedback(
+        eventId: j['e'] as String,
+        seen: j['s'] as bool,
+        at: DateTime.parse(j['t'] as String).toUtc(),
+        reason: j['r'] as String?,
+      );
+}
+
+extension FeedbackStore on LocalStore {
+  Future<List<SeenFeedback>> loadFeedback() async {
+    final raw = await _prefs.getString(LocalStore._kFeedback);
+    if (raw == null) return const [];
+    try {
+      return [for (final e in jsonDecode(raw) as List) SeenFeedback.fromJson((e as Map).cast())];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> addFeedback(SeenFeedback f) async {
+    final all = (await loadFeedback()).where((x) => x.eventId != f.eventId).toList()..add(f);
+    // Keep the last 200.
+    final trimmed = all.length > 200 ? all.sublist(all.length - 200) : all;
+    await _prefs.setString(LocalStore._kFeedback, jsonEncode([for (final x in trimmed) x.toJson()]));
+  }
 }

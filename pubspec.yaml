@@ -29,12 +29,15 @@ dependencies:
   flutter_timezone: ^5.0.1
   workmanager: ^0.10.10
   share_plus: ^13.3.1
+  in_app_purchase: ^3.3.1
   intl: any
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  shared_preferences_platform_interface: ^2.4.2
 
 flutter:
   uses-material-design: true
@@ -48,3 +51,11 @@ flutter:
     - family: SplineMono
       fonts:
         - asset: assets/fonts/SplineSansMono-Variable.ttf
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  remove_alpha_ios: true

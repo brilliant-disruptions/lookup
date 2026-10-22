@@ -5,6 +5,7 @@ import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../services/location_service.dart';
 import '../services/notification_service.dart';
+import '../services/plus_service.dart';
 import '../services/refresh_service.dart';
 
 final storeProvider = Provider<LocalStore>((_) => LocalStore());
@@ -96,3 +97,14 @@ class TappedEventId extends Notifier<String?> {
 }
 
 final tappedEventIdProvider = NotifierProvider<TappedEventId, String?>(TappedEventId.new);
+
+/// Store billing. Entitlement flows into settings.isPlus and triggers a
+/// re-plan so Plus-only alerts get scheduled right away.
+final plusServiceProvider = Provider<PlusService>((ref) {
+  final svc = PlusService(onEntitlementChanged: (isPlus) async {
+    await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(isPlus: isPlus));
+    await ref.read(homeProvider.notifier).refresh();
+  });
+  ref.onDispose(svc.dispose);
+  return svc;
+});
