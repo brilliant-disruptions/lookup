@@ -38,6 +38,8 @@ class Sighting {
     if (id.startsWith('eclipse:')) return SkyEventType.lunarEclipse;
     if (id.startsWith('pair:')) return SkyEventType.planetPairing;
     if (id.startsWith('launch:')) return SkyEventType.rocketLaunch;
+    if (id.startsWith('transit-')) return SkyEventType.issTransit;
+    if (id.startsWith('sat:')) return SkyEventType.satellitePass;
     return null;
   }
 }

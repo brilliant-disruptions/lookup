@@ -103,7 +103,7 @@ class NowScreen extends ConsumerWidget {
 
   List<Widget> _then(HomeData d) {
     final rest = d.events
-        .where((e) => e.id != d.next?.id && e.type != SkyEventType.auroraOutlook)
+        .where((e) => e.id != d.next?.id && e.type.pushes)
         .take(2)
         .toList();
     if (rest.isEmpty) return const [];

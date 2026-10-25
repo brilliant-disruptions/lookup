@@ -42,6 +42,7 @@ class SkyLog {
     Badge('liftoff', 'Liftoff', 'Watched a rocket launch.'),
     Badge('both-stations', 'Both stations', 'Saw the ISS and Tiangong.'),
     Badge('night-owl', 'Night owl', 'Saw something between midnight and 4 AM.'),
+    Badge('transit', 'Silhouette', 'Caught the station crossing the Sun or Moon.'),
   ];
 
   factory SkyLog.from(List<Sighting> all) {
@@ -76,6 +77,7 @@ class SkyLog {
       give('liftoff', t == SkyEventType.rocketLaunch);
       give('both-stations', (running[SkyEventType.iss] ?? 0) > 0 && (running[SkyEventType.tiangong] ?? 0) > 0);
       give('night-owl', local.hour < 4);
+      give('transit', t == SkyEventType.issTransit);
     }
     final badges = [for (final b in _defs) earned.containsKey(b.id) ? b.earn(earned[b.id]!) : b];
     final answered = all.length;

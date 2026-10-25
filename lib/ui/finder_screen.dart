@@ -61,6 +61,9 @@ class FinderTarget {
       case SkyEventType.auroraNow:
       case SkyEventType.auroraOutlook:
         return const SkyDir(0, 15);
+      case SkyEventType.issTransit:
+        final h = event.details['body'] == 'Moon' ? moonHorizontal(u, latDeg, lonDeg) : sunHorizontal(u, latDeg, lonDeg);
+        return SkyDir(h.azimuthDeg, h.altitudeDeg);
       case SkyEventType.lunarEclipse:
         final m = moonHorizontal(u, latDeg, lonDeg);
         return SkyDir(m.azimuthDeg, m.altitudeDeg);

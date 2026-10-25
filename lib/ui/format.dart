@@ -4,6 +4,12 @@ import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
 
 String fmtTime(DateTime utc) => DateFormat.jm().format(utc.toLocal());
+
+/// To the second, for transits that last under one.
+String fmtTimeSeconds(DateTime utc) => DateFormat.jms().format(utc.toLocal());
+
+/// "0.8 s", "2.4 s".
+String fmtSeconds(Duration d) => '${(d.inMilliseconds / 1000).toStringAsFixed(1)} s';
 String fmtDay(DateTime utc) {
   final l = utc.toLocal();
   final now = DateTime.now();
@@ -34,6 +40,8 @@ String eventTitle(SkyEvent e) => switch (e.type) {
       SkyEventType.meteorShower => '${e.details['shower'] ?? 'Meteor'} peak',
       SkyEventType.lunarEclipse || SkyEventType.planetPairing || SkyEventType.rocketLaunch =>
         (e.details['label'] as String?) ?? e.type.label,
+      SkyEventType.issTransit => 'ISS crosses the ${e.details['body'] ?? 'Sun'}',
+      SkyEventType.satellitePass => (e.details['name'] as String?) ?? e.type.label,
       _ => e.type.label,
     };
 
@@ -56,6 +64,9 @@ String eventSubtitle(SkyEvent e) {
       return '${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)} (${e.details['when']})';
     case SkyEventType.rocketLaunch:
       return '${e.details['name']} · ${e.details['distanceKm']} km away, low in the ${compassWord(e.peakAzimuthDeg)}';
+    case SkyEventType.issTransit:
+      return transitWhere(e);
+    case SkyEventType.satellitePass:
     case SkyEventType.iss:
     case SkyEventType.tiangong:
       final b = e.details['brightness'] as String?;
@@ -84,6 +95,8 @@ String eventEmoji(SkyEvent e) => switch (e.type) {
       SkyEventType.lunarEclipse => '🌕',
       SkyEventType.planetPairing => '🪐',
       SkyEventType.rocketLaunch => '🚀',
+      SkyEventType.issTransit => e.details['body'] == 'Moon' ? '🌕' : '☀️',
+      SkyEventType.satellitePass => '🛰️',
     };
 
 String shareText(SkyEvent e, String? place) {
@@ -97,6 +110,8 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.lunarEclipse => 'Watched the lunar eclipse$where 🌕 LookUp tapped me in time.',
     SkyEventType.planetPairing => '${e.details['label']} side by side$where 🪐 Spotted with LookUp.',
     SkyEventType.rocketLaunch => 'Just watched a rocket launch$where 🚀 LookUp told me where to look.',
+    SkyEventType.issTransit => 'Caught the space station crossing the ${e.details['body'] ?? 'Sun'}$where. It took ${fmtSeconds(transitCrossing(e))}.',
+    SkyEventType.satellitePass => 'Watched ${e.details['name'] ?? 'a satellite'} cross the sky$where 🛰️ Spotted with LookUp.',
   };
 }
 
@@ -114,3 +129,14 @@ String pastTitle(SkyEvent e) => switch (e.type) {
       SkyEventType.starlinkTrain => (e.details['label'] as String?) ?? 'Starlink train',
       _ => eventTitle(e),
     };
+
+Duration transitCrossing(SkyEvent e) => Duration(milliseconds: (e.details['crossingMs'] as num?)?.toInt() ?? 0);
+
+/// "From right here at 3:14:07 PM" or "Go 12 km north-west · 3:14:07 PM".
+String transitWhere(SkyEvent e) {
+  final km = (e.details['travelKm'] as num?)?.toDouble() ?? 0;
+  final when = fmtTimeSeconds(e.peak);
+  final lasts = fmtSeconds(transitCrossing(e));
+  if (km < 0.5) return 'Visible from right here at $when · lasts $lasts';
+  return 'Go ${km.round()} km ${compassWord((e.details['travelBearingDeg'] as num?)?.toDouble() ?? 0)} · $when · lasts $lasts';
+}

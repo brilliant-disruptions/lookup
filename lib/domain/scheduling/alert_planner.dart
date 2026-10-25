@@ -52,7 +52,7 @@ class AlertPlanner {
     final limit = nowUtc.add(horizon);
     final candidates = events
         .where((e) => e.start.isAfter(nowUtc) && e.start.isBefore(limit))
-        .where((e) => _typeEnabled(e.type, settings))
+        .where((e) => e.type.pushes && _typeEnabled(e.type, settings))
         .where((e) => settings.isPlus || !e.plusOnly)
         .where((e) => !settings.clearSkyOnly ||
             (e.cloudCoverPercent ?? 0) <= tuning.cloudCutoffPercent)
@@ -134,6 +134,8 @@ class AlertPlanner {
         SkyEventType.lunarEclipse => s.eclipsesEnabled,
         SkyEventType.planetPairing => s.pairingsEnabled,
         SkyEventType.rocketLaunch => s.launchesEnabled,
+        // Listed for planning, never pushed.
+        SkyEventType.issTransit || SkyEventType.satellitePass => false,
       };
 
   /// Quiet hours block everything except aurora and lunar eclipses when
@@ -176,6 +178,8 @@ class AlertPlanner {
       SkyEventType.lunarEclipse => (e.details['label'] as String?) ?? 'Lunar eclipse',
       SkyEventType.planetPairing => (e.details['label'] as String?) ?? 'Planet pairing',
       SkyEventType.rocketLaunch => 'Rocket launch',
+      SkyEventType.issTransit => 'ISS crosses the ${e.details['body'] ?? 'Sun'}',
+      SkyEventType.satellitePass => (e.details['name'] as String?) ?? 'Satellite pass',
     };
     if (e.type == SkyEventType.meteorShower) return what;
     return '$what in $leadMinutes min';

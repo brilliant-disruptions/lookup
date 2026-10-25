@@ -171,6 +171,15 @@ void main() {
     expect(planner.plan(events: [eclipse], settings: plus.copyWith(auroraWakeMe: true), now: now, utcOffsetMinutes: cdt), isNotEmpty);
   });
 
+  test('transits and satellites-tonight are listed but never pushed', () {
+    final soon = now.add(const Duration(hours: 3));
+    final plan = planner.plan(events: [
+      ev('transit-sun:x', SkyEventType.issTransit, soon, details: {'body': 'Sun'}),
+      ev('sat:hst', SkyEventType.satellitePass, soon.add(const Duration(hours: 1))),
+    ], settings: plus, now: now, utcOffsetMinutes: cdt);
+    expect(plan, isEmpty);
+  });
+
   group('snooze ("Remind me in 5 min")', () {
     test('fires five minutes later with a fresh lead time', () {
       final e = ev('iss:s', SkyEventType.iss, now.add(const Duration(minutes: 10)));

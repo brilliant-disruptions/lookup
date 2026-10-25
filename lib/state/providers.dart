@@ -58,7 +58,11 @@ class HomeData {
   final DateTime? lastRefresh;
   final List<String> errors;
 
-  SkyEvent? get next => events.where((e) => e.type != SkyEventType.auroraOutlook).firstOrNull;
+  /// The next thing worth stepping out for (what alerts are about).
+  SkyEvent? get next => events.where((e) => e.type.pushes).firstOrNull;
+
+  /// Sub-second Sun/Moon crossings in the coming week.
+  List<SkyEvent> get transits => [for (final e in events) if (e.type == SkyEventType.issTransit) e];
 
   /// The app has never managed to load orbit data (offline first launch).
   bool get noData => lastRefresh == null && events.isEmpty && errors.isNotEmpty;

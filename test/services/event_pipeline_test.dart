@@ -52,6 +52,21 @@ void main() {
     expect(an.start, DateTime.utc(2026, 10, 22, 4));
   });
 
+  test('lists ISS transits for London with where to stand, and respects the toggle', () {
+    const london = LookUpSettings(latitude: 51.5, longitude: -0.12);
+    final events = const EventPipeline().build(PipelineInputs(settings: london, now: now, iss: iss));
+    final transits = events.where((e) => e.type == SkyEventType.issTransit).toList();
+    expect(transits, isNotEmpty);
+    for (final t in transits) {
+      expect(t.details['body'], anyOf('Sun', 'Moon'));
+      expect((t.details['travelKm'] as num), lessThanOrEqualTo(50));
+      expect(t.end.difference(t.start).inMilliseconds, t.details['crossingMs']);
+    }
+    final off = const EventPipeline().build(PipelineInputs(
+        settings: london.copyWith(transitsEnabled: false), now: now, iss: iss));
+    expect(off.where((e) => e.type == SkyEventType.issTransit), isEmpty);
+  });
+
   test('aurora now is skipped in daylight and when Kp is low', () {
     final events = const EventPipeline().build(PipelineInputs(
       settings: nashville,

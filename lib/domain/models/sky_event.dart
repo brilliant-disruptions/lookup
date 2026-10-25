@@ -8,13 +8,15 @@ enum SkyEventType {
   tiangong('Tiangong flyover', plusOnly: true),
   starlinkTrain('Starlink train', plusOnly: true),
   auroraNow('Aurora now', plusOnly: true),
-  auroraOutlook('Aurora possible tonight', plusOnly: false),
+  auroraOutlook('Aurora possible tonight', plusOnly: false, pushes: false),
   meteorShower('Meteor shower', plusOnly: false),
   lunarEclipse('Lunar eclipse', plusOnly: false),
   planetPairing('Planet pairing', plusOnly: false),
-  rocketLaunch('Rocket launch', plusOnly: true);
+  rocketLaunch('Rocket launch', plusOnly: true),
+  issTransit('ISS transit', plusOnly: false, pushes: false),
+  satellitePass('Satellite pass', plusOnly: false, pushes: false);
 
-  const SkyEventType(this.label, {required this.plusOnly});
+  const SkyEventType(this.label, {required this.plusOnly, this.pushes = true});
 
   /// Human label used in notifications and lists.
   final String label;
@@ -22,6 +24,11 @@ enum SkyEventType {
   /// Whether alerts for this type require LookUp+. The event itself is always
   /// visible on the Upcoming screen; only the *tap* is gated.
   final bool plusOnly;
+
+  /// False for things we list but never alert on: the aurora outlook,
+  /// sub-second transits (photographers plan those) and the "satellites
+  /// tonight" list.
+  final bool pushes;
 }
 
 /// A sky event at the user's location. All instants are UTC.

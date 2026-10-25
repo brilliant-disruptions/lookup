@@ -92,6 +92,13 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('Tiangong (Chinese station)'),
             subtitle: const Text('LookUp+'),
           ),
+          const _Header('Also list'),
+          SwitchListTile(
+            value: s.transitsEnabled,
+            onChanged: (v) => set((s) => s.copyWith(transitsEnabled: v)),
+            title: const Text('ISS crossing the Sun or Moon'),
+            subtitle: const Text('Under a second, for photographers. Shows where to stand; never alerts.'),
+          ),
           const _Header('How'),
           ListTile(
             title: const Text('Heads-up'),

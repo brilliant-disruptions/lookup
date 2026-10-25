@@ -43,6 +43,7 @@ class LookUpSettings {
     this.eclipsesEnabled = true,
     this.pairingsEnabled = true,
     this.launchesEnabled = true,
+    this.transitsEnabled = true,
     this.nightVision = false,
     this.leadMinutes = 10,
     this.goNowNudge = true,
@@ -68,6 +69,9 @@ class LookUpSettings {
   final bool eclipsesEnabled;
   final bool pairingsEnabled;
   final bool launchesEnabled;
+
+  /// List ISS transits of the Sun and Moon (never pushed).
+  final bool transitsEnabled;
 
   /// Red-on-black UI that keeps eyes dark-adapted outdoors.
   final bool nightVision;
@@ -101,6 +105,7 @@ class LookUpSettings {
     bool? eclipsesEnabled,
     bool? pairingsEnabled,
     bool? launchesEnabled,
+    bool? transitsEnabled,
     bool? nightVision,
     int? leadMinutes,
     bool? goNowNudge,
@@ -126,6 +131,7 @@ class LookUpSettings {
         eclipsesEnabled: eclipsesEnabled ?? this.eclipsesEnabled,
         pairingsEnabled: pairingsEnabled ?? this.pairingsEnabled,
         launchesEnabled: launchesEnabled ?? this.launchesEnabled,
+        transitsEnabled: transitsEnabled ?? this.transitsEnabled,
         nightVision: nightVision ?? this.nightVision,
         leadMinutes: leadMinutes ?? this.leadMinutes,
         goNowNudge: goNowNudge ?? this.goNowNudge,
@@ -154,6 +160,7 @@ class LookUpSettings {
         'eclipsesEnabled': eclipsesEnabled,
         'pairingsEnabled': pairingsEnabled,
         'launchesEnabled': launchesEnabled,
+        'transitsEnabled': transitsEnabled,
         'nightVision': nightVision,
         'leadMinutes': leadMinutes,
         'goNowNudge': goNowNudge,
@@ -183,6 +190,7 @@ class LookUpSettings {
       eclipsesEnabled: j['eclipsesEnabled'] as bool? ?? d.eclipsesEnabled,
       pairingsEnabled: j['pairingsEnabled'] as bool? ?? d.pairingsEnabled,
       launchesEnabled: j['launchesEnabled'] as bool? ?? d.launchesEnabled,
+      transitsEnabled: j['transitsEnabled'] as bool? ?? d.transitsEnabled,
       nightVision: j['nightVision'] as bool? ?? d.nightVision,
       leadMinutes: j['leadMinutes'] as int? ?? d.leadMinutes,
       goNowNudge: j['goNowNudge'] as bool? ?? d.goNowNudge,

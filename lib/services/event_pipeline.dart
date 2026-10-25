@@ -11,6 +11,7 @@ import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
 import '../domain/sky/sun.dart';
+import '../domain/transits/transit_events.dart';
 import '../domain/passes/pass_predictor.dart';
 import '../domain/starlink/train_detector.dart';
 import '../domain/weather/cloud_forecast.dart';
@@ -178,6 +179,10 @@ class EventPipeline {
     }
     if (s.pairingsEnabled) {
       out.addAll(pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
+    }
+    final issRecord = i.iss?.where((r) => r.meanMotion > 0).firstOrNull;
+    if (s.transitsEnabled && issRecord != null) {
+      out.addAll(transitEvents(record: issRecord, latDeg: lat, lonDeg: lon, from: now, to: to, clouds: i.clouds));
     }
     if (s.launchesEnabled && i.launches.isNotEmpty) {
       out.addAll(launchEvents(launches: i.launches, now: now, latDeg: lat, lonDeg: lon, window: horizon).map(withClouds));

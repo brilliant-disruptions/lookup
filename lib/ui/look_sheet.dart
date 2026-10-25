@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/local_store.dart';
 import '../domain/models/sky_event.dart';
@@ -80,7 +82,9 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     final live = !nowUtc.isBefore(event.start) && nowUtc.isBefore(event.end);
     final over = !nowUtc.isBefore(event.end);
     final isAurora = event.type == SkyEventType.auroraNow || event.type == SkyEventType.auroraOutlook;
-    final isPass = event.type == SkyEventType.iss || event.type == SkyEventType.tiangong || event.type == SkyEventType.starlinkTrain;
+    final isPass = event.type == SkyEventType.iss || event.type == SkyEventType.tiangong ||
+        event.type == SkyEventType.starlinkTrain || event.type == SkyEventType.satellitePass;
+    final isTransit = event.type == SkyEventType.issTransit;
     final place = ref.watch(settingsProvider).value?.placeName;
     return SafeArea(
       child: Padding(
@@ -148,6 +152,24 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               textAlign: TextAlign.center,
               style: t.labelSmall?.copyWith(color: LookUpColors.greyDim, letterSpacing: 1.8, fontSize: 10.5, fontWeight: FontWeight.w700),
             ),
+            if (isTransit) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Path is ~${((event.details['halfWidthKm'] as num?) ?? 0) * 2 ~/ 1} km wide. Orbits shift a little day to day, so check again the evening before.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12, height: 1.35),
+              ),
+              if (((event.details['travelKm'] as num?) ?? 0) >= 0.5 && !over)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: OutlinedButton.icon(
+                    onPressed: () => openDirections(
+                        (event.details['siteLat'] as num).toDouble(), (event.details['siteLon'] as num).toDouble()),
+                    icon: const Icon(Icons.directions_car_outlined),
+                    label: const Text('Directions to the spot'),
+                  ),
+                ),
+            ],
             const SizedBox(height: 22),
             if (!over && event.details['past'] != true)
               Padding(
@@ -249,6 +271,9 @@ String lookLine(SkyEvent e) => switch (e.type) {
         '${e.details['label']}: two bright points ${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Hold your thumb out at arm\'s length: they fit behind it.',
       SkyEventType.rocketLaunch =>
         'Look ${compassWord(e.peakAzimuthDeg)}, low on the horizon. A bright point climbs and arcs away; at twilight the plume glows like a jellyfish.',
+      SkyEventType.issTransit => e.details['body'] == 'Moon'
+          ? 'The station\'s silhouette crosses the Moon, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. It\'s over in ${fmtSeconds(transitCrossing(e))}: aim binoculars or a camera at the Moon and start shooting a few seconds early.'
+          : 'Cameras only: never look at the Sun without a certified solar filter. The station\'s silhouette crosses the Sun in ${fmtSeconds(transitCrossing(e))}. Burst-shoot through a solar filter from a few seconds before.',
       _ =>
         'Face ${compassWord(e.riseAzimuthDeg)}. It appears there and climbs ${elevationWord(e.peakElevationDeg)} before fading out toward the ${compassWord(e.setAzimuthDeg)}.',
     };
@@ -275,9 +300,26 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
           ('Away', '${e.details['distanceKm']} km'),
           ('Look', compassAbbrev(e.peakAzimuthDeg)),
         ],
+      SkyEventType.issTransit => [
+          ('At', fmtTimeSeconds(e.peak)),
+          ('Lasts', fmtSeconds(transitCrossing(e))),
+          ('Go', ((e.details['travelKm'] as num?) ?? 0) < 0.5
+              ? 'Here'
+              : '${(e.details['travelKm'] as num).round()} km ${compassAbbrev(((e.details['travelBearingDeg'] as num?) ?? 0).toDouble())}'),
+        ],
       _ => [
           ('From', fmtTime(e.start)),
           ('Until', fmtTime(e.end)),
           ('Kp', (e.details['kp'] as num?)?.toStringAsFixed(1) ?? '–'),
         ],
     };
+
+/// Turn-by-turn to a transit's centre line in the platform's maps app.
+Future<void> openDirections(double lat, double lon) async {
+  final url = defaultTargetPlatform == TargetPlatform.iOS
+      ? Uri.parse('https://maps.apple.com/?daddr=$lat,$lon')
+      : Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lon');
+  try {
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  } catch (_) {}
+}

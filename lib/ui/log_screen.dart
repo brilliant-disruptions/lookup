@@ -97,6 +97,8 @@ class LogScreen extends ConsumerWidget {
         SkyEventType.lunarEclipse => 'Lunar eclipse',
         SkyEventType.planetPairing => 'Planet pairing',
         SkyEventType.rocketLaunch => 'Rocket launch',
+        SkyEventType.issTransit => 'Station transit',
+        SkyEventType.satellitePass => 'Satellite',
         null => 'Sky event',
       };
 }

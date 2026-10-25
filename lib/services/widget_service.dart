@@ -35,7 +35,7 @@ class WidgetService {
   }
 
   Future<void> update(List<SkyEvent> events) async {
-    final next = events.where((e) => e.type != SkyEventType.auroraOutlook && e.details['past'] != true).firstOrNull;
+    final next = events.where((e) => e.type.pushes && e.details['past'] != true).firstOrNull;
     try {
       for (final entry in payloadFor(next).entries) {
         await HomeWidget.saveWidgetData(entry.key, entry.value);

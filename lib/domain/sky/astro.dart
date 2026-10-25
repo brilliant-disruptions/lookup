@@ -251,3 +251,18 @@ double moonElongationDeg(DateTime utc) => equatorialSeparationDeg(sunEquatorial(
 
 /// Illuminated fraction of the Moon, 0–1.
 double moonIllumination(DateTime utc) => (1 - _cosd(moonElongationDeg(utc))) / 2;
+
+Horizontal sunHorizontal(DateTime utc, double latDeg, double lonDeg) =>
+    toHorizontal(sunEquatorial(utc), utc, latDeg, lonDeg);
+
+/// Apparent radius of the Sun's disk (degrees), ~0.26–0.27.
+double sunRadiusDeg(DateTime utc) => 0.26656 / sunEquatorial(utc).distance;
+
+/// Apparent radius of the Moon's disk from the ground (degrees), ~0.24–0.28.
+/// The observer is up to one Earth radius closer than the centre when the
+/// Moon is high, which makes it ~1.5% bigger.
+double moonRadiusDeg(DateTime utc, double altitudeDeg) {
+  const earthKm = 6378.14, moonKm = 1737.4;
+  final distKm = moonEquatorial(utc).distance * earthKm - earthKm * _sind(altitudeDeg);
+  return math.asin(moonKm / distKm) * _r2d;
+}
