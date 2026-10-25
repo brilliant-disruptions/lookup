@@ -79,3 +79,31 @@ Guidance guide(SkyDir camera, SkyDir target, {double toleranceDeg = 7}) {
     onTarget: dist <= toleranceDeg,
   );
 }
+
+/// Time between haptic ticks while homing in: silent beyond 35°, then
+/// faster as the phone closes in, like a Geiger counter. Null = no tick.
+Duration? pulseInterval(double distanceDeg, {double startDeg = 35, double toleranceDeg = 7}) {
+  if (distanceDeg > startDeg || distanceDeg <= toleranceDeg) return null;
+  final f = (distanceDeg - toleranceDeg) / (startDeg - toleranceDeg); // 0 near … 1 far
+  return Duration(milliseconds: (90 + f * 610).round());
+}
+
+/// Where [target] lands on a camera preview, in pixels from the preview's
+/// centre (x right, y down), for a phone held with rotation matrix [r] (as
+/// in [cameraDirection]). [verticalFovDeg] is the preview's field of view
+/// along its height. Null when the target is behind the camera.
+({double x, double y})? projectToScreen(List<double> r, SkyDir target,
+    {required double declinationDeg, required double previewHeightPx, double verticalFovDeg = 66}) {
+  assert(r.length == 9);
+  const k = math.pi / 180;
+  final az = (target.azimuthDeg - declinationDeg) * k; // world frame is magnetic
+  final el = target.elevationDeg * k;
+  final w = [math.cos(el) * math.sin(az), math.cos(el) * math.cos(az), math.sin(el)];
+  // device = Rᵀ · world
+  final dx = r[0] * w[0] + r[3] * w[1] + r[6] * w[2];
+  final dy = r[1] * w[0] + r[4] * w[1] + r[7] * w[2];
+  final dz = r[2] * w[0] + r[5] * w[1] + r[8] * w[2];
+  if (dz >= -0.05) return null; // behind, or too far off-axis to draw
+  final f = (previewHeightPx / 2) / math.tan(verticalFovDeg / 2 * k);
+  return (x: f * dx / -dz, y: -f * dy / -dz);
+}

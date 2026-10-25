@@ -19,6 +19,7 @@ import '../domain/sky/direction.dart';
 import '../domain/sky/wmm.dart';
 import '../state/providers.dart';
 import 'fancy/starfield.dart';
+import 'finder_camera.dart';
 import 'format.dart';
 import 'theme.dart';
 
@@ -47,6 +48,19 @@ class FinderTarget {
   SatelliteObserver? _sat;
 
   bool get isLive => _sat != null;
+
+  /// The whole pass across the sky, for the camera overlay. Empty for
+  /// things that don't move across it.
+  late final List<({DateTime t, SkyDir d})> path = () {
+    final sat = _sat;
+    if (sat == null) return const <({DateTime t, SkyDir d})>[];
+    final out = <({DateTime t, SkyDir d})>[];
+    for (var t = event.start; !t.isAfter(event.end); t = t.add(const Duration(seconds: 10))) {
+      final look = sat.lookAngleAt(t);
+      out.add((t: t, d: SkyDir(look.azimuthDeg, look.elevationDeg)));
+    }
+    return out;
+  }();
 
   SkyDir at(DateTime now) {
     final u = now.toUtc();
@@ -102,8 +116,11 @@ class _FinderState extends ConsumerState<FinderScreen> {
   List<double>? _r;
   String? _error;
   bool _wasOnTarget = false;
+  DateTime _lastTick = DateTime(0);
+  bool _cameraOn = false;
   late final double _declination;
   FinderTarget? _target;
+  double? _previewHeight;
 
   @override
   void initState() {
@@ -151,6 +168,13 @@ class _FinderState extends ConsumerState<FinderScreen> {
       _wasOnTarget = g.onTarget;
       if (g.onTarget) HapticFeedback.heavyImpact();
     }
+    // Geiger-counter ticks while homing in.
+    final tick = g == null ? null : pulseInterval(g.distanceDeg);
+    final wall = DateTime.now();
+    if (tick != null && wall.difference(_lastTick) >= tick) {
+      _lastTick = wall;
+      HapticFeedback.selectionClick();
+    }
     final e = widget.event;
     final nowUtc = now.toUtc();
     final status = nowUtc.isBefore(e.start)
@@ -158,10 +182,40 @@ class _FinderState extends ConsumerState<FinderScreen> {
         : nowUtc.isBefore(e.end)
             ? (_target!.isLive ? 'Tracking it live' : 'Happening now')
             : 'That one\'s over';
+    final overlay = _cameraOn && r != null
+        ? Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, c) => CustomPaint(
+                painter: SkyOverlayPainter(
+                  r: r,
+                  declinationDeg: _declination,
+                  target: target,
+                  path: _target!.path,
+                  now: nowUtc,
+                  onTarget: g?.onTarget ?? false,
+                  previewHeightPx: _previewHeight ?? c.maxHeight,
+                ),
+              ),
+            ),
+          )
+        : null;
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Starfield(
-        density: 0.0002,
+      body: Stack(children: [
+        if (_cameraOn)
+          Positioned.fill(
+            child: CameraBackdrop(
+              onHeight: (h) => _previewHeight = h,
+              onError: (msg) {
+                if (!mounted) return;
+                setState(() => _cameraOn = false);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+              },
+            ),
+          ),
+        ?overlay,
+        Starfield(
+        density: _cameraOn ? 0 : 0.0002,
         maxOpacity: 0.5,
         fadeBottom: false,
         child: SafeArea(
@@ -171,7 +225,11 @@ class _FinderState extends ConsumerState<FinderScreen> {
               const Spacer(),
               const Eyebrow('Sky finder', color: LookUpColors.blue),
               const Spacer(),
-              const SizedBox(width: 48),
+              IconButton(
+                tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
+                icon: Icon(_cameraOn ? Icons.videocam_off_outlined : Icons.photo_camera_outlined),
+                onPressed: () => setState(() => _cameraOn = !_cameraOn),
+              ),
             ]),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -188,10 +246,12 @@ class _FinderState extends ConsumerState<FinderScreen> {
                   label: g == null
                       ? 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}'
                       : g.words,
-                  child: CustomPaint(
-                    size: Size(c.maxWidth, c.maxHeight),
-                    painter: _FinderPainter(guidance: g, onTarget: g?.onTarget ?? false),
-                  ),
+                  child: _cameraOn
+                      ? const SizedBox.expand()
+                      : CustomPaint(
+                          size: Size(c.maxWidth, c.maxHeight),
+                          painter: _FinderPainter(guidance: g, onTarget: g?.onTarget ?? false),
+                        ),
                 ),
               ),
             ),
@@ -230,6 +290,7 @@ class _FinderState extends ConsumerState<FinderScreen> {
           ]),
         ),
       ),
+      ]),
     );
   }
 }
