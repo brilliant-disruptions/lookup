@@ -9,4 +9,7 @@
 - Spec: `brilliant-disruptions/app-ideas/look_up_now/spec.md`.
 - **iOS native code** (`ios/Runner/AppDelegate.swift`, `ios/LookUpWidgets/`) can't be compiled on Linux; at least run `swiftc -parse` on edited files. The two `LookUpActivityAttributes` structs must stay identical.
 - **No backend, no third-party SDKs.** Everything runs on the phone.
+- **Not everything is pushed.** `SkyEventType.pushes` is false for the aurora outlook, ISS transits and satellites-tonight; `AlertPlanner` must never schedule those (test pins it). Transits last under a second and are for planning.
+- **Native bits waiting on a Mac** are listed in `docs/mac-checklist.md` (time-sensitive capability, app group, widget extension, `ios/Runner/LookUpIntents.swift` not yet in the Runner target). Don't add uncompiled Swift to a target from Linux: it breaks Xcode Cloud.
+- **Notification sound:** Android fixes a channel's sound at creation, so changing `lookup_chime` means a new channel id in `NotificationService`.
 - **iOS plugins resolve through Swift Package Manager.** Xcode Cloud disables automatic package resolution, so a plugin that pulls a *remote* Swift package (e.g. sentry_flutter → sentry-cocoa) breaks the build unless `ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` is generated on a Mac and committed. Check new iOS plugins' `Package.swift` for `url:` dependencies before adding them.

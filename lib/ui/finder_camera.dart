@@ -110,8 +110,11 @@ class SkyOverlayPainter extends CustomPainter {
     required this.now,
     required this.onTarget,
     required this.previewHeightPx,
+    this.labelStyle = const TextStyle(),
   });
 
+  /// Base style for labels (the app's font; colour and size are set here).
+  final TextStyle labelStyle;
   final List<double> r;
   final double declinationDeg;
   final SkyDir target;
@@ -198,7 +201,7 @@ class SkyOverlayPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(color: color, fontSize: size, fontWeight: FontWeight.w600,
+        style: labelStyle.copyWith(color: color, fontSize: size, fontWeight: FontWeight.w600,
             shadows: const [Shadow(blurRadius: 4, color: Colors.black)]),
       ),
       textDirection: TextDirection.ltr,

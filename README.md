@@ -29,6 +29,12 @@ Rendered from the real widgets with sample data (`flutter test --update-goldens 
 |---|---|---|---|---|---|---|---|---|---|---|
 | ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/2b-quiet-week.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/8-finder.png) | ![](test/screenshots/goldens/7-demo.png) | ![](test/screenshots/goldens/9-log.png) | ![](test/screenshots/goldens/10-share-cards.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
 
+| Transit | Satellites tonight | Places | Your sky year | Camera view |
+|---|---|---|---|---|
+| ![](test/screenshots/goldens/11-transit.png) | ![](test/screenshots/goldens/12-satellites.png) | ![](test/screenshots/goldens/13-places.png) | ![](test/screenshots/goldens/14-year-card.png) | ![](test/screenshots/goldens/15-camera-overlay.png) |
+
+Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/goldens/appstore/`; listing copy in [`docs/app-store-listing.md`](docs/app-store-listing.md).
+
 ## Design
 
 Black, white and one electric blue (SpaceX/Starlink-inspired), dressed with elements borrowed from the Dearly/Woven design system in `app-ideas/bloved/design-system` and translated to night:
@@ -66,7 +72,7 @@ Or download the `lookup-release-apk` artifact from the latest CI run. The releas
 
 ### iOS / TestFlight
 
-Xcode Cloud builds every push to `master` and ships to TestFlight. One-time setup: [`docs/testflight-xcode-cloud.md`](docs/testflight-xcode-cloud.md).
+Xcode Cloud builds every push to `master` and ships to TestFlight. One-time setup: [`docs/testflight-xcode-cloud.md`](docs/testflight-xcode-cloud.md). Capabilities and native targets that need Xcode (time-sensitive alerts, app group, widgets, Siri): [`docs/mac-checklist.md`](docs/mac-checklist.md).
 
 Before the first device build:
 
@@ -75,9 +81,14 @@ Before the first device build:
 
 ## Features
 
-- **Alerts** for ISS, Tiangong, Starlink trains, aurora (tonight + now), meteor shower peaks, lunar eclipses, Moon/planet pairings, and rocket launches you can see from where you are. Cloud-gated, quiet hours, nightly cap, learned thresholds from "what got in the way?".
-- **Sky finder**: hold the phone up; it tracks the target live (SGP4 + fused rotation sensor + WMM2025 declination) and buzzes when you're on it.
-- **Sky log** with badges and a hit rate; **poster share cards** ("I saw it", "Look up with me").
+- **Alerts** for ISS, Tiangong, Starlink trains, aurora (tonight + now), meteor shower peaks, lunar eclipses, Moon/planet pairings, and rocket launches you can see from where you are. Cloud-gated, quiet hours, nightly cap, learned thresholds from "what got in the way?". Buttons on the alert (*Find it*, *Remind me in 5 min*, *Saw it!*) and a two-note LookUp chime (`tool/chime.py`).
+- **Sky finder**: hold the phone up; it tracks the target live (SGP4 + fused rotation sensor + WMM2025 declination), ticks faster as you close in and buzzes when you're on it. **Camera view** draws the whole pass over the live camera.
+- **ISS transits** of the Sun and Moon: time to the second, how long, and how far to drive to stand on the centre line (with Directions). Listed, never pushed.
+- **Satellites tonight**: the brightest objects from Celestrak's visual group (Hubble, BlueBirds, Zenit stages), fetched on demand.
+- **Who's up there**: the current station crews (Launch Library) and speed/height from SGP4 on the ISS and Tiangong sheets.
+- **Places**: follow the phone or switch between saved places (search via Open-Meteo geocoding). **Add to calendar** on any event.
+- **Sky log** with badges, a hit rate and your own photos; **poster share cards** ("I saw it", "Look up with me", "Your sky year"). **Photo tips** per event type.
+- **Siri / Shortcuts**: "When's the next pass in LookUp?" (`ios/Runner/LookUpIntents.swift`, added to the target on a Mac).
 - **Quiet weeks** explain themselves, show the next pass and the last 7 nights; **Preview an alert** plays a full pass in fast-forward.
 - **Night vision** mode, large-text support, screen-reader labels.
 - **Widgets**: Android home-screen widget with live countdown (built in); iOS widget + Live Activity (sources in `ios/LookUpWidgets`, setup in `docs/ios-widgets.md`).
@@ -91,6 +102,9 @@ Before the first device build:
 | Kp now / 3-day forecast | `services.swpc.noaa.gov/json/planetary_k_index_1m.json`, `…/products/noaa-planetary-k-index-forecast.json` | 30 min |
 | Aurora oval | `services.swpc.noaa.gov/json/ovation_aurora_latest.json` | 30 min, sampled at the user's cell |
 | Launches | `ll.thespacedevs.com/2.3.0/launches/upcoming` | 6 h |
+| Station crews | `ll.thespacedevs.com/2.3.0/expeditions/?is_active=true` | daily, only when a station sheet opens |
+| Bright satellites | `celestrak.org/NORAD/elements/gp.php?GROUP=visual&FORMAT=json` | daily, only when *Satellites tonight* opens |
+| Place search | `geocoding-api.open-meteo.com/v1/search` | on demand |
 | Magnetic declination | WMM2025 coefficients, bundled | offline |
 | Cloud cover | `api.open-meteo.com/v1/forecast?hourly=cloud_cover` | 6 h — **non-commercial tier**; move to the paid plan when the app charges |
 

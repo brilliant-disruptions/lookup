@@ -244,7 +244,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
           child: OutlinedButton.icon(
             onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
             icon: const Icon(Icons.group_add_outlined),
-            label: const Text('Tell someone'),
+            label: const Text('Invite'),
           ),
         ),
         if (!widget.demo) const SizedBox(width: 12),

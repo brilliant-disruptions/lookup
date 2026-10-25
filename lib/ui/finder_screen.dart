@@ -194,6 +194,7 @@ class _FinderState extends ConsumerState<FinderScreen> {
                   now: nowUtc,
                   onTarget: g?.onTarget ?? false,
                   previewHeightPx: _previewHeight ?? c.maxHeight,
+                  labelStyle: Theme.of(context).textTheme.labelSmall ?? const TextStyle(),
                 ),
               ),
             ),
