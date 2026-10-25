@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,6 +43,16 @@ class _LookSheetState extends ConsumerState<LookSheet> {
 
   SkyEvent get event => widget.event;
 
+  @override
+  void initState() {
+    super.initState();
+    // Opening an event that's about to start: put the countdown on the Lock
+    // Screen / Dynamic Island (iOS 16.2+, once the widget extension exists).
+    if (!widget.demo && event.details['past'] != true) {
+      unawaited(ref.read(liveActivityProvider).startIfSoon(event));
+    }
+  }
+
   Future<void> _answer(bool seen, {String? reason}) async {
     if (widget.demo) {
       setState(() {
@@ -49,6 +61,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       });
       return;
     }
+    unawaited(ref.read(analyticsProvider).log(seen ? 'seen_yes' : 'seen_no', {'type': event.type.name, 'reason': ?reason}));
     await ref.read(storeProvider).addFeedback(SeenFeedback.forEvent(event,
         seen: seen, reason: reason, place: ref.read(settingsProvider).value?.placeName));
     ref.invalidate(skyLogProvider);
@@ -136,7 +149,10 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: FilledButton.icon(
-                  onPressed: () => openFinder(context, event),
+                  onPressed: () {
+                    unawaited(ref.read(analyticsProvider).log('finder_opened', {'type': event.type.name}));
+                    openFinder(context, event);
+                  },
                   icon: const Icon(Icons.explore_outlined),
                   label: const Text('FIND IT IN THE SKY'),
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
@@ -167,7 +183,10 @@ class _LookSheetState extends ConsumerState<LookSheet> {
   Widget _plainRow(BuildContext context, String? place) => Row(children: [
         if (!widget.demo) Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
+            onPressed: () {
+              unawaited(ref.read(analyticsProvider).log('invite', {'type': event.type.name}));
+              showShareCard(context, event, mode: ShareMode.invite);
+            },
             icon: const Icon(Icons.group_add_outlined),
             label: const Text('Tell someone'),
           ),
@@ -189,7 +208,10 @@ class _LookSheetState extends ConsumerState<LookSheet> {
         Text('Glad you caught it.', textAlign: TextAlign.center, style: displaySerif(context, size: 24, italic: true, weight: FontWeight.w500)),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: () => showShareCard(context, event),
+          onPressed: () {
+            unawaited(ref.read(analyticsProvider).log('share', {'type': event.type.name}));
+            showShareCard(context, event);
+          },
           icon: const Icon(Icons.ios_share),
           label: const Text('Share it'),
         ),

@@ -32,8 +32,13 @@ class PlusOffer {
 }
 
 class PlusService {
-  PlusService({InAppPurchase? iap, required this.onEntitlementChanged})
+  PlusService({InAppPurchase? iap, required this.onEntitlementChanged, this.verify})
       : _iap = iap ?? InAppPurchase.instance;
+
+  /// Optional server-side check (backend verify-receipt). Returns whether the
+  /// entitlement is active; null means "couldn't verify", in which case the
+  /// store's local result stands (never punish a buyer for our outage).
+  final Future<bool?> Function(PurchaseDetails p)? verify;
 
   final InAppPurchase _iap;
 
@@ -78,7 +83,15 @@ class PlusService {
       switch (p.status) {
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
-          if (PlusProducts.all.contains(p.productID)) onEntitlementChanged(true);
+          if (PlusProducts.all.contains(p.productID)) {
+            bool? verified;
+            try {
+              verified = await verify?.call(p);
+            } catch (_) {
+              verified = null;
+            }
+            onEntitlementChanged(verified ?? true);
+          }
         case PurchaseStatus.error:
           _errors.add(p.error?.message ?? 'Purchase failed');
         case PurchaseStatus.canceled:

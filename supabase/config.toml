@@ -1,0 +1,19 @@
+# Supabase CLI config for LookUp. `supabase link --project-ref <ref>` then
+# `supabase db push` and `supabase functions deploy`. See ../docs/backend.md.
+project_id = "lookup"
+
+[functions.orbits]
+verify_jwt = true
+
+[functions.register-device]
+verify_jwt = true
+
+[functions.track]
+verify_jwt = true
+
+[functions.verify-receipt]
+verify_jwt = true
+
+# Called by pg_cron with the service-role key.
+[functions.aurora-watch]
+verify_jwt = true

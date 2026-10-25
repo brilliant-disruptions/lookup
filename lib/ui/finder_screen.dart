@@ -146,7 +146,10 @@ class _FinderState extends ConsumerState<FinderScreen> {
     final g = camera == null ? null : guide(camera, target);
     if (g != null && g.onTarget != _wasOnTarget) {
       _wasOnTarget = g.onTarget;
-      if (g.onTarget) HapticFeedback.heavyImpact();
+      if (g.onTarget) {
+        HapticFeedback.heavyImpact();
+        ref.read(analyticsProvider).log('finder_on_target', {'type': widget.event.type.name});
+      }
     }
     final e = widget.event;
     final nowUtc = now.toUtc();

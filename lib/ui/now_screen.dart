@@ -139,6 +139,7 @@ class _NextCardState extends ConsumerState<_NextCard> {
     if (_wasLive == false && live) {
       HapticFeedback.heavyImpact();
       SystemSound.play(SystemSoundType.alert);
+      ref.read(liveActivityProvider).markLive();
     }
     _wasLive = live;
     final isPass = event.type == SkyEventType.iss || event.type == SkyEventType.tiangong || event.type == SkyEventType.starlinkTrain;
