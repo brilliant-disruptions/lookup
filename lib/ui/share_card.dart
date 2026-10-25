@@ -110,9 +110,14 @@ class ShareCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          color: Colors.black,
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0x553C9DFF)),
+          ),
           child: Starfield(
-            density: 0.0016,
+            density: 0.0007,
+            maxOpacity: 0.6,
             seed: e.id.hashCode,
             fadeBottom: false,
             child: Padding(
