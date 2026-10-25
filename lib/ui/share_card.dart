@@ -22,6 +22,18 @@ import 'theme.dart';
 
 enum ShareMode { sawIt, invite }
 
+/// Renders the [RepaintBoundary] under [key] to a PNG and opens the share
+/// sheet with it and [text].
+Future<void> sharePoster(GlobalKey key, String text) async {
+  final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  final image = await boundary.toImage(pixelRatio: 3);
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  final dir = await getTemporaryDirectory();
+  final file = File('${dir.path}/lookup-${DateTime.now().millisecondsSinceEpoch}.png');
+  await file.writeAsBytes(bytes!.buffer.asUint8List());
+  await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'image/png')], text: text));
+}
+
 Future<void> showShareCard(BuildContext context, SkyEvent event, {ShareMode mode = ShareMode.sawIt}) =>
     showModalBottomSheet<void>(
       context: context,
@@ -45,17 +57,9 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
   Future<void> _share() async {
     setState(() => _busy = true);
     try {
-      final boundary = _key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final image = await boundary.toImage(pixelRatio: 3);
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/lookup-${DateTime.now().millisecondsSinceEpoch}.png');
-      await file.writeAsBytes(bytes!.buffer.asUint8List());
       final place = ref.read(settingsProvider).value?.placeName;
-      await SharePlus.instance.share(ShareParams(
-        files: [XFile(file.path, mimeType: 'image/png')],
-        text: widget.mode == ShareMode.invite ? inviteText(widget.event, place) : shareText(widget.event, place),
-      ));
+      await sharePoster(_key,
+          widget.mode == ShareMode.invite ? inviteText(widget.event, place) : shareText(widget.event, place));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

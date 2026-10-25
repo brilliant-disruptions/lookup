@@ -13,6 +13,7 @@ import 'fancy/rise.dart';
 import 'fancy/stat_tile.dart';
 import 'format.dart';
 import 'theme.dart';
+import 'year_card.dart';
 
 /// Your sky log: what you've seen and the badges you've earned.
 class LogScreen extends ConsumerWidget {
@@ -47,6 +48,7 @@ class LogScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            ..._yearCard(context, ref),
             if (l.total == 0)
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 20, 4, 0),
@@ -91,6 +93,36 @@ class LogScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  List<Widget> _yearCard(BuildContext context, WidgetRef ref) {
+    final r = ref.watch(yearReviewProvider).value;
+    if (r == null) return const [];
+    return [
+      const SizedBox(height: 10),
+      Rise(
+        index: 1,
+        child: Card(
+          child: InkWell(
+            onTap: () => showYearCard(context, r),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Eyebrow('Your sky year · ${r.year}', color: LookUpColors.blue),
+                    const SizedBox(height: 6),
+                    Text('${r.seen} seen over ${r.nights} night${r.nights == 1 ? '' : 's'} out',
+                        style: displaySerif(context, size: 22, weight: FontWeight.w500)),
+                  ]),
+                ),
+                const Icon(Icons.ios_share, size: 20, color: LookUpColors.grey),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   static Future<void> _showSighting(BuildContext context, WidgetRef ref, Sighting s) => showModalBottomSheet<void>(
