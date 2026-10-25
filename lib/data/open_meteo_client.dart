@@ -6,6 +6,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'retry.dart';
+
 import '../domain/weather/cloud_forecast.dart';
 
 class OpenMeteoClient {
@@ -13,13 +15,20 @@ class OpenMeteoClient {
 
   final http.Client _client;
 
+  /// Hourly cloud cover for the past [pastDays] (so "last 7 nights" can say
+  /// whether a pass was clouded out) and the next [days].
   Future<CloudForecast> fetchCloudForecast(double lat, double lon,
-      {int days = 7}) async {
+          {int days = 7, int pastDays = 7}) =>
+      withRetry(() => _fetchOnce(lat, lon, days: days, pastDays: pastDays));
+
+  Future<CloudForecast> _fetchOnce(double lat, double lon,
+      {required int days, required int pastDays}) async {
     final uri = Uri.https('api.open-meteo.com', '/v1/forecast', {
       'latitude': lat.toStringAsFixed(4),
       'longitude': lon.toStringAsFixed(4),
       'hourly': 'cloud_cover',
       'forecast_days': '$days',
+      'past_days': '$pastDays',
       'timeformat': 'unixtime',
       'timezone': 'UTC',
     });

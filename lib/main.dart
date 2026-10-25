@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'services/background.dart';
+import 'services/telemetry.dart';
+import 'services/widget_service.dart';
 import 'state/providers.dart';
 
-Future<void> main() async {
+Future<void> main() => runWithTelemetry(_main);
+
+Future<void> _main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final container = ProviderContainer();
   final notifications = container.read(notificationServiceProvider);
@@ -18,6 +22,7 @@ Future<void> main() async {
     // Background refresh is best effort (unsupported on some platforms).
   }
   await container.read(plusServiceProvider).start();
+  await WidgetService.init();
   runApp(UncontrolledProviderScope(
     container: container,
     child: const LookUpApp(),

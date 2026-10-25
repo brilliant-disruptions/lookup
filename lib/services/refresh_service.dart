@@ -3,6 +3,8 @@
 library;
 
 import '../data/celestrak_client.dart';
+import '../data/launch_library_client.dart';
+import '../domain/scheduling/alert_tuning.dart';
 import '../data/local_store.dart';
 import '../data/open_meteo_client.dart';
 import '../data/swpc_client.dart';
@@ -15,8 +17,9 @@ import 'location_service.dart';
 import 'notification_service.dart';
 
 class RefreshReport {
-  RefreshReport({required this.events, required this.plan, required this.errors});
+  RefreshReport({required this.events, required this.plan, required this.errors, this.recent = const []});
   final List<SkyEvent> events;
+  final List<SkyEvent> recent;
   final List<PlannedAlert> plan;
   final List<String> errors;
   bool get ok => errors.isEmpty;
@@ -29,12 +32,15 @@ class RefreshService {
     CelestrakClient? celestrak,
     SwpcClient? swpc,
     OpenMeteoClient? meteo,
+    LaunchLibraryClient? launchLibrary,
     LocationService? location,
+    this.onRefreshed,
     this.pipeline = const EventPipeline(),
     this.planner = const AlertPlanner(),
   })  : celestrak = celestrak ?? CelestrakClient(),
         swpc = swpc ?? SwpcClient(),
         meteo = meteo ?? OpenMeteoClient(),
+        launchLibrary = launchLibrary ?? LaunchLibraryClient(),
         location = location ?? const LocationService();
 
   final LocalStore store;
@@ -42,13 +48,19 @@ class RefreshService {
   final CelestrakClient celestrak;
   final SwpcClient swpc;
   final OpenMeteoClient meteo;
+  final LaunchLibraryClient launchLibrary;
   final LocationService location;
+
+  /// Called after each successful refresh (home-screen widgets). Errors
+  /// there never fail the refresh.
+  final Future<void> Function(LookUpSettings settings, List<SkyEvent> events)? onRefreshed;
   final EventPipeline pipeline;
   final AlertPlanner planner;
 
   static const elementsMaxAge = Duration(hours: 24);
   static const cloudsMaxAge = Duration(hours: 6);
   static const auroraMaxAge = Duration(minutes: 30);
+  static const launchesMaxAge = Duration(hours: 6);
 
   Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false}) async {
     final errors = <String>[];
@@ -134,8 +146,26 @@ class RefreshService {
       }
     }
 
+    var launchesCache = await store.loadLaunches();
+    if (settings.launchesEnabled &&
+        (force || launchesCache == null || now.difference(launchesCache.fetchedAt) > launchesMaxAge)) {
+      try {
+        final raw = await launchLibrary.fetchUpcomingRaw();
+        await store.saveLaunches(raw, now);
+        launchesCache = (fetchedAt: now, raw: raw);
+      } catch (e) {
+        errors.add('launches: $e');
+      }
+    }
+    final launches = LaunchLibraryClient.parse(launchesCache?.raw ?? const []);
+
+    // Learned thresholds from "what got in the way?" answers.
+    final tuning = AlertTuning.from([for (final f in await store.loadFeedback()) f.toSighting()], now: now);
+    final tuned = tuning.apply(settings);
+
     final events = pipeline.build(PipelineInputs(
-      settings: settings,
+      launches: launches,
+      settings: tuned,
       now: now,
       iss: iss,
       tiangong: tiangong,
@@ -144,10 +174,20 @@ class RefreshService {
       aurora: aurora,
     ));
     await store.saveEvents(events);
+    final recent = pipeline.buildRecent(PipelineInputs(
+      settings: settings,
+      now: now,
+      iss: iss,
+      tiangong: tiangong,
+      starlink: starlink,
+      clouds: clouds,
+      aurora: aurora,
+    ));
+    await store.saveRecent(recent);
 
     final offset = NotificationService.utcOffsetMinutes();
     final plan = planner.plan(
-        events: events, settings: settings, now: now, utcOffsetMinutes: offset);
+        events: events, settings: tuned, now: now, utcOffsetMinutes: offset, tuning: tuning);
     try {
       final previous = await store.loadPlannedIds();
       final scheduled = await notifications.applyPlan(plan, previous);
@@ -156,8 +196,19 @@ class RefreshService {
     } catch (e) {
       errors.add('schedule: $e');
     }
-    await store.saveLastRefresh(now);
-    return RefreshReport(events: events, plan: plan, errors: errors);
+    if (onRefreshed != null) {
+      try {
+        await onRefreshed!(settings, events);
+      } catch (e) {
+        errors.add('after-refresh: $e');
+      }
+    }
+
+    // Without any ISS elements (first launch + a failed fetch) there is
+    // nothing to show; don't mark the refresh done so the next app open
+    // retries instead of waiting out the 3-hour staleness window.
+    if (iss != null && iss.isNotEmpty) await store.saveLastRefresh(now);
+    return RefreshReport(events: events, plan: plan, errors: errors, recent: recent);
   }
 
   /// "Aurora now" can't be scheduled ahead; show it immediately, once per

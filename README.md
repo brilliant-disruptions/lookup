@@ -15,6 +15,7 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 | `lib/services/` — refresh orchestration (fetch → compute → plan → schedule), local notifications, location, WorkManager background refresh | ✅ written, needs device testing |
 | `lib/ui/` — onboarding, Now, Upcoming, Settings, Look sheet (compass + timeline + share) | ✅ written, needs device testing |
 | Billing (LookUp+) | ✅ `in_app_purchase` (StoreKit 2 / Play Billing), paywall sheet, restore; products `lookup_plus_monthly`, `lookup_plus_yearly`, `lookup_plus_lifetime` must be created in App Store Connect and Play Console. No server-side receipt validation yet |
+| Quiet weeks | ✅ next ISS pass up to 30 days out, "Preview an alert" (a full pass in fast-forward with the real notification), and the last 7 nights of real passes with clear/clouded-out from past cloud cover |
 | "Did you see it?" feedback | ✅ on the Look sheet after an event, stored on-device |
 | Launcher icon | ✅ generated from `assets/icon/` |
 | CI | ✅ GitHub Actions: analyze, test, release APK artifact |
@@ -24,9 +25,9 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 
 Rendered from the real widgets with sample data (`flutter test --update-goldens --run-skipped --tags screenshots test/screenshots`):
 
-| Onboarding | Now | Upcoming | Look sheet | Settings | Paywall |
-|---|---|---|---|---|---|
-| ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
+| Onboarding | Now | Quiet week | Upcoming | Look sheet | Sky finder | Preview | Log | Share cards | Settings | Paywall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/2b-quiet-week.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/8-finder.png) | ![](test/screenshots/goldens/7-demo.png) | ![](test/screenshots/goldens/9-log.png) | ![](test/screenshots/goldens/10-share-cards.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
 
 ## Design
 
@@ -50,7 +51,7 @@ All in `lib/ui/fancy/`. Emoji were dropped (Dearly's rule: warmth comes from typ
 
 ```bash
 flutter pub get
-flutter test            # 36 domain/service tests, no device needed
+flutter test            # domain, services and finder widget tests
 flutter run             # iOS simulator or Android emulator
 ```
 
@@ -72,6 +73,16 @@ Before the first device build:
 - **iOS**: `AppDelegate.swift` registers the WorkManager BGAppRefresh task and `Info.plist` declares `BGTaskSchedulerPermittedIdentifiers` = `com.brilliantdisruptions.lookup.refresh` plus the location usage string. This was written against `workmanager_apple` 0.9.11 without an Xcode build; confirm it compiles on first `flutter run` on a Mac.
 - **Android**: `AndroidManifest.xml` already has coarse location, notifications, boot receiver (so scheduled alerts survive reboots). Android 13+ asks for notification permission at onboarding.
 
+## Features
+
+- **Alerts** for ISS, Tiangong, Starlink trains, aurora (tonight + now), meteor shower peaks, lunar eclipses, Moon/planet pairings, and rocket launches you can see from where you are. Cloud-gated, quiet hours, nightly cap, learned thresholds from "what got in the way?".
+- **Sky finder**: hold the phone up; it tracks the target live (SGP4 + fused rotation sensor + WMM2025 declination) and buzzes when you're on it.
+- **Sky log** with badges and a hit rate; **poster share cards** ("I saw it", "Look up with me").
+- **Quiet weeks** explain themselves, show the next pass and the last 7 nights; **Preview an alert** plays a full pass in fast-forward.
+- **Night vision** mode, large-text support, screen-reader labels.
+- **Widgets**: Android home-screen widget with live countdown (built in); iOS widget + Live Activity (sources in `ios/LookUpWidgets`, setup in `docs/ios-widgets.md`).
+- **Crash reporting** (Sentry) is optional: off unless built with `--dart-define=LOOKUP_SENTRY_DSN=...`.
+
 ## Data sources (free, public)
 
 | What | Where | Refresh |
@@ -80,6 +91,8 @@ Before the first device build:
 | Starlink catalog + SpaceX supplemental | `…gp.php?GROUP=starlink&FORMAT=json`, `…supplemental/sup-gp.php?FILE=starlink&FORMAT=json` | daily, trimmed to train-phase launches |
 | Kp now / 3-day forecast | `services.swpc.noaa.gov/json/planetary_k_index_1m.json`, `…/products/noaa-planetary-k-index-forecast.json` | 30 min |
 | Aurora oval | `services.swpc.noaa.gov/json/ovation_aurora_latest.json` | 30 min, sampled at the user's cell |
+| Launches | `ll.thespacedevs.com/2.3.0/launches/upcoming` | 6 h |
+| Magnetic declination | WMM2025 coefficients, bundled | offline |
 | Cloud cover | `api.open-meteo.com/v1/forecast?hourly=cloud_cover` | 6 h — **non-commercial tier**; move to the paid plan when the app charges |
 
 ## How an alert happens

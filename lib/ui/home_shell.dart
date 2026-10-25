@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
+import 'demo.dart';
+import 'log_screen.dart';
 import 'look_sheet.dart';
 import 'now_screen.dart';
 import 'settings_screen.dart';
@@ -24,6 +26,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       final stale = home?.lastRefresh == null ||
           DateTime.now().toUtc().difference(home!.lastRefresh!) > const Duration(hours: 3);
       if (stale) ref.read(homeProvider.notifier).refresh();
+      // First run: show the whole experience right away, not an empty sky.
+      if (ref.read(playIntroProvider)) {
+        ref.read(playIntroProvider.notifier).set(false);
+        showDemo(context, ref);
+      }
     });
   }
 
@@ -36,7 +43,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       ref.read(tappedEventIdProvider.notifier).set(null);
       if (e != null) showLookSheet(context, e);
     });
-    final pages = const [NowScreen(), UpcomingScreen(), SettingsScreen()];
+    final pages = const [NowScreen(), UpcomingScreen(), LogScreen(), SettingsScreen()];
     return Scaffold(
       body: IndexedStack(index: _tab, children: pages),
       bottomNavigationBar: NavigationBar(
@@ -45,6 +52,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.nightlight_outlined), label: 'Now'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), label: 'Upcoming'),
+          NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), label: 'Log'),
           NavigationDestination(icon: Icon(Icons.tune), label: 'Settings'),
         ],
       ),

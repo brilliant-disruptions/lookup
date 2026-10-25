@@ -170,3 +170,21 @@ class Eyebrow extends StatelessWidget {
             color: color, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 2.2),
       );
 }
+
+/// Night-vision filter: maps luminance to deep red so eyes stay
+/// dark-adapted outdoors (rod cells are nearly blind to red).
+const nightVisionMatrix = <double>[
+  0.30, 0.59, 0.11, 0, 0, //
+  0.00, 0.00, 0.00, 0, 0,
+  0.00, 0.00, 0.00, 0, 0,
+  0.00, 0.00, 0.00, 1, 0,
+];
+
+class NightVision extends StatelessWidget {
+  const NightVision({super.key, required this.enabled, required this.child});
+  final bool enabled;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) =>
+      enabled ? ColorFiltered(colorFilter: const ColorFilter.matrix(nightVisionMatrix), child: child) : child;
+}

@@ -4,6 +4,7 @@ library;
 import 'package:satellite_observer/satellite_observer.dart';
 
 import '../models/sky_event.dart';
+import '../sky/brightness.dart';
 import '../orbit/omm.dart';
 import '../weather/cloud_forecast.dart';
 
@@ -61,6 +62,13 @@ class PassPredictor {
         }
       }
       if (peakLook.elevationDeg < minPeakElevationDeg) continue;
+      final peakState = sat.propagate(peakLook.utc).position;
+      final phase = phaseAngleDeg(
+        satEci: [peakState.x, peakState.y, peakState.z],
+        observerEci: observerEci(observer.latitudeDeg, observer.longitudeDeg, peakLook.utc),
+        utc: peakLook.utc,
+      );
+      final mag = satelliteMagnitude(stdMag: _stdMagFor(type), rangeKm: peakLook.rangeKm, phaseDeg: phase);
       final riseLook = sat.lookAngleAt(start);
       final setLook = sat.lookAngleAt(end);
       final key = '${idPrefix ?? type.name}:${_minuteKey(peakLook.utc)}';
@@ -80,8 +88,10 @@ class PassPredictor {
           'object': record.objectName,
           'noradId': record.noradCatId,
           'rangeKm': peakLook.rangeKm.round(),
-          'brightness': brightnessWord(
-              rangeKm: peakLook.rangeKm, elevationDeg: peakLook.elevationDeg),
+          'magnitude': double.parse(mag.toStringAsFixed(1)),
+          'brightness': magnitudeWord(mag),
+          // Elements travel with the event so the sky finder can track it live.
+          'omm': record.json,
           ...details,
         },
       ));
@@ -96,10 +106,8 @@ class PassPredictor {
   }
 }
 
-/// Crude but honest brightness words for a large sunlit object like the ISS.
-/// Phase angle is ignored; range dominates for the passes we alert on.
-String brightnessWord({required double rangeKm, required double elevationDeg}) {
-  if (rangeKm < 600 && elevationDeg >= 50) return 'brighter than any star';
-  if (rangeKm < 900) return 'as bright as the brightest stars';
-  return 'bright, like a steady moving star';
-}
+double _stdMagFor(SkyEventType t) => switch (t) {
+      SkyEventType.tiangong => StdMag.tiangong,
+      SkyEventType.starlinkTrain => StdMag.starlinkTrain,
+      _ => StdMag.iss,
+    };

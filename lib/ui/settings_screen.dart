@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/settings.dart';
 import '../state/providers.dart';
+import 'demo.dart';
 import 'fancy/ornament_rule.dart';
 import 'paywall_sheet.dart';
 import 'theme.dart';
@@ -62,6 +63,30 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Tonight\'s outlook is free; live "aurora now" taps are LookUp+'),
           ),
           SwitchListTile(
+            value: s.meteorsEnabled,
+            onChanged: (v) => set((s) => s.copyWith(meteorsEnabled: v)),
+            title: const Text('Meteor showers'),
+            subtitle: const Text('Peak nights, with the Moon factored in'),
+          ),
+          SwitchListTile(
+            value: s.eclipsesEnabled,
+            onChanged: (v) => set((s) => s.copyWith(eclipsesEnabled: v)),
+            title: const Text('Lunar eclipses'),
+            subtitle: const Text('Total and partial, when the Moon is up for you'),
+          ),
+          SwitchListTile(
+            value: s.pairingsEnabled,
+            onChanged: (v) => set((s) => s.copyWith(pairingsEnabled: v)),
+            title: const Text('Planet pairings'),
+            subtitle: const Text('The Moon and bright planets side by side'),
+          ),
+          SwitchListTile(
+            value: s.launchesEnabled,
+            onChanged: (v) => set((s) => s.copyWith(launchesEnabled: v)),
+            title: const Text('Rocket launches'),
+            subtitle: const Text('Night and twilight launches you can see from here · LookUp+'),
+          ),
+          SwitchListTile(
             value: s.tiangongEnabled,
             onChanged: (v) => set((s) => s.copyWith(tiangongEnabled: v)),
             title: const Text('Tiangong (Chinese station)'),
@@ -102,9 +127,16 @@ class SettingsScreen extends ConsumerWidget {
           SwitchListTile(
             value: s.auroraWakeMe,
             onChanged: (v) => set((s) => s.copyWith(auroraWakeMe: v)),
-            title: const Text('Wake me for aurora'),
-            subtitle: const Text('Aurora ignores quiet hours'),
+            title: const Text('Wake me for aurora and eclipses'),
+            subtitle: const Text('Both are rare enough to ignore quiet hours'),
           ),
+          SwitchListTile(
+            value: s.nightVision,
+            onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
+            title: const Text('Night vision'),
+            subtitle: const Text('Red screen that keeps your eyes dark-adapted outside'),
+          ),
+          ..._learned(ref),
           const _Header('LookUp+'),
           ListTile(
             leading: const Icon(Icons.auto_awesome),
@@ -121,15 +153,12 @@ class SettingsScreen extends ConsumerWidget {
               title: const Text('Restore purchases'),
               onTap: () => ref.read(plusServiceProvider).restore(),
             ),
-          const _Header('Debug'),
+          const _Header('Try it'),
           ListTile(
-            leading: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Send a test notification'),
-            onTap: () => ref.read(notificationServiceProvider).showNow(
-                  id: 1,
-                  title: 'ISS flyover in 10 min',
-                  body: 'Brighter than any star, rising in the west-southwest, high in the sky at its best, 4 min. Clear skies.',
-                ),
+            leading: const Icon(Icons.play_circle_outline),
+            title: const Text('Preview an alert'),
+            subtitle: const Text('A full pass in fast-forward, with the real notification'),
+            onTap: () => showDemo(context, ref),
           ),
           ListTile(
             leading: const Icon(Icons.refresh),
@@ -140,6 +169,16 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  List<Widget> _learned(WidgetRef ref) {
+    final t = ref.watch(tuningProvider).value;
+    if (t == null || t.isNeutral) return const [];
+    return [
+      const _Header('Learned from you'),
+      for (final r in t.reasons)
+        ListTile(leading: const Icon(Icons.tune), title: Text(r, style: const TextStyle(fontSize: 14, height: 1.35))),
+    ];
   }
 
   static String _hm(int m) {

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/scheduling/alert_planner.dart';
+import 'package:lookup/domain/scheduling/alert_tuning.dart';
 
 SkyEvent ev(String id, SkyEventType type, DateTime start,
         {double el = 60, int? clouds, bool estimate = false,
@@ -139,5 +140,34 @@ void main() {
     expect(QuietHours.defaults.contains(23 * 60 + 30), isTrue);
     expect(QuietHours.defaults.contains(2 * 60), isTrue);
     expect(QuietHours.defaults.contains(12 * 60), isFalse);
+  });
+
+  test('learned cloud cutoff suppresses a 50% cloudy pass', () {
+    final e = ev('iss:c', SkyEventType.iss, now.add(const Duration(hours: 5)), clouds: 50);
+    expect(planner.plan(events: [e], settings: plus, now: now, utcOffsetMinutes: cdt), isNotEmpty);
+    expect(
+        planner.plan(events: [e], settings: plus, now: now, utcOffsetMinutes: cdt,
+            tuning: const AlertTuning(cloudCutoffPercent: 40)),
+        isEmpty);
+  });
+
+  test('new event types: copy, toggles and the wake-me exception', () {
+    final meteor = ev('meteor-GEM:2026', SkyEventType.meteorShower, now.add(const Duration(hours: 5)),
+        details: {'shower': 'Geminids', 'perHour': 60, 'moonIllumination': 0.1, 'moonUp': false});
+    final launch = ev('launch:x', SkyEventType.rocketLaunch, now.add(const Duration(hours: 6)),
+        details: {'name': 'Falcon 9', 'distanceKm': 210});
+    final plan = planner.plan(events: [meteor, launch], settings: plus.copyWith(goNowNudge: false), now: now, utcOffsetMinutes: cdt);
+    expect(plan.map((a) => a.title), ['Geminids tonight', 'Rocket launch in 10 min']);
+    expect(plan.first.body, startsWith('Up to ~60 an hour'));
+    expect(plan.last.body, contains('Falcon 9, 210 km away'));
+    final off = planner.plan(events: [meteor, launch], settings: plus.copyWith(meteorsEnabled: false, launchesEnabled: false), now: now, utcOffsetMinutes: cdt);
+    expect(off, isEmpty);
+    // Launches are Plus; meteors are free.
+    final free = planner.plan(events: [meteor, launch], settings: const LookUpSettings(goNowNudge: false), now: now, utcOffsetMinutes: cdt);
+    expect(free.map((a) => a.event.id), ['meteor-GEM:2026']);
+    // 3 AM eclipse passes quiet hours only with wake-me.
+    final eclipse = ev('eclipse:x', SkyEventType.lunarEclipse, now.add(const Duration(hours: 12)), details: {'label': 'Total lunar eclipse'});
+    expect(planner.plan(events: [eclipse], settings: plus, now: now, utcOffsetMinutes: cdt), isEmpty);
+    expect(planner.plan(events: [eclipse], settings: plus.copyWith(auroraWakeMe: true), now: now, utcOffsetMinutes: cdt), isNotEmpty);
   });
 }

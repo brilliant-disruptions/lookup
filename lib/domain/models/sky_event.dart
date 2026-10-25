@@ -8,7 +8,11 @@ enum SkyEventType {
   tiangong('Tiangong flyover', plusOnly: true),
   starlinkTrain('Starlink train', plusOnly: true),
   auroraNow('Aurora now', plusOnly: true),
-  auroraOutlook('Aurora possible tonight', plusOnly: false);
+  auroraOutlook('Aurora possible tonight', plusOnly: false),
+  meteorShower('Meteor shower', plusOnly: false),
+  lunarEclipse('Lunar eclipse', plusOnly: false),
+  planetPairing('Planet pairing', plusOnly: false),
+  rocketLaunch('Rocket launch', plusOnly: true);
 
   const SkyEventType(this.label, {required this.plusOnly});
 

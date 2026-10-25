@@ -20,6 +20,13 @@ import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/look_sheet.dart';
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
+import 'package:lookup/ui/demo.dart';
+import 'dart:math' as math;
+import 'package:lookup/domain/log/sighting.dart';
+import 'package:lookup/domain/log/sky_log.dart';
+import 'package:lookup/ui/finder_screen.dart';
+import 'package:lookup/ui/log_screen.dart';
+import 'package:lookup/ui/share_card.dart';
 import 'package:lookup/services/plus_service.dart';
 
 final _now = DateTime.now();
@@ -57,6 +64,15 @@ final _events = [
   _ev('iss:3', SkyEventType.iss, const Duration(days: 3, hours: 2),
       el: 78, rise: 240, peakAz: 160, setAz: 80, clouds: 5,
       details: {'brightness': 'brighter than any star'}),
+  _ev('pair:1', SkyEventType.planetPairing, const Duration(days: 4, hours: 13), el: 22, rise: 250, peakAz: 250, setAz: 250, clouds: 15,
+      len: const Duration(hours: 1),
+      details: {'bodies': ['Moon', 'Jupiter'], 'separation': 2.4, 'when': 'evening', 'label': 'Moon and Jupiter'}),
+  _ev('launch:1', SkyEventType.rocketLaunch, const Duration(days: 5, hours: 1), el: 18, rise: 292, peakAz: 292, setAz: 292, clouds: 10,
+      len: const Duration(minutes: 6),
+      details: {'name': 'Falcon 9 Block 5 | Starlink Group 15-16', 'distanceKm': 214, 'label': 'Rocket launch at twilight'}),
+  _ev('meteor-LEO:2026', SkyEventType.meteorShower, const Duration(days: 6, hours: 3), el: 55, rise: 95, peakAz: 95, setAz: 95, clouds: 25,
+      len: const Duration(hours: 7),
+      details: {'shower': 'Leonids', 'perHour': 9, 'moonIllumination': 0.42, 'moonUp': false}),
 ];
 
 class _FakeSettings extends SettingsNotifier {
@@ -73,10 +89,31 @@ class _FakePlus implements PlusService {
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
+SkyEvent _past(String id, SkyEventType type, Duration ago,
+        {double el = 50, int clouds = 10, Map<String, Object?> details = const {}}) =>
+    _ev(id, type, -ago, el: el, clouds: clouds, details: {...details, 'past': true});
+
+final _recent = [
+  _past('iss:p1', SkyEventType.iss, const Duration(hours: 21), el: 71,
+      details: {'brightness': 'brighter than any star'}),
+  _past('starlink-x:p2', SkyEventType.starlinkTrain, const Duration(days: 2, hours: 3), el: 38, clouds: 90,
+      details: {'count': 27, 'label': 'Starlink train'}),
+  _past('iss:p3', SkyEventType.iss, const Duration(days: 4, hours: 1), el: 44,
+      details: {'brightness': 'as bright as the brightest stars'}),
+];
+
+final _quietEvents = [
+  _ev('iss:far', SkyEventType.iss, const Duration(days: 9, hours: 2), el: 58, clouds: 20,
+      details: {'brightness': 'brighter than any star', 'lookahead': true}),
+];
+
+var _homeEvents = _events;
+
 class _FakeHome extends HomeNotifier {
   @override
   Future<HomeData> build() async => HomeData(
-        events: _events,
+        events: _homeEvents,
+        recent: _recent,
         aurora: AuroraSnapshot(fetchedAt: _now.toUtc(), kpNow: 4.33, forecast: const [], ovationProbability: 12),
         lastRefresh: _now.toUtc().subtract(const Duration(minutes: 14)),
         errors: const [],
@@ -125,9 +162,33 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
       homeProvider.overrideWith(_FakeHome.new),
       clockProvider.overrideWith((_) => Stream.value(_now)),
       plusServiceProvider.overrideWithValue(_FakePlus()),
+      skyLogProvider.overrideWith((_) async => _log),
     ],
     child: MaterialApp(theme: theme, debugShowCheckedModeBanner: false, home: home),
   );
+}
+
+final _log = SkyLog.from([
+  for (var i = 0; i < 6; i++)
+    Sighting(eventId: 'iss:$i', seen: true, at: _now.toUtc().subtract(Duration(days: 40 - i * 5)),
+        type: SkyEventType.iss, peakElevationDeg: i == 2 ? 81 : 46, magnitude: i == 3 ? -3.7 : -2.4, place: 'Nashville',
+        eventTime: _now.toUtc().subtract(Duration(days: 40 - i * 5))),
+  Sighting(eventId: 'starlink-2026-232:1', seen: true, at: _now.toUtc().subtract(const Duration(days: 9)),
+      type: SkyEventType.starlinkTrain, peakElevationDeg: 38, place: 'Nashville', eventTime: _now.toUtc().subtract(const Duration(days: 9))),
+  Sighting(eventId: 'pair:x', seen: true, at: _now.toUtc().subtract(const Duration(days: 3)),
+      type: SkyEventType.planetPairing, peakElevationDeg: 22, place: 'Nashville', eventTime: _now.toUtc().subtract(const Duration(days: 3))),
+  Sighting(eventId: 'iss:no', seen: false, at: _now.toUtc().subtract(const Duration(days: 2)), type: SkyEventType.iss, reason: 'clouds'),
+]);
+
+/// Device->world rotation (row-major) for a camera pointing at magnetic
+/// azimuth [az], elevation [el], phone upright.
+List<double> _pose(double az, double el) {
+  final a = az * math.pi / 180, e = el * math.pi / 180;
+  final v = [math.sin(a) * math.cos(e), math.cos(a) * math.cos(e), math.sin(e)];
+  final z = [-v[0], -v[1], -v[2]];
+  final y = [-math.sin(a) * math.sin(e), -math.cos(a) * math.sin(e), math.cos(e)];
+  final x = [y[1] * z[2] - y[2] * z[1], y[2] * z[0] - y[0] * z[2], y[0] * z[1] - y[1] * z[0]];
+  return [x[0], y[0], z[0], x[1], y[1], z[1], x[2], y[2], z[2]];
 }
 
 void main() {
@@ -151,6 +212,35 @@ void main() {
   testWidgets('onboarding', (t) => shot(t, const OnboardingScreen(), '1-onboarding'));
 
   testWidgets('now', (t) => shot(t, const HomeShell(), '2-now'));
+
+  testWidgets('quiet week', (t) async {
+    _homeEvents = _quietEvents;
+    addTearDown(() => _homeEvents = _events);
+    await shot(t, const HomeShell(), '2b-quiet-week');
+  });
+
+  testWidgets('demo mid-pass', (t) async {
+    // Real start chosen so _now sits ~95 s into the simulated pass.
+    final realStart = _now.subtract(const Duration(seconds: demoLeadSeconds + 95));
+    final sheet = Scaffold(
+      body: Stack(children: [
+        const HomeShell(),
+        Container(color: Colors.black54),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            color: const Color(0xFF0E0F11),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 22),
+              child: LookSheet(event: demoEvent(realStart), demo: true),
+            ),
+          ),
+        ),
+      ]),
+    );
+    await shot(t, sheet, '7-demo');
+  });
 
   testWidgets('upcoming', (t) async {
     await mount(t, const HomeShell());
@@ -208,5 +298,30 @@ void main() {
     await t.tap(find.text('Settings'));
     await t.pump(const Duration(milliseconds: 600));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/5-settings.png'));
+  });
+
+  testWidgets('finder', (t) async {
+    final target = _events.firstWhere((e) => e.type == SkyEventType.rocketLaunch); // WNW, low
+    await mount(t, FinderScreen(event: target, orientationStream: Stream.value(_pose(275, 10))));
+    await t.pump(const Duration(milliseconds: 50));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/8-finder.png'));
+  });
+
+  testWidgets('log', (t) => shot(t, const LogScreen(), '9-log'));
+
+  testWidgets('share cards', (t) async {
+    final cards = Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(children: [
+            SizedBox(width: 300, child: ShareCard(event: _recent.first, mode: ShareMode.sawIt, place: 'Nashville')),
+            const SizedBox(height: 20),
+            SizedBox(width: 300, child: ShareCard(event: _events.first, mode: ShareMode.invite, place: 'Nashville')),
+          ]),
+        ),
+      ),
+    );
+    await shot(t, cards, '10-share-cards');
   });
 }

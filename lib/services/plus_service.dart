@@ -2,8 +2,8 @@
 /// through the official `in_app_purchase` plugin.
 ///
 /// Honest scope: entitlement is trusted from the store's purchase stream and
-/// cached locally. There is no server-side receipt validation yet; add it
-/// (RevenueCat or a Supabase edge function) before scaling paid.
+/// cached locally. There is no server-side receipt validation; add it
+/// (e.g. RevenueCat) before scaling paid.
 library;
 
 import 'dart:async';

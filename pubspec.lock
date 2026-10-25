@@ -227,6 +227,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.3"
+  flutter_rotation_sensor:
+    dependency: "direct main"
+    description:
+      name: flutter_rotation_sensor
+      sha256: ac8041314414dd4ab07b4d629352715f1a6244f4414fe2cb15b4f435040fbf3c
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -317,6 +325,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.8"
+  home_widget:
+    dependency: "direct main"
+    description:
+      name: home_widget
+      sha256: "1dbfdfbb3b47de24639adfba352050d85d66af112b9cc3ec5bf7627a7813abcb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.10.0"
   hooks:
     dependency: transitive
     description:
@@ -501,6 +517,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  native_device_orientation:
+    dependency: transitive
+    description:
+      name: native_device_orientation
+      sha256: ddb8addd36e7d06ea0049d052ec471e1514dd8f665e0184aea7cdd882fd6ccd7
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.3"
   objective_c:
     dependency: transitive
     description:
@@ -542,7 +566,7 @@ packages:
     source: hosted
     version: "1.9.1"
   path_provider:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: path_provider
       sha256: a7f4874f987173da295a61c181b8ee71dab59b332a486b391babf26a1b884825
@@ -653,6 +677,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.1"
+  sentry:
+    dependency: transitive
+    description:
+      name: sentry
+      sha256: f8219c441f6b0903f88475058373c08ac62cac753195b344cc1f8c540a6e490a
+      url: "https://pub.dev"
+    source: hosted
+    version: "10.2.0"
+  sentry_flutter:
+    dependency: "direct main"
+    description:
+      name: sentry_flutter
+      sha256: a4dd14fee180b0a6dfd16133bc617a8cfc8c7cbc2e991851e5765ebcbbfcc9a8
+      url: "https://pub.dev"
+    source: hosted
+    version: "10.2.0"
   share_plus:
     dependency: "direct main"
     description:
