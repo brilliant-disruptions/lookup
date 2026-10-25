@@ -8,6 +8,7 @@ library;
 import '../models/settings.dart';
 import '../models/sky_event.dart';
 import '../sky/direction.dart';
+import 'alert_tuning.dart';
 
 enum AlertKind { headsUp, goNow }
 
@@ -44,6 +45,7 @@ class AlertPlanner {
     required DateTime now,
     required int utcOffsetMinutes,
     Duration horizon = const Duration(hours: 48),
+    AlertTuning tuning = AlertTuning.neutral,
   }) {
     final nowUtc = now.toUtc();
     final limit = nowUtc.add(horizon);
@@ -52,7 +54,7 @@ class AlertPlanner {
         .where((e) => _typeEnabled(e.type, settings))
         .where((e) => settings.isPlus || !e.plusOnly)
         .where((e) => !settings.clearSkyOnly ||
-            (e.cloudCoverPercent ?? 0) <= LookUpSettings.cloudyThresholdPercent)
+            (e.cloudCoverPercent ?? 0) <= tuning.cloudCutoffPercent)
         .where((e) => passesQuietHours(e, settings, utcOffsetMinutes))
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
@@ -107,15 +109,21 @@ class AlertPlanner {
         SkyEventType.starlinkTrain => s.starlinkEnabled,
         SkyEventType.auroraNow => s.auroraEnabled,
         SkyEventType.auroraOutlook => false, // outlook is never pushed
+        SkyEventType.meteorShower => s.meteorsEnabled,
+        SkyEventType.lunarEclipse => s.eclipsesEnabled,
+        SkyEventType.planetPairing => s.pairingsEnabled,
+        SkyEventType.rocketLaunch => s.launchesEnabled,
       };
 
-  /// Quiet hours block everything except aurora when wake-me is on.
+  /// Quiet hours block everything except aurora and lunar eclipses when
+  /// wake-me is on (both are rare and worth getting up for).
   static bool passesQuietHours(
       SkyEvent e, LookUpSettings s, int utcOffsetMinutes) {
     final local = e.start.add(Duration(minutes: utcOffsetMinutes));
     final minuteOfDay = local.hour * 60 + local.minute;
     if (!s.quietHours.contains(minuteOfDay)) return true;
-    return s.auroraWakeMe && e.type == SkyEventType.auroraNow;
+    return s.auroraWakeMe &&
+        (e.type == SkyEventType.auroraNow || e.type == SkyEventType.lunarEclipse);
   }
 
   /// Local calendar date of "the night", where anything before local noon
@@ -143,13 +151,36 @@ class AlertPlanner {
         (e.details['label'] as String?) ?? 'Starlink train',
       SkyEventType.auroraNow => 'Aurora now',
       SkyEventType.auroraOutlook => 'Aurora tonight',
+      SkyEventType.meteorShower => '${e.details['shower'] ?? 'Meteor shower'} tonight',
+      SkyEventType.lunarEclipse => (e.details['label'] as String?) ?? 'Lunar eclipse',
+      SkyEventType.planetPairing => (e.details['label'] as String?) ?? 'Planet pairing',
+      SkyEventType.rocketLaunch => 'Rocket launch',
     };
+    if (e.type == SkyEventType.meteorShower) return what;
     return '$what in $leadMinutes min';
   }
 
   static String headsUpBody(SkyEvent e) {
     if (e.type == SkyEventType.auroraNow) {
       return 'Find a dark spot and look north. ${_cloudNote(e)}'.trim();
+    }
+    switch (e.type) {
+      case SkyEventType.meteorShower:
+        final rate = e.details['perHour'];
+        final moon = (e.details['moonIllumination'] as num?) ?? 0;
+        final moonNote = (e.details['moonUp'] == true && moon > 0.5) ? ' The Moon will wash out the faint ones.' : '';
+        return 'Up to ~$rate an hour from a dark spot, best around ${_hm(e.peak)}. Look up anywhere, away from lights.$moonNote ${_cloudNote(e)}'.trim();
+      case SkyEventType.lunarEclipse:
+        return 'Look ${compassWord(e.peakAzimuthDeg)} at the Moon, ${elevationWord(e.peakElevationDeg)}. Deepest at ${_hm(e.peak)}. ${_cloudNote(e)}'.trim();
+      case SkyEventType.planetPairing:
+        final sep = e.details['separation'];
+        return '$sep° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Two bright points side by side. ${_cloudNote(e)}'.trim();
+      case SkyEventType.rocketLaunch:
+        final dist = e.details['distanceKm'];
+        final name = e.details['name'] ?? 'A rocket';
+        return '$name, $dist km away. Look ${compassWord(e.peakAzimuthDeg)}, low on the horizon. Launch times slip; we update if it moves. ${_cloudNote(e)}'.trim();
+      default:
+        break;
     }
     final b = e.details['brightness'] as String?;
     final arc = describeArc(
@@ -166,6 +197,14 @@ class AlertPlanner {
 
   static String goNowBody(SkyEvent e) =>
       'Look ${compassWord(e.riseAzimuthDeg)}. ${_cap(elevationWord(e.peakElevationDeg))} at its best.';
+
+  /// Device-local clock time, e.g. "2:40 AM". Domain stays timezone-free by
+  /// using the event's own offset-free UTC→local conversion.
+  static String _hm(DateTime utc) {
+    final l = utc.toLocal();
+    final h = l.hour % 12 == 0 ? 12 : l.hour % 12;
+    return '$h:${l.minute.toString().padLeft(2, '0')} ${l.hour < 12 ? 'AM' : 'PM'}';
+  }
 
   static String _cloudNote(SkyEvent e) {
     final c = e.cloudCoverPercent;

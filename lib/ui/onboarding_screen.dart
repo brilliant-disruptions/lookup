@@ -32,6 +32,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
             'You can also pin a place in Settings.';
       });
     }
+    ref.read(playIntroProvider.notifier).set(true);
     await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(onboarded: true));
     // First refresh runs after the shell mounts.
   }

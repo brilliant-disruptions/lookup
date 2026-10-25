@@ -3,6 +3,10 @@ library;
 
 import '../data/local_store.dart';
 import '../domain/aurora/aurora_rules.dart';
+import '../domain/events/eclipses.dart';
+import '../domain/events/launches.dart';
+import '../domain/events/meteors.dart';
+import '../domain/events/pairings.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
@@ -20,9 +24,11 @@ class PipelineInputs {
     this.starlink,
     this.clouds,
     this.aurora,
+    this.launches = const [],
   });
 
   final LookUpSettings settings;
+  final List<Launch> launches;
   final DateTime now;
   final List<OmmRecord>? iss;
   final List<OmmRecord>? tiangong;
@@ -160,6 +166,21 @@ class EventPipeline {
           ));
         }
       }
+    }
+
+    // Sky calendar: computed on the phone, no network needed.
+    SkyEvent withClouds(SkyEvent e) => e.copyWith(cloudCoverPercent: i.clouds?.coverAt(e.peak));
+    if (s.meteorsEnabled) {
+      out.addAll(meteorShowerEvents(now: now, latDeg: lat, lonDeg: lon).map(withClouds));
+    }
+    if (s.eclipsesEnabled) {
+      out.addAll(lunarEclipseEvents(now: now, latDeg: lat, lonDeg: lon).map(withClouds));
+    }
+    if (s.pairingsEnabled) {
+      out.addAll(pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
+    }
+    if (s.launchesEnabled && i.launches.isNotEmpty) {
+      out.addAll(launchEvents(launches: i.launches, now: now, latDeg: lat, lonDeg: lon, window: horizon).map(withClouds));
     }
 
     out.removeWhere((e) => !e.end.isAfter(now));

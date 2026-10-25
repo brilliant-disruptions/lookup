@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
+import '../domain/log/sky_log.dart';
+import '../domain/scheduling/alert_tuning.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../services/location_service.dart';
@@ -117,3 +119,24 @@ final plusServiceProvider = Provider<PlusService>((ref) {
   ref.onDispose(svc.dispose);
   return svc;
 });
+
+/// The user's sky log (badges, counts) from stored "did you see it?" answers.
+final skyLogProvider = FutureProvider<SkyLog>((ref) async {
+  final f = await ref.watch(storeProvider).loadFeedback();
+  return SkyLog.from([for (final x in f) x.toSighting()]);
+});
+
+/// What the app has learned from "what got in the way?" answers.
+final tuningProvider = FutureProvider<AlertTuning>((ref) async {
+  final f = await ref.watch(storeProvider).loadFeedback();
+  return AlertTuning.from([for (final x in f) x.toSighting()]);
+});
+
+/// Set by onboarding so the shell plays the preview once, right away.
+class PlayIntro extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool v) => state = v;
+}
+
+final playIntroProvider = NotifierProvider<PlayIntro, bool>(PlayIntro.new);

@@ -39,6 +39,11 @@ class LookUpSettings {
     this.starlinkEnabled = true,
     this.auroraEnabled = true,
     this.tiangongEnabled = false,
+    this.meteorsEnabled = true,
+    this.eclipsesEnabled = true,
+    this.pairingsEnabled = true,
+    this.launchesEnabled = true,
+    this.nightVision = false,
     this.leadMinutes = 10,
     this.goNowNudge = true,
     this.quietHours = QuietHours.defaults,
@@ -59,6 +64,13 @@ class LookUpSettings {
   final bool starlinkEnabled;
   final bool auroraEnabled;
   final bool tiangongEnabled;
+  final bool meteorsEnabled;
+  final bool eclipsesEnabled;
+  final bool pairingsEnabled;
+  final bool launchesEnabled;
+
+  /// Red-on-black UI that keeps eyes dark-adapted outdoors.
+  final bool nightVision;
   final int leadMinutes;
   final bool goNowNudge;
   final QuietHours quietHours;
@@ -85,6 +97,11 @@ class LookUpSettings {
     bool? starlinkEnabled,
     bool? auroraEnabled,
     bool? tiangongEnabled,
+    bool? meteorsEnabled,
+    bool? eclipsesEnabled,
+    bool? pairingsEnabled,
+    bool? launchesEnabled,
+    bool? nightVision,
     int? leadMinutes,
     bool? goNowNudge,
     QuietHours? quietHours,
@@ -105,6 +122,11 @@ class LookUpSettings {
         starlinkEnabled: starlinkEnabled ?? this.starlinkEnabled,
         auroraEnabled: auroraEnabled ?? this.auroraEnabled,
         tiangongEnabled: tiangongEnabled ?? this.tiangongEnabled,
+        meteorsEnabled: meteorsEnabled ?? this.meteorsEnabled,
+        eclipsesEnabled: eclipsesEnabled ?? this.eclipsesEnabled,
+        pairingsEnabled: pairingsEnabled ?? this.pairingsEnabled,
+        launchesEnabled: launchesEnabled ?? this.launchesEnabled,
+        nightVision: nightVision ?? this.nightVision,
         leadMinutes: leadMinutes ?? this.leadMinutes,
         goNowNudge: goNowNudge ?? this.goNowNudge,
         quietHours: quietHours ?? this.quietHours,
@@ -128,6 +150,11 @@ class LookUpSettings {
         'starlinkEnabled': starlinkEnabled,
         'auroraEnabled': auroraEnabled,
         'tiangongEnabled': tiangongEnabled,
+        'meteorsEnabled': meteorsEnabled,
+        'eclipsesEnabled': eclipsesEnabled,
+        'pairingsEnabled': pairingsEnabled,
+        'launchesEnabled': launchesEnabled,
+        'nightVision': nightVision,
         'leadMinutes': leadMinutes,
         'goNowNudge': goNowNudge,
         'quietHours': quietHours.toJson(),
@@ -152,6 +179,11 @@ class LookUpSettings {
       starlinkEnabled: j['starlinkEnabled'] as bool? ?? d.starlinkEnabled,
       auroraEnabled: j['auroraEnabled'] as bool? ?? d.auroraEnabled,
       tiangongEnabled: j['tiangongEnabled'] as bool? ?? d.tiangongEnabled,
+      meteorsEnabled: j['meteorsEnabled'] as bool? ?? d.meteorsEnabled,
+      eclipsesEnabled: j['eclipsesEnabled'] as bool? ?? d.eclipsesEnabled,
+      pairingsEnabled: j['pairingsEnabled'] as bool? ?? d.pairingsEnabled,
+      launchesEnabled: j['launchesEnabled'] as bool? ?? d.launchesEnabled,
+      nightVision: j['nightVision'] as bool? ?? d.nightVision,
       leadMinutes: j['leadMinutes'] as int? ?? d.leadMinutes,
       goNowNudge: j['goNowNudge'] as bool? ?? d.goNowNudge,
       quietHours: j['quietHours'] is Map

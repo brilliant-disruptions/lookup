@@ -3,6 +3,8 @@
 library;
 
 import '../data/celestrak_client.dart';
+import '../data/launch_library_client.dart';
+import '../domain/scheduling/alert_tuning.dart';
 import '../data/local_store.dart';
 import '../data/open_meteo_client.dart';
 import '../data/swpc_client.dart';
@@ -30,12 +32,14 @@ class RefreshService {
     CelestrakClient? celestrak,
     SwpcClient? swpc,
     OpenMeteoClient? meteo,
+    LaunchLibraryClient? launchLibrary,
     LocationService? location,
     this.pipeline = const EventPipeline(),
     this.planner = const AlertPlanner(),
   })  : celestrak = celestrak ?? CelestrakClient(),
         swpc = swpc ?? SwpcClient(),
         meteo = meteo ?? OpenMeteoClient(),
+        launchLibrary = launchLibrary ?? LaunchLibraryClient(),
         location = location ?? const LocationService();
 
   final LocalStore store;
@@ -43,6 +47,7 @@ class RefreshService {
   final CelestrakClient celestrak;
   final SwpcClient swpc;
   final OpenMeteoClient meteo;
+  final LaunchLibraryClient launchLibrary;
   final LocationService location;
   final EventPipeline pipeline;
   final AlertPlanner planner;
@@ -50,6 +55,7 @@ class RefreshService {
   static const elementsMaxAge = Duration(hours: 24);
   static const cloudsMaxAge = Duration(hours: 6);
   static const auroraMaxAge = Duration(minutes: 30);
+  static const launchesMaxAge = Duration(hours: 6);
 
   Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false}) async {
     final errors = <String>[];
@@ -135,8 +141,26 @@ class RefreshService {
       }
     }
 
+    var launchesCache = await store.loadLaunches();
+    if (settings.launchesEnabled &&
+        (force || launchesCache == null || now.difference(launchesCache.fetchedAt) > launchesMaxAge)) {
+      try {
+        final raw = await launchLibrary.fetchUpcomingRaw();
+        await store.saveLaunches(raw, now);
+        launchesCache = (fetchedAt: now, raw: raw);
+      } catch (e) {
+        errors.add('launches: $e');
+      }
+    }
+    final launches = LaunchLibraryClient.parse(launchesCache?.raw ?? const []);
+
+    // Learned thresholds from "what got in the way?" answers.
+    final tuning = AlertTuning.from([for (final f in await store.loadFeedback()) f.toSighting()], now: now);
+    final tuned = tuning.apply(settings);
+
     final events = pipeline.build(PipelineInputs(
-      settings: settings,
+      launches: launches,
+      settings: tuned,
       now: now,
       iss: iss,
       tiangong: tiangong,
@@ -158,7 +182,7 @@ class RefreshService {
 
     final offset = NotificationService.utcOffsetMinutes();
     final plan = planner.plan(
-        events: events, settings: settings, now: now, utcOffsetMinutes: offset);
+        events: events, settings: tuned, now: now, utcOffsetMinutes: offset, tuning: tuning);
     try {
       final previous = await store.loadPlannedIds();
       final scheduled = await notifications.applyPlan(plan, previous);

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/sky_event.dart';
 import '../state/providers.dart';
 import 'demo.dart';
+import 'finder_screen.dart';
+import 'widgets/pass_timeline.dart';
 import 'fancy/foil_text.dart';
 import 'fancy/invite_frame.dart';
 import 'fancy/ornament_rule.dart';
@@ -114,16 +117,31 @@ class NowScreen extends ConsumerWidget {
   }
 }
 
-class _NextCard extends ConsumerWidget {
+class _NextCard extends ConsumerStatefulWidget {
   const _NextCard({required this.event});
   final SkyEvent event;
+  @override
+  ConsumerState<_NextCard> createState() => _NextCardState();
+}
+
+class _NextCardState extends ConsumerState<_NextCard> {
+  bool? _wasLive;
+
+  SkyEvent get event => widget.event;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final now = ref.watch(clockProvider).value ?? DateTime.now();
     final t = Theme.of(context).textTheme;
     final live = !now.toUtc().isBefore(event.start);
     final until = event.start.difference(now.toUtc());
+    // Go-now moment while the app is open: a firm buzz and a chime.
+    if (_wasLive == false && live) {
+      HapticFeedback.heavyImpact();
+      SystemSound.play(SystemSoundType.alert);
+    }
+    _wasLive = live;
+    final isPass = event.type == SkyEventType.iss || event.type == SkyEventType.tiangong || event.type == SkyEventType.starlinkTrain;
     return InviteFrame(
       onTap: () => showLookSheet(context, event),
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
@@ -138,9 +156,13 @@ class _NextCard extends ConsumerWidget {
               const SizedBox(height: 14),
               Text(eventTitle(event), style: displaySerif(context, size: 40, weight: FontWeight.w500)),
               const SizedBox(height: 2),
-              FoilText(
-                live ? 'Go outside now' : 'in ${fmtCountdown(until)}',
-                style: displaySerif(context, size: 58, weight: FontWeight.w600, italic: true, height: 1.0),
+              Semantics(
+                liveRegion: true,
+                label: live ? 'Happening now. Go outside.' : 'Starts in ${fmtCountdown(until)}',
+                child: FoilText(
+                  live ? 'Go outside now' : 'in ${fmtCountdown(until)}',
+                  style: displaySerif(context, size: 58, weight: FontWeight.w600, italic: true, height: 1.0),
+                ),
               ),
               const SizedBox(height: 10),
               Row(children: [
@@ -155,6 +177,19 @@ class _NextCard extends ConsumerWidget {
               Container(height: 1, color: LookUpColors.line),
               const SizedBox(height: 14),
               Text(eventSubtitle(event), style: t.bodyLarge?.copyWith(height: 1.4)),
+              if (live && isPass) ...[
+                const SizedBox(height: 16),
+                PassTimeline(event: event, now: now),
+              ],
+              if (live || until < const Duration(minutes: 30)) ...[
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => openFinder(context, event),
+                  icon: const Icon(Icons.explore_outlined),
+                  label: const Text('FIND IT IN THE SKY'),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                ),
+              ],
               if (event.isEstimate)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),

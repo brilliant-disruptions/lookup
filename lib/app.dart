@@ -18,6 +18,11 @@ class LookUpApp extends ConsumerWidget {
       title: 'LookUp',
       theme: theme,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) => NightVision(
+        enabled: settings.value?.nightVision ?? false,
+        // Respect large text, but cap it where the layouts would break.
+        child: MediaQuery.withClampedTextScaling(maxScaleFactor: 1.6, child: child ?? const SizedBox()),
+      ),
       home: settings.when(
         loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (e, _) => Scaffold(body: Center(child: Text('$e'))),

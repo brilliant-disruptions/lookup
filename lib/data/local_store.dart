@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/aurora/aurora_rules.dart';
+import '../domain/log/sighting.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
@@ -65,6 +66,7 @@ class LocalStore {
   static const _kSettings = 'settings';
   static const _kEvents = 'events';
   static const _kRecent = 'recent_events';
+  static const _kLaunches = 'launches';
   static const _kPlan = 'plan_ids';
   static const _kAurora = 'aurora';
   static const _kClouds = 'clouds';
@@ -166,6 +168,23 @@ class LocalStore {
   Future<void> saveRecent(List<SkyEvent> events) =>
       _prefs.setString(_kRecent, jsonEncode([for (final e in events) e.toJson()]));
 
+  Future<({DateTime fetchedAt, List<Map<String, Object?>> raw})?> loadLaunches() async {
+    final raw = await _prefs.getString(_kLaunches);
+    if (raw == null) return null;
+    try {
+      final j = (jsonDecode(raw) as Map).cast<String, Object?>();
+      return (
+        fetchedAt: DateTime.parse(j['t'] as String).toUtc(),
+        raw: [for (final r in j['r'] as List) (r as Map).cast<String, Object?>()],
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveLaunches(List<Map<String, Object?>> raw, DateTime at) =>
+      _prefs.setString(_kLaunches, jsonEncode({'t': at.toUtc().toIso8601String(), 'r': raw}));
+
   /// Notification ids currently scheduled, so a re-plan can cancel strays.
   Future<Set<int>> loadPlannedIds() async {
     final raw = await _prefs.getStringList(_kPlan);
@@ -187,18 +206,72 @@ class LocalStore {
 /// "Did you see it?" answers, kept on-device (spec §6). Phase 1 uploads an
 /// anonymised aggregate to tune thresholds.
 class SeenFeedback {
-  const SeenFeedback({required this.eventId, required this.seen, required this.at, this.reason});
+  const SeenFeedback({
+    required this.eventId,
+    required this.seen,
+    required this.at,
+    this.reason,
+    this.type,
+    this.eventTime,
+    this.peakElevationDeg,
+    this.magnitude,
+    this.place,
+  });
   final String eventId;
   final bool seen;
   final DateTime at;
   final String? reason; // clouds | too-low | missed
+  final SkyEventType? type;
+  final DateTime? eventTime;
+  final double? peakElevationDeg;
+  final double? magnitude;
+  final String? place;
 
-  Map<String, Object?> toJson() => {'e': eventId, 's': seen, 't': at.toIso8601String(), 'r': reason};
+  factory SeenFeedback.forEvent(SkyEvent e, {required bool seen, String? reason, String? place, DateTime? at}) => SeenFeedback(
+        eventId: e.id,
+        seen: seen,
+        at: (at ?? DateTime.now()).toUtc(),
+        reason: reason,
+        type: e.type,
+        eventTime: e.peak,
+        peakElevationDeg: e.peakElevationDeg,
+        magnitude: (e.details['magnitude'] as num?)?.toDouble(),
+        place: place,
+      );
+
+  Sighting toSighting() => Sighting(
+        eventId: eventId,
+        seen: seen,
+        at: at,
+        reason: reason,
+        type: type,
+        eventTime: eventTime,
+        peakElevationDeg: peakElevationDeg,
+        magnitude: magnitude,
+        place: place,
+      );
+
+  Map<String, Object?> toJson() => {
+        'e': eventId,
+        's': seen,
+        't': at.toIso8601String(),
+        'r': reason,
+        if (type != null) 'ty': type!.name,
+        if (eventTime != null) 'et': eventTime!.toIso8601String(),
+        if (peakElevationDeg != null) 'el': peakElevationDeg,
+        if (magnitude != null) 'mg': magnitude,
+        if (place != null) 'pl': place,
+      };
   factory SeenFeedback.fromJson(Map<String, Object?> j) => SeenFeedback(
         eventId: j['e'] as String,
         seen: j['s'] as bool,
         at: DateTime.parse(j['t'] as String).toUtc(),
         reason: j['r'] as String?,
+        type: SkyEventType.values.where((t) => t.name == j['ty']).firstOrNull,
+        eventTime: j['et'] == null ? null : DateTime.parse(j['et'] as String).toUtc(),
+        peakElevationDeg: (j['el'] as num?)?.toDouble(),
+        magnitude: (j['mg'] as num?)?.toDouble(),
+        place: j['pl'] as String?,
       );
 }
 
