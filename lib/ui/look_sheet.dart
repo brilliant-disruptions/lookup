@@ -18,6 +18,7 @@ import 'format.dart';
 import 'theme.dart';
 import 'widgets/compass_arrow.dart';
 import 'widgets/countdown_ring.dart';
+import 'widgets/station_facts.dart';
 import 'widgets/pass_timeline.dart';
 
 Future<void> showLookSheet(BuildContext context, SkyEvent event) =>
@@ -87,7 +88,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     final isTransit = event.type == SkyEventType.issTransit;
     final place = ref.watch(settingsProvider).value?.placeName;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -152,6 +153,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               textAlign: TextAlign.center,
               style: t.labelSmall?.copyWith(color: LookUpColors.greyDim, letterSpacing: 1.8, fontSize: 10.5, fontWeight: FontWeight.w700),
             ),
+            if (event.type == SkyEventType.iss || event.type == SkyEventType.tiangong) StationFacts(event: event),
             if (isTransit) ...[
               const SizedBox(height: 10),
               Text(

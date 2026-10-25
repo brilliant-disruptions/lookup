@@ -37,6 +37,7 @@ class PassPredictor {
     CloudForecast? clouds,
     Map<String, Object?> details = const {},
     String? idPrefix,
+    double? stdMag,
   }) {
     final sat = SatelliteObserver(
       elements: record.toElements(),
@@ -68,7 +69,7 @@ class PassPredictor {
         observerEci: observerEci(observer.latitudeDeg, observer.longitudeDeg, peakLook.utc),
         utc: peakLook.utc,
       );
-      final mag = satelliteMagnitude(stdMag: _stdMagFor(type), rangeKm: peakLook.rangeKm, phaseDeg: phase);
+      final mag = satelliteMagnitude(stdMag: stdMag ?? _stdMagFor(type), rangeKm: peakLook.rangeKm, phaseDeg: phase);
       final riseLook = sat.lookAngleAt(start);
       final setLook = sat.lookAngleAt(end);
       final key = '${idPrefix ?? type.name}:${_minuteKey(peakLook.utc)}';

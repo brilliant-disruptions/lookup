@@ -72,6 +72,7 @@ class LocalStore {
   static const _kClouds = 'clouds';
   static const _kLastRefresh = 'last_refresh';
   static const _kFeedback = 'feedback';
+  static const _kCrew = 'crew';
   static String _kElements(String key) => 'elements_$key';
 
   Future<LookUpSettings> loadSettings() async {
@@ -184,6 +185,21 @@ class LocalStore {
 
   Future<void> saveLaunches(List<Map<String, Object?>> raw, DateTime at) =>
       _prefs.setString(_kLaunches, jsonEncode({'t': at.toUtc().toIso8601String(), 'r': raw}));
+
+  /// Station crews (trimmed Launch Library JSON) and when we fetched them.
+  Future<({DateTime fetchedAt, Object? json})?> loadCrew() async {
+    final raw = await _prefs.getString(_kCrew);
+    if (raw == null) return null;
+    try {
+      final j = (jsonDecode(raw) as Map).cast<String, Object?>();
+      return (fetchedAt: DateTime.parse(j['t'] as String).toUtc(), json: j['d']);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveCrew(Object? json, DateTime at) =>
+      _prefs.setString(_kCrew, jsonEncode({'t': at.toUtc().toIso8601String(), 'd': json}));
 
   /// Notification ids currently scheduled, so a re-plan can cancel strays.
   Future<Set<int>> loadPlannedIds() async {

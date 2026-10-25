@@ -27,6 +27,10 @@ class CelestrakClient {
   Future<List<OmmRecord>> fetchStarlinkSupplemental() =>
       _get('$_base/supplemental/sup-gp.php?FILE=starlink&FORMAT=json');
 
+  /// The ~150 brightest objects (Celestrak's "visual" group), for the
+  /// satellites-tonight list. Fetched on demand, at most daily.
+  Future<List<OmmRecord>> fetchVisual() => _get('$_base/gp.php?GROUP=visual&FORMAT=json');
+
   Future<List<OmmRecord>> _get(String url) => withRetry(() => _getOnce(url));
 
   Future<List<OmmRecord>> _getOnce(String url) async {

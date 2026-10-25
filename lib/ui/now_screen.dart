@@ -15,6 +15,7 @@ import 'fancy/starfield.dart';
 import 'format.dart';
 import 'look_sheet.dart';
 import 'paywall_sheet.dart';
+import 'satellites_screen.dart';
 import 'theme.dart';
 
 class NowScreen extends ConsumerWidget {
@@ -63,13 +64,18 @@ class NowScreen extends ConsumerWidget {
               ..._recent(d),
               Padding(
                 padding: const EdgeInsets.only(top: 18),
-                child: Center(
-                  child: TextButton.icon(
+                child: Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
+                  TextButton.icon(
+                    onPressed: () => openSatellitesTonight(context),
+                    icon: const Icon(Icons.satellite_alt_outlined, size: 18),
+                    label: const Text('Satellites tonight'),
+                  ),
+                  TextButton.icon(
                     onPressed: () => showDemo(context, ref),
                     icon: const Icon(Icons.play_circle_outline, size: 18),
                     label: const Text('Preview an alert'),
                   ),
-                ),
+                ]),
               ),
               if (d.errors.isNotEmpty)
                 Padding(

@@ -7,6 +7,7 @@ import 'fancy/ornament_rule.dart';
 import 'fancy/rise.dart';
 import 'format.dart';
 import 'look_sheet.dart';
+import 'satellites_screen.dart';
 import 'theme.dart';
 
 class UpcomingScreen extends ConsumerWidget {
@@ -16,7 +17,16 @@ class UpcomingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider);
     return Scaffold(
-      appBar: AppBar(title: Text('The sky over you', style: displaySerif(context, size: 26, weight: FontWeight.w600))),
+      appBar: AppBar(
+        title: Text('The sky over you', style: displaySerif(context, size: 26, weight: FontWeight.w600)),
+        actions: [
+          IconButton(
+            tooltip: 'Satellites tonight',
+            icon: const Icon(Icons.satellite_alt_outlined),
+            onPressed: () => openSatellitesTonight(context),
+          ),
+        ],
+      ),
       body: home.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
