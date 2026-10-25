@@ -85,7 +85,7 @@
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Add meteor showers, eclipses and flyovers to your calendar.</string>
 	<key>NSContactsUsageDescription</key>
-	<string>Only used by the calendar screen if you invite someone to watch with you.</string>
+	<string>Apple's calendar screen can suggest places from your contacts. LookUp never reads them.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

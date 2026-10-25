@@ -6,6 +6,7 @@ import '../state/providers.dart';
 import 'demo.dart';
 import 'fancy/ornament_rule.dart';
 import 'paywall_sheet.dart';
+import 'places_screen.dart';
 import 'theme.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -28,21 +29,16 @@ class SettingsScreen extends ConsumerWidget {
           const _Header('Location'),
           ListTile(
             leading: const Icon(Icons.my_location),
-            title: Text(s.locationMode == LocationMode.auto ? 'Using your phone\'s location' : 'Pinned place'),
+            title: Text(s.locationMode == LocationMode.auto
+                ? 'Following your phone'
+                : (s.placeName?.isNotEmpty ?? false) ? s.placeName! : 'Pinned place'),
             subtitle: Text(s.hasLocation
-                ? '${s.latitude!.toStringAsFixed(2)}, ${s.longitude!.toStringAsFixed(2)}${s.placeName != null ? ' · ${s.placeName}' : ''}'
+                ? '${s.latitude!.toStringAsFixed(2)}, ${s.longitude!.toStringAsFixed(2)}'
+                    '${s.places.isEmpty ? '' : ' · ${s.places.length} saved place${s.places.length == 1 ? '' : 's'}'}'
                 : 'No location yet'),
-            trailing: TextButton(
-              onPressed: () => _pinDialog(context, s, set),
-              child: Text(s.locationMode == LocationMode.auto ? 'Pin a place' : 'Change'),
-            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => openPlaces(context),
           ),
-          if (s.locationMode == LocationMode.pinned)
-            ListTile(
-              leading: const SizedBox(width: 24),
-              title: const Text('Use my phone\'s location instead'),
-              onTap: () => set((s) => s.copyWith(locationMode: LocationMode.auto, placeName: '')),
-            ),
           const _Header('Tap me for'),
           SwitchListTile(
             value: s.issEnabled,
@@ -209,33 +205,6 @@ class SettingsScreen extends ConsumerWidget {
     if (end == null) return;
     await set((s) => s.copyWith(
         quietHours: QuietHours(startMinute: start.hour * 60 + start.minute, endMinute: end.hour * 60 + end.minute)));
-  }
-
-  Future<void> _pinDialog(BuildContext context, LookUpSettings s,
-      Future<void> Function(LookUpSettings Function(LookUpSettings)) set) async {
-    final name = TextEditingController(text: s.placeName ?? '');
-    final lat = TextEditingController(text: s.latitude?.toStringAsFixed(4) ?? '');
-    final lon = TextEditingController(text: s.longitude?.toStringAsFixed(4) ?? '');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Pin a place'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: name, decoration: const InputDecoration(labelText: 'Name (e.g. Nashville)')),
-          TextField(controller: lat, decoration: const InputDecoration(labelText: 'Latitude'), keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true)),
-          TextField(controller: lon, decoration: const InputDecoration(labelText: 'Longitude'), keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true)),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Pin')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final la = double.tryParse(lat.text), lo = double.tryParse(lon.text);
-    if (la == null || lo == null || la.abs() > 90 || lo.abs() > 180) return;
-    await set((s) => s.copyWith(
-        locationMode: LocationMode.pinned, latitude: la, longitude: lo, placeName: name.text.trim()));
   }
 }
 

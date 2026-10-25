@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../state/providers.dart';
 import 'demo.dart';
@@ -15,6 +16,7 @@ import 'fancy/starfield.dart';
 import 'format.dart';
 import 'look_sheet.dart';
 import 'paywall_sheet.dart';
+import 'places_screen.dart';
 import 'satellites_screen.dart';
 import 'theme.dart';
 
@@ -34,11 +36,15 @@ class NowScreen extends ConsumerWidget {
           Text('.', style: displaySerif(context, size: 26, weight: FontWeight.w700, color: LookUpColors.blue)),
         ]),
         actions: [
-          if (settings?.placeName != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Center(child: Eyebrow(settings!.placeName!)),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: TextButton.icon(
+              onPressed: () => openPlaces(context),
+              icon: Icon(settings?.locationMode == LocationMode.pinned ? Icons.place_outlined : Icons.near_me_outlined,
+                  size: 16, color: LookUpColors.grey),
+              label: Eyebrow((settings?.placeName?.isNotEmpty ?? false) ? settings!.placeName! : 'Here'),
             ),
+          ),
         ],
       ),
       body: Starfield(

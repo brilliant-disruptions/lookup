@@ -29,6 +29,23 @@ class QuietHours {
 
 enum LocationMode { auto, pinned }
 
+/// A place the user saved: home, the cabin, a trip.
+class SavedPlace {
+  const SavedPlace({required this.name, required this.latitude, required this.longitude});
+  final String name;
+  final double latitude;
+  final double longitude;
+
+  bool sameSpot(double lat, double lon) => (latitude - lat).abs() < 1e-4 && (longitude - lon).abs() < 1e-4;
+
+  Map<String, Object?> toJson() => {'n': name, 'la': latitude, 'lo': longitude};
+  factory SavedPlace.fromJson(Map<String, Object?> j) => SavedPlace(
+        name: j['n'] as String? ?? '',
+        latitude: (j['la'] as num).toDouble(),
+        longitude: (j['lo'] as num).toDouble(),
+      );
+}
+
 class LookUpSettings {
   const LookUpSettings({
     this.latitude,
@@ -55,6 +72,7 @@ class LookUpSettings {
     this.minIssPeakElevationDeg = 25,
     this.minStarlinkPeakElevationDeg = 20,
     this.onboarded = false,
+    this.places = const [],
   });
 
   final double? latitude;
@@ -86,7 +104,25 @@ class LookUpSettings {
   final double minStarlinkPeakElevationDeg;
   final bool onboarded;
 
+  /// Saved places to switch between. The active one is the pinned
+  /// [latitude]/[longitude] when [locationMode] is pinned.
+  final List<SavedPlace> places;
+
   bool get hasLocation => latitude != null && longitude != null;
+
+  /// Pin [p] as the active place (adding it to [places] if new).
+  LookUpSettings usePlace(SavedPlace p) => copyWith(
+        locationMode: LocationMode.pinned,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        placeName: p.name,
+        places: places.any((x) => x.sameSpot(p.latitude, p.longitude)) ? places : [...places, p],
+      );
+
+  /// The saved place currently in use, if any.
+  SavedPlace? get activePlace => locationMode == LocationMode.pinned && hasLocation
+      ? places.where((p) => p.sameSpot(latitude!, longitude!)).firstOrNull
+      : null;
 
   /// Cloud cover above which an event is "cloudy" (suppressed when
   /// [clearSkyOnly]).
@@ -117,6 +153,7 @@ class LookUpSettings {
     double? minIssPeakElevationDeg,
     double? minStarlinkPeakElevationDeg,
     bool? onboarded,
+    List<SavedPlace>? places,
   }) =>
       LookUpSettings(
         latitude: latitude ?? this.latitude,
@@ -145,6 +182,7 @@ class LookUpSettings {
         minStarlinkPeakElevationDeg:
             minStarlinkPeakElevationDeg ?? this.minStarlinkPeakElevationDeg,
         onboarded: onboarded ?? this.onboarded,
+        places: places ?? this.places,
       );
 
   Map<String, Object?> toJson() => {
@@ -172,6 +210,7 @@ class LookUpSettings {
         'minIssPeakElevationDeg': minIssPeakElevationDeg,
         'minStarlinkPeakElevationDeg': minStarlinkPeakElevationDeg,
         'onboarded': onboarded,
+        'places': [for (final p in places) p.toJson()],
       };
 
   factory LookUpSettings.fromJson(Map<String, Object?> j) {
@@ -207,6 +246,10 @@ class LookUpSettings {
           (j['minStarlinkPeakElevationDeg'] as num?)?.toDouble() ??
               d.minStarlinkPeakElevationDeg,
       onboarded: j['onboarded'] as bool? ?? d.onboarded,
+      places: [
+        for (final p in (j['places'] as List? ?? const []))
+          if (p is Map) SavedPlace.fromJson(p.cast<String, Object?>()),
+      ],
     );
   }
 }

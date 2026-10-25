@@ -10,6 +10,7 @@ import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
 import '../state/providers.dart';
 import 'fancy/foil_text.dart';
+import 'calendar.dart';
 import 'finder_screen.dart';
 import 'share_card.dart';
 import 'fancy/ornament_rule.dart';
@@ -206,6 +207,14 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       ]);
 
   Widget _plainRow(BuildContext context, String? place) => Row(children: [
+        if (!widget.demo) ...[
+          IconButton.outlined(
+            tooltip: 'Add to calendar',
+            onPressed: () => addToCalendar(event, place: place),
+            icon: const Icon(Icons.event_outlined),
+          ),
+          const SizedBox(width: 10),
+        ],
         if (!widget.demo) Expanded(
           child: OutlinedButton.icon(
             onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
