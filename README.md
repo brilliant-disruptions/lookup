@@ -51,8 +51,7 @@ All in `lib/ui/fancy/`. Emoji were dropped (Dearly's rule: warmth comes from typ
 
 ```bash
 flutter pub get
-flutter test            # 80 tests: domain, services, finder widget
-cd supabase && deno task test   # 14 backend tests
+flutter test            # domain, services and finder widget tests
 flutter run             # iOS simulator or Android emulator
 ```
 
@@ -82,7 +81,7 @@ Before the first device build:
 - **Quiet weeks** explain themselves, show the next pass and the last 7 nights; **Preview an alert** plays a full pass in fast-forward.
 - **Night vision** mode, large-text support, screen-reader labels.
 - **Widgets**: Android home-screen widget with live countdown (built in); iOS widget + Live Activity (sources in `ios/LookUpWidgets`, setup in `docs/ios-widgets.md`).
-- **Optional backend** (`supabase/`, `docs/backend.md`): orbit relay, server-pushed "aurora now", verified purchases, anonymous metrics. Off unless configured, like Firebase push and Sentry.
+- **Crash reporting** (Sentry) is optional: off unless built with `--dart-define=LOOKUP_SENTRY_DSN=...`.
 
 ## Data sources (free, public)
 

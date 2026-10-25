@@ -44,7 +44,6 @@ DateTime demoClock(DateTime realStart, DateTime realNow) {
 
 Future<void> showDemo(BuildContext context, WidgetRef ref) async {
   final realStart = DateTime.now();
-  await ref.read(analyticsProvider).log('demo_played');
   final event = demoEvent(realStart);
   // The actual tap people get, so the preview includes the notification.
   try {

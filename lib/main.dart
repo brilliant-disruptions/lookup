@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,10 +14,7 @@ Future<void> _main() async {
   final container = ProviderContainer();
   final notifications = container.read(notificationServiceProvider);
   await notifications.init(
-    onTap: (payload) {
-      container.read(tappedEventIdProvider.notifier).set(payload);
-      container.read(analyticsProvider).log('alert_opened', {'type': payload?.split(':').first});
-    },
+    onTap: (payload) => container.read(tappedEventIdProvider.notifier).set(payload),
   );
   try {
     await BackgroundScheduler.register();
@@ -28,9 +23,6 @@ Future<void> _main() async {
   }
   await container.read(plusServiceProvider).start();
   await WidgetService.init();
-  // Optional remote push; returns quickly when Firebase isn't configured.
-  unawaited(container.read(pushServiceProvider).init());
-  unawaited(container.read(analyticsProvider).log('app_open'));
   runApp(UncontrolledProviderScope(
     container: container,
     child: const LookUpApp(),

@@ -34,7 +34,6 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
   @override
   void initState() {
     super.initState();
-    ref.read(analyticsProvider).log('paywall_shown', {if (widget.reason != null) 'reason': widget.reason!.type.name});
     ref.read(plusServiceProvider).offers().then((o) {
       if (mounted) setState(() => _offers = o);
     }).catchError((e) {
@@ -124,7 +123,6 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
   Future<void> _buy(PlusOffer o) async {
     setState(() => _busy = true);
     try {
-      await ref.read(analyticsProvider).log('purchase_started', {'product': o.id});
       await ref.read(plusServiceProvider).buy(o);
     } catch (e) {
       if (mounted) setState(() => _error = '$e');

@@ -2,8 +2,8 @@
 /// through the official `in_app_purchase` plugin.
 ///
 /// Honest scope: entitlement is trusted from the store's purchase stream and
-/// cached locally. There is no server-side receipt validation yet; add it
-/// (RevenueCat or a Supabase edge function) before scaling paid.
+/// cached locally. There is no server-side receipt validation; add it
+/// (e.g. RevenueCat) before scaling paid.
 library;
 
 import 'dart:async';
@@ -32,13 +32,8 @@ class PlusOffer {
 }
 
 class PlusService {
-  PlusService({InAppPurchase? iap, required this.onEntitlementChanged, this.verify})
+  PlusService({InAppPurchase? iap, required this.onEntitlementChanged})
       : _iap = iap ?? InAppPurchase.instance;
-
-  /// Optional server-side check (backend verify-receipt). Returns whether the
-  /// entitlement is active; null means "couldn't verify", in which case the
-  /// store's local result stands (never punish a buyer for our outage).
-  final Future<bool?> Function(PurchaseDetails p)? verify;
 
   final InAppPurchase _iap;
 
@@ -83,15 +78,7 @@ class PlusService {
       switch (p.status) {
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
-          if (PlusProducts.all.contains(p.productID)) {
-            bool? verified;
-            try {
-              verified = await verify?.call(p);
-            } catch (_) {
-              verified = null;
-            }
-            onEntitlementChanged(verified ?? true);
-          }
+          if (PlusProducts.all.contains(p.productID)) onEntitlementChanged(true);
         case PurchaseStatus.error:
           _errors.add(p.error?.message ?? 'Purchase failed');
         case PurchaseStatus.canceled:

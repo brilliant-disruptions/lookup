@@ -33,8 +33,6 @@ dependencies:
   flutter_rotation_sensor: ^0.4.0
   path_provider: ^2.1.6
   home_widget: ^0.10.0
-  firebase_core: ^5.1.0
-  firebase_messaging: ^17.0.1
   sentry_flutter: ^10.2.0
   intl: any
 

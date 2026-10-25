@@ -24,11 +24,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
       _error = null;
     });
     final loc = await ref.read(locationServiceProvider).requestPermission();
-    final notif = await ref.read(notificationServiceProvider).requestPermission();
-    final a = ref.read(analyticsProvider);
-    await a.log('location_permission', {'granted': loc});
-    await a.log('notif_permission', {'granted': notif});
-    await a.log('onboarded');
+    await ref.read(notificationServiceProvider).requestPermission();
     if (!loc) {
       setState(() {
         _busy = false;

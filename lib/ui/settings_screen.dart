@@ -137,7 +137,6 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Red screen that keeps your eyes dark-adapted outside'),
           ),
           ..._learned(ref),
-          if (ref.watch(backendProvider) != null) const _AnalyticsToggle(),
           const _Header('LookUp+'),
           ListTile(
             leading: const Icon(Icons.auto_awesome),
@@ -240,35 +239,5 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 26, 16, 6),
         child: OrnamentRule(label: text, color: LookUpColors.greyDim),
-      );
-}
-
-class _AnalyticsToggle extends ConsumerStatefulWidget {
-  const _AnalyticsToggle();
-  @override
-  ConsumerState<_AnalyticsToggle> createState() => _AnalyticsToggleState();
-}
-
-class _AnalyticsToggleState extends ConsumerState<_AnalyticsToggle> {
-  bool? _optedOut;
-  @override
-  void initState() {
-    super.initState();
-    ref.read(analyticsProvider).optedOut.then((v) {
-      if (mounted) setState(() => _optedOut = v);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => SwitchListTile(
-        value: !(_optedOut ?? false),
-        onChanged: _optedOut == null
-            ? null
-            : (v) async {
-                await ref.read(analyticsProvider).setOptOut(!v);
-                setState(() => _optedOut = !v);
-              },
-        title: const Text('Share anonymous usage'),
-        subtitle: const Text('Counts like "alerts that were worth it". No location, no identity.'),
       );
 }

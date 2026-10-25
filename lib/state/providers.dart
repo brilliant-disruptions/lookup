@@ -1,16 +1,12 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/backend.dart';
 import '../data/local_store.dart';
 import '../domain/log/sky_log.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
-import '../services/analytics.dart';
 import '../services/live_activity.dart';
 import '../services/location_service.dart';
-import '../services/push_service.dart';
 import '../services/widget_service.dart';
 import '../services/notification_service.dart';
 import '../services/plus_service.dart';
@@ -21,15 +17,6 @@ final notificationServiceProvider =
     Provider<NotificationService>((_) => NotificationService());
 final locationServiceProvider =
     Provider<LocationService>((_) => const LocationService());
-final backendProvider = Provider<BackendClient?>((_) {
-  final c = BackendConfig.fromEnvironment();
-  return c == null ? null : BackendClient(c);
-});
-final analyticsProvider = Provider<Analytics>((ref) => Analytics(backend: ref.watch(backendProvider)));
-final pushServiceProvider = Provider<PushService>((ref) => PushService(
-      onForegroundMessage: (title, body, _) =>
-          ref.read(notificationServiceProvider).showNow(id: 11, title: title, body: body),
-    ));
 final widgetServiceProvider = Provider<WidgetService>((_) => const WidgetService());
 final liveActivityProvider = Provider<LiveActivityService>((_) => const LiveActivityService());
 
@@ -37,26 +24,7 @@ final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(
       store: ref.watch(storeProvider),
       notifications: ref.watch(notificationServiceProvider),
       location: ref.watch(locationServiceProvider),
-      backend: ref.watch(backendProvider),
-      onRefreshed: (settings, events) async {
-        await ref.read(widgetServiceProvider).update(events);
-        final backend = ref.read(backendProvider);
-        final token = ref.read(pushServiceProvider).token;
-        if (backend != null && token != null && settings.hasLocation) {
-          await backend.registerDevice({
-            'token': token,
-            'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-            'lat': settings.latitude,
-            'lon': settings.longitude,
-            'plus': settings.isPlus,
-            'wakeMe': settings.auroraWakeMe,
-            'quietStart': settings.quietHours.startMinute,
-            'quietEnd': settings.quietHours.endMinute,
-            'utcOffsetMin': DateTime.now().timeZoneOffset.inMinutes,
-          });
-        }
-        await ref.read(analyticsProvider).flush();
-      },
+      onRefreshed: (settings, events) => ref.read(widgetServiceProvider).update(events),
     ));
 
 class SettingsNotifier extends AsyncNotifier<LookUpSettings> {
@@ -153,22 +121,7 @@ final plusServiceProvider = Provider<PlusService>((ref) {
   final svc = PlusService(
     onEntitlementChanged: (isPlus) async {
       await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(isPlus: isPlus));
-      if (isPlus) await ref.read(analyticsProvider).log('purchase_completed');
       await ref.read(homeProvider.notifier).refresh();
-    },
-    verify: (p) async {
-      final backend = ref.read(backendProvider);
-      if (backend == null) return null;
-      final ios = defaultTargetPlatform == TargetPlatform.iOS;
-      final r = await backend.verifyReceipt({
-        'installId': await ref.read(analyticsProvider).installId(),
-        'platform': ios ? 'ios' : 'android',
-        if (ios) 'transactionId': p.purchaseID,
-        if (!ios) 'productId': p.productID,
-        if (!ios) 'purchaseToken': p.verificationData.serverVerificationData,
-        'pushToken': ?ref.read(pushServiceProvider).token,
-      });
-      return r['active'] == true;
     },
   );
   ref.onDispose(svc.dispose);

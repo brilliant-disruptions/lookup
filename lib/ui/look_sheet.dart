@@ -61,7 +61,6 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       });
       return;
     }
-    unawaited(ref.read(analyticsProvider).log(seen ? 'seen_yes' : 'seen_no', {'type': event.type.name, 'reason': ?reason}));
     await ref.read(storeProvider).addFeedback(SeenFeedback.forEvent(event,
         seen: seen, reason: reason, place: ref.read(settingsProvider).value?.placeName));
     ref.invalidate(skyLogProvider);
@@ -149,10 +148,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: FilledButton.icon(
-                  onPressed: () {
-                    unawaited(ref.read(analyticsProvider).log('finder_opened', {'type': event.type.name}));
-                    openFinder(context, event);
-                  },
+                  onPressed: () => openFinder(context, event),
                   icon: const Icon(Icons.explore_outlined),
                   label: const Text('FIND IT IN THE SKY'),
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
@@ -183,10 +179,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
   Widget _plainRow(BuildContext context, String? place) => Row(children: [
         if (!widget.demo) Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {
-              unawaited(ref.read(analyticsProvider).log('invite', {'type': event.type.name}));
-              showShareCard(context, event, mode: ShareMode.invite);
-            },
+            onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
             icon: const Icon(Icons.group_add_outlined),
             label: const Text('Tell someone'),
           ),
@@ -208,10 +201,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
         Text('Glad you caught it.', textAlign: TextAlign.center, style: displaySerif(context, size: 24, italic: true, weight: FontWeight.w500)),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: () {
-            unawaited(ref.read(analyticsProvider).log('share', {'type': event.type.name}));
-            showShareCard(context, event);
-          },
+          onPressed: () => showShareCard(context, event),
           icon: const Icon(Icons.ios_share),
           label: const Text('Share it'),
         ),

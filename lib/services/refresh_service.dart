@@ -2,7 +2,6 @@
 /// Every source failure is tolerated: the previous cache stands.
 library;
 
-import '../data/backend.dart';
 import '../data/celestrak_client.dart';
 import '../data/launch_library_client.dart';
 import '../domain/scheduling/alert_tuning.dart';
@@ -35,7 +34,6 @@ class RefreshService {
     OpenMeteoClient? meteo,
     LaunchLibraryClient? launchLibrary,
     LocationService? location,
-    this.backend,
     this.onRefreshed,
     this.pipeline = const EventPipeline(),
     this.planner = const AlertPlanner(),
@@ -53,11 +51,8 @@ class RefreshService {
   final LaunchLibraryClient launchLibrary;
   final LocationService location;
 
-  /// Optional relay: one small cached bundle instead of four big fetches.
-  final BackendClient? backend;
-
-  /// Called after each successful refresh (device registration, widgets,
-  /// analytics flush). Errors there never fail the refresh.
+  /// Called after each successful refresh (home-screen widgets). Errors
+  /// there never fail the refresh.
   final Future<void> Function(LookUpSettings settings, List<SkyEvent> events)? onRefreshed;
   final EventPipeline pipeline;
   final AlertPlanner planner;
@@ -98,23 +93,6 @@ class RefreshService {
         errors.add('$key: $e');
       }
       return cached?.records;
-    }
-
-    // Prefer the backend relay (trimmed Starlink, cached hourly for everyone).
-    OrbitBundle? bundle;
-    final relay = backend;
-    final elementsStale = (await store.loadElements('iss'))?.isOlderThan(elementsMaxAge, now) ?? true;
-    if (relay != null && (force || elementsStale)) {
-      try {
-        bundle = await relay.orbits();
-        if (bundle.iss.isNotEmpty) await store.saveElements('iss', bundle.iss, now);
-        if (bundle.tiangong.isNotEmpty) await store.saveElements('tiangong', bundle.tiangong, now);
-        await store.saveElements('starlink', bundle.starlink, now);
-        if (bundle.launchesRaw.isNotEmpty) await store.saveLaunches(bundle.launchesRaw, now);
-      } catch (e) {
-        errors.add('relay: $e');
-        bundle = null;
-      }
     }
 
     final iss = await elements('iss', () => celestrak.fetchByCatalogNumber(Norad.iss));
