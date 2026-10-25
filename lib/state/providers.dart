@@ -11,6 +11,7 @@ import '../services/widget_service.dart';
 import '../services/notification_service.dart';
 import '../services/plus_service.dart';
 import '../services/refresh_service.dart';
+import '../services/shortcut_summary.dart';
 
 final storeProvider = Provider<LocalStore>((_) => LocalStore());
 final notificationServiceProvider =
@@ -24,7 +25,10 @@ final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(
       store: ref.watch(storeProvider),
       notifications: ref.watch(notificationServiceProvider),
       location: ref.watch(locationServiceProvider),
-      onRefreshed: (settings, events) => ref.read(widgetServiceProvider).update(events),
+      onRefreshed: (settings, events) async {
+        await ref.read(widgetServiceProvider).update(events);
+        await saveShortcutSummary(events);
+      },
     ));
 
 class SettingsNotifier extends AsyncNotifier<LookUpSettings> {

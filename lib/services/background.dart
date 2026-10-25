@@ -7,6 +7,8 @@ import 'package:workmanager/workmanager.dart';
 import '../data/local_store.dart';
 import 'notification_service.dart';
 import 'refresh_service.dart';
+import 'shortcut_summary.dart';
+import 'widget_service.dart';
 
 const backgroundTaskId = 'com.brilliantdisruptions.lookup.refresh';
 
@@ -16,7 +18,16 @@ void callbackDispatcher() {
     try {
       final notifications = NotificationService();
       await notifications.init();
-      final service = RefreshService(store: LocalStore(), notifications: notifications);
+      await WidgetService.init();
+      final service = RefreshService(
+        store: LocalStore(),
+        notifications: notifications,
+        // Keep the home-screen widget and Siri's answer fresh too.
+        onRefreshed: (settings, events) async {
+          await const WidgetService().update(events);
+          await saveShortcutSummary(events);
+        },
+      );
       await service.run();
     } catch (_) {
       // Returning true avoids exponential backoff for transient failures;
