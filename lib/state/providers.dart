@@ -69,7 +69,10 @@ class HomeData {
   List<SkyEvent> get transits => [for (final e in events) if (e.type == SkyEventType.issTransit) e];
 
   /// The app has never managed to load orbit data (offline first launch).
-  bool get noData => lastRefresh == null && events.isEmpty && errors.isNotEmpty;
+  bool get noData => lastRefresh == null && events.isEmpty && errors.isNotEmpty && !needsLocation;
+
+  /// No location at all: permission refused and no place pinned.
+  bool get needsLocation => events.isEmpty && errors.contains('no location');
   SkyEvent? get auroraOutlook =>
       events.where((e) => e.type == SkyEventType.auroraOutlook).firstOrNull;
 }
@@ -109,6 +112,10 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
 }
 
 final homeProvider = AsyncNotifierProvider<HomeNotifier, HomeData>(HomeNotifier.new);
+
+/// Whether alerts can reach the user (null: the platform can't say).
+/// Re-checked when the app comes back to the foreground.
+final alertsEnabledProvider = FutureProvider<bool?>((ref) => ref.watch(notificationServiceProvider).alertsEnabled());
 
 /// Ticks once a second for countdowns.
 final clockProvider = StreamProvider<DateTime>(

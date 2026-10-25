@@ -4,8 +4,31 @@ import '../domain/models/settings.dart';
 
 typedef LatLon = ({double lat, double lon});
 
+enum LocationAccess { granted, askable, blocked, servicesOff }
+
 class LocationService {
   const LocationService();
+
+  /// Whether we can ask again or must send the user to Settings.
+  Future<LocationAccess> access() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return LocationAccess.servicesOff;
+      return switch (await Geolocator.checkPermission()) {
+        LocationPermission.always || LocationPermission.whileInUse => LocationAccess.granted,
+        LocationPermission.deniedForever => LocationAccess.blocked,
+        _ => LocationAccess.askable,
+      };
+    } catch (_) {
+      return LocationAccess.askable;
+    }
+  }
+
+  /// The app's page in system Settings (location and notification switches).
+  Future<void> openSettings() async {
+    try {
+      await Geolocator.openAppSettings();
+    } catch (_) {}
+  }
 
   Future<bool> requestPermission() async {
     var p = await Geolocator.checkPermission();

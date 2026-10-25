@@ -20,10 +20,22 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _tab = 0;
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
+    // Back from Settings (maybe after switching alerts or location on).
+    _lifecycle = AppLifecycleListener(onResume: () {
+      ref.invalidate(alertsEnabledProvider);
+      if (ref.read(homeProvider).value?.needsLocation ?? false) ref.read(homeProvider.notifier).refresh();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final home = ref.read(homeProvider).value;
       final stale = home?.lastRefresh == null ||

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
+import '../services/location_service.dart';
 import '../state/providers.dart';
 import 'demo.dart';
 import 'finder_screen.dart';
@@ -56,9 +57,13 @@ class NowScreen extends ConsumerWidget {
           data: (d) => ListView(
             padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 64, 16, 32),
             children: [
+              if (ref.watch(alertsEnabledProvider).value == false && !d.needsLocation)
+                const Padding(padding: EdgeInsets.only(bottom: 14), child: _AlertsOffCard()),
               Rise(
                 index: 0,
-                child: d.noData
+                child: d.needsLocation
+                    ? const _LocationCard()
+                    : d.noData
                     ? _OfflineCard(onRetry: () => ref.read(homeProvider.notifier).refresh(force: true))
                     : (d.next == null || d.next!.details['lookahead'] == true)
                         ? _QuietCard(nextBeyond: d.next)
@@ -426,4 +431,75 @@ class _PastRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Location refused and no place pinned: say why we need it, offer both ways.
+class _LocationCard extends ConsumerWidget {
+  const _LocationCard();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => InviteFrame(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Eyebrow('One thing first', color: LookUpColors.blue),
+          const SizedBox(height: 14),
+          Text('Where\'s your sky?', style: displaySerif(context, size: 36, weight: FontWeight.w500)),
+          const SizedBox(height: 10),
+          const Text(
+            'Everything overhead depends on where you stand. LookUp needs a rough location, a town is plenty, '
+            'and it never leaves your phone.',
+            style: TextStyle(color: LookUpColors.grey, height: 1.45),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () async {
+              final loc = ref.read(locationServiceProvider);
+              final access = await loc.access();
+              if (access == LocationAccess.blocked || access == LocationAccess.servicesOff) {
+                await loc.openSettings();
+              } else {
+                await ref.read(homeProvider.notifier).refresh(force: true);
+              }
+            },
+            icon: const Icon(Icons.my_location),
+            label: const Text('USE MY LOCATION'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => openPlaces(context),
+            icon: const Icon(Icons.search),
+            label: const Text('CHOOSE A PLACE INSTEAD'),
+          ),
+        ]),
+      );
+}
+
+/// Notifications are switched off: the one thing that breaks the product.
+class _AlertsOffCard extends ConsumerWidget {
+  const _AlertsOffCard();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: const BorderSide(color: Color(0x66E6B450)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+          child: Row(children: [
+            const Icon(Icons.notifications_off_outlined, color: LookUpColors.warn),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text('Alerts are off, so LookUp can\'t tap you when something\'s up.',
+                  style: TextStyle(height: 1.35)),
+            ),
+            TextButton(
+              onPressed: () async {
+                final ok = await ref.read(notificationServiceProvider).requestPermission();
+                if (!ok) await ref.read(locationServiceProvider).openSettings();
+                ref.invalidate(alertsEnabledProvider);
+              },
+              child: const Text('TURN ON'),
+            ),
+          ]),
+        ),
+      );
 }
