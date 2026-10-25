@@ -5,6 +5,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'retry.dart';
+
 import '../domain/aurora/aurora_rules.dart';
 
 class SwpcClient {
@@ -46,7 +48,9 @@ class SwpcClient {
     return ovationProbabilityAt(j['coordinates'] as List, lat, lon);
   }
 
-  Future<Object?> _getJson(String url) async {
+  Future<Object?> _getJson(String url) => withRetry(() => _getJsonOnce(url));
+
+  Future<Object?> _getJsonOnce(String url) async {
     final res = await _client
         .get(Uri.parse(url), headers: const {'User-Agent': 'LookUp/0.1'})
         .timeout(const Duration(seconds: 45));

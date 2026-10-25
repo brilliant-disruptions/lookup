@@ -15,8 +15,9 @@ import 'location_service.dart';
 import 'notification_service.dart';
 
 class RefreshReport {
-  RefreshReport({required this.events, required this.plan, required this.errors});
+  RefreshReport({required this.events, required this.plan, required this.errors, this.recent = const []});
   final List<SkyEvent> events;
+  final List<SkyEvent> recent;
   final List<PlannedAlert> plan;
   final List<String> errors;
   bool get ok => errors.isEmpty;
@@ -144,6 +145,16 @@ class RefreshService {
       aurora: aurora,
     ));
     await store.saveEvents(events);
+    final recent = pipeline.buildRecent(PipelineInputs(
+      settings: settings,
+      now: now,
+      iss: iss,
+      tiangong: tiangong,
+      starlink: starlink,
+      clouds: clouds,
+      aurora: aurora,
+    ));
+    await store.saveRecent(recent);
 
     final offset = NotificationService.utcOffsetMinutes();
     final plan = planner.plan(
@@ -156,8 +167,11 @@ class RefreshService {
     } catch (e) {
       errors.add('schedule: $e');
     }
-    await store.saveLastRefresh(now);
-    return RefreshReport(events: events, plan: plan, errors: errors);
+    // Without any ISS elements (first launch + a failed fetch) there is
+    // nothing to show; don't mark the refresh done so the next app open
+    // retries instead of waiting out the 3-hour staleness window.
+    if (iss != null && iss.isNotEmpty) await store.saveLastRefresh(now);
+    return RefreshReport(events: events, plan: plan, errors: errors, recent: recent);
   }
 
   /// "Aurora now" can't be scheduled ahead; show it immediately, once per

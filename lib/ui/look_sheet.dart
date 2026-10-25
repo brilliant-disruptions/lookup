@@ -25,8 +25,11 @@ Future<void> showLookSheet(BuildContext context, SkyEvent event) =>
 /// What the notification opens: countdown, where to look, timeline, share.
 /// After the event: "Did you see it?" (spec §3.3), stored on-device.
 class LookSheet extends ConsumerStatefulWidget {
-  const LookSheet({super.key, required this.event});
+  const LookSheet({super.key, required this.event, this.demo = false});
   final SkyEvent event;
+
+  /// Preview mode: labelled, nothing stored, no share.
+  final bool demo;
   @override
   ConsumerState<LookSheet> createState() => _LookSheetState();
 }
@@ -38,6 +41,13 @@ class _LookSheetState extends ConsumerState<LookSheet> {
   SkyEvent get event => widget.event;
 
   Future<void> _answer(bool seen, {String? reason}) async {
+    if (widget.demo) {
+      setState(() {
+        _seen = seen;
+        _askingWhy = !seen && reason == null;
+      });
+      return;
+    }
     await ref.read(storeProvider).addFeedback(SeenFeedback(eventId: event.id, seen: seen, at: DateTime.now().toUtc(), reason: reason));
     if (!mounted) return;
     setState(() {
@@ -62,7 +72,12 @@ class _LookSheetState extends ConsumerState<LookSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(eventTitle(event), style: displaySerif(context, size: 38, weight: FontWeight.w500)),
+            if (widget.demo)
+              const Padding(padding: EdgeInsets.only(bottom: 6), child: Eyebrow('Preview · a pass in fast-forward', color: LookUpColors.blue)),
+            if (event.details['past'] == true)
+              Padding(padding: const EdgeInsets.only(bottom: 6), child: Eyebrow('${fmtDay(event.start)} · ${pastVerdict(event)}')),
+            Text(event.details['past'] == true ? pastTitle(event) : eventTitle(event),
+                style: displaySerif(context, size: 38, weight: FontWeight.w500)),
             const SizedBox(height: 2),
             FoilText(
               over
@@ -103,22 +118,37 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               style: t.labelSmall?.copyWith(color: LookUpColors.greyDim, letterSpacing: 1.8, fontSize: 10.5, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 22),
-            if (over || live) _feedbackRow(context, place) else _plainRow(context, place),
+            if (widget.demo && over)
+              _demoDone(context)
+            else if (over || live)
+              _feedbackRow(context, place)
+            else
+              _plainRow(context, place),
           ],
         ),
       ),
     );
   }
 
+  Widget _demoDone(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('That\'s a LookUp night.', textAlign: TextAlign.center,
+            style: displaySerif(context, size: 26, italic: true, weight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        const Text('The real one taps you 10 minutes before, then again at one minute. Afterwards it asks if you saw it.',
+            textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey, height: 1.4)),
+        const SizedBox(height: 14),
+        FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it')),
+      ]);
+
   Widget _plainRow(BuildContext context, String? place) => Row(children: [
-        Expanded(
+        if (!widget.demo) Expanded(
           child: OutlinedButton.icon(
             onPressed: () => SharePlus.instance.share(ShareParams(text: shareText(event, place))),
             icon: const Icon(Icons.ios_share),
             label: const Text('Share'),
           ),
         ),
-        const SizedBox(width: 12),
+        if (!widget.demo) const SizedBox(width: 12),
         Expanded(
           child: FilledButton.icon(
             onPressed: () => Navigator.of(context).pop(),

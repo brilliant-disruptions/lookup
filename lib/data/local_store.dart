@@ -64,6 +64,7 @@ class LocalStore {
 
   static const _kSettings = 'settings';
   static const _kEvents = 'events';
+  static const _kRecent = 'recent_events';
   static const _kPlan = 'plan_ids';
   static const _kAurora = 'aurora';
   static const _kClouds = 'clouds';
@@ -151,6 +152,19 @@ class LocalStore {
 
   Future<void> saveEvents(List<SkyEvent> events) => _prefs.setString(
       _kEvents, jsonEncode([for (final e in events) e.toJson()]));
+
+  Future<List<SkyEvent>> loadRecent() async {
+    final raw = await _prefs.getString(_kRecent);
+    if (raw == null) return const [];
+    try {
+      return [for (final e in jsonDecode(raw) as List) SkyEvent.fromJson((e as Map).cast<String, Object?>())];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> saveRecent(List<SkyEvent> events) =>
+      _prefs.setString(_kRecent, jsonEncode([for (final e in events) e.toJson()]));
 
   /// Notification ids currently scheduled, so a re-plan can cancel strays.
   Future<Set<int>> loadPlannedIds() async {

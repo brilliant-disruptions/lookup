@@ -13,7 +13,10 @@ String fmtDay(DateTime utc) {
   final morning = l.hour < 12;
   if (diff == 0) return morning ? 'This morning' : 'Tonight';
   if (diff == 1) return morning ? 'Tomorrow morning' : 'Tomorrow night';
-  return morning ? '${DateFormat.EEEE().format(l)} morning' : DateFormat.EEEE().format(l);
+  if (diff == -1) return morning ? 'Yesterday morning' : 'Last night';
+  if (diff.abs() >= 7) return DateFormat.MMMd().format(l); // "Nov 12"
+  final day = DateFormat.EEEE().format(l);
+  return morning ? '$day morning' : (diff < 0 ? '$day night' : day);
 }
 
 String fmtCountdown(Duration d) {
@@ -76,3 +79,18 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora$where tonight 🌌 LookUp said to go look north.',
   };
 }
+
+/// Verdict for something that already happened.
+String pastVerdict(SkyEvent e) {
+  final c = e.cloudCoverPercent;
+  if (c == null) return 'Visible if it was clear';
+  if (c <= 20) return 'Clear skies, it was visible';
+  if (c <= 60) return 'Some cloud, partly visible';
+  return 'Clouded out';
+}
+
+String pastTitle(SkyEvent e) => switch (e.type) {
+      SkyEventType.auroraNow => 'Aurora strength reached',
+      SkyEventType.starlinkTrain => (e.details['label'] as String?) ?? 'Starlink train',
+      _ => eventTitle(e),
+    };

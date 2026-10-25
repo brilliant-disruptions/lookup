@@ -15,6 +15,7 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 | `lib/services/` — refresh orchestration (fetch → compute → plan → schedule), local notifications, location, WorkManager background refresh | ✅ written, needs device testing |
 | `lib/ui/` — onboarding, Now, Upcoming, Settings, Look sheet (compass + timeline + share) | ✅ written, needs device testing |
 | Billing (LookUp+) | ✅ `in_app_purchase` (StoreKit 2 / Play Billing), paywall sheet, restore; products `lookup_plus_monthly`, `lookup_plus_yearly`, `lookup_plus_lifetime` must be created in App Store Connect and Play Console. No server-side receipt validation yet |
+| Quiet weeks | ✅ next ISS pass up to 30 days out, "Preview an alert" (a full pass in fast-forward with the real notification), and the last 7 nights of real passes with clear/clouded-out from past cloud cover |
 | "Did you see it?" feedback | ✅ on the Look sheet after an event, stored on-device |
 | Launcher icon | ✅ generated from `assets/icon/` |
 | CI | ✅ GitHub Actions: analyze, test, release APK artifact |
@@ -24,9 +25,9 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 
 Rendered from the real widgets with sample data (`flutter test --update-goldens --run-skipped --tags screenshots test/screenshots`):
 
-| Onboarding | Now | Upcoming | Look sheet | Settings | Paywall |
-|---|---|---|---|---|---|
-| ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
+| Onboarding | Now | Quiet week | Upcoming | Look sheet | Preview | Settings | Paywall |
+|---|---|---|---|---|---|---|---|
+| ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/2b-quiet-week.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/7-demo.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
 
 ## Design
 
@@ -50,7 +51,7 @@ All in `lib/ui/fancy/`. Emoji were dropped (Dearly's rule: warmth comes from typ
 
 ```bash
 flutter pub get
-flutter test            # 36 domain/service tests, no device needed
+flutter test            # 44 domain/service tests, no device needed
 flutter run             # iOS simulator or Android emulator
 ```
 

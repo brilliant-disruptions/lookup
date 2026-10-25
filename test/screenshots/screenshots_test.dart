@@ -20,6 +20,7 @@ import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/look_sheet.dart';
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
+import 'package:lookup/ui/demo.dart';
 import 'package:lookup/services/plus_service.dart';
 
 final _now = DateTime.now();
@@ -73,10 +74,31 @@ class _FakePlus implements PlusService {
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
+SkyEvent _past(String id, SkyEventType type, Duration ago,
+        {double el = 50, int clouds = 10, Map<String, Object?> details = const {}}) =>
+    _ev(id, type, -ago, el: el, clouds: clouds, details: {...details, 'past': true});
+
+final _recent = [
+  _past('iss:p1', SkyEventType.iss, const Duration(hours: 21), el: 71,
+      details: {'brightness': 'brighter than any star'}),
+  _past('starlink-x:p2', SkyEventType.starlinkTrain, const Duration(days: 2, hours: 3), el: 38, clouds: 90,
+      details: {'count': 27, 'label': 'Starlink train'}),
+  _past('iss:p3', SkyEventType.iss, const Duration(days: 4, hours: 1), el: 44,
+      details: {'brightness': 'as bright as the brightest stars'}),
+];
+
+final _quietEvents = [
+  _ev('iss:far', SkyEventType.iss, const Duration(days: 9, hours: 2), el: 58, clouds: 20,
+      details: {'brightness': 'brighter than any star', 'lookahead': true}),
+];
+
+var _homeEvents = _events;
+
 class _FakeHome extends HomeNotifier {
   @override
   Future<HomeData> build() async => HomeData(
-        events: _events,
+        events: _homeEvents,
+        recent: _recent,
         aurora: AuroraSnapshot(fetchedAt: _now.toUtc(), kpNow: 4.33, forecast: const [], ovationProbability: 12),
         lastRefresh: _now.toUtc().subtract(const Duration(minutes: 14)),
         errors: const [],
@@ -151,6 +173,35 @@ void main() {
   testWidgets('onboarding', (t) => shot(t, const OnboardingScreen(), '1-onboarding'));
 
   testWidgets('now', (t) => shot(t, const HomeShell(), '2-now'));
+
+  testWidgets('quiet week', (t) async {
+    _homeEvents = _quietEvents;
+    addTearDown(() => _homeEvents = _events);
+    await shot(t, const HomeShell(), '2b-quiet-week');
+  });
+
+  testWidgets('demo mid-pass', (t) async {
+    // Real start chosen so _now sits ~95 s into the simulated pass.
+    final realStart = _now.subtract(const Duration(seconds: demoLeadSeconds + 95));
+    final sheet = Scaffold(
+      body: Stack(children: [
+        const HomeShell(),
+        Container(color: Colors.black54),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            color: const Color(0xFF0E0F11),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 22),
+              child: LookSheet(event: demoEvent(realStart), demo: true),
+            ),
+          ),
+        ),
+      ]),
+    );
+    await shot(t, sheet, '7-demo');
+  });
 
   testWidgets('upcoming', (t) async {
     await mount(t, const HomeShell());

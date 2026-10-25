@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/settings.dart';
 import '../state/providers.dart';
+import 'demo.dart';
 import 'fancy/ornament_rule.dart';
 import 'paywall_sheet.dart';
 import 'theme.dart';
@@ -121,15 +122,12 @@ class SettingsScreen extends ConsumerWidget {
               title: const Text('Restore purchases'),
               onTap: () => ref.read(plusServiceProvider).restore(),
             ),
-          const _Header('Debug'),
+          const _Header('Try it'),
           ListTile(
-            leading: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Send a test notification'),
-            onTap: () => ref.read(notificationServiceProvider).showNow(
-                  id: 1,
-                  title: 'ISS flyover in 10 min',
-                  body: 'Brighter than any star, rising in the west-southwest, high in the sky at its best, 4 min. Clear skies.',
-                ),
+            leading: const Icon(Icons.play_circle_outline),
+            title: const Text('Preview an alert'),
+            subtitle: const Text('A full pass in fast-forward, with the real notification'),
+            onTap: () => showDemo(context, ref),
           ),
           ListTile(
             leading: const Icon(Icons.refresh),

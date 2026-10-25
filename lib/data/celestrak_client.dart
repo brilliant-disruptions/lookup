@@ -5,6 +5,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'retry.dart';
+
 import '../domain/orbit/omm.dart';
 
 class CelestrakClient {
@@ -25,7 +27,9 @@ class CelestrakClient {
   Future<List<OmmRecord>> fetchStarlinkSupplemental() =>
       _get('$_base/supplemental/sup-gp.php?FILE=starlink&FORMAT=json');
 
-  Future<List<OmmRecord>> _get(String url) async {
+  Future<List<OmmRecord>> _get(String url) => withRetry(() => _getOnce(url));
+
+  Future<List<OmmRecord>> _getOnce(String url) async {
     final res = await _client
         .get(Uri.parse(url), headers: const {'User-Agent': 'LookUp/0.1'})
         .timeout(const Duration(seconds: 60));

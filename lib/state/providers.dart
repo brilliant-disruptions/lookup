@@ -40,13 +40,20 @@ class HomeData {
     required this.aurora,
     required this.lastRefresh,
     required this.errors,
+    this.recent = const [],
   });
   final List<SkyEvent> events;
+
+  /// Real events from the last 7 nights, newest first.
+  final List<SkyEvent> recent;
   final AuroraSnapshot? aurora;
   final DateTime? lastRefresh;
   final List<String> errors;
 
-  SkyEvent? get next => events.firstOrNull;
+  SkyEvent? get next => events.where((e) => e.type != SkyEventType.auroraOutlook).firstOrNull;
+
+  /// The app has never managed to load orbit data (offline first launch).
+  bool get noData => lastRefresh == null && events.isEmpty && errors.isNotEmpty;
   SkyEvent? get auroraOutlook =>
       events.where((e) => e.type == SkyEventType.auroraOutlook).firstOrNull;
 }
@@ -61,6 +68,7 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
         .toList();
     return HomeData(
       events: events,
+      recent: await store.loadRecent(),
       aurora: await store.loadAurora(),
       lastRefresh: await store.loadLastRefresh(),
       errors: const [],
@@ -76,6 +84,7 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
     final store = ref.read(storeProvider);
     state = AsyncData(HomeData(
       events: report.events,
+      recent: report.recent,
       aurora: await store.loadAurora(),
       lastRefresh: await store.loadLastRefresh(),
       errors: report.errors,
