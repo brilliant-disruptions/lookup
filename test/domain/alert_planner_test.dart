@@ -170,4 +170,27 @@ void main() {
     expect(planner.plan(events: [eclipse], settings: plus, now: now, utcOffsetMinutes: cdt), isEmpty);
     expect(planner.plan(events: [eclipse], settings: plus.copyWith(auroraWakeMe: true), now: now, utcOffsetMinutes: cdt), isNotEmpty);
   });
+
+  group('snooze ("Remind me in 5 min")', () {
+    test('fires five minutes later with a fresh lead time', () {
+      final e = ev('iss:s', SkyEventType.iss, now.add(const Duration(minutes: 10)));
+      final r = AlertPlanner.snooze(e, now)!;
+      expect(r.fireAt, now.add(const Duration(minutes: 5)));
+      expect(r.kind, AlertKind.snooze);
+      expect(r.title, 'ISS flyover in 5 min');
+      expect(r.notificationId, isNot(AlertPlanner.notificationIdFor(e.id, AlertKind.headsUp)));
+    });
+
+    test('never later than a minute before the start', () {
+      final e = ev('iss:s', SkyEventType.iss, now.add(const Duration(minutes: 4)));
+      final r = AlertPlanner.snooze(e, now)!;
+      expect(r.fireAt, e.start.subtract(const Duration(minutes: 1)));
+      expect(r.title, 'ISS flyover in 1 min');
+    });
+
+    test('nothing when the event is about to start', () {
+      final e = ev('iss:s', SkyEventType.iss, now.add(const Duration(seconds: 90)));
+      expect(AlertPlanner.snooze(e, now), isNull);
+    });
+  });
 }

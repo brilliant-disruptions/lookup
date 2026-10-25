@@ -226,6 +226,7 @@ class RefreshService {
         title: 'Aurora now',
         body: AlertPlanner.headsUpBody(e),
         payload: e.id,
+        kind: AlertKind.goNow, // already happening: no "remind me later"
       );
       await store.savePlannedIds({...already, id});
     }

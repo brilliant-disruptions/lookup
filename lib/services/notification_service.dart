@@ -5,6 +5,14 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/scheduling/alert_planner.dart';
 
+/// Buttons on an alert. "Find it" opens the app; the others run in the
+/// background without opening it.
+abstract final class AlertAction {
+  static const find = 'find';
+  static const snooze = 'snooze';
+  static const seen = 'seen';
+}
+
 class NotificationService {
   NotificationService([FlutterLocalNotificationsPlugin? plugin])
       : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
@@ -12,23 +20,53 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin;
   static bool _tzReady = false;
 
-  static const channelId = 'lookup_alerts';
+  /// Android fixes a channel's sound when it's created, so the chime got a
+  /// new channel; the old one is deleted on init.
+  static const channelId = 'lookup_alerts_chime';
+  static const _legacyChannelId = 'lookup_alerts';
+  static const _chime = 'lookup_chime';
 
-  static const _android = AndroidNotificationDetails(
-    channelId,
-    'Sky alerts',
-    channelDescription: 'ISS, Starlink and aurora heads-ups',
-    importance: Importance.high,
-    priority: Priority.high,
-    category: AndroidNotificationCategory.reminder,
-  );
-  static const _darwin = DarwinNotificationDetails(
-    presentAlert: true,
-    presentSound: true,
-    presentBanner: true,
-    interruptionLevel: InterruptionLevel.timeSensitive,
-  );
-  static const _details = NotificationDetails(android: _android, iOS: _darwin);
+  static const _headsUpCategory = 'lookup_heads_up';
+  static const _goNowCategory = 'lookup_go_now';
+
+  static const _findAndroid =
+      AndroidNotificationAction(AlertAction.find, 'Find it', showsUserInterface: true);
+  static const _snoozeAndroid = AndroidNotificationAction(AlertAction.snooze, 'In 5 min');
+  static const _seenAndroid = AndroidNotificationAction(AlertAction.seen, 'Saw it!');
+
+  static NotificationDetails detailsFor(AlertKind kind) {
+    final withSnooze = kind == AlertKind.headsUp;
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelId,
+        'Sky alerts',
+        channelDescription: 'ISS, Starlink and aurora heads-ups',
+        importance: Importance.high,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.reminder,
+        sound: const RawResourceAndroidNotificationSound(_chime),
+        actions: [_findAndroid, if (withSnooze) _snoozeAndroid, _seenAndroid],
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+        presentBanner: true,
+        sound: '$_chime.wav',
+        interruptionLevel: InterruptionLevel.timeSensitive,
+        categoryIdentifier: withSnooze ? _headsUpCategory : _goNowCategory,
+      ),
+    );
+  }
+
+  static final _categories = [
+    for (final (id, snooze) in const [(_headsUpCategory, true), (_goNowCategory, false)])
+      DarwinNotificationCategory(id, actions: [
+        DarwinNotificationAction.plain(AlertAction.find, 'Find it',
+            options: {DarwinNotificationActionOption.foreground}),
+        if (snooze) DarwinNotificationAction.plain(AlertAction.snooze, 'Remind me in 5 min'),
+        DarwinNotificationAction.plain(AlertAction.seen, 'Saw it!'),
+      ]),
+  ];
 
   /// Local time zone for scheduling. Safe to call repeatedly.
   static Future<void> ensureTimeZone() async {
@@ -46,19 +84,42 @@ class NotificationService {
   /// Offset the domain layer uses for quiet hours and "night" bucketing.
   static int utcOffsetMinutes() => DateTime.now().timeZoneOffset.inMinutes;
 
-  Future<void> init({void Function(String? payload)? onTap}) async {
+  /// [onResponse] runs on the main isolate for taps and "Find it";
+  /// [onBackgroundResponse] (a top-level `vm:entry-point` function) handles
+  /// the buttons that don't open the app.
+  Future<void> init({
+    void Function(NotificationResponse response)? onResponse,
+    DidReceiveBackgroundNotificationResponseCallback? onBackgroundResponse,
+  }) async {
     await ensureTimeZone();
     await _plugin.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      settings: InitializationSettings(
+        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
+          notificationCategories: _categories,
         ),
       ),
-      onDidReceiveNotificationResponse: (r) => onTap?.call(r.payload),
+      onDidReceiveNotificationResponse: onResponse,
+      onDidReceiveBackgroundNotificationResponse: onBackgroundResponse,
     );
+    try {
+      await _plugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.deleteNotificationChannel(channelId: _legacyChannelId);
+    } catch (_) {}
+  }
+
+  /// The alert that cold-started the app, if any.
+  Future<NotificationResponse?> launchResponse() async {
+    try {
+      final d = await _plugin.getNotificationAppLaunchDetails();
+      return (d?.didNotificationLaunchApp ?? false) ? d!.notificationResponse : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> requestPermission() async {
@@ -76,6 +137,19 @@ class NotificationService {
     return false;
   }
 
+  /// Whether alerts can reach the user. Null when the platform can't say.
+  Future<bool?> alertsEnabled() async {
+    try {
+      final ios = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      if (ios != null) return (await ios.checkPermissions())?.isEnabled;
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (android != null) return await android.areNotificationsEnabled();
+    } catch (_) {}
+    return null;
+  }
+
   /// Replace the scheduled set with [plan]: cancels ids no longer planned,
   /// (re)schedules every planned alert. Ids are stable so this is idempotent.
   Future<Set<int>> applyPlan(List<PlannedAlert> plan, Set<int> previous) async {
@@ -85,17 +159,22 @@ class NotificationService {
       await _plugin.cancel(id: id);
     }
     for (final a in plan) {
-      await _plugin.zonedSchedule(
-        id: a.notificationId,
-        title: a.title,
-        body: a.body,
-        scheduledDate: tz.TZDateTime.from(a.fireAt, tz.local),
-        notificationDetails: _details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: a.event.id,
-      );
+      await schedule(a);
     }
     return keep;
+  }
+
+  Future<void> schedule(PlannedAlert a) async {
+    await ensureTimeZone();
+    await _plugin.zonedSchedule(
+      id: a.notificationId,
+      title: a.title,
+      body: a.body,
+      scheduledDate: tz.TZDateTime.from(a.fireAt, tz.local),
+      notificationDetails: detailsFor(a.kind),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: a.event.id,
+    );
   }
 
   Future<void> showNow({
@@ -103,9 +182,10 @@ class NotificationService {
     required String title,
     required String body,
     String? payload,
+    AlertKind kind = AlertKind.headsUp,
   }) =>
       _plugin.show(id: id, title: title, body: body,
-          notificationDetails: _details, payload: payload);
+          notificationDetails: detailsFor(kind), payload: payload);
 
   Future<void> cancelAll() => _plugin.cancelAll();
 }

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The alert chime is only referenced from Dart; keep resource shrinking off it. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/lookup_chime" />

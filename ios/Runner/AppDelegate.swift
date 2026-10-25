@@ -1,6 +1,9 @@
 import Flutter
 import UIKit
 import workmanager_apple
+// Notification actions ("Saw it!", "Remind me") run Dart in a background
+// isolate; it needs the plugins registered too.
+import flutter_local_notifications
 #if canImport(ActivityKit)
 import ActivityKit
 #endif
@@ -24,6 +27,9 @@ import ActivityKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     WorkmanagerPlugin.setPluginRegistrantCallback { registry in
+      GeneratedPluginRegistrant.register(with: registry)
+    }
+    FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpLiveActivity") {

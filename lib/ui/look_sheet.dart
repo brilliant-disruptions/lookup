@@ -15,6 +15,7 @@ import 'fancy/stat_tile.dart';
 import 'format.dart';
 import 'theme.dart';
 import 'widgets/compass_arrow.dart';
+import 'widgets/countdown_ring.dart';
 import 'widgets/pass_timeline.dart';
 
 Future<void> showLookSheet(BuildContext context, SkyEvent event) =>
@@ -110,7 +111,11 @@ class _LookSheetState extends ConsumerState<LookSheet> {
             Center(
               child: Semantics(
                 label: 'Compass arrow pointing ${compassWord(isAurora ? 0 : (isPass ? event.riseAzimuthDeg : event.peakAzimuthDeg))}',
-                child: CompassArrow(azimuthDeg: isAurora ? 0 : (isPass ? event.riseAzimuthDeg : event.peakAzimuthDeg)),
+                child: CountdownRing(
+                  progress: event.details['past'] == true ? null : ringProgress(event, now),
+                  live: live,
+                  child: CompassArrow(azimuthDeg: isAurora ? 0 : (isPass ? event.riseAzimuthDeg : event.peakAzimuthDeg)),
+                ),
               ),
             ),
             const SizedBox(height: 10),

@@ -74,6 +74,18 @@
 	<string>LookUp uses your rough location to work out what flies over you. It never leaves your phone.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>LookUp uses your rough location to work out what flies over you. It never leaves your phone.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>LookUp shows the live camera with the satellite's path drawn over the sky, and lets you photograph what you saw.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LookUp never records sound. iOS asks only if you film a video for your sky log.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Attach a photo you took to a sighting in your sky log. Photos stay on your phone.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Add meteor showers, eclipses and flyovers to your calendar.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Add meteor showers, eclipses and flyovers to your calendar.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Only used by the calendar screen if you invite someone to watch with you.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

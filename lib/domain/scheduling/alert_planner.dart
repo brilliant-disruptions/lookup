@@ -10,7 +10,8 @@ import '../models/sky_event.dart';
 import '../sky/direction.dart';
 import 'alert_tuning.dart';
 
-enum AlertKind { headsUp, goNow }
+/// [snooze] is the user's "Remind me in 5 min", never planned here.
+enum AlertKind { headsUp, goNow, snooze }
 
 class PlannedAlert {
   const PlannedAlert({
@@ -101,6 +102,26 @@ class AlertPlanner {
     }
     out.sort((a, b) => a.fireAt.compareTo(b.fireAt));
     return out;
+  }
+
+  /// "Remind me in 5 min" from a heads-up: fires [by] from [now] but never
+  /// later than a minute before the start. Null when the event is too close
+  /// for a reminder to help (the go-now tap covers that).
+  static PlannedAlert? snooze(SkyEvent e, DateTime now, {Duration by = const Duration(minutes: 5)}) {
+    final nowUtc = now.toUtc();
+    var at = nowUtc.add(by);
+    final latest = e.start.subtract(const Duration(minutes: 1));
+    if (at.isAfter(latest)) at = latest;
+    if (at.difference(nowUtc) < const Duration(minutes: 1)) return null;
+    final lead = e.start.difference(at).inMinutes;
+    return PlannedAlert(
+      notificationId: notificationIdFor(e.id, AlertKind.snooze),
+      event: e,
+      fireAt: at,
+      kind: AlertKind.snooze,
+      title: headsUpTitle(e, lead),
+      body: headsUpBody(e),
+    );
   }
 
   static bool _typeEnabled(SkyEventType t, LookUpSettings s) => switch (t) {

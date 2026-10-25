@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../services/alert_actions.dart';
+import '../services/notification_service.dart';
 import '../state/providers.dart';
 import 'demo.dart';
+import 'finder_screen.dart';
 import 'log_screen.dart';
 import 'look_sheet.dart';
 import 'now_screen.dart';
@@ -31,17 +34,41 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ref.read(playIntroProvider.notifier).set(false);
         showDemo(context, ref);
       }
+      // Cold start from an alert: the tap arrived before we were listening.
+      final pending = ref.read(alertTapProvider);
+      if (pending != null) _openAlert(pending);
     });
+  }
+
+  /// A tapped alert opens its Look sheet; "Find it" goes straight to the
+  /// finder. Buttons the OS delivered to the running app are handled here.
+  Future<void> _openAlert(AlertTap t) async {
+    ref.read(alertTapProvider.notifier).set(null);
+    final store = ref.read(storeProvider);
+    if (t.action == AlertAction.seen || t.action == AlertAction.snooze) {
+      final result = await handleAlertAction(
+          actionId: t.action, eventId: t.eventId, store: store, notifications: ref.read(notificationServiceProvider));
+      if (result == AlertActionResult.logged) ref.invalidate(skyLogProvider);
+      if (!mounted || result == AlertActionResult.nothing) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(result == AlertActionResult.logged ? 'Logged. Nice one.' : 'We\'ll remind you in 5 minutes.')));
+      return;
+    }
+    // Wait for the first load so the event is there to open.
+    await ref.read(homeProvider.future);
+    final event = await findStoredEvent(store, t.eventId);
+    if (event == null || !mounted) return;
+    if (t.action == AlertAction.find) {
+      await openFinder(context, event);
+    } else {
+      await showLookSheet(context, event);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(tappedEventIdProvider, (_, id) {
-      if (id == null) return;
-      final events = ref.read(homeProvider).value?.events ?? const [];
-      final e = events.where((e) => e.id == id).firstOrNull;
-      ref.read(tappedEventIdProvider.notifier).set(null);
-      if (e != null) showLookSheet(context, e);
+    ref.listen(alertTapProvider, (_, t) {
+      if (t != null) _openAlert(t);
     });
     final pages = const [NowScreen(), UpcomingScreen(), LogScreen(), SettingsScreen()];
     return Scaffold(

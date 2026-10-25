@@ -106,14 +106,22 @@ final homeProvider = AsyncNotifierProvider<HomeNotifier, HomeData>(HomeNotifier.
 final clockProvider = StreamProvider<DateTime>(
     (_) => Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now()));
 
-/// Event id from a tapped notification; the app opens its Look sheet.
-class TappedEventId extends Notifier<String?> {
-  @override
-  String? build() => null;
-  void set(String? id) => state = id;
+/// A tapped alert (or one of its buttons) for the shell to act on.
+class AlertTap {
+  const AlertTap(this.eventId, {this.action});
+  final String eventId;
+
+  /// Null for a plain tap; otherwise an [AlertAction] id.
+  final String? action;
 }
 
-final tappedEventIdProvider = NotifierProvider<TappedEventId, String?>(TappedEventId.new);
+class AlertTaps extends Notifier<AlertTap?> {
+  @override
+  AlertTap? build() => null;
+  void set(AlertTap? t) => state = t;
+}
+
+final alertTapProvider = NotifierProvider<AlertTaps, AlertTap?>(AlertTaps.new);
 
 /// Store billing. Entitlement flows into settings.isPlus and triggers a
 /// re-plan so Plus-only alerts get scheduled right away.
