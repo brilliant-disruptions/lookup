@@ -35,7 +35,7 @@ The on-device name stays "LookUp"; it comes from `CFBundleDisplayName`, not the 
 ## 3. One local pass in Xcode (on a Mac)
 
 ```bash
-git clone https://github.com/michaeljwilt/lookup && cd lookup
+git clone https://github.com/brilliant-disruptions/lookup && cd lookup
 flutter pub get
 cd ios && pod install && cd ..
 open ios/Runner.xcworkspace          # the workspace, not the .xcodeproj
@@ -56,7 +56,7 @@ In Xcode with `Runner.xcworkspace` open: **Product → Xcode Cloud → Create Wo
    - **Start Conditions**: Branch Changes → `master`. Remove the pull-request condition if you don't want PR builds.
    - **Actions**: delete *Build*, add **Archive** → Platform iOS, Scheme `Runner`, Distribution preparation **TestFlight (Internal Testing Only)**.
    - **Post-Actions**: **TestFlight Internal Testing** → add your internal group (create one in App Store Connect → TestFlight → Internal Testing first, e.g. "Founders").
-3. **Grant access to the source code**: Xcode opens GitHub to install the *Xcode Cloud* GitHub app on `michaeljwilt/lookup`. Approve it for that repo.
+3. **Grant access to the source code**: Xcode opens GitHub to install the *Xcode Cloud* GitHub app on `brilliant-disruptions/lookup` (the repo moved from `michaeljwilt/lookup`; an org owner may need to approve the app). Approve it for that repo.
 4. Confirm the App Store Connect app record when asked (it should find the one from step 2), then **Start Build**.
 
 The first build takes 15–25 minutes; most of that is cloning Flutter and `pod install`. Watch it under the Report navigator (`⌘9`) → Cloud, or App Store Connect → Xcode Cloud.
