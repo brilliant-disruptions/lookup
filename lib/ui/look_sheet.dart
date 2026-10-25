@@ -8,10 +8,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/local_store.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
+import '../services/photo_store.dart';
 import '../state/providers.dart';
 import 'fancy/foil_text.dart';
 import 'calendar.dart';
 import 'finder_screen.dart';
+import 'photo_tips.dart';
 import 'share_card.dart';
 import 'fancy/ornament_rule.dart';
 import 'fancy/stat_tile.dart';
@@ -45,6 +47,21 @@ class LookSheet extends ConsumerStatefulWidget {
 class _LookSheetState extends ConsumerState<LookSheet> {
   bool? _seen;
   bool _askingWhy = false;
+  bool _photoAdded = false;
+
+  Future<void> _addPhoto() async {
+    try {
+      final name = await const PhotoStore().pickFor(event.id);
+      if (name == null) return;
+      await ref.read(storeProvider).setPhoto(event.id, name);
+      ref.invalidate(skyLogProvider);
+      if (mounted) setState(() => _photoAdded = true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Couldn\'t open your photos. Check Photos access in Settings.')));
+    }
+  }
 
   SkyEvent get event => widget.event;
 
@@ -174,6 +191,14 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                 ),
             ],
             const SizedBox(height: 22),
+            if (!widget.demo)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => showPhotoTips(context, event.type),
+                  icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                  label: const Text('Photo tips'),
+                ),
+              ),
             if (!over && event.details['past'] != true)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -238,11 +263,25 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text('Glad you caught it.', textAlign: TextAlign.center, style: displaySerif(context, size: 24, italic: true, weight: FontWeight.w500)),
         const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: () => showShareCard(context, event),
-          icon: const Icon(Icons.ios_share),
-          label: const Text('Share it'),
-        ),
+        Row(children: [
+          if (!widget.demo) ...[
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _addPhoto,
+                icon: Icon(_photoAdded ? Icons.check : Icons.add_a_photo_outlined),
+                label: Text(_photoAdded ? 'Photo added' : 'Add your photo'),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: () => showShareCard(context, event),
+              icon: const Icon(Icons.ios_share),
+              label: const Text('Share it'),
+            ),
+          ),
+        ]),
       ]);
     }
     if (_askingWhy) {

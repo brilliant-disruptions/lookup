@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/local_store.dart';
+import '../domain/log/sighting.dart';
 import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
+import '../services/photo_store.dart';
 import '../state/providers.dart';
 import 'fancy/foil_text.dart';
 import 'fancy/ornament_rule.dart';
@@ -69,6 +72,8 @@ class LogScreen extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Card(
                     child: ListTile(
+                      onTap: () => _showSighting(context, ref, s),
+                      leading: _Thumb(s.photo),
                       title: Text(_typeLabel(s.inferredType), style: displaySerif(context, size: 21, weight: FontWeight.w500)),
                       subtitle: Text([
                         fmtDay(s.eventTime ?? s.at),
@@ -87,6 +92,13 @@ class LogScreen extends ConsumerWidget {
       ),
     );
   }
+
+  static Future<void> _showSighting(BuildContext context, WidgetRef ref, Sighting s) => showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (_) => _SightingSheet(s),
+      );
 
   static String _typeLabel(SkyEventType? t) => switch (t) {
         SkyEventType.iss => 'Space station',
@@ -128,6 +140,88 @@ class _BadgeTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(b.description, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 10.5, height: 1.25, color: earned ? LookUpColors.grey : LookUpColors.greyDim)),
+        ]),
+      ),
+    );
+  }
+}
+
+/// A small square of the sighting's photo, or nothing.
+class _Thumb extends StatelessWidget {
+  const _Thumb(this.name);
+  final String? name;
+  @override
+  Widget build(BuildContext context) {
+    if (name == null) return const SizedBox(width: 44, child: Icon(Icons.auto_awesome, color: LookUpColors.greyDim, size: 20));
+    return FutureBuilder(
+      future: const PhotoStore().fileFor(name),
+      builder: (context, snap) => ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: snap.data == null ? const ColoredBox(color: LookUpColors.panelRaised) : Image.file(snap.data!, fit: BoxFit.cover, cacheWidth: 132),
+        ),
+      ),
+    );
+  }
+}
+
+/// One sighting: the photo (or a button to add one) and the details.
+class _SightingSheet extends ConsumerStatefulWidget {
+  const _SightingSheet(this.s);
+  final Sighting s;
+  @override
+  ConsumerState<_SightingSheet> createState() => _SightingSheetState();
+}
+
+class _SightingSheetState extends ConsumerState<_SightingSheet> {
+  late String? _photo = widget.s.photo;
+
+  Future<void> _pick() async {
+    try {
+      final name = await const PhotoStore().pickFor(widget.s.eventId);
+      if (name == null) return;
+      final old = _photo;
+      await ref.read(storeProvider).setPhoto(widget.s.eventId, name);
+      if (old != null) await const PhotoStore().delete(old);
+      ref.invalidate(skyLogProvider);
+      if (mounted) setState(() => _photo = name);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Couldn\'t open your photos. Check Photos access in Settings.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.s;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(LogScreen._typeLabel(s.inferredType), style: displaySerif(context, size: 32, weight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Text([
+            fmtDay(s.eventTime ?? s.at),
+            fmtTime(s.eventTime ?? s.at),
+            if (s.place != null && s.place!.isNotEmpty) s.place!,
+          ].join(' · '), style: const TextStyle(color: LookUpColors.grey)),
+          const SizedBox(height: 16),
+          if (_photo != null)
+            FutureBuilder(
+              future: const PhotoStore().fileFor(_photo),
+              builder: (context, snap) => snap.data == null
+                  ? const SizedBox(height: 200)
+                  : ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.file(snap.data!, fit: BoxFit.cover)),
+            ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: _pick,
+            icon: const Icon(Icons.add_a_photo_outlined),
+            label: Text(_photo == null ? 'Add your photo' : 'Replace photo'),
+          ),
         ]),
       ),
     );

@@ -14,6 +14,7 @@ class Sighting {
     this.peakElevationDeg,
     this.magnitude,
     this.place,
+    this.photo,
   });
 
   final String eventId;
@@ -25,6 +26,9 @@ class Sighting {
   final double? peakElevationDeg;
   final double? magnitude;
   final String? place;
+
+  /// File name of the user's photo of it, if they added one.
+  final String? photo;
 
   /// Older answers stored only the event id; infer the type from its prefix.
   SkyEventType? get inferredType {

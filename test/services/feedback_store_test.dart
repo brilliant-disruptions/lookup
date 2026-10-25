@@ -36,4 +36,16 @@ void main() {
     expect(rt.isPlus, isTrue);
     expect(rt.leadMinutes, 5);
   });
+
+  test('a photo attaches to a sighting and survives answering again', () async {
+    final store = LocalStore(SharedPreferencesAsync());
+    final t = DateTime.utc(2026, 10, 22);
+    await store.addFeedback(SeenFeedback(eventId: 'iss:a', seen: true, at: t));
+    await store.setPhoto('iss:a', 'iss_a-1.jpg');
+    expect((await store.loadFeedback()).single.toSighting().photo, 'iss_a-1.jpg');
+    await store.addFeedback(SeenFeedback(eventId: 'iss:a', seen: true, at: t.add(const Duration(minutes: 1))));
+    expect((await store.loadFeedback()).single.photo, 'iss_a-1.jpg');
+    await store.setPhoto('iss:missing', 'x.jpg'); // no sighting: ignored
+    expect(await store.loadFeedback(), hasLength(1));
+  });
 }

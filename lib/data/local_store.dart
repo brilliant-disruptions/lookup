@@ -232,6 +232,7 @@ class SeenFeedback {
     this.peakElevationDeg,
     this.magnitude,
     this.place,
+    this.photo,
   });
   final String eventId;
   final bool seen;
@@ -242,6 +243,23 @@ class SeenFeedback {
   final double? peakElevationDeg;
   final double? magnitude;
   final String? place;
+
+  /// File name under the app's sightings folder (never a full path: the
+  /// container moves between app updates).
+  final String? photo;
+
+  SeenFeedback withPhoto(String? name) => SeenFeedback(
+        eventId: eventId,
+        seen: seen,
+        at: at,
+        reason: reason,
+        type: type,
+        eventTime: eventTime,
+        peakElevationDeg: peakElevationDeg,
+        magnitude: magnitude,
+        place: place,
+        photo: name,
+      );
 
   factory SeenFeedback.forEvent(SkyEvent e, {required bool seen, String? reason, String? place, DateTime? at}) => SeenFeedback(
         eventId: e.id,
@@ -265,6 +283,7 @@ class SeenFeedback {
         peakElevationDeg: peakElevationDeg,
         magnitude: magnitude,
         place: place,
+        photo: photo,
       );
 
   Map<String, Object?> toJson() => {
@@ -277,6 +296,7 @@ class SeenFeedback {
         if (peakElevationDeg != null) 'el': peakElevationDeg,
         if (magnitude != null) 'mg': magnitude,
         if (place != null) 'pl': place,
+        if (photo != null) 'ph': photo,
       };
   factory SeenFeedback.fromJson(Map<String, Object?> j) => SeenFeedback(
         eventId: j['e'] as String,
@@ -288,6 +308,7 @@ class SeenFeedback {
         peakElevationDeg: (j['el'] as num?)?.toDouble(),
         magnitude: (j['mg'] as num?)?.toDouble(),
         place: j['pl'] as String?,
+        photo: j['ph'] as String?,
       );
 }
 
@@ -303,9 +324,21 @@ extension FeedbackStore on LocalStore {
   }
 
   Future<void> addFeedback(SeenFeedback f) async {
+    final previous = (await loadFeedback()).where((x) => x.eventId == f.eventId).firstOrNull;
+    // Answering again keeps a photo already attached.
+    if (f.photo == null && previous?.photo != null) f = f.withPhoto(previous!.photo);
     final all = (await loadFeedback()).where((x) => x.eventId != f.eventId).toList()..add(f);
     // Keep the last 200.
     final trimmed = all.length > 200 ? all.sublist(all.length - 200) : all;
     await _prefs.setString(LocalStore._kFeedback, jsonEncode([for (final x in trimmed) x.toJson()]));
+  }
+
+  /// Attach (or with null, detach) a photo to the sighting for [eventId].
+  Future<void> setPhoto(String eventId, String? name) async {
+    final all = await loadFeedback();
+    final i = all.indexWhere((x) => x.eventId == eventId);
+    if (i < 0) return;
+    final next = [...all]..[i] = all[i].withPhoto(name);
+    await _prefs.setString(LocalStore._kFeedback, jsonEncode([for (final x in next) x.toJson()]));
   }
 }
