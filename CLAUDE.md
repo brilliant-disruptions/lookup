@@ -8,4 +8,5 @@
 - Run before pushing: `flutter analyze && flutter test`.
 - Spec: `brilliant-disruptions/app-ideas/look_up_now/spec.md`.
 - **iOS native code** (`ios/Runner/AppDelegate.swift`, `ios/LookUpWidgets/`) can't be compiled on Linux; at least run `swiftc -parse` on edited files. The two `LookUpActivityAttributes` structs must stay identical.
-- **Crash reporting** (Sentry) is off unless `--dart-define=LOOKUP_SENTRY_DSN=...` is set. Never make it required. There is no backend: everything runs on the phone.
+- **No backend, no third-party SDKs.** Everything runs on the phone.
+- **iOS plugins resolve through Swift Package Manager.** Xcode Cloud disables automatic package resolution, so a plugin that pulls a *remote* Swift package (e.g. sentry_flutter → sentry-cocoa) breaks the build unless `ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` is generated on a Mac and committed. Check new iOS plugins' `Package.swift` for `url:` dependencies before adding them.

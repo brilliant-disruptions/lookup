@@ -81,7 +81,6 @@ Before the first device build:
 - **Quiet weeks** explain themselves, show the next pass and the last 7 nights; **Preview an alert** plays a full pass in fast-forward.
 - **Night vision** mode, large-text support, screen-reader labels.
 - **Widgets**: Android home-screen widget with live countdown (built in); iOS widget + Live Activity (sources in `ios/LookUpWidgets`, setup in `docs/ios-widgets.md`).
-- **Crash reporting** (Sentry) is optional: off unless built with `--dart-define=LOOKUP_SENTRY_DSN=...`.
 
 ## Data sources (free, public)
 
