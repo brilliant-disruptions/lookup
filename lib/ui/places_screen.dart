@@ -7,6 +7,7 @@ import '../data/geocoding_client.dart';
 import '../domain/models/settings.dart';
 import '../state/providers.dart';
 import 'fancy/ornament_rule.dart';
+import 'fancy/woven.dart';
 import 'theme.dart';
 
 Future<void> openPlaces(BuildContext context) =>
@@ -27,7 +28,7 @@ class PlacesScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Places', style: displaySerif(context, size: 26, weight: FontWeight.w600))),
+      appBar: const WovenHeader(title: Text('Places'), subtitle: 'Where LookUp watches the sky'),
       body: ListView(
         children: [
           RadioGroup<String>(

@@ -147,61 +147,25 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               textAlign: TextAlign.center,
               style: t.bodyLarge,
             ),
-            const SizedBox(height: 18),
-            const OrnamentRule(),
-            const SizedBox(height: 16),
-            if (isPass)
-              Semantics(
-                label: 'Rises ${compassWord(event.riseAzimuthDeg)} at ${fmtTime(event.start)}, '
-                    'peaks ${event.peakElevationDeg.round()} degrees at ${fmtTime(event.peak)}, '
-                    'sets ${compassWord(event.setAzimuthDeg)} at ${fmtTime(event.end)}',
-                child: PassTimeline(event: event, now: now),
-              )
-            else
-              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                for (final (k, v) in statsFor(event)) StatTile(k: k, v: v, align: CrossAxisAlignment.center),
-              ]),
-            const SizedBox(height: 14),
-            Text(
-              [
-                if (event.details['brightness'] is String) '${event.details['brightness']}',
-                cloudWord(event.cloudCoverPercent),
-                if (event.isEstimate) 'estimate (orbit data is a few days old)',
-              ].join('  ·  ').toUpperCase(),
-              textAlign: TextAlign.center,
-              style: t.labelSmall?.copyWith(color: LookUpColors.greyDim, letterSpacing: 1.8, fontSize: 10.5, fontWeight: FontWeight.w700),
-            ),
-            if (event.type == SkyEventType.iss || event.type == SkyEventType.tiangong) StationFacts(event: event),
-            if (isTransit) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Path is ~${((event.details['halfWidthKm'] as num?) ?? 0) * 2 ~/ 1} km wide. Orbits shift a little day to day, so check again the evening before.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12, height: 1.35),
-              ),
-              if (((event.details['travelKm'] as num?) ?? 0) >= 0.5 && !over)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: OutlinedButton.icon(
-                    onPressed: () => openDirections(
-                        (event.details['siteLat'] as num).toDouble(), (event.details['siteLon'] as num).toDouble()),
-                    icon: const Icon(Icons.directions_car_outlined),
-                    label: const Text('Directions to the spot'),
-                  ),
+            if (isTransit && ((event.details['travelKm'] as num?) ?? 0) >= 0.5 && !over)
+              Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: OutlinedButton.icon(
+                  onPressed: () => openDirections(
+                      (event.details['siteLat'] as num).toDouble(), (event.details['siteLon'] as num).toDouble()),
+                  icon: const Icon(Icons.directions_car_outlined),
+                  label: const Text('Directions to the spot'),
                 ),
+              ),
+            // While it's happening (and in the preview) the arc is the point.
+            if (isPass && (live || widget.demo)) ...[
+              const SizedBox(height: 18),
+              PassTimeline(event: event, now: now),
             ],
             const SizedBox(height: 22),
-            if (!widget.demo)
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => showPhotoTips(context, event.type),
-                  icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                  label: const Text('Photo tips'),
-                ),
-              ),
             if (!over && event.details['past'] != true)
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: FilledButton.icon(
                   onPressed: () => openFinder(context, event),
                   icon: const Icon(Icons.explore_outlined),
@@ -215,6 +179,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               _feedbackRow(context, place)
             else
               _plainRow(context, place),
+            if (!widget.demo) _details(context, now, isPass: isPass, showArc: !live, isTransit: isTransit),
           ],
         ),
       ),
@@ -231,31 +196,93 @@ class _LookSheetState extends ConsumerState<LookSheet> {
         FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it')),
       ]);
 
-  Widget _plainRow(BuildContext context, String? place) => Row(children: [
-        if (!widget.demo) ...[
-          IconButton.outlined(
-            tooltip: 'Add to calendar',
-            onPressed: () => addToCalendar(event, place: place),
-            icon: const Icon(Icons.event_outlined),
-          ),
-          const SizedBox(width: 10),
-        ],
-        if (!widget.demo) Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
-            icon: const Icon(Icons.group_add_outlined),
-            label: const Text('Invite'),
-          ),
+  /// Before the event: quiet secondary actions (the demo just needs a way out).
+  Widget _plainRow(BuildContext context, String? place) {
+    if (widget.demo) {
+      return FilledButton.icon(
+        onPressed: () => Navigator.of(context).pop(),
+        icon: const Icon(Icons.check),
+        label: const Text('Got it'),
+      );
+    }
+    return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+      TextButton.icon(
+        onPressed: () => addToCalendar(event, place: place),
+        icon: const Icon(Icons.event_outlined, size: 18),
+        label: const Text('Add to calendar'),
+      ),
+      const SizedBox(width: 8),
+      TextButton.icon(
+        onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
+        icon: const Icon(Icons.group_add_outlined, size: 18),
+        label: const Text('Invite someone'),
+      ),
+    ]);
+  }
+
+  /// Everything that isn't "where and when", folded away: the arc or the
+  /// numbers, brightness and cloud, who's aboard, photo tips.
+  Widget _details(BuildContext context, DateTime now,
+      {required bool isPass, required bool showArc, required bool isTransit}) {
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(bottom: 4),
+          title: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Eyebrow('Details'),
+            SizedBox(width: 4),
+            Icon(Icons.expand_more, size: 16, color: LookUpColors.grey),
+          ]),
+          showTrailingIcon: false,
+          children: [
+            const OrnamentRule(),
+            const SizedBox(height: 16),
+            if (isPass && showArc)
+              Semantics(
+                label: 'Rises ${compassWord(event.riseAzimuthDeg)} at ${fmtTime(event.start)}, '
+                    'peaks ${event.peakElevationDeg.round()} degrees at ${fmtTime(event.peak)}, '
+                    'sets ${compassWord(event.setAzimuthDeg)} at ${fmtTime(event.end)}',
+                child: PassTimeline(event: event, now: now),
+              )
+            else if (!isPass)
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                for (final (k, v) in statsFor(event)) StatTile(k: k, v: v, align: CrossAxisAlignment.center),
+              ]),
+            const SizedBox(height: 14),
+            Text(
+              [
+                if (event.details['brightness'] is String) '${event.details['brightness']}',
+                cloudWord(event.cloudCoverPercent),
+                if (event.isEstimate) 'estimate (orbit data is a few days old)',
+              ].join('  ·  ').toUpperCase(),
+              textAlign: TextAlign.center,
+              style: t.labelSmall?.copyWith(color: LookUpColors.greyDim, letterSpacing: 1.8, fontSize: 10.5, fontWeight: FontWeight.w700),
+            ),
+            if (event.type == SkyEventType.iss || event.type == SkyEventType.tiangong) StationFacts(event: event),
+            if (isTransit)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  'Path is ~${((event.details['halfWidthKm'] as num?) ?? 0) * 2 ~/ 1} km wide. Orbits shift a little day to day, so check again the evening before.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12, height: 1.35),
+                ),
+              ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => showPhotoTips(context, event.type),
+              icon: const Icon(Icons.photo_camera_outlined, size: 18),
+              label: const Text('Photo tips'),
+            ),
+          ],
         ),
-        if (!widget.demo) const SizedBox(width: 12),
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.check),
-            label: const Text('Got it'),
-          ),
-        ),
-      ]);
+      ),
+    );
+  }
 
   Widget _feedbackRow(BuildContext context, String? place) {
     final t = Theme.of(context).textTheme;

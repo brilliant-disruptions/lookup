@@ -292,7 +292,7 @@ void main() {
 
   testWidgets('upcoming', (t) async {
     await mount(t, const HomeShell());
-    await t.tap(find.text('Upcoming'));
+    await t.tap(find.text('Sky'));
     await t.pump(const Duration(milliseconds: 600));
     await t.pump(const Duration(milliseconds: 1200));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/3-upcoming.png'));
@@ -343,7 +343,8 @@ void main() {
 
   testWidgets('settings', (t) async {
     await mount(t, const HomeShell());
-    await t.tap(find.text('Settings'));
+    await t.tap(find.byTooltip('Settings'));
+    await t.pump(const Duration(milliseconds: 600));
     await t.pump(const Duration(milliseconds: 600));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/5-settings.png'));
   });

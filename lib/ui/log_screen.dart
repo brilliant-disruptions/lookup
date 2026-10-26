@@ -8,22 +8,31 @@ import '../domain/models/sky_event.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
 import 'fancy/foil_text.dart';
-import 'fancy/ornament_rule.dart';
 import 'fancy/rise.dart';
 import 'fancy/stat_tile.dart';
 import 'format.dart';
+import 'fancy/woven.dart';
 import 'theme.dart';
 import 'year_card.dart';
 
 /// Your sky log: what you've seen and the badges you've earned.
-class LogScreen extends ConsumerWidget {
+class LogScreen extends ConsumerStatefulWidget {
   const LogScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LogScreen> createState() => _LogScreenState();
+
+  static String _typeLabel(SkyEventType? t) => _LogScreenState._typeLabel(t);
+}
+
+class _LogScreenState extends ConsumerState<LogScreen> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final log = ref.watch(skyLogProvider);
     return Scaffold(
-      appBar: AppBar(title: Text('Your sky log', style: displaySerif(context, size: 26, weight: FontWeight.w600))),
+      appBar: const WovenHeader(title: Text('Your sky log')),
       body: log.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
@@ -57,38 +66,42 @@ class LogScreen extends ConsumerWidget {
                   style: const TextStyle(color: LookUpColors.grey, height: 1.45),
                 ),
               ),
-            const Padding(padding: EdgeInsets.fromLTRB(0, 26, 0, 14), child: OrnamentRule(label: 'Badges')),
-            GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.82,
-              children: [for (final (i, b) in l.badges.indexed) Rise(index: 1 + i, child: _BadgeTile(b))],
+            const SizedBox(height: 18),
+            WovenTabs(
+              labels: const ['Seen', 'Badges'],
+              counts: [l.total, l.earnedCount],
+              index: _tab,
+              onSelect: (i) => setState(() => _tab = i),
             ),
-            if (l.seen.isNotEmpty) ...[
-              const Padding(padding: EdgeInsets.fromLTRB(0, 26, 0, 14), child: OrnamentRule(label: 'Seen')),
-              for (final s in l.seen.take(50))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Card(
-                    child: ListTile(
-                      onTap: () => _showSighting(context, ref, s),
-                      leading: _Thumb(s.photo),
-                      title: Text(_typeLabel(s.inferredType), style: displaySerif(context, size: 21, weight: FontWeight.w500)),
-                      subtitle: Text([
-                        fmtDay(s.eventTime ?? s.at),
-                        if (s.place != null && s.place!.isNotEmpty) s.place!,
-                        if (s.peakElevationDeg != null) '${s.peakElevationDeg!.round()}° up',
-                      ].join(' · ')),
-                      trailing: s.magnitude == null
-                          ? null
-                          : Text('mag ${s.magnitude!.toStringAsFixed(1)}', style: monoData(context, size: 12, color: LookUpColors.grey)),
-                    ),
+            const SizedBox(height: 8),
+            if (_tab == 0)
+              WovenRows(padding: EdgeInsets.zero, children: [
+                for (final s in l.seen.take(50))
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    onTap: () => _showSighting(context, ref, s),
+                    leading: _Thumb(s.photo),
+                    title: Text(_typeLabel(s.inferredType), style: displaySerif(context, size: 21, weight: FontWeight.w500)),
+                    subtitle: Text([
+                      fmtDay(s.eventTime ?? s.at),
+                      if (s.place != null && s.place!.isNotEmpty) s.place!,
+                    ].join(' · ')),
+                    trailing: const Icon(Icons.chevron_right, size: 18, color: LookUpColors.greyDim),
                   ),
+              ])
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 0.82,
+                  children: [for (final (i, b) in l.badges.indexed) Rise(index: i, child: _BadgeTile(b))],
                 ),
-            ],
+              ),
           ],
         ),
       ),

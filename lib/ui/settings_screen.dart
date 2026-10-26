@@ -5,183 +5,123 @@ import '../domain/models/settings.dart';
 import '../state/providers.dart';
 import 'demo.dart';
 import 'fancy/ornament_rule.dart';
+import 'fancy/woven.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
 
+Future<void> openSettings(BuildContext context) =>
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+
+typedef _Set = Future<void> Function(LookUpSettings Function(LookUpSettings));
+
+_Set _setter(WidgetRef ref) => (f) async {
+      await ref.read(settingsProvider.notifier).edit(f);
+      // Re-plan with the new rules; cheap, all cached.
+      await ref.read(homeProvider.notifier).refresh();
+    };
+
+/// The short list: where, what, when. Everything else is one level down.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider).value ?? const LookUpSettings();
-    final n = ref.read(settingsProvider.notifier);
-    Future<void> set(LookUpSettings Function(LookUpSettings) f) async {
-      await n.edit(f);
-      // Re-plan with the new rules; cheap, all cached.
-      await ref.read(homeProvider.notifier).refresh();
-    }
+    final set = _setter(ref);
 
     return Scaffold(
-      appBar: AppBar(title: Text('Settings', style: displaySerif(context, size: 26, weight: FontWeight.w600))),
+      appBar: const WovenHeader(title: Text('Settings')),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
-          const _Header('Location'),
-          ListTile(
-            leading: const Icon(Icons.my_location),
-            title: Text(s.locationMode == LocationMode.auto
-                ? 'Following your phone'
-                : (s.placeName?.isNotEmpty ?? false) ? s.placeName! : 'Pinned place'),
-            subtitle: Text(s.hasLocation
-                ? '${s.latitude!.toStringAsFixed(2)}, ${s.longitude!.toStringAsFixed(2)}'
-                    '${s.places.isEmpty ? '' : ' · ${s.places.length} saved place${s.places.length == 1 ? '' : 's'}'}'
-                : 'No location yet'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => openPlaces(context),
-          ),
-          const _Header('Tap me for'),
-          SwitchListTile(
-            value: s.issEnabled,
-            onChanged: (v) => set((s) => s.copyWith(issEnabled: v)),
-            title: const Text('Space station flyovers'),
-            subtitle: const Text('Bright, 3–6 minutes, a few times a month'),
-          ),
-          SwitchListTile(
-            value: s.starlinkEnabled,
-            onChanged: (v) => set((s) => s.copyWith(starlinkEnabled: v)),
-            title: const Text('Starlink trains'),
-            subtitle: const Text('A line of lights for ~2 weeks after each launch · LookUp+'),
-          ),
-          SwitchListTile(
-            value: s.auroraEnabled,
-            onChanged: (v) => set((s) => s.copyWith(auroraEnabled: v)),
-            title: const Text('Aurora'),
-            subtitle: const Text('Tonight\'s outlook is free; live "aurora now" taps are LookUp+'),
-          ),
-          SwitchListTile(
-            value: s.meteorsEnabled,
-            onChanged: (v) => set((s) => s.copyWith(meteorsEnabled: v)),
-            title: const Text('Meteor showers'),
-            subtitle: const Text('Peak nights, with the Moon factored in'),
-          ),
-          SwitchListTile(
-            value: s.eclipsesEnabled,
-            onChanged: (v) => set((s) => s.copyWith(eclipsesEnabled: v)),
-            title: const Text('Lunar eclipses'),
-            subtitle: const Text('Total and partial, when the Moon is up for you'),
-          ),
-          SwitchListTile(
-            value: s.pairingsEnabled,
-            onChanged: (v) => set((s) => s.copyWith(pairingsEnabled: v)),
-            title: const Text('Planet pairings'),
-            subtitle: const Text('The Moon and bright planets side by side'),
-          ),
-          SwitchListTile(
-            value: s.launchesEnabled,
-            onChanged: (v) => set((s) => s.copyWith(launchesEnabled: v)),
-            title: const Text('Rocket launches'),
-            subtitle: const Text('Night and twilight launches you can see from here · LookUp+'),
-          ),
-          SwitchListTile(
-            value: s.tiangongEnabled,
-            onChanged: (v) => set((s) => s.copyWith(tiangongEnabled: v)),
-            title: const Text('Tiangong (Chinese station)'),
-            subtitle: const Text('LookUp+'),
-          ),
-          const _Header('Also list'),
-          SwitchListTile(
-            value: s.transitsEnabled,
-            onChanged: (v) => set((s) => s.copyWith(transitsEnabled: v)),
-            title: const Text('ISS crossing the Sun or Moon'),
-            subtitle: const Text('Under a second, for photographers. Shows where to stand; never alerts.'),
-          ),
-          const _Header('How'),
-          ListTile(
-            title: const Text('Heads-up'),
-            subtitle: const Text('How long before it starts'),
-            trailing: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 5, label: Text('5m')),
-                ButtonSegment(value: 10, label: Text('10m')),
-                ButtonSegment(value: 20, label: Text('20m')),
-              ],
-              selected: {s.leadMinutes},
-              onSelectionChanged: (v) => set((s) => s.copyWith(leadMinutes: v.first)),
+          const _Header('Where'),
+          WovenRows(children: [
+            _Row(
+              icon: s.locationMode == LocationMode.auto ? Icons.near_me_outlined : Icons.place_outlined,
+              title: s.locationMode == LocationMode.auto
+                  ? 'Following your phone'
+                  : (s.placeName?.isNotEmpty ?? false) ? s.placeName! : 'Pinned place',
+              subtitle: s.places.isEmpty ? 'Save home, a cabin, a trip' : '${s.places.length} saved',
+              onTap: () => openPlaces(context),
             ),
-          ),
-          SwitchListTile(
-            value: s.goNowNudge,
-            onChanged: (v) => set((s) => s.copyWith(goNowNudge: v)),
-            title: const Text('"Go outside now" nudge'),
-            subtitle: const Text('A second tap one minute before'),
-          ),
-          SwitchListTile(
-            value: s.clearSkyOnly,
-            onChanged: (v) => set((s) => s.copyWith(clearSkyOnly: v)),
-            title: const Text('Only when it\'s clear'),
-            subtitle: const Text('Skip the tap if the forecast is over 60% cloud'),
-          ),
-          ListTile(
-            title: const Text('Quiet hours'),
-            subtitle: Text('${_hm(s.quietHours.startMinute)} – ${_hm(s.quietHours.endMinute)}'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _quietHours(context, s, set),
-          ),
-          SwitchListTile(
-            value: s.auroraWakeMe,
-            onChanged: (v) => set((s) => s.copyWith(auroraWakeMe: v)),
-            title: const Text('Wake me for aurora and eclipses'),
-            subtitle: const Text('Both are rare enough to ignore quiet hours'),
-          ),
-          SwitchListTile(
-            value: s.nightVision,
-            onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
-            title: const Text('Night vision'),
-            subtitle: const Text('Red screen that keeps your eyes dark-adapted outside'),
-          ),
-          ..._learned(ref),
+          ]),
+          const _Header('Alerts'),
+          WovenRows(children: [
+            _Row(
+              icon: Icons.notifications_none,
+              title: 'What to tell me about',
+              subtitle: alertTypesSummary(s),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _AlertTypesScreen())),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(children: [
+                const Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Heads-up', style: TextStyle(fontSize: 16)),
+                    SizedBox(height: 2),
+                    Text('Before it starts', style: TextStyle(color: LookUpColors.grey, fontSize: 13)),
+                  ]),
+                ),
+                SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: 5, label: Text('5m')),
+                    ButtonSegment(value: 10, label: Text('10m')),
+                    ButtonSegment(value: 20, label: Text('20m')),
+                  ],
+                  selected: {s.leadMinutes},
+                  onSelectionChanged: (v) => set((s) => s.copyWith(leadMinutes: v.first)),
+                ),
+              ]),
+            ),
+            _Switch(
+              value: s.clearSkyOnly,
+              onChanged: (v) => set((s) => s.copyWith(clearSkyOnly: v)),
+              title: 'Only when it\'s clear',
+              subtitle: 'Skip it if the forecast is cloudy',
+            ),
+            _Row(
+              icon: Icons.bedtime_outlined,
+              title: 'Quiet hours',
+              subtitle: '${_hm(s.quietHours.startMinute)} – ${_hm(s.quietHours.endMinute)}',
+              onTap: () => _quietHours(context, s, set),
+            ),
+          ]),
+          const _Header('Outside'),
+          WovenRows(children: [
+            _Switch(
+              value: s.nightVision,
+              onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
+              title: 'Night vision',
+              subtitle: 'Red screen that keeps your eyes dark-adapted',
+            ),
+            _Row(
+              icon: Icons.play_circle_outline,
+              title: 'Preview an alert',
+              subtitle: 'A whole pass in fast-forward',
+              onTap: () => showDemo(context, ref),
+            ),
+          ]),
           const _Header('LookUp+'),
-          ListTile(
-            leading: const Icon(Icons.auto_awesome),
-            title: Text(s.isPlus ? 'You have LookUp+' : 'Get LookUp+'),
-            subtitle: Text(s.isPlus
-                ? 'Aurora now, Starlink trains, Tiangong, go-now nudge'
-                : 'Aurora now, Starlink trains, Tiangong. From \$2.99/mo.'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => showPaywall(context),
-          ),
-          if (!s.isPlus)
-            ListTile(
-              leading: const SizedBox(width: 24),
-              title: const Text('Restore purchases'),
-              onTap: () => ref.read(plusServiceProvider).restore(),
+          WovenRows(children: [
+            _Row(
+              icon: Icons.auto_awesome,
+              title: s.isPlus ? 'You have LookUp+' : 'Get LookUp+',
+              subtitle: s.isPlus ? 'Thank you' : 'Aurora now, Starlink trains, launches. From \$2.99/mo.',
+              onTap: () => showPaywall(context),
             ),
-          const _Header('Try it'),
-          ListTile(
-            leading: const Icon(Icons.play_circle_outline),
-            title: const Text('Preview an alert'),
-            subtitle: const Text('A full pass in fast-forward, with the real notification'),
-            onTap: () => showDemo(context, ref),
-          ),
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Force a full refresh'),
-            onTap: () => ref.read(homeProvider.notifier).refresh(force: true),
-          ),
-          const SizedBox(height: 32),
+            _Row(
+              icon: Icons.tune,
+              title: 'More',
+              subtitle: 'Go-now nudge, wake-ups, what LookUp learned',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _MoreScreen())),
+            ),
+          ]),
         ],
       ),
     );
-  }
-
-  List<Widget> _learned(WidgetRef ref) {
-    final t = ref.watch(tuningProvider).value;
-    if (t == null || t.isNeutral) return const [];
-    return [
-      const _Header('Learned from you'),
-      for (final r in t.reasons)
-        ListTile(leading: const Icon(Icons.tune), title: Text(r, style: const TextStyle(fontSize: 14, height: 1.35))),
-    ];
   }
 
   static String _hm(int m) {
@@ -191,8 +131,7 @@ class SettingsScreen extends ConsumerWidget {
     return '$h12:${mm.toString().padLeft(2, '0')} $ap';
   }
 
-  Future<void> _quietHours(BuildContext context, LookUpSettings s,
-      Future<void> Function(LookUpSettings Function(LookUpSettings)) set) async {
+  Future<void> _quietHours(BuildContext context, LookUpSettings s, _Set set) async {
     final start = await showTimePicker(
         context: context,
         helpText: 'Quiet from',
@@ -206,6 +145,156 @@ class SettingsScreen extends ConsumerWidget {
     await set((s) => s.copyWith(
         quietHours: QuietHours(startMinute: start.hour * 60 + start.minute, endMinute: end.hour * 60 + end.minute)));
   }
+}
+
+/// "Space station, Starlink, aurora +4".
+String alertTypesSummary(LookUpSettings s) {
+  final on = [
+    if (s.issEnabled) 'Space station',
+    if (s.starlinkEnabled) 'Starlink',
+    if (s.auroraEnabled) 'aurora',
+    if (s.meteorsEnabled) 'meteors',
+    if (s.eclipsesEnabled) 'eclipses',
+    if (s.pairingsEnabled) 'planets',
+    if (s.launchesEnabled) 'launches',
+    if (s.tiangongEnabled) 'Tiangong',
+  ];
+  if (on.isEmpty) return 'Nothing yet';
+  if (on.length <= 3) return on.join(', ');
+  return '${on.take(3).join(', ')} +${on.length - 3}';
+}
+
+class _AlertTypesScreen extends ConsumerWidget {
+  const _AlertTypesScreen();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider).value ?? const LookUpSettings();
+    final set = _setter(ref);
+    _Switch toggle(bool v, LookUpSettings Function(LookUpSettings, bool) f, String title, String subtitle) =>
+        _Switch(value: v, onChanged: (x) => set((s) => f(s, x)), title: title, subtitle: subtitle);
+    return Scaffold(
+      appBar: const WovenHeader(title: Text('Tell me about')),
+      body: ListView(padding: const EdgeInsets.only(top: 8, bottom: 32), children: [
+        WovenRows(children: [
+          toggle(s.issEnabled, (s, v) => s.copyWith(issEnabled: v), 'Space station', 'Bright, 3–6 minutes, a few times a month'),
+          toggle(s.starlinkEnabled, (s, v) => s.copyWith(starlinkEnabled: v), 'Starlink trains', 'A line of lights after each launch · LookUp+'),
+          toggle(s.auroraEnabled, (s, v) => s.copyWith(auroraEnabled: v), 'Aurora', 'Tonight\'s outlook free; "aurora now" is LookUp+'),
+          toggle(s.meteorsEnabled, (s, v) => s.copyWith(meteorsEnabled: v), 'Meteor showers', 'Peak nights, Moon factored in'),
+          toggle(s.eclipsesEnabled, (s, v) => s.copyWith(eclipsesEnabled: v), 'Lunar eclipses', 'When the Moon is up for you'),
+          toggle(s.pairingsEnabled, (s, v) => s.copyWith(pairingsEnabled: v), 'Planet pairings', 'The Moon and bright planets side by side'),
+          toggle(s.launchesEnabled, (s, v) => s.copyWith(launchesEnabled: v), 'Rocket launches', 'Ones you can see from here · LookUp+'),
+          toggle(s.tiangongEnabled, (s, v) => s.copyWith(tiangongEnabled: v), 'Tiangong', 'China\'s station · LookUp+'),
+        ]),
+        const _Header('Listed, never tapped'),
+        WovenRows(children: [
+          toggle(s.transitsEnabled, (s, v) => s.copyWith(transitsEnabled: v), 'Station crossing the Sun or Moon',
+              'Under a second, for photographers'),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _MoreScreen extends ConsumerWidget {
+  const _MoreScreen();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider).value ?? const LookUpSettings();
+    final set = _setter(ref);
+    final learned = ref.watch(tuningProvider).value;
+    return Scaffold(
+      appBar: const WovenHeader(title: Text('More')),
+      body: ListView(padding: const EdgeInsets.only(top: 8, bottom: 32), children: [
+        WovenRows(children: [
+          _Switch(
+            value: s.goNowNudge,
+            onChanged: (v) => set((s) => s.copyWith(goNowNudge: v)),
+            title: '"Go outside now" nudge',
+            subtitle: 'A second tap one minute before',
+          ),
+          _Switch(
+            value: s.auroraWakeMe,
+            onChanged: (v) => set((s) => s.copyWith(auroraWakeMe: v)),
+            title: 'Wake me for aurora and eclipses',
+            subtitle: 'Rare enough to ignore quiet hours',
+          ),
+        ]),
+        if (learned != null && !learned.isNeutral) ...[
+          const _Header('Learned from you'),
+          WovenRows(children: [
+            for (final r in learned.reasons)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(r, style: const TextStyle(fontSize: 14, height: 1.35)),
+              ),
+          ]),
+        ],
+        const _Header('Housekeeping'),
+        WovenRows(children: [
+          _Row(icon: Icons.refresh, title: 'Refresh everything now', onTap: () => ref.read(homeProvider.notifier).refresh(force: true)),
+          if (!s.isPlus)
+            _Row(icon: Icons.restore, title: 'Restore purchases', onTap: () => ref.read(plusServiceProvider).restore()),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({required this.icon, required this.title, this.subtitle, this.onTap});
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          child: Row(children: [
+            Icon(icon, size: 21, color: LookUpColors.grey),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: const TextStyle(fontSize: 16)),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(subtitle!, style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),
+                ],
+              ]),
+            ),
+            if (onTap != null) const Icon(Icons.chevron_right, size: 20, color: LookUpColors.greyDim),
+          ]),
+        ),
+      );
+}
+
+class _Switch extends StatelessWidget {
+  const _Switch({required this.value, required this.onChanged, required this.title, required this.subtitle});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final String title;
+  final String subtitle;
+  @override
+  Widget build(BuildContext context) => MergeSemantics(
+        child: InkWell(
+          onTap: () => onChanged(!value),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),
+                ]),
+              ),
+              const SizedBox(width: 12),
+              Switch(value: value, onChanged: onChanged),
+            ]),
+          ),
+        ),
+      );
 }
 
 class _Header extends StatelessWidget {

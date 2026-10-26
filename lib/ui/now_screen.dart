@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../services/location_service.dart';
 import '../state/providers.dart';
@@ -14,11 +13,12 @@ import 'fancy/invite_frame.dart';
 import 'fancy/ornament_rule.dart';
 import 'fancy/rise.dart';
 import 'fancy/starfield.dart';
+import 'fancy/woven.dart';
 import 'format.dart';
 import 'look_sheet.dart';
 import 'paywall_sheet.dart';
+import 'settings_screen.dart';
 import 'places_screen.dart';
-import 'satellites_screen.dart';
 import 'theme.dart';
 
 class NowScreen extends ConsumerWidget {
@@ -28,108 +28,82 @@ class NowScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider);
     final settings = ref.watch(settingsProvider).value;
+    final place = (settings?.placeName?.isNotEmpty ?? false) ? settings!.placeName! : 'Near you';
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
+      appBar: WovenHeader(
         title: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text('LookUp', style: displaySerif(context, size: 26, weight: FontWeight.w600)),
-          Text('.', style: displaySerif(context, size: 26, weight: FontWeight.w700, color: LookUpColors.blue)),
+          const Text('LookUp'),
+          Text('.', style: displaySerif(context, size: 21, weight: FontWeight.w700, color: LookUpColors.blue)),
         ]),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: TextButton.icon(
-              onPressed: () => openPlaces(context),
-              icon: Icon(settings?.locationMode == LocationMode.pinned ? Icons.place_outlined : Icons.near_me_outlined,
-                  size: 16, color: LookUpColors.grey),
-              label: Eyebrow((settings?.placeName?.isNotEmpty ?? false) ? settings!.placeName! : 'Here'),
-            ),
-          ),
-        ],
+        subtitle: place,
+        onSubtitleTap: () => openPlaces(context),
+        trailing: IconButton(
+          tooltip: 'Settings',
+          icon: const Icon(Icons.settings_outlined, size: 21, color: LookUpColors.grey),
+          onPressed: () => openSettings(context),
+        ),
       ),
       body: Starfield(
         child: RefreshIndicator(
-        onRefresh: () => ref.read(homeProvider.notifier).refresh(force: true),
-        child: home.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => ListView(children: [Padding(padding: const EdgeInsets.all(24), child: Text('$e'))]),
-          data: (d) => ListView(
-            padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 64, 16, 32),
-            children: [
-              if (ref.watch(alertsEnabledProvider).value == false && !d.needsLocation)
-                const Padding(padding: EdgeInsets.only(bottom: 14), child: _AlertsOffCard()),
-              Rise(
-                index: 0,
-                child: d.needsLocation
-                    ? const _LocationCard()
-                    : d.noData
-                    ? _OfflineCard(onRetry: () => ref.read(homeProvider.notifier).refresh(force: true))
-                    : (d.next == null || d.next!.details['lookahead'] == true)
-                        ? _QuietCard(nextBeyond: d.next)
-                        : _NextCard(event: d.next!),
-              ),
-              const SizedBox(height: 14),
-              if (d.auroraOutlook != null) Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
-              if (d.next?.details['lookahead'] != true) ..._then(d),
-              ..._recent(d),
-              Padding(
-                padding: const EdgeInsets.only(top: 18),
-                child: Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
-                  TextButton.icon(
-                    onPressed: () => openSatellitesTonight(context),
-                    icon: const Icon(Icons.satellite_alt_outlined, size: 18),
-                    label: const Text('Satellites tonight'),
-                  ),
-                  TextButton.icon(
-                    onPressed: () => showDemo(context, ref),
-                    icon: const Icon(Icons.play_circle_outline, size: 18),
-                    label: const Text('Preview an alert'),
-                  ),
-                ]),
-              ),
-              if (d.errors.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text('Some data didn\'t refresh: ${d.errors.length} source(s). Using the last good copy.',
-                      style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
+          edgeOffset: MediaQuery.paddingOf(context).top + 58,
+          onRefresh: () => ref.read(homeProvider.notifier).refresh(force: true),
+          child: home.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => ListView(children: [Padding(padding: const EdgeInsets.all(24), child: Text('$e'))]),
+            data: (d) => ListView(
+              padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 58 + 16, 16, 32),
+              children: [
+                if (ref.watch(alertsEnabledProvider).value == false && !d.needsLocation)
+                  const Padding(padding: EdgeInsets.only(bottom: 14), child: _AlertsOffCard()),
+                Rise(
+                  index: 0,
+                  child: d.needsLocation
+                      ? const _LocationCard()
+                      : d.noData
+                          ? _OfflineCard(onRetry: () => ref.read(homeProvider.notifier).refresh(force: true))
+                          : (d.next == null || d.next!.details['lookahead'] == true)
+                              ? _QuietCard(nextBeyond: d.next)
+                              : _NextCard(event: d.next!),
                 ),
-              if (d.lastRefresh != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Eyebrow('Updated ${fmtDay(d.lastRefresh!)} ${fmtTime(d.lastRefresh!)}', color: LookUpColors.greyDim),
-                ),
-            ],
+                if (d.auroraOutlook != null) ...[
+                  const SizedBox(height: 14),
+                  Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
+                ],
+                if (d.next?.details['lookahead'] != true) ..._later(context, ref, d),
+                if (d.errors.isNotEmpty && !d.needsLocation)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: Text('Couldn\'t refresh everything. Showing the last good copy.',
+                        textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
+                  ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
 
-  List<Widget> _recent(HomeData d) {
-    if (d.recent.isEmpty) return const [];
-    return [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(4, 26, 4, 14),
-        child: OrnamentRule(label: 'Last 7 nights'),
-      ),
-      for (final (i, e) in d.recent.take(3).indexed) Rise(index: 4 + i, child: _PastRow(e)),
-    ];
-  }
-
-  List<Widget> _then(HomeData d) {
-    final rest = d.events
-        .where((e) => e.id != d.next?.id && e.type.pushes)
-        .take(2)
-        .toList();
+  /// The next two things after the hero, as quiet rows, and a way to the week.
+  List<Widget> _later(BuildContext context, WidgetRef ref, HomeData d) {
+    final rest = d.events.where((e) => e.id != d.next?.id && e.type.pushes).take(2).toList();
     if (rest.isEmpty) return const [];
     return [
       const Padding(
-        padding: EdgeInsets.fromLTRB(4, 26, 4, 14),
-        child: OrnamentRule(label: 'Then'),
+        padding: EdgeInsets.fromLTRB(4, 28, 4, 4),
+        child: OrnamentRule(label: 'Later'),
       ),
-      for (final (i, e) in rest.indexed) Rise(index: 2 + i, child: _SmallRow(e)),
+      Rise(
+        index: 2,
+        child: WovenRows(padding: const EdgeInsets.symmetric(horizontal: 4), children: [for (final e in rest) _SmallRow(e)]),
+      ),
+      Align(
+        child: TextButton(
+          onPressed: () => ref.read(homeTabProvider.notifier).set(1),
+          child: const Text('See the whole week'),
+        ),
+      ),
     ];
   }
 }
@@ -257,36 +231,22 @@ class _SmallRow extends StatelessWidget {
   const _SmallRow(this.e);
   final SkyEvent e;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Card(
-          child: InkWell(
-            onTap: () => showLookSheet(context, e),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(eventTitle(e), style: displaySerif(context, size: 24, weight: FontWeight.w500)),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 2,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(fmtDay(e.start).toUpperCase(),
-                            style: const TextStyle(color: LookUpColors.grey, fontSize: 10.5, letterSpacing: 1.8, fontWeight: FontWeight.w700)),
-                        Text('${fmtTime(e.start)} · ${e.peakElevationDeg.round()}°',
-                            style: monoData(context, size: 12, color: LookUpColors.grey)),
-                      ],
-                    ),
-                  ]),
-                ),
-                const SizedBox(width: 12),
-                _CloudChip(e.cloudCoverPercent),
+  Widget build(BuildContext context) => InkWell(
+        onTap: () => showLookSheet(context, e),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(eventTitle(e), style: displaySerif(context, size: 22, weight: FontWeight.w500)),
+                const SizedBox(height: 3),
+                Text('${fmtDay(e.start)}, ${fmtTime(e.start)}',
+                    style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),
               ]),
             ),
-          ),
+            const SizedBox(width: 12),
+            _CloudChip(e.cloudCoverPercent),
+          ]),
         ),
       );
 }
@@ -381,56 +341,6 @@ class _OfflineCard extends StatelessWidget {
           OutlinedButton(onPressed: onRetry, child: const Text('TRY AGAIN')),
         ]),
       );
-}
-
-/// Something that already happened over the user, with whether it was visible.
-class _PastRow extends StatelessWidget {
-  const _PastRow(this.e);
-  final SkyEvent e;
-  @override
-  Widget build(BuildContext context) {
-    final clouded = (e.cloudCoverPercent ?? 0) > 60;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Opacity(
-        opacity: 0.82,
-        child: Card(
-          child: InkWell(
-            onTap: () => showLookSheet(context, e),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(pastTitle(e), style: displaySerif(context, size: 22, weight: FontWeight.w500)),
-                    const SizedBox(height: 4),
-                    Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                      Text(fmtDay(e.start).toUpperCase(),
-                          style: const TextStyle(color: LookUpColors.grey, fontSize: 10.5, letterSpacing: 1.8, fontWeight: FontWeight.w700)),
-                      Text(e.type == SkyEventType.auroraNow
-                              ? 'Kp ${(e.details['kp'] as num?)?.toStringAsFixed(1)}'
-                              : '${fmtTime(e.start)} · ${e.peakElevationDeg.round()}°',
-                          style: monoData(context, size: 12, color: LookUpColors.grey)),
-                    ]),
-                  ]),
-                ),
-                const SizedBox(width: 12),
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Icon(clouded ? Icons.cloud : Icons.visibility_outlined, size: 16,
-                      color: clouded ? LookUpColors.greyDim : LookUpColors.blue),
-                  const SizedBox(height: 4),
-                  Text(clouded ? 'CLOUDED OUT' : 'VISIBLE',
-                      style: TextStyle(
-                          fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.w700,
-                          color: clouded ? LookUpColors.greyDim : LookUpColors.blue)),
-                ]),
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Location refused and no place pinned: say why we need it, offer both ways.

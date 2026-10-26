@@ -8,6 +8,7 @@ import 'fancy/ornament_rule.dart';
 import 'fancy/rise.dart';
 import 'format.dart';
 import 'look_sheet.dart';
+import 'fancy/woven.dart';
 import 'theme.dart';
 
 Future<void> openSatellitesTonight(BuildContext context) =>
@@ -22,7 +23,7 @@ class SatellitesTonightScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final list = ref.watch(brightTonightProvider);
     return Scaffold(
-      appBar: AppBar(title: Text('Satellites tonight', style: displaySerif(context, size: 26, weight: FontWeight.w600))),
+      appBar: const WovenHeader(title: Text('Satellites tonight'), subtitle: 'The bright ones, besides the stations'),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(brightTonightProvider.future),
         child: list.when(

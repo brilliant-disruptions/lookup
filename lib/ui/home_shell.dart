@@ -5,11 +5,11 @@ import '../services/alert_actions.dart';
 import '../services/notification_service.dart';
 import '../state/providers.dart';
 import 'demo.dart';
+import 'fancy/woven.dart';
 import 'finder_screen.dart';
 import 'log_screen.dart';
 import 'look_sheet.dart';
 import 'now_screen.dart';
-import 'settings_screen.dart';
 import 'upcoming_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -19,7 +19,6 @@ class HomeShell extends ConsumerStatefulWidget {
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
-  int _tab = 0;
   late final AppLifecycleListener _lifecycle;
 
   @override
@@ -82,17 +81,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     ref.listen(alertTapProvider, (_, t) {
       if (t != null) _openAlert(t);
     });
-    final pages = const [NowScreen(), UpcomingScreen(), LogScreen(), SettingsScreen()];
+    final tab = ref.watch(homeTabProvider);
+    const pages = [NowScreen(), UpcomingScreen(), LogScreen()];
     return Scaffold(
-      body: IndexedStack(index: _tab, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.nightlight_outlined), label: 'Now'),
-          NavigationDestination(icon: Icon(Icons.calendar_month_outlined), label: 'Upcoming'),
-          NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), label: 'Log'),
-          NavigationDestination(icon: Icon(Icons.tune), label: 'Settings'),
+      body: IndexedStack(index: tab, children: pages),
+      bottomNavigationBar: WovenNavBar(
+        index: tab,
+        onSelect: ref.read(homeTabProvider.notifier).set,
+        tabs: const [
+          WovenTab(Icons.nightlight_outlined, 'Tonight', activeIcon: Icons.nightlight),
+          WovenTab(Icons.calendar_today_outlined, 'Sky', activeIcon: Icons.calendar_today),
+          WovenTab(Icons.auto_awesome_outlined, 'Log', activeIcon: Icons.auto_awesome),
         ],
       ),
     );

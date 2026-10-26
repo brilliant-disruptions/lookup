@@ -163,6 +163,16 @@ final tuningProvider = FutureProvider<AlertTuning>((ref) async {
   return AlertTuning.from([for (final x in f) x.toSighting()]);
 });
 
+/// Which bottom tab is showing (0 Tonight, 1 Sky, 2 Log), so screens can
+/// send you to another one ("See the week").
+class HomeTab extends Notifier<int> {
+  @override
+  int build() => 0;
+  void set(int i) => state = i;
+}
+
+final homeTabProvider = NotifierProvider<HomeTab, int>(HomeTab.new);
+
 /// Set by onboarding so the shell plays the preview once, right away.
 class PlayIntro extends Notifier<bool> {
   @override

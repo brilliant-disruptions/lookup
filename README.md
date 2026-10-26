@@ -25,7 +25,7 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 
 Rendered from the real widgets with sample data (`flutter test --update-goldens --run-skipped --tags screenshots test/screenshots`):
 
-| Onboarding | Now | Quiet week | Upcoming | Look sheet | Sky finder | Preview | Log | Share cards | Settings | Paywall |
+| Onboarding | Tonight | Quiet week | Sky | Look sheet | Sky finder | Preview | Log | Share cards | Settings | Paywall |
 |---|---|---|---|---|---|---|---|---|---|---|
 | ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/2b-quiet-week.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/8-finder.png) | ![](test/screenshots/goldens/7-demo.png) | ![](test/screenshots/goldens/9-log.png) | ![](test/screenshots/goldens/10-share-cards.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
 
@@ -50,6 +50,16 @@ Black, white and one electric blue (SpaceX/Starlink-inspired), dressed with elem
 | StatTile (overline / display value / caption) | `StatTile` for rise / peak / set |
 | `.dearly-rise` staggered entrance | `Rise`: 12 px transform-only rise, 70 ms stagger |
 | Spline Sans Mono for data | Same face for times and degrees |
+
+From Woven's guest app (`app-ideas/bloved`) in `lib/ui/fancy/woven.dart`:
+
+| Woven | LookUp |
+|---|---|
+| `.g-nav` frosted bottom tabs: hairline, thin icons, colour-only active | `WovenNavBar`: three tabs (Tonight, Sky, Log); Settings sits behind the gear |
+| Compact sticky header: serif title over a muted line | `WovenHeader`: title over your place (tap to switch places) |
+| `.dly-tabs` underlined tabs with counts | `WovenTabs`: Coming up / Last 7 nights, Seen / Badges |
+| `.gx-tl` day-of timeline (hollow dots, filled "now") | `WovenTimeline`: the week on the Sky tab |
+| `.gx-member` hairline rows | `WovenRows`: Settings, the Log, "Later" on Tonight |
 
 All in `lib/ui/fancy/`. Emoji were dropped (Dearly's rule: warmth comes from type, not 🎉).
 
