@@ -67,6 +67,17 @@ void main() {
     expect(off.where((e) => e.type == SkyEventType.issTransit), isEmpty);
   });
 
+  test('Saturn\'s opposition shows up as a planet highlight at dusk', () {
+    final events = const EventPipeline().build(PipelineInputs(settings: nashville, now: DateTime.utc(2026, 10, 1, 12)));
+    final saturn = events.where((e) => e.type == SkyEventType.planetHighlight && e.details['planet'] == 'Saturn').toList();
+    expect(saturn, hasLength(1));
+    expect(saturn.single.start.toUtc().day, anyOf(4, 5)); // evening of Oct 4 CDT is Oct 5 UTC
+    expect(saturn.single.details['label'], 'Saturn at its brightest');
+    final off = const EventPipeline()
+        .build(PipelineInputs(settings: nashville.copyWith(pairingsEnabled: false), now: DateTime.utc(2026, 10, 1, 12)));
+    expect(off.where((e) => e.type == SkyEventType.planetHighlight), isEmpty);
+  });
+
   test('aurora now is skipped in daylight and when Kp is low', () {
     final events = const EventPipeline().build(PipelineInputs(
       settings: nashville,

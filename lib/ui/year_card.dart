@@ -35,6 +35,8 @@ String typePlural(SkyEventType t, int n) {
     SkyEventType.rocketLaunch => one ? 'rocket launch' : 'rocket launches',
     SkyEventType.issTransit => one ? 'station transit' : 'station transits',
     SkyEventType.satellitePass => one ? 'satellite' : 'satellites',
+    SkyEventType.planetHighlight => one ? 'planet highlight' : 'planet highlights',
+    SkyEventType.skyObject => one ? 'sky sight' : 'sky sights',
   };
 }
 

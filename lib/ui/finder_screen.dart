@@ -75,6 +75,23 @@ class FinderTarget {
       case SkyEventType.auroraNow:
       case SkyEventType.auroraOutlook:
         return const SkyDir(0, 15);
+      case SkyEventType.planetHighlight:
+      case SkyEventType.skyObject:
+        final planet = Planet.values.where((p) => p.label == event.details['planet']).firstOrNull;
+        if (planet != null) {
+          final h = planetHorizontal(planet, u, latDeg, lonDeg);
+          return SkyDir(h.azimuthDeg, h.altitudeDeg);
+        }
+        if (event.details['moon'] == true) {
+          final h = moonHorizontal(u, latDeg, lonDeg);
+          return SkyDir(h.azimuthDeg, h.altitudeDeg);
+        }
+        final ra = event.details['ra'], dec = event.details['dec'];
+        if (ra is num && dec is num) {
+          final h = toHorizontal(Equatorial(ra.toDouble(), dec.toDouble(), 1), u, latDeg, lonDeg);
+          return SkyDir(h.azimuthDeg, h.altitudeDeg);
+        }
+        return SkyDir(event.peakAzimuthDeg, event.peakElevationDeg);
       case SkyEventType.issTransit:
         final h = event.details['body'] == 'Moon' ? moonHorizontal(u, latDeg, lonDeg) : sunHorizontal(u, latDeg, lonDeg);
         return SkyDir(h.azimuthDeg, h.altitudeDeg);

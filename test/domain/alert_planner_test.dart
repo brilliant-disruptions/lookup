@@ -171,6 +171,17 @@ void main() {
     expect(planner.plan(events: [eclipse], settings: plus.copyWith(auroraWakeMe: true), now: now, utcOffsetMinutes: cdt), isNotEmpty);
   });
 
+  test('planet highlights follow the Planets toggle; sky objects never push', () {
+    final soon = now.add(const Duration(hours: 3));
+    final hl = ev('planet-saturn-opposition:20261004', SkyEventType.planetHighlight, soon,
+        details: {'planet': 'Saturn', 'label': 'Saturn at its brightest', 'brightness': 'as bright as the brightest stars'});
+    final on = planner.plan(events: [hl], settings: plus, now: now, utcOffsetMinutes: cdt);
+    expect(on.first.title, 'Saturn at its brightest');
+    expect(planner.plan(events: [hl], settings: plus.copyWith(pairingsEnabled: false), now: now, utcOffsetMinutes: cdt), isEmpty);
+    final obj = ev('obj:m31', SkyEventType.skyObject, soon, details: {'name': 'Andromeda Galaxy'});
+    expect(planner.plan(events: [obj], settings: plus, now: now, utcOffsetMinutes: cdt), isEmpty);
+  });
+
   test('transits and satellites-tonight are listed but never pushed', () {
     final soon = now.add(const Duration(hours: 3));
     final plan = planner.plan(events: [

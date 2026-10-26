@@ -44,6 +44,8 @@ class Sighting {
     if (id.startsWith('launch:')) return SkyEventType.rocketLaunch;
     if (id.startsWith('transit-')) return SkyEventType.issTransit;
     if (id.startsWith('sat:')) return SkyEventType.satellitePass;
+    if (id.startsWith('planet-')) return SkyEventType.planetHighlight;
+    if (id.startsWith('obj:')) return SkyEventType.skyObject;
     return null;
   }
 }

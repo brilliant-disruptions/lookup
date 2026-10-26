@@ -31,7 +31,7 @@ List<(String, String)> photoTips(SkyEventType t) => switch (t) {
           ('Camera', 'A long lens on a tripod. The eclipsed Moon is dim: ISO 800–1600, 1–2 s at totality; much faster before and after.'),
           ('Sequence', 'Shoot every 5 minutes from start to end and line them up for a classic eclipse sequence.'),
         ],
-      SkyEventType.planetPairing => const [
+      SkyEventType.planetPairing || SkyEventType.planetHighlight || SkyEventType.skyObject => const [
           ('Phone', 'Use 2–3× zoom and frame some landscape; the pair reads best low over a skyline at dusk.'),
           ('Camera', 'Tripod, 50–200 mm, ISO 400, 1–2 s. Shoot in twilight, not full dark, for a deep-blue sky.'),
         ],

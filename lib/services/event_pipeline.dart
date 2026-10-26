@@ -7,6 +7,7 @@ import '../domain/events/eclipses.dart';
 import '../domain/events/launches.dart';
 import '../domain/events/meteors.dart';
 import '../domain/events/pairings.dart';
+import '../domain/events/planet_highlights.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
@@ -179,6 +180,7 @@ class EventPipeline {
     }
     if (s.pairingsEnabled) {
       out.addAll(pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
+      out.addAll(planetHighlightEvents(now: now, to: to, latDeg: lat, lonDeg: lon).map(withClouds));
     }
     final issRecord = i.iss?.where((r) => r.meanMotion > 0).firstOrNull;
     if (s.transitsEnabled && issRecord != null) {

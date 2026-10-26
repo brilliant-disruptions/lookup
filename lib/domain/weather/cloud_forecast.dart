@@ -2,9 +2,15 @@
 library;
 
 class CloudSample {
-  const CloudSample({required this.time, required this.coverPercent});
+  const CloudSample({required this.time, required this.coverPercent, this.visibilityM, this.precipProbability});
   final DateTime time; // UTC, top of hour
   final int coverPercent; // 0–100
+
+  /// Horizontal visibility (fog, haze), metres. Null when not forecast.
+  final int? visibilityM;
+
+  /// Chance of rain or snow this hour, 0–100.
+  final int? precipProbability;
 }
 
 class CloudForecast {
@@ -23,7 +29,10 @@ class CloudForecast {
   static const empty = _EmptyCloudForecast();
 
   /// Cloud cover at the hour nearest [utc], or null when outside the forecast.
-  int? coverAt(DateTime utc) {
+  int? coverAt(DateTime utc) => sampleAt(utc)?.coverPercent;
+
+  /// The whole hourly sample nearest [utc] (within the hour).
+  CloudSample? sampleAt(DateTime utc) {
     if (hourly.isEmpty) return null;
     final t = utc.toUtc();
     CloudSample? best;
@@ -35,7 +44,7 @@ class CloudForecast {
         best = s;
       }
     }
-    return best?.coverPercent;
+    return best;
   }
 
   bool isStale(DateTime now, {Duration maxAge = const Duration(hours: 6)}) =>
@@ -47,7 +56,7 @@ class CloudForecast {
         'fetchedAt': fetchedAt.toIso8601String(),
         'hourly': [
           for (final s in hourly)
-            [s.time.millisecondsSinceEpoch ~/ 1000, s.coverPercent],
+            [s.time.millisecondsSinceEpoch ~/ 1000, s.coverPercent, s.visibilityM, s.precipProbability],
         ],
       };
 
@@ -62,6 +71,8 @@ class CloudForecast {
                   (e[0] as int) * 1000,
                   isUtc: true),
               coverPercent: e[1] as int,
+              visibilityM: e.length > 2 ? (e[2] as num?)?.toInt() : null,
+              precipProbability: e.length > 3 ? (e[3] as num?)?.toInt() : null,
             ),
         ],
       );
@@ -79,6 +90,8 @@ class _EmptyCloudForecast implements CloudForecast {
   List<CloudSample> get hourly => const [];
   @override
   int? coverAt(DateTime utc) => null;
+  @override
+  CloudSample? sampleAt(DateTime utc) => null;
   @override
   bool isStale(DateTime now, {Duration maxAge = const Duration(hours: 6)}) =>
       true;

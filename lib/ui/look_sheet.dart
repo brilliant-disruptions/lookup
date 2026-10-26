@@ -348,6 +348,8 @@ String lookLine(SkyEvent e) => switch (e.type) {
         '${e.details['label']}: two bright points ${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Hold your thumb out at arm\'s length: they fit behind it.',
       SkyEventType.rocketLaunch =>
         'Look ${compassWord(e.peakAzimuthDeg)}, low on the horizon. A bright point climbs and arcs away; at twilight the plume glows like a jellyfish.',
+      SkyEventType.planetHighlight || SkyEventType.skyObject =>
+        'Look ${compassWord(e.peakAzimuthDeg)}, ${elevationWord(e.peakElevationDeg)}. ${e.details['look'] ?? 'Planets shine with a steady light; stars twinkle.'}',
       SkyEventType.issTransit => e.details['body'] == 'Moon'
           ? 'The station\'s silhouette crosses the Moon, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. It\'s over in ${fmtSeconds(transitCrossing(e))}: aim binoculars or a camera at the Moon and start shooting a few seconds early.'
           : 'Cameras only: never look at the Sun without a certified solar filter. The station\'s silhouette crosses the Sun in ${fmtSeconds(transitCrossing(e))}. Burst-shoot through a solar filter from a few seconds before.',
@@ -376,6 +378,11 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
           ('Liftoff', fmtTime(e.start)),
           ('Away', '${e.details['distanceKm']} km'),
           ('Look', compassAbbrev(e.peakAzimuthDeg)),
+        ],
+      SkyEventType.planetHighlight || SkyEventType.skyObject => [
+          ('Look', compassAbbrev(e.peakAzimuthDeg)),
+          ('Height', '${e.peakElevationDeg.round()}°'),
+          ('Mag', (e.details['magnitude'] as num?)?.toStringAsFixed(1) ?? '–'),
         ],
       SkyEventType.issTransit => [
           ('At', fmtTimeSeconds(e.peak)),

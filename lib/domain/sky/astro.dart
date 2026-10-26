@@ -144,10 +144,11 @@ Equatorial moonEquatorial(DateTime utc) {
   return _eclToEq(lon, lat, r, d);
 }
 
-enum Planet { venus, mars, jupiter, saturn }
+enum Planet { mercury, venus, mars, jupiter, saturn }
 
 extension PlanetInfo on Planet {
   String get label => switch (this) {
+        Planet.mercury => 'Mercury',
         Planet.venus => 'Venus',
         Planet.mars => 'Mars',
         Planet.jupiter => 'Jupiter',
@@ -157,6 +158,9 @@ extension PlanetInfo on Planet {
 
 _Ecl _heliocentric(Planet p, double d) {
   switch (p) {
+    case Planet.mercury:
+      return _orbit(48.3313 + 3.24587e-5 * d, 7.0047 + 5.00e-8 * d, 29.1241 + 1.01444e-5 * d,
+          0.387098, 0.205635 + 5.59e-10 * d, 168.6562 + 4.0923344368 * d);
     case Planet.venus:
       return _orbit(76.6799 + 2.46590e-5 * d, 3.3946 + 2.75e-8 * d, 54.8910 + 1.38374e-5 * d,
           0.723330, 0.006773 - 1.302e-9 * d, 48.0052 + 1.6021302244 * d);
@@ -265,4 +269,50 @@ double moonRadiusDeg(DateTime utc, double altitudeDeg) {
   const earthKm = 6378.14, moonKm = 1737.4;
   final distKm = moonEquatorial(utc).distance * earthKm - earthKm * _sind(altitudeDeg);
   return math.asin(moonKm / distKm) * _r2d;
+}
+
+
+/// Elongation: the planet's angle from the Sun as seen from Earth. Small
+/// means lost in the glare.
+double planetElongationDeg(Planet p, DateTime utc) =>
+    equatorialSeparationDeg(planetEquatorial(p, utc), sunEquatorial(utc));
+
+/// True when the planet is east of the Sun (an evening object).
+bool planetIsEvening(Planet p, DateTime utc) {
+  final d = dayNumber(utc);
+  final h = _heliocentric(p, d);
+  final s = _sun(d);
+  final geo = _Ecl(h.x + s.x, h.y + s.y, h.z);
+  final diff = _rev(geo.lonDeg - s.lonDeg);
+  return diff < 180;
+}
+
+/// Apparent visual magnitude (Schlyter's formulas; Saturn includes its
+/// rings). Good to a few tenths: enough to say "brightest thing up".
+double planetMagnitude(Planet p, DateTime utc) {
+  final d = dayNumber(utc);
+  final h = _heliocentric(p, d);
+  final s = _sun(d);
+  final geo = _Ecl(h.x + s.x, h.y + s.y, h.z);
+  final r = h.r, big = geo.r, sun = s.r;
+  final cosFv = ((r * r + big * big - sun * sun) / (2 * r * big)).clamp(-1.0, 1.0);
+  final fv = math.acos(cosFv) * _r2d;
+  final dist = 5 * math.log(r * big) / math.ln10;
+  switch (p) {
+    case Planet.mercury:
+      return -0.36 + dist + 0.027 * fv + 2.2e-13 * math.pow(fv, 6);
+    case Planet.venus:
+      return -4.34 + dist + 0.013 * fv + 4.2e-7 * fv * fv * fv;
+    case Planet.mars:
+      return -1.51 + dist + 0.016 * fv;
+    case Planet.jupiter:
+      return -9.25 + dist + 0.014 * fv;
+    case Planet.saturn:
+      // Ring tilt as seen from Earth.
+      final ir = 28.06, nr = 169.51 + 3.82e-5 * d;
+      final los = geo.latDeg, lon = geo.lonDeg;
+      final sinB = _sind(ir) * _cosd(los) * _sind(lon - nr) - _cosd(ir) * _sind(los);
+      final ring = -2.6 * sinB.abs() + 1.2 * sinB * sinB;
+      return -9.0 + dist + 0.044 * fv + ring;
+  }
 }

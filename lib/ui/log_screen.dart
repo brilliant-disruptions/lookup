@@ -156,6 +156,8 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         SkyEventType.rocketLaunch => 'Rocket launch',
         SkyEventType.issTransit => 'Station transit',
         SkyEventType.satellitePass => 'Satellite',
+        SkyEventType.planetHighlight => 'Planet',
+        SkyEventType.skyObject => 'Sky object',
         null => 'Sky event',
       };
 }

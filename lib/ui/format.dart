@@ -42,6 +42,8 @@ String eventTitle(SkyEvent e) => switch (e.type) {
         (e.details['label'] as String?) ?? e.type.label,
       SkyEventType.issTransit => 'ISS crosses the ${e.details['body'] ?? 'Sun'}',
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? e.type.label,
+      SkyEventType.planetHighlight => (e.details['label'] as String?) ?? e.type.label,
+      SkyEventType.skyObject => (e.details['name'] as String?) ?? e.type.label,
       _ => e.type.label,
     };
 
@@ -66,6 +68,11 @@ String eventSubtitle(SkyEvent e) {
       return '${e.details['name']} · ${e.details['distanceKm']} km away, low in the ${compassWord(e.peakAzimuthDeg)}';
     case SkyEventType.issTransit:
       return transitWhere(e);
+    case SkyEventType.planetHighlight:
+      final b = e.details['brightness'] as String?;
+      return '${b == null ? '' : '${b[0].toUpperCase()}${b.substring(1)}, '}${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}';
+    case SkyEventType.skyObject:
+      return '${elevationWord(e.peakElevationDeg)[0].toUpperCase()}${elevationWord(e.peakElevationDeg).substring(1)} in the ${compassWord(e.peakAzimuthDeg)}';
     case SkyEventType.satellitePass:
     case SkyEventType.iss:
     case SkyEventType.tiangong:
@@ -97,6 +104,8 @@ String eventEmoji(SkyEvent e) => switch (e.type) {
       SkyEventType.rocketLaunch => '🚀',
       SkyEventType.issTransit => e.details['body'] == 'Moon' ? '🌕' : '☀️',
       SkyEventType.satellitePass => '🛰️',
+      SkyEventType.planetHighlight => '🪐',
+      SkyEventType.skyObject => '✨',
     };
 
 String shareText(SkyEvent e, String? place) {
@@ -112,6 +121,8 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.rocketLaunch => 'Just watched a rocket launch$where 🚀 LookUp told me where to look.',
     SkyEventType.issTransit => 'Caught the space station crossing the ${e.details['body'] ?? 'Sun'}$where. It took ${fmtSeconds(transitCrossing(e))}.',
     SkyEventType.satellitePass => 'Watched ${e.details['name'] ?? 'a satellite'} cross the sky$where 🛰️ Spotted with LookUp.',
+    SkyEventType.planetHighlight => '${e.details['label']}$where 🪐 Spotted with LookUp.',
+    SkyEventType.skyObject => 'Found ${e.details['name'] ?? 'it'} in the sky$where ✨ with LookUp.',
   };
 }
 

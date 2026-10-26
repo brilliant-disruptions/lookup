@@ -26,7 +26,7 @@ class OpenMeteoClient {
     final uri = Uri.https('api.open-meteo.com', '/v1/forecast', {
       'latitude': lat.toStringAsFixed(4),
       'longitude': lon.toStringAsFixed(4),
-      'hourly': 'cloud_cover',
+      'hourly': 'cloud_cover,visibility,precipitation_probability',
       'forecast_days': '$days',
       'past_days': '$pastDays',
       'timeformat': 'unixtime',
@@ -47,6 +47,9 @@ class OpenMeteoClient {
     final hourly = j['hourly'] as Map?;
     final times = (hourly?['time'] as List?) ?? const [];
     final cover = (hourly?['cloud_cover'] as List?) ?? const [];
+    final vis = (hourly?['visibility'] as List?) ?? const [];
+    final precip = (hourly?['precipitation_probability'] as List?) ?? const [];
+    int? at(List l, int i) => i < l.length && l[i] is num ? (l[i] as num).round() : null;
     final n = times.length < cover.length ? times.length : cover.length;
     return CloudForecast(
       latitude: latitude,
@@ -60,6 +63,8 @@ class OpenMeteoClient {
                   (times[i] as num).toInt() * 1000,
                   isUtc: true),
               coverPercent: (cover[i] as num).round(),
+              visibilityM: at(vis, i),
+              precipProbability: at(precip, i),
             ),
       ],
     );

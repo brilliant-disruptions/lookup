@@ -14,6 +14,11 @@ enum SkyEventType {
   planetPairing('Planet pairing', plusOnly: false),
   rocketLaunch('Rocket launch', plusOnly: true),
   issTransit('ISS transit', plusOnly: false, pushes: false),
+  planetHighlight('Planet highlight', plusOnly: false),
+
+  /// A planet, star, constellation or showpiece opened from the Sky tab:
+  /// not an event, but the finder and sheets speak [SkyEvent].
+  skyObject('Sky object', plusOnly: false, pushes: false),
   satellitePass('Satellite pass', plusOnly: false, pushes: false);
 
   const SkyEventType(this.label, {required this.plusOnly, this.pushes = true});

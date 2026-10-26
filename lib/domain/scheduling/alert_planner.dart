@@ -132,10 +132,10 @@ class AlertPlanner {
         SkyEventType.auroraOutlook => false, // outlook is never pushed
         SkyEventType.meteorShower => s.meteorsEnabled,
         SkyEventType.lunarEclipse => s.eclipsesEnabled,
-        SkyEventType.planetPairing => s.pairingsEnabled,
+        SkyEventType.planetPairing || SkyEventType.planetHighlight => s.pairingsEnabled,
         SkyEventType.rocketLaunch => s.launchesEnabled,
         // Listed for planning, never pushed.
-        SkyEventType.issTransit || SkyEventType.satellitePass => false,
+        SkyEventType.issTransit || SkyEventType.satellitePass || SkyEventType.skyObject => false,
       };
 
   /// Quiet hours block everything except aurora and lunar eclipses when
@@ -180,7 +180,10 @@ class AlertPlanner {
       SkyEventType.rocketLaunch => 'Rocket launch',
       SkyEventType.issTransit => 'ISS crosses the ${e.details['body'] ?? 'Sun'}',
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? 'Satellite pass',
+      SkyEventType.planetHighlight => (e.details['label'] as String?) ?? 'Planet highlight',
+      SkyEventType.skyObject => (e.details['name'] as String?) ?? 'Sky object',
     };
+    if (e.type == SkyEventType.planetHighlight) return what;
     if (e.type == SkyEventType.meteorShower) return what;
     return '$what in $leadMinutes min';
   }
@@ -200,6 +203,9 @@ class AlertPlanner {
       case SkyEventType.planetPairing:
         final sep = e.details['separation'];
         return '$sep° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Two bright points side by side. ${_cloudNote(e)}'.trim();
+      case SkyEventType.planetHighlight:
+        final b = e.details['brightness'] as String?;
+        return '${e.details['planet']} is ${b ?? 'bright'}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. ${_cloudNote(e)}'.trim();
       case SkyEventType.rocketLaunch:
         final dist = e.details['distanceKm'];
         final name = e.details['name'] ?? 'A rocket';
