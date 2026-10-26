@@ -178,10 +178,10 @@ Color verdictColor(Seeability v) => switch (v) {
 
 /// A glyph per kind of thing in the sky, greyed when it's not seeable.
 EventGlyph thingGlyph(SkyThing x, {double size = 36}) {
-  final (icon, color) = x.id == 'moon'
+  final (IconData? icon, Color color) = x.id == 'moon'
       ? (Icons.nightlight_round, LookUpColors.white)
       : x.id.startsWith('planet:')
-          ? (Icons.public_rounded, LookUpColors.gold)
+          ? (null, LookUpColors.gold)
           : x.id.startsWith('con:')
               ? (Icons.hub_outlined, LookUpColors.blue)
               : switch (x.kind) {

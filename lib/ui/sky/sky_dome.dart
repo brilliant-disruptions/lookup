@@ -132,6 +132,13 @@ class _DomePainter extends CustomPainter {
     canvas.drawCircle(c, rim * 2 / 3, hairline); // 30° up
     canvas.drawCircle(c, rim / 3, hairline); // 60° up
 
+    // Straight up: a small cross at the zenith.
+    final zenith = Paint()
+      ..color = const Color(0x40FFFFFF)
+      ..strokeWidth = 1;
+    canvas.drawLine(c - const Offset(5, 0), c + const Offset(5, 0), zenith);
+    canvas.drawLine(c - const Offset(0, 5), c + const Offset(0, 5), zenith);
+
     // Constellation figures.
     final linePaint = Paint()
       ..color = LookUpColors.blue.withValues(alpha: 0.24)
