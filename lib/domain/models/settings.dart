@@ -1,6 +1,8 @@
 /// User settings. Persisted as JSON by the data layer.
 library;
 
+import '../sky/visibility.dart';
+
 class QuietHours {
   const QuietHours({required this.startMinute, required this.endMinute});
 
@@ -73,6 +75,7 @@ class LookUpSettings {
     this.minStarlinkPeakElevationDeg = 20,
     this.onboarded = false,
     this.places = const [],
+    this.skyDarkness = SkyDarkness.suburbs,
   });
 
   final double? latitude;
@@ -107,6 +110,9 @@ class LookUpSettings {
   /// Saved places to switch between. The active one is the pinned
   /// [latitude]/[longitude] when [locationMode] is pinned.
   final List<SavedPlace> places;
+
+  /// How dark the sky is where they usually look (drives "can I see it").
+  final SkyDarkness skyDarkness;
 
   bool get hasLocation => latitude != null && longitude != null;
 
@@ -154,6 +160,7 @@ class LookUpSettings {
     double? minStarlinkPeakElevationDeg,
     bool? onboarded,
     List<SavedPlace>? places,
+    SkyDarkness? skyDarkness,
   }) =>
       LookUpSettings(
         latitude: latitude ?? this.latitude,
@@ -183,6 +190,7 @@ class LookUpSettings {
             minStarlinkPeakElevationDeg ?? this.minStarlinkPeakElevationDeg,
         onboarded: onboarded ?? this.onboarded,
         places: places ?? this.places,
+        skyDarkness: skyDarkness ?? this.skyDarkness,
       );
 
   Map<String, Object?> toJson() => {
@@ -211,6 +219,7 @@ class LookUpSettings {
         'minStarlinkPeakElevationDeg': minStarlinkPeakElevationDeg,
         'onboarded': onboarded,
         'places': [for (final p in places) p.toJson()],
+        'skyDarkness': skyDarkness.name,
       };
 
   factory LookUpSettings.fromJson(Map<String, Object?> j) {
@@ -250,6 +259,7 @@ class LookUpSettings {
         for (final p in (j['places'] as List? ?? const []))
           if (p is Map) SavedPlace.fromJson(p.cast<String, Object?>()),
       ],
+      skyDarkness: SkyDarkness.values.where((d) => d.name == j['skyDarkness']).firstOrNull ?? d.skyDarkness,
     );
   }
 }

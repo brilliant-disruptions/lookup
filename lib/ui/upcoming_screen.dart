@@ -27,7 +27,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
     final place = ref.watch(settingsProvider).value?.placeName;
     return Scaffold(
       appBar: WovenHeader(
-        title: const Text('Your sky'),
+        title: const Text('The week'),
         subtitle: (place?.isNotEmpty ?? false) ? place! : 'Near you',
         onSubtitleTap: () => openPlaces(context),
       ),

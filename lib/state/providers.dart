@@ -163,7 +163,7 @@ final tuningProvider = FutureProvider<AlertTuning>((ref) async {
   return AlertTuning.from([for (final x in f) x.toSighting()]);
 });
 
-/// Which bottom tab is showing (0 Tonight, 1 Sky, 2 Log), so screens can
+/// Which bottom tab is showing (0 Tonight, 1 Sky, 2 Week, 3 Log), so screens can
 /// send you to another one ("See the week").
 class HomeTab extends Notifier<int> {
   @override

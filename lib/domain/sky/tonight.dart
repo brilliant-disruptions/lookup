@@ -49,8 +49,8 @@ List<({DateTime t, bool rising})> horizonCrossings(
     nextDarkWindow(now, lat, lon, within: const Duration(hours: 30), step: const Duration(minutes: 5));
 
 /// One object's night: when it's best, and whether you'll see it then.
-class Sighting {
-  const Sighting({
+class SkySighting {
+  const SkySighting({
     required this.best,
     required this.altDeg,
     required this.azDeg,
@@ -72,7 +72,7 @@ class Sighting {
 
 /// Samples [window] every 15 minutes and picks the best moment: a "yes"
 /// verdict first, then higher in the sky, then fewer clouds.
-Sighting? bestSighting({
+SkySighting? bestSighting({
   required Horizontal Function(DateTime) position,
   required double mag,
   required ({DateTime start, DateTime end}) window,
@@ -82,7 +82,7 @@ Sighting? bestSighting({
   CloudForecast? weather,
   bool diffuse = false,
 }) {
-  Sighting? best;
+  SkySighting? best;
   double bestScore = -1e9;
   DateTime? from, to;
   for (var t = window.start; !t.isAfter(window.end); t = t.add(const Duration(minutes: 15))) {
@@ -100,11 +100,11 @@ Sighting? bestSighting({
     final score = (v.yes ? 1000 : 0) + h.altitudeDeg - (c.cloudPercent ?? 0) * 0.3 - glow;
     if (score > bestScore) {
       bestScore = score;
-      best = Sighting(best: t, altDeg: h.altitudeDeg, azDeg: h.azimuthDeg, verdict: v);
+      best = SkySighting(best: t, altDeg: h.altitudeDeg, azDeg: h.azimuthDeg, verdict: v);
     }
   }
   if (best == null) return null;
-  return Sighting(
+  return SkySighting(
     best: best.best,
     altDeg: best.altDeg,
     azDeg: best.azDeg,
@@ -129,7 +129,7 @@ class PlanetTonight {
   final double magnitude;
   final double elongationDeg;
   final bool evening;
-  final Sighting? sighting;
+  final SkySighting? sighting;
   final DateTime? rise;
   final DateTime? set;
 
@@ -230,7 +230,7 @@ class MoonTonight {
   final bool waxing;
   final DateTime? rise;
   final DateTime? set;
-  final Sighting? sighting;
+  final SkySighting? sighting;
 }
 
 MoonTonight moonTonight({required DateTime now, required double lat, required double lon, CloudForecast? weather}) {
@@ -265,7 +265,7 @@ MoonTonight moonTonight({required DateTime now, required double lat, required do
 class ConstellationTonight {
   const ConstellationTonight(this.constellation, this.sighting);
   final Constellation constellation;
-  final Sighting sighting;
+  final SkySighting sighting;
 }
 
 /// Constellations worth finding tonight: the well-known ones (rank ≤ 2)
@@ -305,7 +305,7 @@ List<ConstellationTonight> constellationsTonight({
     final cond = SkyConditions.at(peak, lat, lon, weather: weather);
     out.add(ConstellationTonight(
       c,
-      Sighting(
+      SkySighting(
         best: peak,
         altDeg: h.altitudeDeg,
         azDeg: h.azimuthDeg,
@@ -340,7 +340,7 @@ double _brightestIn(SkyCatalog catalog, Constellation c) {
 class ShowpieceTonight {
   const ShowpieceTonight(this.showpiece, this.sighting);
   final Showpiece showpiece;
-  final Sighting sighting;
+  final SkySighting sighting;
 }
 
 /// Showpieces that get above 15° tonight, the ones you can see first.

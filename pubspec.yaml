@@ -48,6 +48,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/sky/stars.json
+    - assets/sky/constellations.json
   fonts:
     # Display serif (Dearly's ceremonial voice) and data mono, both OFL.
     - family: Cormorant

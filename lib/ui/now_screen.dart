@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/sky_event.dart';
+import '../domain/sky/astro.dart' show PlanetInfo;
 import '../services/location_service.dart';
 import '../state/providers.dart';
+import '../state/sky_state.dart';
 import 'demo.dart';
 import 'finder_screen.dart';
 import 'widgets/pass_timeline.dart';
@@ -18,6 +20,8 @@ import 'format.dart';
 import 'look_sheet.dart';
 import 'paywall_sheet.dart';
 import 'settings_screen.dart';
+import 'sky/night_strip.dart';
+import 'sky/sky_thing.dart';
 import 'places_screen.dart';
 import 'theme.dart';
 
@@ -70,6 +74,7 @@ class NowScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
                 ],
+                if (!d.needsLocation) const Padding(padding: EdgeInsets.only(top: 14), child: Rise(index: 2, child: _TonightSkyCard())),
                 if (d.next?.details['lookahead'] != true) ..._later(context, ref, d),
                 if (d.errors.isNotEmpty && !d.needsLocation)
                   Padding(
@@ -100,7 +105,7 @@ class NowScreen extends ConsumerWidget {
       ),
       Align(
         child: TextButton(
-          onPressed: () => ref.read(homeTabProvider.notifier).set(1),
+          onPressed: () => ref.read(homeTabProvider.notifier).set(2),
           child: const Text('See the whole week'),
         ),
       ),
@@ -412,4 +417,45 @@ class _AlertsOffCard extends ConsumerWidget {
           ]),
         ),
       );
+}
+
+/// Tonight's clouds and what's up, in four lines. Opens the Sky tab.
+class _TonightSkyCard extends ConsumerWidget {
+  const _TonightSkyCard();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(tonightSkyProvider).value;
+    if (t == null) return const SizedBox.shrink();
+    final up = [
+      for (final p in t.visiblePlanets) p.planet.label,
+      if (t.moon.sighting?.verdict.yes ?? false) 'the Moon (${(t.moon.illumination * 100).round()}%)',
+    ];
+    return Card(
+      child: InkWell(
+        onTap: () => ref.read(homeTabProvider.notifier).set(1),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 14, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              const Eyebrow('Tonight\'s sky'),
+              const Spacer(),
+              const Text('Explore', style: TextStyle(color: LookUpColors.blue, fontSize: 13, fontWeight: FontWeight.w600)),
+              const Icon(Icons.chevron_right, size: 18, color: LookUpColors.blue),
+            ]),
+            const SizedBox(height: 10),
+            if (t.outlook != null) ...[
+              Text(outlookWords(t.outlook!), style: displaySerif(context, size: 24, weight: FontWeight.w500)),
+              const SizedBox(height: 10),
+              if (t.outlook!.hasForecast) NightStrip(outlook: t.outlook!, compact: true),
+              const SizedBox(height: 12),
+            ],
+            Text(
+              up.isEmpty ? 'No bright planets up tonight.' : 'Up tonight: ${up.join(', ')}.',
+              style: const TextStyle(color: LookUpColors.grey, height: 1.4),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 }

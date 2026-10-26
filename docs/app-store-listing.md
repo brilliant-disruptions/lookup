@@ -29,6 +29,12 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 > east." A countdown, a compass and a sky finder that guides your phone onto
 > it, with the pass drawn over the live camera.
 >
+> EVERYTHING IN YOUR SKY
+> A live map of the sky above you: every constellation, the planets, the
+> Moon, the Andromeda Galaxy and the Pleiades. For each one LookUp tells
+> you whether you'll actually see it tonight, checking the clouds, fog,
+> moonlight and how dark your sky is.
+>
 > MORE THAN THE SPACE STATION
 > • Starlink trains in the weeks after a launch
 > • Aurora tonight, and live "aurora now" alerts
@@ -75,9 +81,10 @@ indexes those anyway.)
 
 ## Screenshots
 
-`test/screenshots/goldens/appstore/` holds seven captioned 1320 × 2868
+`test/screenshots/goldens/appstore/` holds eight captioned 1320 × 2868
 images (6.9" iPhone, which App Store Connect scales for smaller phones):
 
+0. Everything in your sky. *(Sky map)*
 1. Step outside right now. *(Now)*
 2. Know exactly where to look. *(Look sheet)*
 3. See its path over your sky. *(camera view)*

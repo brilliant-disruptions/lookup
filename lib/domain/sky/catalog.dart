@@ -31,9 +31,13 @@ class Constellation {
     required this.centerRaDeg,
     required this.centerDecDeg,
     required this.lines,
+    this.meaning,
   });
   final String id; // IAU abbreviation, e.g. "Ori"
-  final String name;
+  final String name; // Latin, as on every star chart: "Taurus"
+
+  /// What the name means, when it isn't obvious: "the Bull".
+  final String? meaning;
 
   /// 1 = the famous ones, 3 = obscure.
   final int rank;
@@ -71,6 +75,7 @@ class SkyCatalog {
           Constellation(
             id: c['id'] as String,
             name: c['name'] as String,
+            meaning: c['en'] == null ? null : 'the ${c['en']}',
             rank: (c['rank'] as num).toInt(),
             centerRaDeg: d((c['c'] as List)[0]),
             centerDecDeg: d((c['c'] as List)[1]),

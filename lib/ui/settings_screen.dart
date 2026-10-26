@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/settings.dart';
+import '../domain/sky/visibility.dart';
 import '../state/providers.dart';
 import 'demo.dart';
 import 'fancy/ornament_rule.dart';
@@ -91,6 +92,21 @@ class SettingsScreen extends ConsumerWidget {
           ]),
           const _Header('Outside'),
           WovenRows(children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Your sky', style: TextStyle(fontSize: 16)),
+                const SizedBox(height: 2),
+                Text(s.skyDarkness.hint, style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),
+                const SizedBox(height: 10),
+                SegmentedButton<SkyDarkness>(
+                  showSelectedIcon: false,
+                  segments: [for (final d in SkyDarkness.values) ButtonSegment(value: d, label: Text(d.label))],
+                  selected: {s.skyDarkness},
+                  onSelectionChanged: (v) => set((s) => s.copyWith(skyDarkness: v.first)),
+                ),
+              ]),
+            ),
             _Switch(
               value: s.nightVision,
               onChanged: (v) => set((s) => s.copyWith(nightVision: v)),

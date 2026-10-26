@@ -9,6 +9,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../domain/finder/pointing.dart';
+import '../domain/sky/astro.dart';
+import '../domain/sky/catalog.dart';
 import '../domain/sky/direction.dart';
 import 'format.dart';
 import 'theme.dart';
@@ -111,7 +113,14 @@ class SkyOverlayPainter extends CustomPainter {
     required this.onTarget,
     required this.previewHeightPx,
     this.labelStyle = const TextStyle(),
+    this.catalog,
+    this.latDeg = 0,
+    this.lonDeg = 0,
   });
+
+  /// When set, the real stars and constellation figures are drawn too.
+  final SkyCatalog? catalog;
+  final double latDeg, lonDeg;
 
   /// Base style for labels (the app's font; colour and size are set here).
   final TextStyle labelStyle;
@@ -132,6 +141,41 @@ class SkyOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final scrim = Paint()..color = Colors.black.withValues(alpha: 0.18);
     canvas.drawRect(Offset.zero & size, scrim);
+
+    // The real sky behind it: constellation figures and the brighter stars.
+    final cat = catalog;
+    if (cat != null) {
+      final lines = Paint()
+        ..color = LookUpColors.blue.withValues(alpha: 0.45)
+        ..strokeWidth = 1.2;
+      Offset? eq(double ra, double dec) {
+        final h = toHorizontal(Equatorial(ra, dec, 1), now, latDeg, lonDeg);
+        return _at(size, SkyDir(h.azimuthDeg, h.altitudeDeg));
+      }
+
+      for (final con in cat.constellations) {
+        for (final seg in con.lines) {
+          Offset? prev;
+          for (final (ra, dec) in seg) {
+            final o = eq(ra, dec);
+            if (o != null && prev != null && (o - prev).distance < size.width) canvas.drawLine(prev, o, lines);
+            prev = o;
+          }
+        }
+        if (con.rank == 1) {
+          final o = eq(con.centerRaDeg, con.centerDecDeg);
+          if (o != null) _label(canvas, con.name, o, Colors.white.withValues(alpha: 0.55), 11);
+        }
+      }
+      final dot = Paint()..color = Colors.white;
+      for (final st in cat.stars) {
+        if (st.mag > 4) break; // brightest first
+        final o = eq(st.raDeg, st.decDeg);
+        if (o == null) continue;
+        canvas.drawCircle(o, (3.0 - 0.5 * st.mag).clamp(0.8, 3.6), dot);
+        if (st.name != null && st.mag < 1.5) _label(canvas, st.name!, o + const Offset(0, 12), Colors.white70, 10);
+      }
+    }
 
     // Horizon and compass points.
     final horizon = Paint()

@@ -160,7 +160,10 @@ class WovenTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
         decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: LookUpColors.line))),
-        child: Row(children: [
+        // Scrolls sideways if the labels outgrow a narrow phone or large text.
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
           for (final (i, l) in labels.indexed)
             Semantics(
               selected: i == index,
@@ -189,7 +192,8 @@ class WovenTabs extends StatelessWidget {
                 ),
               ),
             ),
-        ]),
+          ]),
+        ),
       );
 }
 

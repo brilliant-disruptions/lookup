@@ -29,9 +29,9 @@ Rendered from the real widgets with sample data (`flutter test --update-goldens 
 |---|---|---|---|---|---|---|---|---|---|---|
 | ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/2b-quiet-week.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/8-finder.png) | ![](test/screenshots/goldens/7-demo.png) | ![](test/screenshots/goldens/9-log.png) | ![](test/screenshots/goldens/10-share-cards.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
 
-| Transit | Satellites tonight | Places | Your sky year | Camera view |
-|---|---|---|---|---|
-| ![](test/screenshots/goldens/11-transit.png) | ![](test/screenshots/goldens/12-satellites.png) | ![](test/screenshots/goldens/13-places.png) | ![](test/screenshots/goldens/14-year-card.png) | ![](test/screenshots/goldens/15-camera-overlay.png) |
+| Sky | Planet sheet | Transit | Satellites tonight | Places | Your sky year | Camera view |
+|---|---|---|---|---|---|---|
+| ![](test/screenshots/goldens/16-sky.png) | ![](test/screenshots/goldens/17-object.png) | ![](test/screenshots/goldens/11-transit.png) | ![](test/screenshots/goldens/12-satellites.png) | ![](test/screenshots/goldens/13-places.png) | ![](test/screenshots/goldens/14-year-card.png) | ![](test/screenshots/goldens/15-camera-overlay.png) |
 
 Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/goldens/appstore/`; listing copy in [`docs/app-store-listing.md`](docs/app-store-listing.md).
 
@@ -55,10 +55,10 @@ From Woven's guest app (`app-ideas/bloved`) in `lib/ui/fancy/woven.dart`:
 
 | Woven | LookUp |
 |---|---|
-| `.g-nav` frosted bottom tabs: hairline, thin icons, colour-only active | `WovenNavBar`: three tabs (Tonight, Sky, Log); Settings sits behind the gear |
+| `.g-nav` frosted bottom tabs: hairline, thin icons, colour-only active | `WovenNavBar`: four tabs (Tonight, Sky, Week, Log); Settings sits behind the gear |
 | Compact sticky header: serif title over a muted line | `WovenHeader`: title over your place (tap to switch places) |
-| `.dly-tabs` underlined tabs with counts | `WovenTabs`: Coming up / Last 7 nights, Seen / Badges |
-| `.gx-tl` day-of timeline (hollow dots, filled "now") | `WovenTimeline`: the week on the Sky tab |
+| `.dly-tabs` underlined tabs with counts | `WovenTabs`: Planets / Constellations / Showpieces, Coming up / Last 7 nights, Seen / Badges |
+| `.gx-tl` day-of timeline (hollow dots, filled "now") | `WovenTimeline`: the Week tab |
 | `.gx-member` hairline rows | `WovenRows`: Settings, the Log, "Later" on Tonight |
 
 All in `lib/ui/fancy/`. Emoji were dropped (Dearly's rule: warmth comes from type, not 🎉).
@@ -91,6 +91,7 @@ Before the first device build:
 
 ## Features
 
+- **The whole sky** (Sky tab): a live dome map of what's above you (1,600 naked-eye stars, all 88 constellation figures, the five naked-eye planets, the Moon and 15 showpieces like the Andromeda Galaxy and the Pleiades). Every object gets a tonight verdict ("Easy to see", "Hidden by cloud", "Washed out by the Moon", "Too faint for your sky") from its height, twilight, moonlight, how dark your sky is (city / suburbs / dark, in Settings) and the hourly forecast including fog and rain. Tonight shows the cloud strip and what's up. Planet highlights (oppositions, Mercury and Venus at their best) land in the week and can alert. The camera view draws the real constellations.
 - **Alerts** for ISS, Tiangong, Starlink trains, aurora (tonight + now), meteor shower peaks, lunar eclipses, Moon/planet pairings, and rocket launches you can see from where you are. Cloud-gated, quiet hours, nightly cap, learned thresholds from "what got in the way?". Buttons on the alert (*Find it*, *Remind me in 5 min*, *Saw it!*) and a two-note LookUp chime (`tool/chime.py`).
 - **Sky finder**: hold the phone up; it tracks the target live (SGP4 + fused rotation sensor + WMM2025 declination), ticks faster as you close in and buzzes when you're on it. **Camera view** draws the whole pass over the live camera.
 - **ISS transits** of the Sun and Moon: time to the second, how long, and how far to drive to stand on the centre line (with Directions). Listed, never pushed.
@@ -115,6 +116,7 @@ Before the first device build:
 | Station crews | `ll.thespacedevs.com/2.3.0/expeditions/?is_active=true` | daily, only when a station sheet opens |
 | Bright satellites | `celestrak.org/NORAD/elements/gp.php?GROUP=visual&FORMAT=json` | daily, only when *Satellites tonight* opens |
 | Place search | `geocoding-api.open-meteo.com/v1/search` | on demand |
+| Stars and constellation figures | d3-celestial (Hipparcos / Yale BSC), BSD-3-Clause, bundled in `assets/sky/` | offline |
 | Magnetic declination | WMM2025 coefficients, bundled | offline |
 | Cloud cover | `api.open-meteo.com/v1/forecast?hourly=cloud_cover` | 6 h — **non-commercial tier**; move to the paid plan when the app charges |
 

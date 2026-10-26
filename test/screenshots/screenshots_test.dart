@@ -37,6 +37,15 @@ import 'package:lookup/ui/finder_camera.dart';
 import 'package:lookup/ui/places_screen.dart';
 import 'package:lookup/ui/satellites_screen.dart';
 import 'package:lookup/ui/year_card.dart';
+import 'package:lookup/domain/sky/astro.dart';
+import 'package:lookup/domain/sky/catalog.dart';
+import 'package:lookup/domain/sky/tonight.dart';
+import 'package:lookup/domain/sky/visibility.dart';
+import 'package:lookup/domain/weather/cloud_forecast.dart';
+import 'package:lookup/state/sky_state.dart';
+import 'package:lookup/ui/sky/object_sheet.dart';
+import 'package:lookup/ui/sky/sky_screen.dart';
+import 'package:lookup/ui/sky/sky_thing.dart';
 import 'package:lookup/ui/theme.dart';
 import 'package:lookup/ui/fancy/starfield.dart';
 import 'package:lookup/ui/upcoming_screen.dart';
@@ -195,10 +204,29 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
           }),
       alertsEnabledProvider.overrideWith((_) async => true),
       brightTonightProvider.overrideWith((_) async => _satellites),
+      weatherProvider.overrideWith((_) async => _clearThenCloudy),
+      skyCatalogProvider.overrideWith((_) async => _catalog),
     ],
     child: MaterialApp(theme: theme, debugShowCheckedModeBanner: false, home: home),
   );
 }
+
+final _catalog = SkyCatalog.fromJson(jsonDecode(File('assets/sky/stars.json').readAsStringSync()),
+    jsonDecode(File('assets/sky/constellations.json').readAsStringSync()));
+
+/// Clear evening, clouds after midnight.
+final _clearThenCloudy = CloudForecast(
+  latitude: 36.17,
+  longitude: -86.78,
+  fetchedAt: _now.toUtc(),
+  hourly: [
+    for (var h = -2; h < 30; h++)
+      CloudSample(
+        time: DateTime.utc(_now.toUtc().year, _now.toUtc().month, _now.toUtc().day, _now.toUtc().hour).add(Duration(hours: h)),
+        coverPercent: h < 7 ? 8 : (h < 9 ? 45 : 85),
+      ),
+  ],
+);
 
 final _satellites = [
   _ev('sat:20580:1', SkyEventType.satellitePass, const Duration(hours: 2, minutes: 4), el: 48, rise: 225, peakAz: 160, setAz: 95,
@@ -292,7 +320,7 @@ void main() {
 
   testWidgets('upcoming', (t) async {
     await mount(t, const HomeShell());
-    await t.tap(find.text('Sky'));
+    await t.tap(find.text('Week'));
     await t.pump(const Duration(milliseconds: 600));
     await t.pump(const Duration(milliseconds: 1200));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/3-upcoming.png'));
@@ -577,4 +605,15 @@ void main() {
 
   testWidgets('appstore 7 log', (t) => storeShot(t, '7-log', 'Remember\nwhat you saw.',
       'A sky log with badges, photos and your year in review.', const LogScreen()));
+
+  testWidgets('sky tab', (t) => shot(t, const SkyScreen(), '16-sky'));
+
+  testWidgets('object sheet', (t) async {
+    final sky = planetsTonight(now: _now.toUtc(), lat: 36.17, lon: -86.78, darkness: SkyDarkness.suburbs);
+    final saturn = SkyThing.planet(sky.firstWhere((p) => p.planet == Planet.saturn), 36.17, -86.78);
+    await shot(t, sheetOver(ObjectSheet(thing: saturn)), '17-object');
+  });
+
+  testWidgets('appstore 0 sky', (t) => storeShot(t, '0-sky', 'Everything\nin your sky.',
+      'Planets, constellations and the Moon, with whether you\'ll see them tonight.', const SkyScreen()));
 }

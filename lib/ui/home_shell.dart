@@ -10,6 +10,7 @@ import 'finder_screen.dart';
 import 'log_screen.dart';
 import 'look_sheet.dart';
 import 'now_screen.dart';
+import 'sky/sky_screen.dart';
 import 'upcoming_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -82,7 +83,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       if (t != null) _openAlert(t);
     });
     final tab = ref.watch(homeTabProvider);
-    const pages = [NowScreen(), UpcomingScreen(), LogScreen()];
+    const pages = [NowScreen(), SkyScreen(), UpcomingScreen(), LogScreen()];
     return Scaffold(
       body: IndexedStack(index: tab, children: pages),
       bottomNavigationBar: WovenNavBar(
@@ -90,7 +91,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         onSelect: ref.read(homeTabProvider.notifier).set,
         tabs: const [
           WovenTab(Icons.nightlight_outlined, 'Tonight', activeIcon: Icons.nightlight),
-          WovenTab(Icons.calendar_today_outlined, 'Sky', activeIcon: Icons.calendar_today),
+          WovenTab(Icons.public_outlined, 'Sky', activeIcon: Icons.public),
+          WovenTab(Icons.calendar_today_outlined, 'Week', activeIcon: Icons.calendar_today),
           WovenTab(Icons.auto_awesome_outlined, 'Log', activeIcon: Icons.auto_awesome),
         ],
       ),

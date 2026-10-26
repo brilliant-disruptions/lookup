@@ -18,6 +18,7 @@ import '../domain/sky/astro.dart';
 import '../domain/sky/direction.dart';
 import '../domain/sky/wmm.dart';
 import '../state/providers.dart';
+import '../state/sky_state.dart';
 import 'fancy/starfield.dart';
 import 'finder_camera.dart';
 import 'format.dart';
@@ -197,7 +198,7 @@ class _FinderState extends ConsumerState<FinderScreen> {
     final status = nowUtc.isBefore(e.start)
         ? 'Appears in ${fmtCountdown(e.start.difference(nowUtc))}. Point where it will rise.'
         : nowUtc.isBefore(e.end)
-            ? (_target!.isLive ? 'Tracking it live' : 'Happening now')
+            ? (_target!.isLive || e.type == SkyEventType.skyObject ? 'Tracking it live' : 'Happening now')
             : 'That one\'s over';
     final overlay = _cameraOn && r != null
         ? Positioned.fill(
@@ -212,6 +213,9 @@ class _FinderState extends ConsumerState<FinderScreen> {
                   onTarget: g?.onTarget ?? false,
                   previewHeightPx: _previewHeight ?? c.maxHeight,
                   labelStyle: Theme.of(context).textTheme.labelSmall ?? const TextStyle(),
+                  catalog: ref.watch(skyCatalogProvider).value,
+                  latDeg: _target!.latDeg,
+                  lonDeg: _target!.lonDeg,
                 ),
               ),
             ),
