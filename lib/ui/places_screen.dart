@@ -6,8 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/geocoding_client.dart';
 import '../domain/models/settings.dart';
 import '../state/providers.dart';
-import 'fancy/ornament_rule.dart';
-import 'fancy/woven.dart';
+import 'kit/kit.dart';
 import 'theme.dart';
 
 Future<void> openPlaces(BuildContext context) =>
@@ -27,77 +26,83 @@ class PlacesScreen extends ConsumerWidget {
       await ref.read(homeProvider.notifier).refresh();
     }
 
-    return Scaffold(
-      appBar: const WovenHeader(title: Text('Places'), subtitle: 'Where LookUp watches the sky'),
-      body: ListView(
-        children: [
-          RadioGroup<String>(
-            groupValue: s.locationMode == LocationMode.auto ? 'auto' : (active == null ? 'custom' : _key(active)),
-            onChanged: (v) {
-              if (v == 'auto') {
-                set((s) => s.copyWith(locationMode: LocationMode.auto, placeName: ''));
-                return;
-              }
-              final p = s.places.where((p) => _key(p) == v).firstOrNull;
-              if (p != null) set((s) => s.usePlace(p));
-            },
-            child: Column(children: [
-              const RadioListTile<String>(
-                value: 'auto',
-                title: Text('Follow my phone'),
-                subtitle: Text('Alerts follow you wherever you are'),
-                secondary: Icon(Icons.my_location),
-              ),
-              if (s.places.isNotEmpty)
-                const Padding(padding: EdgeInsets.fromLTRB(16, 18, 16, 6), child: OrnamentRule(label: 'Saved', color: LookUpColors.greyDim)),
-              for (final p in s.places)
-                Dismissible(
-                  key: ValueKey(_key(p)),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: const Color(0x33E6B450),
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    child: const Icon(Icons.delete_outline),
-                  ),
-                  onDismissed: (_) => set((s) {
-                    final rest = [for (final x in s.places) if (_key(x) != _key(p)) x];
-                    final wasActive = s.activePlace != null && _key(s.activePlace!) == _key(p);
-                    return wasActive
-                        ? s.copyWith(places: rest, locationMode: LocationMode.auto, placeName: '')
-                        : s.copyWith(places: rest);
-                  }),
-                  child: RadioListTile<String>(
-                    value: _key(p),
-                    title: Text(p.name),
-                    subtitle: Text('${p.latitude.toStringAsFixed(2)}, ${p.longitude.toStringAsFixed(2)}'),
-                    secondary: const Icon(Icons.place_outlined),
+    final auto = s.locationMode == LocationMode.auto;
+    bool isActive(SavedPlace p) => !auto && active != null && _key(active) == _key(p);
+    const check = Icon(Icons.check_rounded, color: LookUpColors.blue, size: 22);
+    return PageScaffold(
+      title: 'Places',
+      subtitle: 'Where LookUp watches the sky',
+      children: [
+        GroupedList(indent: 60, children: [
+          Semantics(
+            selected: auto,
+            child: ListRow(
+              leading: const EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.blue, size: 32),
+              title: 'Follow my phone',
+              subtitle: 'Alerts follow you wherever you are',
+              trailing: auto ? check : null,
+              chevron: false,
+              onTap: () => set((s) => s.copyWith(locationMode: LocationMode.auto, placeName: '')),
+            ),
+          ),
+        ]),
+        if (s.places.isNotEmpty) ...[
+          const SectionHeader('Saved', small: true),
+          GroupedList(indent: 60, children: [
+            for (final p in s.places)
+              Dismissible(
+                key: ValueKey(_key(p)),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: const Color(0x40FF6B6B),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: const Icon(Icons.delete_outline_rounded),
+                ),
+                onDismissed: (_) => set((s) {
+                  final rest = [for (final x in s.places) if (_key(x) != _key(p)) x];
+                  final wasActive = s.activePlace != null && _key(s.activePlace!) == _key(p);
+                  return wasActive
+                      ? s.copyWith(places: rest, locationMode: LocationMode.auto, placeName: '')
+                      : s.copyWith(places: rest);
+                }),
+                child: Semantics(
+                  selected: isActive(p),
+                  child: ListRow(
+                    leading: const EventGlyph(icon: Icons.place_rounded, color: LookUpColors.violet, size: 32),
+                    title: p.name,
+                    subtitle: '${p.latitude.toStringAsFixed(2)}, ${p.longitude.toStringAsFixed(2)}',
+                    trailing: isActive(p) ? check : null,
+                    chevron: false,
+                    onTap: () => set((s) => s.usePlace(p)),
                   ),
                 ),
-            ]),
-          ),
-          const Padding(padding: EdgeInsets.fromLTRB(16, 18, 16, 6), child: OrnamentRule(label: 'Add', color: LookUpColors.greyDim)),
-          ListTile(
-            leading: const Icon(Icons.search),
-            title: const Text('Search for a place'),
-            subtitle: const Text('A town, a dark-sky park, where you\'re headed'),
+              ),
+          ]),
+        ],
+        const SectionHeader('Add', small: true),
+        GroupedList(indent: 60, children: [
+          ListRow(
+            leading: const EventGlyph(icon: Icons.search_rounded, color: LookUpColors.grey, size: 32),
+            title: 'Search for a place',
+            subtitle: 'A town, a dark-sky park, where you\'re headed',
             onTap: () async {
               final p = await showDialog<SavedPlace>(context: context, builder: (_) => const _SearchDialog());
               if (p != null) await set((s) => s.usePlace(p));
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.add_location_alt_outlined),
-            title: const Text('Save where I am now'),
+          ListRow(
+            leading: const EventGlyph(icon: Icons.add_location_alt_rounded, color: LookUpColors.grey, size: 32),
+            title: 'Save where I am now',
             onTap: () => _saveHere(context, ref, set),
           ),
-          if (s.places.isNotEmpty)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 18, 16, 24),
-              child: Text('Swipe a place left to remove it.', style: TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
-            ),
-        ],
-      ),
+        ]),
+        if (s.places.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Text('Swipe a place left to remove it.', style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5)),
+          ),
+      ],
     );
   }
 
@@ -187,6 +192,7 @@ class _SearchDialogState extends State<_SearchDialog> {
               onChanged: _onChanged,
               decoration: InputDecoration(
                 hintText: 'Nashville, Joshua Tree…',
+                prefixIcon: const Icon(Icons.search_rounded, color: LookUpColors.greyDim),
                 suffixIcon: _busy ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))) : null,
               ),
             ),

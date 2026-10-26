@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
-import 'fancy/foil_text.dart';
-import 'fancy/ornament_rule.dart';
-import 'fancy/rise.dart';
-import 'fancy/starfield.dart';
+import '../domain/models/sky_event.dart';
+import 'kit/kit.dart';
 import 'theme.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -41,61 +39,89 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      body: Starfield(
-        density: 0.0005,
-        child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Spacer(),
-              Rise(
-                index: 0,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    FoilText('LookUp', style: displaySerif(context, size: 54, weight: FontWeight.w600)),
-                    Text('.', style: displaySerif(context, size: 54, weight: FontWeight.w700, color: LookUpColors.blue)),
-                  ]),
+      body: SkyBackdrop(
+        stars: false,
+        child: Stack(children: [
+          const Positioned.fill(child: Starfield(density: 0.0006, maxOpacity: 0.8)),
+          // A dawn glow along the horizon.
+          Positioned(
+            left: -80,
+            right: -80,
+            bottom: -260,
+            height: 420,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(colors: [LookUpColors.blue.withValues(alpha: 0.22), LookUpColors.blue.withValues(alpha: 0)]),
                 ),
               ),
-              const SizedBox(height: 6),
-              const Rise(index: 1, child: Eyebrow('Step outside right now')),
-              const SizedBox(height: 22),
-              const Rise(index: 2, child: OrnamentRule()),
-              const SizedBox(height: 22),
-              Rise(
-                index: 3,
-                child: Text('It taps you when something is about to fly over.',
-                    style: displaySerif(context, size: 34, weight: FontWeight.w500, italic: true, height: 1.1)),
-              ),
-              const SizedBox(height: 16),
-              Rise(index: 4, child: Text(
-                'The space station. A fresh Starlink train. An aurora. '
-                'A few minutes before, with which way to face. '
-                'Quiet when it\'s cloudy. No account, no setup.',
-                style: t.bodyLarge?.copyWith(color: LookUpColors.grey, height: 1.45),
-              )),
-              const Spacer(),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                ),
-              FilledButton(
-                onPressed: _busy ? null : _go,
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                child: Text(_busy ? 'ONE MOMENT…' : 'ALLOW LOCATION & ALERTS'),
-              ),
-              const SizedBox(height: 8),
-              Text('We only use a rough location, and it never leaves your phone.',
-                  style: t.bodySmall?.copyWith(color: LookUpColors.greyDim)),
-            ],
+            ),
           ),
-        ),
-      ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Spacer(flex: 3),
+                  Rise(
+                    index: 0,
+                    child: Row(children: [
+                      Text('LookUp', style: display(48, weight: FontWeight.w800)),
+                      Text('.', style: display(48, weight: FontWeight.w800, color: LookUpColors.blue)),
+                    ]),
+                  ),
+                  const Rise(
+                    index: 1,
+                    child: Text('Step outside right now', style: TextStyle(fontSize: 17, color: LookUpColors.grey)),
+                  ),
+                  const SizedBox(height: 36),
+                  Rise(
+                    index: 2,
+                    child: Text('It taps you when something is about to fly over.',
+                        style: display(30, weight: FontWeight.w700, height: 1.15)),
+                  ),
+                  const SizedBox(height: 26),
+                  for (final (i, (glyph, line)) in [
+                    (EventGlyph.forType(SkyEventType.iss), 'The space station, a fresh Starlink train, an aurora'),
+                    (const EventGlyph(icon: Icons.explore_rounded, color: LookUpColors.violet), 'A few minutes before, with which way to face'),
+                    (const EventGlyph(icon: Icons.cloud_off_rounded, color: LookUpColors.cyan), 'Quiet when it\'s cloudy. No account, no setup'),
+                  ].indexed)
+                    Rise(
+                      index: 3 + i,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Row(children: [
+                          glyph,
+                          const SizedBox(width: 14),
+                          Expanded(child: Text(line, style: t.bodyLarge?.copyWith(height: 1.35))),
+                        ]),
+                      ),
+                    ),
+                  const Spacer(flex: 2),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    ),
+                  FilledButton(
+                    onPressed: _busy ? null : _go,
+                    child: Text(_busy ? 'One moment…' : 'Allow location & alerts'),
+                  ),
+                  const SizedBox(height: 14),
+                  const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.lock_rounded, size: 14, color: LookUpColors.greyDim),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text('A rough location only, and it never leaves your phone.',
+                          style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim)),
+                    ),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ]),
       ),
     );
   }

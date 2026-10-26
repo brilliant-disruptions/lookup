@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../domain/models/sky_event.dart';
+import 'kit/kit.dart';
 import 'theme.dart';
 
 /// Short, practical camera advice per kind of event: phone first, then a
@@ -49,13 +50,13 @@ Future<void> showPhotoTips(BuildContext context, SkyEventType t) => showModalBot
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Photo tips', style: displaySerif(context, size: 30, weight: FontWeight.w500)),
-            const SizedBox(height: 12),
+            Text('Photo tips', style: display(26, weight: FontWeight.w700)),
+            const SizedBox(height: 16),
             for (final (title, body) in photoTips(t))
               Padding(
                 padding: const EdgeInsets.only(bottom: 14),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Eyebrow(title, color: LookUpColors.blue),
+                  Kicker(title, color: LookUpColors.blue),
                   const SizedBox(height: 4),
                   Text(body, style: const TextStyle(height: 1.45)),
                 ]),

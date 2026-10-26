@@ -4,10 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/sky_event.dart';
 import '../services/plus_service.dart';
 import '../state/providers.dart';
-import 'fancy/foil_text.dart';
-import 'fancy/ornament_rule.dart';
-import 'fancy/starfield.dart';
 import 'format.dart';
+import 'kit/kit.dart';
 import 'theme.dart';
 
 /// The paywall appears only when a Plus-only event is actually coming for
@@ -57,34 +55,36 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(children: [
-                FoilText('LookUp', style: displaySerif(context, size: 40, weight: FontWeight.w600), gold: true),
-                Text('+', style: displaySerif(context, size: 40, weight: FontWeight.w700, color: LookUpColors.blue)),
+                Text('LookUp', style: display(36, weight: FontWeight.w800)),
+                Text('+', style: display(36, weight: FontWeight.w800, color: LookUpColors.blue)),
               ]),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
                 r == null
                     ? 'Every reason to step outside, not just the station.'
                     : '${eventTitle(r)} passes over you ${fmtDay(r.start).toLowerCase()} at ${fmtTime(r.start)}. LookUp+ taps you 10 minutes before.',
-                style: displaySerif(context, size: 24, weight: FontWeight.w500, italic: true, color: LookUpColors.grey, height: 1.15),
+                style: t.bodyLarge?.copyWith(color: LookUpColors.grey, fontSize: 17),
               ),
-              const SizedBox(height: 18),
-              const OrnamentRule(label: 'Included'),
-              const SizedBox(height: 12),
-              for (final line in const [
-                'Aurora alerts the moment it is happening, and a wake-me option',
-                'Starlink trains for two weeks after every launch',
-                'Tiangong flyovers',
-                'The one-minute "go outside now" nudge',
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Padding(padding: EdgeInsets.only(top: 7), child: Icon(Icons.circle, size: 5, color: LookUpColors.blue)),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(line, style: t.bodyMedium?.copyWith(height: 1.35))),
-                  ]),
-                ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 22),
+              GroupedList(indent: 60, children: [
+                for (final (type, line) in const [
+                  (SkyEventType.auroraNow, 'Aurora alerts the moment it\'s happening, and a wake-me option'),
+                  (SkyEventType.starlinkTrain, 'Starlink trains for two weeks after every launch'),
+                  (SkyEventType.tiangong, 'Tiangong flyovers'),
+                  (null, 'The one-minute "go outside now" nudge'),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Row(children: [
+                      type == null
+                          ? const EventGlyph(icon: Icons.directions_walk_rounded, color: LookUpColors.blue, size: 32)
+                          : EventGlyph.forType(type, size: 32),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(line, style: t.bodyMedium?.copyWith(height: 1.35))),
+                    ]),
+                  ),
+              ]),
+              const SizedBox(height: 20),
               if (isPlus)
                 const Text('You have LookUp+. Thank you.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey))
               else if (_error != null)
@@ -156,18 +156,19 @@ class _OfferButton extends StatelessWidget {
       _ => 'Lifetime',
     };
     final child = Row(children: [
-      Text(label, style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+      Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       if (highlight) ...[
-        const SizedBox(width: 8),
-        const Eyebrow('Best value', color: LookUpColors.blue),
+        const SizedBox(width: 10),
+        const Pill('Best value', color: LookUpColors.blueInk),
       ],
       const Spacer(),
-      Text(offer.price, style: monoData(context, size: 15, weight: FontWeight.w600, color: highlight ? LookUpColors.black : LookUpColors.white)),
+      Text(offer.price, style: numeric(size: 16, weight: FontWeight.w700, color: highlight ? LookUpColors.black : LookUpColors.white)),
       const SizedBox(width: 6),
-      Text(offer.cadence, style: TextStyle(fontSize: 12, color: highlight ? LookUpColors.greyDim : LookUpColors.grey)),
+      Text(offer.cadence, style: TextStyle(fontSize: 12.5, color: highlight ? LookUpColors.greyDim : LookUpColors.grey)),
     ]);
+    const size = Size.fromHeight(58);
     return highlight
-        ? FilledButton(onPressed: busy ? null : onTap, style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)), child: child)
-        : OutlinedButton(onPressed: busy ? null : onTap, style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(54)), child: child);
+        ? FilledButton(onPressed: busy ? null : onTap, style: FilledButton.styleFrom(minimumSize: size), child: child)
+        : OutlinedButton(onPressed: busy ? null : onTap, style: OutlinedButton.styleFrom(minimumSize: size), child: child);
   }
 }

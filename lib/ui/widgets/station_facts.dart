@@ -6,6 +6,7 @@ import '../../domain/orbit/omm.dart';
 import '../../domain/orbit/orbit_facts.dart';
 import '../../domain/satellites/crew.dart';
 import '../../state/sky_extras.dart';
+import '../kit/surfaces.dart';
 import '../theme.dart';
 
 /// "7 people aboard, moving at 17,100 mph": what you're actually looking at.
@@ -38,7 +39,7 @@ class StationFacts extends ConsumerWidget {
         child: ExpansionTile(
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(bottom: 8),
-          title: const Eyebrow('Who\'s up there', color: LookUpColors.blue),
+          title: const Kicker('Who\'s up there', color: LookUpColors.blue),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(line, style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),

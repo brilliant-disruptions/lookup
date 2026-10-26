@@ -1,19 +1,56 @@
 import 'package:flutter/material.dart';
 
-/// SpaceX / Starlink-inspired: pure black, white, cool grays, one electric
-/// blue accent, tight corners, uppercase tracked labels. No brand assets.
+/// Night glass: a deep-navy sky, translucent surfaces, one sans (Inter) with
+/// tabular figures, one blue accent plus a tint per kind of event.
 abstract final class LookUpColors {
-  static const black = Color(0xFF000000);
-  static const panel = Color(0xFF0E0F11);
-  static const panelRaised = Color(0xFF161719);
-  static const line = Color(0xFF2A2C30);
-  static const white = Color(0xFFFFFFFF);
-  static const grey = Color(0xFFA7ACB3);
-  static const greyDim = Color(0xFF6B7078);
-  static const blue = Color(0xFF3C9DFF); // SpaceX blue, lifted for black
-  static const blueDeep = Color(0xFF005288);
-  static const warn = Color(0xFFE6B450);
+  /// Page base, and the bottom of the sky gradient.
+  static const black = Color(0xFF04060B);
+
+  /// Top of the sky gradient.
+  static const night = Color(0xFF0B1328);
+
+  /// Opaque surfaces: sheets, dialogs, menus.
+  static const panel = Color(0xFF10141D);
+  static const panelRaised = Color(0xFF181D29);
+
+  /// Translucent surfaces over the sky.
+  static const glass = Color(0x0FFFFFFF);
+  static const glassStrong = Color(0x1CFFFFFF);
+
+  /// Hairlines and dividers.
+  static const line = Color(0x17FFFFFF);
+
+  static const white = Color(0xFFF4F6FA);
+  static const grey = Color(0xFFA0A8B8);
+  static const greyDim = Color(0xFF687083);
+
+  static const blue = Color(0xFF5AA2FF);
+
+  /// The accent for text on light fills (white buttons).
+  static const blueInk = Color(0xFF1F6FE0);
+  static const warn = Color(0xFFF5B544);
+  static const good = Color(0xFF3DD68C);
+
+  // Event tints (see kit/event_style.dart).
+  static const violet = Color(0xFFA78BFA);
+  static const orange = Color(0xFFFF9F5A);
+  static const gold = Color(0xFFF5C76B);
+  static const red = Color(0xFFFF7A6B);
+  static const cyan = Color(0xFF52D1E8);
 }
+
+/// Corner radii. Everything is rounded; nothing is boxy.
+abstract final class Radii {
+  static const sm = 10.0;
+  static const md = 14.0;
+  static const lg = 22.0;
+  static const sheet = 28.0;
+}
+
+const _family = 'Inter';
+
+/// Inter's stylistic set 1 gives open digits; tnum keeps times from jiggling.
+const _numericFeatures = [FontFeature.tabularFigures(), FontFeature('ss01')];
 
 ThemeData buildLookUpTheme() {
   const scheme = ColorScheme(
@@ -22,7 +59,7 @@ ThemeData buildLookUpTheme() {
     onPrimary: LookUpColors.black,
     secondary: LookUpColors.grey,
     onSecondary: LookUpColors.black,
-    error: Color(0xFFFF5C5C),
+    error: Color(0xFFFF6B6B),
     onError: LookUpColors.black,
     surface: LookUpColors.panel,
     onSurface: LookUpColors.white,
@@ -30,146 +67,152 @@ ThemeData buildLookUpTheme() {
     outline: LookUpColors.line,
     outlineVariant: LookUpColors.line,
   );
-  final base = ThemeData(useMaterial3: true, colorScheme: scheme, brightness: Brightness.dark);
-  final tt = base.textTheme;
-  const radius = BorderRadius.all(Radius.circular(6));
+  final base = ThemeData(useMaterial3: true, colorScheme: scheme, brightness: Brightness.dark, fontFamily: _family);
+  final tt = base.textTheme.apply(bodyColor: LookUpColors.white, displayColor: LookUpColors.white);
+  const pill = StadiumBorder();
+  const buttonText = TextStyle(fontFamily: _family, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.2);
+  const field = OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(Radii.md)), borderSide: BorderSide.none);
   return base.copyWith(
     scaffoldBackgroundColor: LookUpColors.black,
     canvasColor: LookUpColors.black,
-    appBarTheme: AppBarTheme(
-      backgroundColor: LookUpColors.black,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
       foregroundColor: LookUpColors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
-      titleTextStyle: tt.titleMedium?.copyWith(
-        color: LookUpColors.white,
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 2.5,
-      ),
     ),
     cardTheme: const CardThemeData(
-      color: LookUpColors.panel,
+      color: LookUpColors.glass,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: radius, side: BorderSide(color: LookUpColors.line)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(Radii.lg)),
+        side: BorderSide(color: LookUpColors.line),
+      ),
     ),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: LookUpColors.panel,
-      dragHandleColor: LookUpColors.greyDim,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: LookUpColors.black,
-      indicatorColor: LookUpColors.panelRaised,
-      indicatorShape: const RoundedRectangleBorder(borderRadius: radius),
-      iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(
-          color: s.contains(WidgetState.selected) ? LookUpColors.white : LookUpColors.greyDim)),
-      labelTextStyle: WidgetStateProperty.resolveWith((s) => tt.labelSmall!.copyWith(
-          fontSize: 11,
-          letterSpacing: 1.5,
-          fontWeight: FontWeight.w600,
-          color: s.contains(WidgetState.selected) ? LookUpColors.white : LookUpColors.greyDim)),
+      modalBackgroundColor: LookUpColors.panel,
+      dragHandleColor: Color(0x40FFFFFF),
+      dragHandleSize: Size(36, 5),
+      showDragHandle: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.sheet))),
+      clipBehavior: Clip.antiAlias,
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: LookUpColors.white,
         foregroundColor: LookUpColors.black,
-        shape: const RoundedRectangleBorder(borderRadius: radius),
-        textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 1.2),
+        disabledBackgroundColor: LookUpColors.glassStrong,
+        minimumSize: const Size(64, 52),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        shape: pill,
+        textStyle: buttonText,
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: LookUpColors.white,
+        backgroundColor: LookUpColors.glass,
         side: const BorderSide(color: LookUpColors.line),
-        shape: const RoundedRectangleBorder(borderRadius: radius),
-        textStyle: tt.labelLarge?.copyWith(fontWeight: FontWeight.w600, letterSpacing: 1.2),
+        minimumSize: const Size(64, 52),
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        shape: pill,
+        textStyle: buttonText,
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: LookUpColors.blue),
+      style: TextButton.styleFrom(foregroundColor: LookUpColors.blue, shape: pill, textStyle: buttonText.copyWith(fontSize: 15)),
     ),
+    iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(foregroundColor: LookUpColors.white)),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: SegmentedButton.styleFrom(
-        selectedBackgroundColor: LookUpColors.white,
-        selectedForegroundColor: LookUpColors.black,
+        backgroundColor: LookUpColors.glass,
+        selectedBackgroundColor: LookUpColors.glassStrong,
+        selectedForegroundColor: LookUpColors.white,
         foregroundColor: LookUpColors.grey,
         side: const BorderSide(color: LookUpColors.line),
-        shape: const RoundedRectangleBorder(borderRadius: radius),
+        shape: pill,
+        textStyle: const TextStyle(fontFamily: _family, fontSize: 14, fontWeight: FontWeight.w600),
+        visualDensity: VisualDensity.compact,
       ),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? LookUpColors.black : LookUpColors.grey),
+      thumbColor: const WidgetStatePropertyAll(Colors.white),
       trackColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? LookUpColors.white : LookUpColors.panelRaised),
-      trackOutlineColor: const WidgetStatePropertyAll(LookUpColors.line),
+          (s) => s.contains(WidgetState.selected) ? LookUpColors.blue : LookUpColors.glassStrong),
+      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      // An (empty) icon keeps the thumb full-size when off, like iOS.
+      thumbIcon: const WidgetStatePropertyAll(Icon(null)),
     ),
     listTileTheme: ListTileThemeData(
       textColor: LookUpColors.white,
-      subtitleTextStyle: tt.bodyMedium?.copyWith(color: LookUpColors.grey, fontSize: 13),
+      titleTextStyle: tt.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+      subtitleTextStyle: tt.bodyMedium?.copyWith(color: LookUpColors.grey, fontSize: 13.5),
       iconColor: LookUpColors.grey,
     ),
+    expansionTileTheme: const ExpansionTileThemeData(
+      shape: Border(),
+      collapsedShape: Border(),
+      iconColor: LookUpColors.grey,
+      collapsedIconColor: LookUpColors.grey,
+    ),
+    dividerTheme: const DividerThemeData(color: LookUpColors.line, thickness: 1, space: 1),
     dividerColor: LookUpColors.line,
     dialogTheme: const DialogThemeData(
       backgroundColor: LookUpColors.panel,
-      shape: RoundedRectangleBorder(borderRadius: radius),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(Radii.sheet))),
     ),
-    inputDecorationTheme: const InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: LookUpColors.line)),
-      enabledBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: LookUpColors.line)),
-      focusedBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: LookUpColors.blue)),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: LookUpColors.panelRaised,
+      contentTextStyle: tt.bodyMedium?.copyWith(color: LookUpColors.white),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(Radii.md))),
     ),
-    textTheme: base.textTheme.apply(bodyColor: LookUpColors.white, displayColor: LookUpColors.white),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(color: LookUpColors.blue, strokeCap: StrokeCap.round),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: LookUpColors.glass,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: field,
+      enabledBorder: field.copyWith(borderSide: const BorderSide(color: LookUpColors.line)),
+      focusedBorder: field.copyWith(borderSide: const BorderSide(color: LookUpColors.blue)),
+      hintStyle: const TextStyle(color: LookUpColors.greyDim),
+    ),
+    textTheme: tt.copyWith(
+      bodyLarge: tt.bodyLarge?.copyWith(fontSize: 16, height: 1.45, letterSpacing: -0.15),
+      bodyMedium: tt.bodyMedium?.copyWith(fontSize: 14.5, height: 1.45, letterSpacing: -0.1),
+      bodySmall: tt.bodySmall?.copyWith(fontSize: 12.5, height: 1.4, letterSpacing: 0, color: LookUpColors.grey),
+      titleMedium: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.2),
+      labelSmall: tt.labelSmall?.copyWith(letterSpacing: 0),
+    ),
   );
 }
 
-/// Dearly's ceremonial display serif, for hero moments and numerals.
-/// Variable font: set both [weight] (for fallback fonts) and the wght axis.
-TextStyle displaySerif(BuildContext context,
-    {double size = 32, FontWeight weight = FontWeight.w600, Color? color, bool italic = false, double? height}) {
-  final w = _wght(weight);
-  return TextStyle(
-    fontFamily: 'Cormorant',
-    fontSize: size,
-    fontWeight: weight,
-    fontVariations: [FontVariation('wght', w)],
-    fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-    color: color ?? LookUpColors.white,
-    height: height ?? 1.05,
-    letterSpacing: -0.3,
-  );
-}
+/// Headlines and big numbers: Inter at its display optical size, tracked
+/// tight. Numbers are tabular so a countdown never shifts sideways.
+TextStyle display(double size, {FontWeight weight = FontWeight.w600, Color? color, double? height}) => TextStyle(
+      fontFamily: _family,
+      fontSize: size,
+      fontWeight: weight,
+      fontVariations: [FontVariation('wght', weight.value.toDouble()), const FontVariation('opsz', 32)],
+      fontFeatures: _numericFeatures,
+      color: color ?? LookUpColors.white,
+      height: height ?? 1.1,
+      letterSpacing: size >= 28 ? -0.025 * size : -0.015 * size,
+    );
 
-/// Tabular data voice: times, degrees, counts.
-TextStyle monoData(BuildContext context,
-    {double size = 13, FontWeight weight = FontWeight.w500, Color? color, double letterSpacing = 0}) {
-  return TextStyle(
-    fontFamily: 'SplineMono',
-    fontSize: size,
-    fontWeight: weight,
-    fontVariations: [FontVariation('wght', _wght(weight))],
-    color: color ?? LookUpColors.white,
-    letterSpacing: letterSpacing,
-    fontFeatures: const [FontFeature.tabularFigures()],
-  );
-}
-
-double _wght(FontWeight w) => w.value.toDouble();
-
-/// Small uppercase tracked label, the SpaceX webcast style.
-class Eyebrow extends StatelessWidget {
-  const Eyebrow(this.text, {super.key, this.color = LookUpColors.grey});
-  final String text;
-  final Color color;
-  @override
-  Widget build(BuildContext context) => Text(
-        text.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: color, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 2.2),
-      );
-}
+/// Times, degrees and counts inside running UI: same face, tabular figures.
+TextStyle numeric({double size = 14, FontWeight weight = FontWeight.w500, Color? color}) => TextStyle(
+      fontFamily: _family,
+      fontSize: size,
+      fontWeight: weight,
+      fontVariations: [FontVariation('wght', weight.value.toDouble())],
+      fontFeatures: _numericFeatures,
+      color: color ?? LookUpColors.white,
+      letterSpacing: -0.1,
+    );
 
 /// Night-vision filter: maps luminance to deep red so eyes stay
 /// dark-adapted outdoors (rod cells are nearly blind to red).

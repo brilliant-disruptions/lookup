@@ -5,8 +5,8 @@ import '../domain/models/settings.dart';
 import '../domain/sky/visibility.dart';
 import '../state/providers.dart';
 import 'demo.dart';
-import 'fancy/ornament_rule.dart';
-import 'fancy/woven.dart';
+import '../domain/models/sky_event.dart';
+import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
@@ -31,112 +31,120 @@ class SettingsScreen extends ConsumerWidget {
     final s = ref.watch(settingsProvider).value ?? const LookUpSettings();
     final set = _setter(ref);
 
-    return Scaffold(
-      appBar: const WovenHeader(title: Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
-        children: [
-          const _Header('Where'),
-          WovenRows(children: [
-            _Row(
-              icon: s.locationMode == LocationMode.auto ? Icons.near_me_outlined : Icons.place_outlined,
-              title: s.locationMode == LocationMode.auto
-                  ? 'Following your phone'
-                  : (s.placeName?.isNotEmpty ?? false) ? s.placeName! : 'Pinned place',
-              subtitle: s.places.isEmpty ? 'Save home, a cabin, a trip' : '${s.places.length} saved',
-              onTap: () => openPlaces(context),
+    return PageScaffold(
+      title: 'Settings',
+      children: [
+        const _Header('Where'),
+        GroupedList(indent: 60, children: [
+          _Row(
+            icon: s.locationMode == LocationMode.auto ? Icons.near_me_rounded : Icons.place_rounded,
+            color: LookUpColors.blue,
+            title: s.locationMode == LocationMode.auto
+                ? 'Following your phone'
+                : (s.placeName?.isNotEmpty ?? false) ? s.placeName! : 'Pinned place',
+            subtitle: s.places.isEmpty ? 'Save home, a cabin, a trip' : '${s.places.length} saved',
+            onTap: () => openPlaces(context),
+          ),
+        ]),
+        const _Header('Alerts'),
+        GroupedList(indent: 60, children: [
+          _Row(
+            icon: Icons.notifications_rounded,
+            color: LookUpColors.red,
+            title: 'What to tell me about',
+            subtitle: alertTypesSummary(s),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _AlertTypesScreen())),
+          ),
+          ListRow(
+            leading: const _Glyph(Icons.timer_rounded, LookUpColors.orange),
+            title: 'Heads-up',
+            subtitle: 'Before it starts',
+            trailing: SegmentedButton<int>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 5, label: Text('5m')),
+                ButtonSegment(value: 10, label: Text('10m')),
+                ButtonSegment(value: 20, label: Text('20m')),
+              ],
+              selected: {s.leadMinutes},
+              onSelectionChanged: (v) => set((s) => s.copyWith(leadMinutes: v.first)),
             ),
-          ]),
-          const _Header('Alerts'),
-          WovenRows(children: [
-            _Row(
-              icon: Icons.notifications_none,
-              title: 'What to tell me about',
-              subtitle: alertTypesSummary(s),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _AlertTypesScreen())),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(children: [
-                const Expanded(
+          ),
+          _Switch(
+            icon: Icons.cloud_rounded,
+            color: LookUpColors.cyan,
+            value: s.clearSkyOnly,
+            onChanged: (v) => set((s) => s.copyWith(clearSkyOnly: v)),
+            title: 'Only when it\'s clear',
+            subtitle: 'Skip it if the forecast is cloudy',
+          ),
+          _Row(
+            icon: Icons.bedtime_rounded,
+            color: LookUpColors.violet,
+            title: 'Quiet hours',
+            subtitle: '${_hm(s.quietHours.startMinute)} – ${_hm(s.quietHours.endMinute)}',
+            onTap: () => _quietHours(context, s, set),
+          ),
+        ]),
+        const _Header('Outside'),
+        GroupedList(indent: 60, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                const _Glyph(Icons.landscape_rounded, LookUpColors.good),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Heads-up', style: TextStyle(fontSize: 16)),
-                    SizedBox(height: 2),
-                    Text('Before it starts', style: TextStyle(color: LookUpColors.grey, fontSize: 13)),
+                    const Text('Your sky', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: -0.2)),
+                    const SizedBox(height: 2),
+                    Text(s.skyDarkness.hint, style: const TextStyle(color: LookUpColors.grey, fontSize: 13.5)),
                   ]),
                 ),
-                SegmentedButton<int>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 5, label: Text('5m')),
-                    ButtonSegment(value: 10, label: Text('10m')),
-                    ButtonSegment(value: 20, label: Text('20m')),
-                  ],
-                  selected: {s.leadMinutes},
-                  onSelectionChanged: (v) => set((s) => s.copyWith(leadMinutes: v.first)),
-                ),
               ]),
-            ),
-            _Switch(
-              value: s.clearSkyOnly,
-              onChanged: (v) => set((s) => s.copyWith(clearSkyOnly: v)),
-              title: 'Only when it\'s clear',
-              subtitle: 'Skip it if the forecast is cloudy',
-            ),
-            _Row(
-              icon: Icons.bedtime_outlined,
-              title: 'Quiet hours',
-              subtitle: '${_hm(s.quietHours.startMinute)} – ${_hm(s.quietHours.endMinute)}',
-              onTap: () => _quietHours(context, s, set),
-            ),
-          ]),
-          const _Header('Outside'),
-          WovenRows(children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Your sky', style: TextStyle(fontSize: 16)),
-                const SizedBox(height: 2),
-                Text(s.skyDarkness.hint, style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),
-                const SizedBox(height: 10),
-                SegmentedButton<SkyDarkness>(
-                  showSelectedIcon: false,
-                  segments: [for (final d in SkyDarkness.values) ButtonSegment(value: d, label: Text(d.label))],
-                  selected: {s.skyDarkness},
-                  onSelectionChanged: (v) => set((s) => s.copyWith(skyDarkness: v.first)),
-                ),
-              ]),
-            ),
-            _Switch(
-              value: s.nightVision,
-              onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
-              title: 'Night vision',
-              subtitle: 'Red screen that keeps your eyes dark-adapted',
-            ),
-            _Row(
-              icon: Icons.play_circle_outline,
-              title: 'Preview an alert',
-              subtitle: 'A whole pass in fast-forward',
-              onTap: () => showDemo(context, ref),
-            ),
-          ]),
-          const _Header('LookUp+'),
-          WovenRows(children: [
-            _Row(
-              icon: Icons.auto_awesome,
-              title: s.isPlus ? 'You have LookUp+' : 'Get LookUp+',
-              subtitle: s.isPlus ? 'Thank you' : 'Aurora now, Starlink trains, launches. From \$2.99/mo.',
-              onTap: () => showPaywall(context),
-            ),
-            _Row(
-              icon: Icons.tune,
-              title: 'More',
-              subtitle: 'Go-now nudge, wake-ups, what LookUp learned',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _MoreScreen())),
-            ),
-          ]),
-        ],
-      ),
+              const SizedBox(height: 12),
+              SegmentedButton<SkyDarkness>(
+                showSelectedIcon: false,
+                segments: [for (final d in SkyDarkness.values) ButtonSegment(value: d, label: Text(d.label))],
+                selected: {s.skyDarkness},
+                onSelectionChanged: (v) => set((s) => s.copyWith(skyDarkness: v.first)),
+              ),
+            ]),
+          ),
+          _Switch(
+            icon: Icons.visibility_rounded,
+            color: LookUpColors.red,
+            value: s.nightVision,
+            onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
+            title: 'Night vision',
+            subtitle: 'Red screen that keeps your eyes dark-adapted',
+          ),
+          _Row(
+            icon: Icons.play_arrow_rounded,
+            color: LookUpColors.good,
+            title: 'Preview an alert',
+            subtitle: 'A whole pass in fast-forward',
+            onTap: () => showDemo(context, ref),
+          ),
+        ]),
+        const _Header('LookUp+'),
+        GroupedList(indent: 60, children: [
+          _Row(
+            icon: Icons.auto_awesome_rounded,
+            color: LookUpColors.gold,
+            title: s.isPlus ? 'You have LookUp+' : 'Get LookUp+',
+            subtitle: s.isPlus ? 'Thank you' : 'Aurora now, Starlink trains, launches. From \$2.99/mo.',
+            onTap: () => showPaywall(context),
+          ),
+          _Row(
+            icon: Icons.tune_rounded,
+            color: LookUpColors.grey,
+            title: 'More',
+            subtitle: 'Go-now nudge, wake-ups, what LookUp learned',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _MoreScreen())),
+          ),
+        ]),
+      ],
     );
   }
 
@@ -186,28 +194,31 @@ class _AlertTypesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider).value ?? const LookUpSettings();
     final set = _setter(ref);
-    _Switch toggle(bool v, LookUpSettings Function(LookUpSettings, bool) f, String title, String subtitle) =>
-        _Switch(value: v, onChanged: (x) => set((s) => f(s, x)), title: title, subtitle: subtitle);
-    return Scaffold(
-      appBar: const WovenHeader(title: Text('Tell me about')),
-      body: ListView(padding: const EdgeInsets.only(top: 8, bottom: 32), children: [
-        WovenRows(children: [
-          toggle(s.issEnabled, (s, v) => s.copyWith(issEnabled: v), 'Space station', 'Bright, 3–6 minutes, a few times a month'),
-          toggle(s.starlinkEnabled, (s, v) => s.copyWith(starlinkEnabled: v), 'Starlink trains', 'A line of lights after each launch · LookUp+'),
-          toggle(s.auroraEnabled, (s, v) => s.copyWith(auroraEnabled: v), 'Aurora', 'Tonight\'s outlook free; "aurora now" is LookUp+'),
-          toggle(s.meteorsEnabled, (s, v) => s.copyWith(meteorsEnabled: v), 'Meteor showers', 'Peak nights, Moon factored in'),
-          toggle(s.eclipsesEnabled, (s, v) => s.copyWith(eclipsesEnabled: v), 'Lunar eclipses', 'When the Moon is up for you'),
-          toggle(s.pairingsEnabled, (s, v) => s.copyWith(pairingsEnabled: v), 'Planet pairings', 'The Moon and bright planets side by side'),
-          toggle(s.launchesEnabled, (s, v) => s.copyWith(launchesEnabled: v), 'Rocket launches', 'Ones you can see from here · LookUp+'),
-          toggle(s.tiangongEnabled, (s, v) => s.copyWith(tiangongEnabled: v), 'Tiangong', 'China\'s station · LookUp+'),
-        ]),
-        const _Header('Listed, never tapped'),
-        WovenRows(children: [
-          toggle(s.transitsEnabled, (s, v) => s.copyWith(transitsEnabled: v), 'Station crossing the Sun or Moon',
-              'Under a second, for photographers'),
-        ]),
+    _Switch toggle(SkyEventType type, bool v, LookUpSettings Function(LookUpSettings, bool) f, String title, String subtitle) =>
+        _Switch(
+          leading: EventGlyph.forType(type, size: 32),
+          value: v,
+          onChanged: (x) => set((s) => f(s, x)),
+          title: title,
+          subtitle: subtitle,
+        );
+    return PageScaffold(title: 'Tell me about', children: [
+      GroupedList(indent: 60, children: [
+        toggle(SkyEventType.iss, s.issEnabled, (s, v) => s.copyWith(issEnabled: v), 'Space station', 'Bright, 3–6 minutes, a few times a month'),
+        toggle(SkyEventType.starlinkTrain, s.starlinkEnabled, (s, v) => s.copyWith(starlinkEnabled: v), 'Starlink trains', 'A line of lights after each launch · LookUp+'),
+        toggle(SkyEventType.auroraNow, s.auroraEnabled, (s, v) => s.copyWith(auroraEnabled: v), 'Aurora', 'Tonight\'s outlook free; "aurora now" is LookUp+'),
+        toggle(SkyEventType.meteorShower, s.meteorsEnabled, (s, v) => s.copyWith(meteorsEnabled: v), 'Meteor showers', 'Peak nights, Moon factored in'),
+        toggle(SkyEventType.lunarEclipse, s.eclipsesEnabled, (s, v) => s.copyWith(eclipsesEnabled: v), 'Lunar eclipses', 'When the Moon is up for you'),
+        toggle(SkyEventType.planetPairing, s.pairingsEnabled, (s, v) => s.copyWith(pairingsEnabled: v), 'Planet pairings', 'The Moon and bright planets side by side'),
+        toggle(SkyEventType.rocketLaunch, s.launchesEnabled, (s, v) => s.copyWith(launchesEnabled: v), 'Rocket launches', 'Ones you can see from here · LookUp+'),
+        toggle(SkyEventType.tiangong, s.tiangongEnabled, (s, v) => s.copyWith(tiangongEnabled: v), 'Tiangong', 'China\'s station · LookUp+'),
       ]),
-    );
+      const _Header('Listed, never tapped'),
+      GroupedList(indent: 60, children: [
+        toggle(SkyEventType.issTransit, s.transitsEnabled, (s, v) => s.copyWith(transitsEnabled: v), 'Station crossing the Sun or Moon',
+            'Under a second, for photographers'),
+      ]),
+    ]);
   }
 }
 
@@ -218,97 +229,99 @@ class _MoreScreen extends ConsumerWidget {
     final s = ref.watch(settingsProvider).value ?? const LookUpSettings();
     final set = _setter(ref);
     final learned = ref.watch(tuningProvider).value;
-    return Scaffold(
-      appBar: const WovenHeader(title: Text('More')),
-      body: ListView(padding: const EdgeInsets.only(top: 8, bottom: 32), children: [
-        WovenRows(children: [
-          _Switch(
-            value: s.goNowNudge,
-            onChanged: (v) => set((s) => s.copyWith(goNowNudge: v)),
-            title: '"Go outside now" nudge',
-            subtitle: 'A second tap one minute before',
-          ),
-          _Switch(
-            value: s.auroraWakeMe,
-            onChanged: (v) => set((s) => s.copyWith(auroraWakeMe: v)),
-            title: 'Wake me for aurora and eclipses',
-            subtitle: 'Rare enough to ignore quiet hours',
-          ),
-        ]),
-        if (learned != null && !learned.isNeutral) ...[
-          const _Header('Learned from you'),
-          WovenRows(children: [
-            for (final r in learned.reasons)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(r, style: const TextStyle(fontSize: 14, height: 1.35)),
-              ),
-          ]),
-        ],
-        const _Header('Housekeeping'),
-        WovenRows(children: [
-          _Row(icon: Icons.refresh, title: 'Refresh everything now', onTap: () => ref.read(homeProvider.notifier).refresh(force: true)),
-          if (!s.isPlus)
-            _Row(icon: Icons.restore, title: 'Restore purchases', onTap: () => ref.read(plusServiceProvider).restore()),
-        ]),
+    return PageScaffold(title: 'More', children: [
+      GroupedList(indent: 60, children: [
+        _Switch(
+          icon: Icons.directions_walk_rounded,
+          color: LookUpColors.blue,
+          value: s.goNowNudge,
+          onChanged: (v) => set((s) => s.copyWith(goNowNudge: v)),
+          title: '"Go outside now" nudge',
+          subtitle: 'A second tap one minute before',
+        ),
+        _Switch(
+          icon: Icons.alarm_rounded,
+          color: LookUpColors.good,
+          value: s.auroraWakeMe,
+          onChanged: (v) => set((s) => s.copyWith(auroraWakeMe: v)),
+          title: 'Wake me for aurora and eclipses',
+          subtitle: 'Rare enough to ignore quiet hours',
+        ),
       ]),
-    );
+      if (learned != null && !learned.isNeutral) ...[
+        const _Header('Learned from you'),
+        GroupedList(children: [
+          for (final r in learned.reasons)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Text(r, style: const TextStyle(fontSize: 14.5, height: 1.4)),
+            ),
+        ]),
+      ],
+      const _Header('Housekeeping'),
+      GroupedList(indent: 60, children: [
+        _Row(
+          icon: Icons.refresh_rounded,
+          color: LookUpColors.blue,
+          title: 'Refresh everything now',
+          onTap: () => ref.read(homeProvider.notifier).refresh(force: true),
+        ),
+        if (!s.isPlus)
+          _Row(
+            icon: Icons.restore_rounded,
+            color: LookUpColors.grey,
+            title: 'Restore purchases',
+            onTap: () => ref.read(plusServiceProvider).restore(),
+          ),
+      ]),
+    ]);
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.title, this.subtitle, this.onTap});
+class _Glyph extends StatelessWidget {
+  const _Glyph(this.icon, this.color);
   final IconData icon;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => EventGlyph(icon: icon, color: color, size: 32);
+}
+
+class _Row extends StatelessWidget {
+  const _Row({required this.icon, required this.color, required this.title, this.subtitle, this.onTap});
+  final IconData icon;
+  final Color color;
   final String title;
   final String? subtitle;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          child: Row(children: [
-            Icon(icon, size: 21, color: LookUpColors.grey),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: const TextStyle(fontSize: 16)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!, style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),
-                ],
-              ]),
-            ),
-            if (onTap != null) const Icon(Icons.chevron_right, size: 20, color: LookUpColors.greyDim),
-          ]),
-        ),
-      );
+  Widget build(BuildContext context) => ListRow(leading: _Glyph(icon, color), title: title, subtitle: subtitle, onTap: onTap);
 }
 
 class _Switch extends StatelessWidget {
-  const _Switch({required this.value, required this.onChanged, required this.title, required this.subtitle});
+  const _Switch({
+    required this.value,
+    required this.onChanged,
+    required this.title,
+    required this.subtitle,
+    this.icon,
+    this.color = LookUpColors.blue,
+    this.leading,
+  });
   final bool value;
   final ValueChanged<bool> onChanged;
   final String title;
   final String subtitle;
+  final IconData? icon;
+  final Color color;
+  final Widget? leading;
   @override
   Widget build(BuildContext context) => MergeSemantics(
-        child: InkWell(
+        child: ListRow(
+          leading: leading ?? (icon == null ? null : _Glyph(icon!, color)),
+          title: title,
+          subtitle: subtitle,
           onTap: () => onChanged(!value),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: const TextStyle(color: LookUpColors.grey, fontSize: 13)),
-                ]),
-              ),
-              const SizedBox(width: 12),
-              Switch(value: value, onChanged: onChanged),
-            ]),
-          ),
+          trailing: Switch(value: value, onChanged: onChanged),
         ),
       );
 }
@@ -317,8 +330,5 @@ class _Header extends StatelessWidget {
   const _Header(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 26, 16, 6),
-        child: OrnamentRule(label: text, color: LookUpColors.greyDim),
-      );
+  Widget build(BuildContext context) => SectionHeader(text, small: true);
 }

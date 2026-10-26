@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// A deterministic scatter of stars: the dark-sky answer to Dearly's warm
-/// paper. Static (no per-frame work); density and brightness are tunable.
+/// A deterministic scatter of stars. Static (no per-frame work); density
+/// and brightness are tunable.
 class Starfield extends StatelessWidget {
   const Starfield({
     super.key,
@@ -25,9 +25,11 @@ class Starfield extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final field = CustomPaint(
-      painter: _StarPainter(density: density, seed: seed, maxOpacity: maxOpacity),
-      child: const SizedBox.expand(),
+    final field = IgnorePointer(
+      child: CustomPaint(
+        painter: _StarPainter(density: density, seed: seed, maxOpacity: maxOpacity),
+        child: const SizedBox.expand(),
+      ),
     );
     final masked = fadeBottom
         ? ShaderMask(
@@ -35,8 +37,8 @@ class Starfield extends StatelessWidget {
             shaderCallback: (r) => const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Colors.white, Colors.white, Colors.transparent],
-              stops: [0, 0.45, 1],
+              colors: [Colors.white, Colors.transparent],
+              stops: [0, 0.6],
             ).createShader(r),
             child: field,
           )
@@ -61,25 +63,19 @@ class _StarPainter extends CustomPainter {
       final x = rnd.nextDouble() * size.width;
       final y = rnd.nextDouble() * size.height;
       final mag = rnd.nextDouble(); // 0 faint … 1 bright
-      final r = 0.4 + mag * mag * 1.3;
-      final a = (0.15 + mag * 0.85) * maxOpacity;
+      final r = 0.35 + mag * mag * 1.1;
+      final a = (0.12 + mag * mag * 0.88) * maxOpacity;
       // A few stars carry a faint blue; most are warm-white.
-      final tint = rnd.nextDouble() < 0.15 ? const Color(0xFFBFD9FF) : const Color(0xFFF4F1EA);
+      final tint = rnd.nextDouble() < 0.18 ? const Color(0xFFC4DAFF) : const Color(0xFFF6F2EA);
       paint.color = tint.withValues(alpha: a);
       canvas.drawCircle(Offset(x, y), r, paint);
-      if (mag > 0.96) {
-        // Bright star: soft halo + a tiny cross flare.
-        paint.color = tint.withValues(alpha: 0.18);
-        canvas.drawCircle(Offset(x, y), r * 3.2, paint);
-        paint.color = tint.withValues(alpha: 0.5);
-        paint.strokeWidth = 0.6;
-        canvas.drawLine(Offset(x - r * 4, y), Offset(x + r * 4, y), paint);
-        canvas.drawLine(Offset(x, y - r * 4), Offset(x, y + r * 4), paint);
+      if (mag > 0.97) {
+        paint.color = tint.withValues(alpha: 0.12);
+        canvas.drawCircle(Offset(x, y), r * 3, paint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(_StarPainter o) =>
-      o.density != density || o.seed != seed || o.maxOpacity != maxOpacity;
+  bool shouldRepaint(_StarPainter o) => o.density != density || o.seed != seed || o.maxOpacity != maxOpacity;
 }

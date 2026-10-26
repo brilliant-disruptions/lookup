@@ -37,31 +37,24 @@ Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/go
 
 ## Design
 
-Black, white and one electric blue (SpaceX/Starlink-inspired), dressed with elements borrowed from the Dearly/Woven design system in `app-ideas/bloved/design-system` and translated to night:
+**Night glass.** A deep-navy sky fading to black, translucent rounded surfaces over it, one typeface, one blue accent, and a tint per kind of event. Tokens live in `lib/ui/theme.dart`; components in `lib/ui/kit/`.
 
-| Dearly | LookUp |
+| Piece | What it is |
 |---|---|
-| Cormorant Garamond display serif for ceremonial moments | Same face (`assets/fonts`, OFL) for event names, the countdown and stat numerals; italic for the countdown |
-| Gold-foil text | `FoilText`: a starlight silver-blue sheen (gold variant kept for share cards) |
-| Invitation double-hairline frame | `InviteFrame`: blue outer hairline, grey inner, soft blue glow |
-| Paper grain | `Grain`: 4 % film grain on the hero panel |
-| Warm paper page | `Starfield`: deterministic stars fading out behind content |
-| Ornament rule "— ◆ —" | `OrnamentRule` for section headers |
-| StatTile (overline / display value / caption) | `StatTile` for rise / peak / set |
-| `.dearly-rise` staggered entrance | `Rise`: 12 px transform-only rise, 70 ms stagger |
-| Spline Sans Mono for data | Same face for times and degrees |
+| Type | Inter (`assets/fonts`, OFL), variable weight and optical size. `display()` for headlines and big numbers, `numeric()` for times and counts; both use tabular figures so countdowns don't jiggle. Sentence case everywhere, no tracked caps |
+| Colour | `LookUpColors`: night → black gradient, `glass` surfaces and `line` hairlines (white at 6–9%), `blue` accent, plus event tints (ISS blue, Starlink violet, aurora green, meteors orange, planets gold, eclipses/launches red, transits cyan) |
+| `SkyBackdrop` | The page behind every screen: gradient, faint stars, a soft bloom in the next event's tint |
+| `GlassCard` | Rounded (22) translucent card with a hairline edge; `tint` washes a corner in colour (the hero card) |
+| `GroupedList` + `ListRow` | iOS-style inset-grouped rows with inset dividers: Settings, the Week, the Log, "Later" |
+| `EventGlyph` | Tinted rounded-square icon per event type (`eventStyle()`), so lists scan by colour |
+| `Pill`, `CloudPill`, `Kicker` | Status capsules ("Clear", "Easy to see", planets up tonight) and small coloured labels ("Next up", "Happening now" with a live dot) |
+| `CountdownText` | Big numerals, small muted units: "3h 12m", the way flight trackers show departure |
+| `SegmentedTabs` | Pill segmented control with a sliding thumb and counts |
+| `AppHeader` / `PageHeader` / `PageScaffold` | Large left-aligned titles with a place chip on the tabs; round back button and centred title on pushed pages; frosted |
+| `FloatingTabBar` | Frosted capsule of four tabs (Tonight, Sky, Week, Log) floating above content; Settings sits behind the gear |
+| `Rise` | 520 ms transform-only entrance, staggered 60 ms |
 
-From Woven's guest app (`app-ideas/bloved`) in `lib/ui/fancy/woven.dart`:
-
-| Woven | LookUp |
-|---|---|
-| `.g-nav` frosted bottom tabs: hairline, thin icons, colour-only active | `WovenNavBar`: four tabs (Tonight, Sky, Week, Log); Settings sits behind the gear |
-| Compact sticky header: serif title over a muted line | `WovenHeader`: title over your place (tap to switch places) |
-| `.dly-tabs` underlined tabs with counts | `WovenTabs`: Planets / Constellations / Showpieces, Coming up / Last 7 nights, Seen / Badges |
-| `.gx-tl` day-of timeline (hollow dots, filled "now") | `WovenTimeline`: the Week tab |
-| `.gx-member` hairline rows | `WovenRows`: Settings, the Log, "Later" on Tonight |
-
-All in `lib/ui/fancy/`. Emoji were dropped (Dearly's rule: warmth comes from type, not 🎉).
+Emoji stay out of the UI; warmth comes from colour and type.
 
 ## Run it
 

@@ -120,21 +120,22 @@ class _DomePainter extends CustomPainter {
       c,
       rim,
       Paint()
-        ..shader = const RadialGradient(colors: [Color(0xFF02040A), Color(0xFF0A1424)], stops: [0.55, 1])
+        ..shader = const RadialGradient(colors: [Color(0xFF03060E), Color(0xFF0A1530), Color(0xFF13234A)], stops: [0.35, 0.85, 1])
             .createShader(Rect.fromCircle(center: c, radius: rim)),
     );
     final hairline = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = LookUpColors.line;
+      ..color = const Color(0x33FFFFFF);
     canvas.drawCircle(c, rim, hairline);
-    canvas.drawCircle(c, rim * 2 / 3, hairline..color = LookUpColors.line.withValues(alpha: 0.5)); // 30° up
+    hairline.color = const Color(0x12FFFFFF);
+    canvas.drawCircle(c, rim * 2 / 3, hairline); // 30° up
     canvas.drawCircle(c, rim / 3, hairline); // 60° up
 
     // Constellation figures.
     final linePaint = Paint()
-      ..color = LookUpColors.blue.withValues(alpha: 0.28)
-      ..strokeWidth = 1;
+      ..color = LookUpColors.blue.withValues(alpha: 0.24)
+      ..strokeWidth = 0.9;
     for (final con in catalog.constellations) {
       for (final seg in con.lines) {
         Offset? prev;
@@ -160,7 +161,7 @@ class _DomePainter extends CustomPainter {
     for (final con in catalog.constellations.where((c) => c.rank == 1)) {
       final o = _eq(s, con.centerRaDeg, con.centerDecDeg);
       if (o == null) continue;
-      _text(canvas, con.name.toUpperCase(), o, label.copyWith(fontSize: 8.5, letterSpacing: 1.2, color: LookUpColors.greyDim));
+      _text(canvas, con.name, o, label.copyWith(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0x99A0A8B8)));
     }
 
     // Planets, Moon, showpieces.
@@ -170,10 +171,21 @@ class _DomePainter extends CustomPainter {
       if (o == null) continue;
       final selected = t.id == selectedId;
       if (t.id == 'moon') {
+        canvas.drawCircle(
+            o,
+            14,
+            Paint()
+              ..color = const Color(0x55EDE7D9)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
         canvas.drawCircle(o, 9, Paint()..color = const Color(0xFFEDE7D9));
       } else if (t.kind == 'Planet') {
-        canvas.drawCircle(o, 8, Paint()..color = LookUpColors.blue.withValues(alpha: 0.25));
-        canvas.drawCircle(o, 3.6, Paint()..color = const Color(0xFFFFF2C8));
+        canvas.drawCircle(
+            o,
+            9,
+            Paint()
+              ..color = LookUpColors.gold.withValues(alpha: 0.35)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+        canvas.drawCircle(o, 3.8, Paint()..color = const Color(0xFFFFF2C8));
       } else {
         canvas.drawCircle(
             o,
@@ -194,7 +206,7 @@ class _DomePainter extends CustomPainter {
       }
       if (t.kind == 'Planet' || t.id == 'moon' || selected) {
         _text(canvas, t.id == 'moon' ? 'Moon' : t.name, o + const Offset(0, 15),
-            label.copyWith(fontSize: 10.5, fontWeight: FontWeight.w700, color: LookUpColors.white));
+            label.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600, color: LookUpColors.white));
       }
     }
 
@@ -202,7 +214,8 @@ class _DomePainter extends CustomPainter {
     for (final (az, l) in const [(0.0, 'N'), (90.0, 'E'), (180.0, 'S'), (270.0, 'W')]) {
       final a = az * math.pi / 180;
       final o = c + Offset(-math.sin(a) * (rim + 8), -math.cos(a) * (rim + 8));
-      _text(canvas, l, o, label.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: LookUpColors.grey));
+      _text(canvas, l, o,
+          label.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: l == 'N' ? LookUpColors.blue : LookUpColors.grey));
     }
   }
 
