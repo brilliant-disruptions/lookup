@@ -47,7 +47,7 @@ import 'package:lookup/ui/sky/object_sheet.dart';
 import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/sky/sky_thing.dart';
 import 'package:lookup/ui/theme.dart';
-import 'package:lookup/ui/fancy/starfield.dart';
+import 'package:lookup/ui/kit/starfield.dart';
 import 'package:lookup/ui/upcoming_screen.dart';
 
 final _now = DateTime.now();
@@ -167,11 +167,7 @@ Future<void> _loadFonts() async {
   ]);
   await load('MaterialIcons', ['${cache.path}/MaterialIcons-Regular.otf']);
   // App-bundled fonts (pubspec `fonts:`) are not auto-loaded by flutter_test.
-  await load('Cormorant', [
-    'assets/fonts/CormorantGaramond-Variable.ttf',
-    'assets/fonts/CormorantGaramond-Italic-Variable.ttf',
-  ]);
-  await load('SplineMono', ['assets/fonts/SplineSansMono-Variable.ttf']);
+  await load('Inter', ['assets/fonts/InterVariable.ttf']);
   final emoji = File('/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf');
   if (emoji.existsSync()) await load('Noto Color Emoji', [emoji.path]);
 }
@@ -180,8 +176,8 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
   latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true)}) {
   final base = LookUpApp.theme;
   final theme = base.copyWith(
-    textTheme: base.textTheme.apply(fontFamily: 'Roboto', fontFamilyFallback: const ['Noto Color Emoji']),
-    primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Roboto', fontFamilyFallback: const ['Noto Color Emoji']),
+    textTheme: base.textTheme.apply(fontFamilyFallback: const ['Noto Color Emoji']),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamilyFallback: const ['Noto Color Emoji']),
   );
   return ProviderScope(
     overrides: [
@@ -275,6 +271,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 900)); // let staggered rises settle
+    await tester.pump(const Duration(seconds: 1)); // and ones mounted after async data
   }
 
   Future<void> shot(WidgetTester tester, Widget w, String name, {LookUpSettings? settings}) async {
@@ -489,7 +486,7 @@ void main() {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
               child: Text(title, textAlign: TextAlign.center,
-                  style: displaySerif(context, size: 40, weight: FontWeight.w600, height: 1.05)),
+                  style: display(38, weight: FontWeight.w700, height: 1.08)),
             ),
             const SizedBox(height: 10),
             Padding(
@@ -504,7 +501,7 @@ void main() {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(44)),
-                    border: Border.all(color: const Color(0x553C9DFF), width: 2),
+                    border: Border.all(color: const Color(0x33FFFFFF), width: 2),
                   ),
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(42)),

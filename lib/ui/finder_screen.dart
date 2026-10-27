@@ -19,9 +19,9 @@ import '../domain/sky/direction.dart';
 import '../domain/sky/wmm.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
-import 'fancy/starfield.dart';
 import 'finder_camera.dart';
 import 'format.dart';
+import 'kit/kit.dart';
 import 'theme.dart';
 
 Future<void> openFinder(BuildContext context, SkyEvent event) =>
@@ -242,23 +242,26 @@ class _FinderState extends ConsumerState<FinderScreen> {
         fadeBottom: false,
         child: SafeArea(
           child: Column(children: [
-            Row(children: [
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
-              const Spacer(),
-              const Eyebrow('Sky finder', color: LookUpColors.blue),
-              const Spacer(),
-              IconButton(
-                tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
-                icon: Icon(_cameraOn ? Icons.videocam_off_outlined : Icons.photo_camera_outlined),
-                onPressed: () => setState(() => _cameraOn = !_cameraOn),
-              ),
-            ]),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(children: [
+                CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: () => Navigator.of(context).pop()),
+                const Spacer(),
+                const Text('Sky finder', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
+                const Spacer(),
+                CircleButton(
+                  tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
+                  icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
+                  onPressed: () => setState(() => _cameraOn = !_cameraOn),
+                ),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Column(children: [
-                Text(eventTitle(e), style: displaySerif(context, size: 34, weight: FontWeight.w500)),
-                const SizedBox(height: 4),
-                Text(status, textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.grey)),
+                Text(eventTitle(e), textAlign: TextAlign.center, style: display(28, weight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text(status, textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.grey, fontSize: 15)),
               ]),
             ),
             Expanded(
@@ -282,7 +285,7 @@ class _FinderState extends ConsumerState<FinderScreen> {
               child: Text(
                 g?.words ?? (_error != null ? 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}' : 'Hold your phone up toward the sky'),
                 textAlign: TextAlign.center,
-                style: displaySerif(context, size: 30, italic: true, weight: FontWeight.w600,
+                style: display(28, weight: FontWeight.w700,
                     color: (g?.onTarget ?? false) ? LookUpColors.blue : LookUpColors.white),
               ),
             ),
@@ -290,11 +293,11 @@ class _FinderState extends ConsumerState<FinderScreen> {
               padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text('${compassAbbrev(target.azimuthDeg)} ${target.azimuthDeg.round()}°  ·  ${target.elevationDeg.round()}° up',
-                    style: monoData(context, size: 13, color: LookUpColors.grey)),
+                    style: numeric(size: 13, color: LookUpColors.grey)),
                 if (camera != null) ...[
                   const SizedBox(width: 14),
                   Text('you ${camera.azimuthDeg.round()}° / ${camera.elevationDeg.round()}°',
-                      style: monoData(context, size: 13, color: LookUpColors.greyDim)),
+                      style: numeric(size: 13, color: LookUpColors.greyDim)),
                 ],
               ]),
             ),
@@ -345,7 +348,9 @@ class _FinderPainter extends CustomPainter {
     final p = c + Offset(g.dAzimuth * pxPerDeg, -g.dElevation * pxPerDeg);
     final bounds = Rect.fromCenter(center: c, width: size.width - 60, height: size.height - 60);
     if (bounds.contains(p)) {
-      final glow = Paint()..color = LookUpColors.blue.withValues(alpha: 0.25);
+      final glow = Paint()
+        ..color = LookUpColors.blue.withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
       canvas.drawCircle(p, 22, glow);
       canvas.drawCircle(p, 9, Paint()..color = Colors.white);
     } else {

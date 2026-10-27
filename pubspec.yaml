@@ -52,15 +52,10 @@ flutter:
     - assets/sky/stars.json
     - assets/sky/constellations.json
   fonts:
-    # Display serif (Dearly's ceremonial voice) and data mono, both OFL.
-    - family: Cormorant
+    # Inter (OFL): one family for everything, variable wght + opsz.
+    - family: Inter
       fonts:
-        - asset: assets/fonts/CormorantGaramond-Variable.ttf
-        - asset: assets/fonts/CormorantGaramond-Italic-Variable.ttf
-          style: italic
-    - family: SplineMono
-      fonts:
-        - asset: assets/fonts/SplineSansMono-Variable.ttf
+        - asset: assets/fonts/InterVariable.ttf
 
 flutter_launcher_icons:
   android: true

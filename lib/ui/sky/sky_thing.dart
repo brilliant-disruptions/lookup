@@ -12,6 +12,7 @@ import '../../domain/sky/tonight.dart';
 import '../../domain/sky/direction.dart';
 import '../../domain/sky/visibility.dart';
 import '../format.dart';
+import '../kit/event_style.dart';
 import '../theme.dart';
 
 class SkyThing {
@@ -174,6 +175,24 @@ Color verdictColor(Seeability v) => switch (v) {
       Seeability.low || Seeability.patchy => LookUpColors.warn,
       _ => LookUpColors.greyDim,
     };
+
+/// A glyph per kind of thing in the sky, greyed when it's not seeable.
+EventGlyph thingGlyph(SkyThing x, {double size = 36}) {
+  final (IconData? icon, Color color) = x.id == 'moon'
+      ? (Icons.nightlight_round, LookUpColors.white)
+      : x.id.startsWith('planet:')
+          ? (null, LookUpColors.gold)
+          : x.id.startsWith('con:')
+              ? (Icons.hub_outlined, LookUpColors.blue)
+              : switch (x.kind) {
+                  'Galaxy' => (Icons.cyclone_rounded, LookUpColors.violet),
+                  'Nebula' => (Icons.cloud_rounded, LookUpColors.cyan),
+                  'Milky Way' => (Icons.blur_on_rounded, LookUpColors.violet),
+                  'Double star' => (Icons.join_full_rounded, LookUpColors.gold),
+                  _ => (Icons.grain_rounded, LookUpColors.cyan),
+                };
+  return EventGlyph(icon: icon, color: color, size: size, dim: !x.seeable && x.id != 'moon');
+}
 
 /// The night's weather as one phrase.
 String outlookWords(NightOutlook o) => switch (o.shape) {

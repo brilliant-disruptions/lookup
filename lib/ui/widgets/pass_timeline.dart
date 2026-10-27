@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/sky_event.dart';
 import '../../domain/sky/direction.dart';
-import '../fancy/stat_tile.dart';
+import '../kit/controls.dart';
 import '../format.dart';
 import '../theme.dart';
 
@@ -30,7 +30,7 @@ class PassTimeline extends StatelessWidget {
               peakElevation: event.peakElevationDeg,
               progress: progress,
               accent: c.primary,
-              muted: c.onSurface.withValues(alpha: 0.3),
+              muted: c.onSurface.withValues(alpha: 0.22),
             ),
           ),
         ),
@@ -69,14 +69,18 @@ class _ArcPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawLine(Offset(0, size.height - 4), Offset(size.width, size.height - 4),
-        Paint()..color = muted..strokeWidth = 1);
+    final horizon = Paint()
+      ..color = muted
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += 6) {
+      canvas.drawLine(Offset(x, size.height - 4), Offset(x + 3, size.height - 4), horizon);
+    }
     final path = Path()..moveTo(0, size.height - 4);
     for (var i = 1; i <= 60; i++) {
       final p = _pt(size, i / 60);
       path.lineTo(p.dx, p.dy);
     }
-    canvas.drawPath(path, Paint()..color = muted..style = PaintingStyle.stroke..strokeWidth = 2);
+    canvas.drawPath(path, Paint()..color = muted..style = PaintingStyle.stroke..strokeWidth = 2..strokeCap = StrokeCap.round);
     if (progress > 0) {
       final done = Path()..moveTo(0, size.height - 4);
       final n = (progress * 60).round();
@@ -84,8 +88,10 @@ class _ArcPainter extends CustomPainter {
         final p = _pt(size, i / 60);
         done.lineTo(p.dx, p.dy);
       }
-      canvas.drawPath(done, Paint()..color = accent..style = PaintingStyle.stroke..strokeWidth = 3);
-      canvas.drawCircle(_pt(size, progress), 6, Paint()..color = accent);
+      canvas.drawPath(done, Paint()..color = accent..style = PaintingStyle.stroke..strokeWidth = 3..strokeCap = StrokeCap.round);
+      final at = _pt(size, progress);
+      canvas.drawCircle(at, 12, Paint()..color = accent.withValues(alpha: 0.25));
+      canvas.drawCircle(at, 5.5, Paint()..color = Colors.white);
     }
   }
 

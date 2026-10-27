@@ -10,14 +10,12 @@ import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
-import 'fancy/foil_text.dart';
 import 'calendar.dart';
 import 'finder_screen.dart';
 import 'photo_tips.dart';
 import 'share_card.dart';
-import 'fancy/ornament_rule.dart';
-import 'fancy/stat_tile.dart';
 import 'format.dart';
+import 'kit/kit.dart';
 import 'theme.dart';
 import 'widgets/compass_arrow.dart';
 import 'widgets/countdown_ring.dart';
@@ -113,24 +111,44 @@ class _LookSheetState extends ConsumerState<LookSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (widget.demo)
-              const Padding(padding: EdgeInsets.only(bottom: 6), child: Eyebrow('Preview · a pass in fast-forward', color: LookUpColors.blue)),
-            if (event.details['past'] == true)
-              Padding(padding: const EdgeInsets.only(bottom: 6), child: Eyebrow('${fmtDay(event.start)} · ${pastVerdict(event)}')),
-            Text(event.details['past'] == true ? pastTitle(event) : eventTitle(event),
-                style: displaySerif(context, size: 38, weight: FontWeight.w500)),
-            const SizedBox(height: 2),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Pill('Preview · a pass in fast-forward', icon: Icons.fast_forward_rounded, color: LookUpColors.blue),
+                ),
+              ),
+            Row(children: [
+              EventGlyph.of(event, size: 44),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(event.details['past'] == true ? pastTitle(event) : eventTitle(event),
+                      style: display(24, weight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(
+                    event.details['past'] == true
+                        ? '${fmtDay(event.start)} · ${pastVerdict(event)}'
+                        : '${fmtDay(event.start)} · ${fmtTime(event.start)}',
+                    style: numeric(size: 14, color: LookUpColors.grey),
+                  ),
+                ]),
+              ),
+            ]),
+            const SizedBox(height: 20),
             Semantics(
               liveRegion: true,
-              child: FoilText(
-              over
-                  ? 'That one\'s over'
+              child: over
+                  ? Text('That one\'s over', style: display(30, weight: FontWeight.w700, color: LookUpColors.grey))
                   : live
-                      ? 'Now — ${fmtCountdown(event.end.difference(nowUtc))} left'
-                      : 'in ${fmtCountdown(event.start.difference(nowUtc))}',
-              style: displaySerif(context, size: 44, weight: FontWeight.w600, italic: true, height: 1.0),
+                      ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Kicker('Happening now', color: eventStyle(event.type).color, live: true),
+                          const SizedBox(height: 6),
+                          CountdownText('${fmtCountdown(event.end.difference(nowUtc))} left', size: 52),
+                        ])
+                      : CountdownText('in ${fmtCountdown(event.start.difference(nowUtc))}', size: 52),
             ),
-            ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
             Center(
               child: Semantics(
                 label: 'Compass arrow pointing ${compassWord(isAurora ? 0 : (isPass ? event.riseAzimuthDeg : event.peakAzimuthDeg))}',
@@ -168,9 +186,8 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: FilledButton.icon(
                   onPressed: () => openFinder(context, event),
-                  icon: const Icon(Icons.explore_outlined),
-                  label: const Text('FIND IT IN THE SKY'),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                  icon: const Icon(Icons.explore_rounded),
+                  label: const Text('Find it in the sky'),
                 ),
               ),
             if (widget.demo && over)
@@ -187,8 +204,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
   }
 
   Widget _demoDone(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('That\'s a LookUp night.', textAlign: TextAlign.center,
-            style: displaySerif(context, size: 26, italic: true, weight: FontWeight.w500)),
+        Text('That\'s a LookUp night.', textAlign: TextAlign.center, style: display(22, weight: FontWeight.w700)),
         const SizedBox(height: 6),
         const Text('The real one taps you 10 minutes before, then again at one minute. Afterwards it asks if you saw it.',
             textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey, height: 1.4)),
@@ -201,21 +217,25 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     if (widget.demo) {
       return FilledButton.icon(
         onPressed: () => Navigator.of(context).pop(),
-        icon: const Icon(Icons.check),
+        icon: const Icon(Icons.check_rounded),
         label: const Text('Got it'),
       );
     }
-    return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      TextButton.icon(
-        onPressed: () => addToCalendar(event, place: place),
-        icon: const Icon(Icons.event_outlined, size: 18),
-        label: const Text('Add to calendar'),
+    return Row(children: [
+      Expanded(
+        child: OutlinedButton.icon(
+          onPressed: () => addToCalendar(event, place: place),
+          icon: const Icon(Icons.event_rounded, size: 18),
+          label: const Text('Calendar'),
+        ),
       ),
-      const SizedBox(width: 8),
-      TextButton.icon(
-        onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
-        icon: const Icon(Icons.group_add_outlined, size: 18),
-        label: const Text('Invite someone'),
+      const SizedBox(width: 10),
+      Expanded(
+        child: OutlinedButton.icon(
+          onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
+          icon: const Icon(Icons.person_add_alt_rounded, size: 18),
+          label: const Text('Invite'),
+        ),
       ),
     ]);
   }
@@ -224,23 +244,22 @@ class _LookSheetState extends ConsumerState<LookSheet> {
   /// numbers, brightness and cloud, who's aboard, photo tips.
   Widget _details(BuildContext context, DateTime now,
       {required bool isPass, required bool showArc, required bool isTransit}) {
-    final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 8),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(bottom: 4),
           title: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Eyebrow('Details'),
-            SizedBox(width: 4),
-            Icon(Icons.expand_more, size: 16, color: LookUpColors.grey),
+            Text('Details', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
+            SizedBox(width: 2),
+            Icon(Icons.expand_more_rounded, size: 20, color: LookUpColors.grey),
           ]),
           showTrailingIcon: false,
           children: [
-            const OrnamentRule(),
-            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 18),
             if (isPass && showArc)
               Semantics(
                 label: 'Rises ${compassWord(event.riseAzimuthDeg)} at ${fmtTime(event.start)}, '
@@ -252,16 +271,13 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 for (final (k, v) in statsFor(event)) StatTile(k: k, v: v, align: CrossAxisAlignment.center),
               ]),
-            const SizedBox(height: 14),
-            Text(
-              [
-                if (event.details['brightness'] is String) '${event.details['brightness']}',
-                cloudWord(event.cloudCoverPercent),
-                if (event.isEstimate) 'estimate (orbit data is a few days old)',
-              ].join('  ·  ').toUpperCase(),
-              textAlign: TextAlign.center,
-              style: t.labelSmall?.copyWith(color: LookUpColors.greyDim, letterSpacing: 1.8, fontSize: 10.5, fontWeight: FontWeight.w700),
-            ),
+            const SizedBox(height: 18),
+            Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [
+              if (event.details['brightness'] is String)
+                Pill(_capitalised('${event.details['brightness']}'), icon: Icons.light_mode_rounded, color: LookUpColors.gold),
+              CloudPill(event.cloudCoverPercent),
+              if (event.isEstimate) const Pill('Estimate: orbit data is a few days old', color: LookUpColors.warn),
+            ]),
             if (event.type == SkyEventType.iss || event.type == SkyEventType.tiangong) StationFacts(event: event),
             if (isTransit)
               Padding(
@@ -275,7 +291,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: () => showPhotoTips(context, event.type),
-              icon: const Icon(Icons.photo_camera_outlined, size: 18),
+              icon: const Icon(Icons.photo_camera_rounded, size: 18),
               label: const Text('Photo tips'),
             ),
           ],
@@ -288,14 +304,14 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     final t = Theme.of(context).textTheme;
     if (_seen == true) {
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Glad you caught it.', textAlign: TextAlign.center, style: displaySerif(context, size: 24, italic: true, weight: FontWeight.w500)),
+        Text('Glad you caught it.', textAlign: TextAlign.center, style: display(22, weight: FontWeight.w700)),
         const SizedBox(height: 12),
         Row(children: [
           if (!widget.demo) ...[
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _addPhoto,
-                icon: Icon(_photoAdded ? Icons.check : Icons.add_a_photo_outlined),
+                icon: Icon(_photoAdded ? Icons.check_rounded : Icons.add_a_photo_rounded),
                 label: Text(_photoAdded ? 'Photo added' : 'Add your photo'),
               ),
             ),
@@ -304,7 +320,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
           Expanded(
             child: FilledButton.icon(
               onPressed: () => showShareCard(context, event),
-              icon: const Icon(Icons.ios_share),
+              icon: const Icon(Icons.ios_share_rounded),
               label: const Text('Share it'),
             ),
           ),
@@ -325,7 +341,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       return const Text('Thanks. We\'ll be pickier next time.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey));
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Did you see it?', textAlign: TextAlign.center, style: displaySerif(context, size: 26, weight: FontWeight.w500)),
+      Text('Did you see it?', textAlign: TextAlign.center, style: display(22, weight: FontWeight.w700)),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(child: OutlinedButton(onPressed: () => _answer(false), child: const Text('No'))),
@@ -335,6 +351,8 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     ]);
   }
 }
+
+String _capitalised(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
 /// One plain sentence: where to look and what you'll see.
 String lookLine(SkyEvent e) => switch (e.type) {

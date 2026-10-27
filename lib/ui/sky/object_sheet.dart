@@ -4,10 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/local_store.dart';
 import '../../domain/sky/direction.dart';
 import '../../state/providers.dart';
-import '../fancy/foil_text.dart';
-import '../fancy/ornament_rule.dart';
 import '../finder_screen.dart';
 import '../format.dart';
+import '../kit/kit.dart';
 import '../theme.dart';
 import '../widgets/compass_arrow.dart';
 import 'sky_thing.dart';
@@ -62,17 +61,29 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Eyebrow(t.kind),
-          const SizedBox(height: 6),
-          Text(t.name, style: displaySerif(context, size: 38, weight: FontWeight.w500)),
-          const SizedBox(height: 2),
-          FoilText(headline, style: displaySerif(context, size: 34, weight: FontWeight.w600, italic: true, height: 1.05)),
+          Row(children: [
+            thingGlyph(t, size: 44),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(t.name, style: display(24, weight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(t.kind, style: const TextStyle(fontSize: 14, color: LookUpColors.grey)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 20),
+          Text(headline, style: display(34, weight: FontWeight.w700)),
           if (sight != null && t.whyNot == null)
             Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                sight.verdict.yes ? sight.verdict.words : 'Tonight: ${sight.verdict.words.toLowerCase()}',
-                style: TextStyle(color: verdictColor(sight.verdict), fontWeight: FontWeight.w600),
+              padding: const EdgeInsets.only(top: 10),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Pill(
+                  sight.verdict.yes ? sight.verdict.words : 'Tonight: ${sight.verdict.words.toLowerCase()}',
+                  dot: true,
+                  color: verdictColor(sight.verdict),
+                ),
               ),
             ),
           if (t.whyNot != null)
@@ -94,31 +105,24 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
             const SizedBox(height: 16),
             Text(t.blurb!, textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.grey, height: 1.45)),
           ],
-          const SizedBox(height: 16),
-          const OrnamentRule(),
-          const SizedBox(height: 12),
-          Text(
-            [
-              if (t.extra != null) t.extra!,
-              if (t.rise != null) 'rises ${fmtTime(t.rise!)}',
-              if (t.set != null) 'sets ${fmtTime(t.set!)}',
-            ].join('  ·  ').toUpperCase(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: LookUpColors.greyDim, fontSize: 10.5, letterSpacing: 1.6, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
+          Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [
+            if (t.extra != null) Pill('${t.extra![0].toUpperCase()}${t.extra!.substring(1)}', color: LookUpColors.grey),
+            if (t.rise != null) Pill('Rises ${fmtTime(t.rise!)}', icon: Icons.north_east_rounded, color: LookUpColors.grey),
+            if (t.set != null) Pill('Sets ${fmtTime(t.set!)}', icon: Icons.south_east_rounded, color: LookUpColors.grey),
+          ]),
+          const SizedBox(height: 22),
           if (s?.latitude != null && t.whyNot == null)
             FilledButton.icon(
               onPressed: () => openFinder(context, t.asEvent(DateTime.now(), s!.latitude!, s.longitude!)),
-              icon: const Icon(Icons.explore_outlined),
-              label: const Text('FIND IT IN THE SKY'),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+              icon: const Icon(Icons.explore_rounded),
+              label: const Text('Find it in the sky'),
             ),
           if (upNow)
             Center(
               child: TextButton.icon(
                 onPressed: _logged ? null : _found,
-                icon: Icon(_logged ? Icons.check : Icons.auto_awesome_outlined, size: 18),
+                icon: Icon(_logged ? Icons.check_rounded : Icons.auto_awesome_rounded, size: 18),
                 label: Text(_logged ? 'In your log' : 'I found it'),
               ),
             ),

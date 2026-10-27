@@ -5,8 +5,8 @@ import '../services/alert_actions.dart';
 import '../services/notification_service.dart';
 import '../state/providers.dart';
 import 'demo.dart';
-import 'fancy/woven.dart';
 import 'finder_screen.dart';
+import 'kit/navigation.dart';
 import 'log_screen.dart';
 import 'look_sheet.dart';
 import 'now_screen.dart';
@@ -85,15 +85,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final tab = ref.watch(homeTabProvider);
     const pages = [NowScreen(), SkyScreen(), UpcomingScreen(), LogScreen()];
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(index: tab, children: pages),
-      bottomNavigationBar: WovenNavBar(
+      bottomNavigationBar: FloatingTabBar(
         index: tab,
         onSelect: ref.read(homeTabProvider.notifier).set,
         tabs: const [
-          WovenTab(Icons.nightlight_outlined, 'Tonight', activeIcon: Icons.nightlight),
-          WovenTab(Icons.public_outlined, 'Sky', activeIcon: Icons.public),
-          WovenTab(Icons.calendar_today_outlined, 'Week', activeIcon: Icons.calendar_today),
-          WovenTab(Icons.auto_awesome_outlined, 'Log', activeIcon: Icons.auto_awesome),
+          TabItem(Icons.nightlight_outlined, 'Tonight', activeIcon: Icons.nightlight_round),
+          TabItem(Icons.explore_outlined, 'Sky', activeIcon: Icons.explore_rounded),
+          TabItem(Icons.view_agenda_outlined, 'Week', activeIcon: Icons.view_agenda_rounded),
+          TabItem(Icons.auto_awesome_outlined, 'Log', activeIcon: Icons.auto_awesome_rounded),
         ],
       ),
     );

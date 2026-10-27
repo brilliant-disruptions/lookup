@@ -4,11 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
 import '../state/sky_extras.dart';
-import 'fancy/ornament_rule.dart';
-import 'fancy/rise.dart';
 import 'format.dart';
+import 'kit/kit.dart';
 import 'look_sheet.dart';
-import 'fancy/woven.dart';
 import 'theme.dart';
 
 Future<void> openSatellitesTonight(BuildContext context) =>
@@ -22,44 +20,49 @@ class SatellitesTonightScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final list = ref.watch(brightTonightProvider);
-    return Scaffold(
-      appBar: const WovenHeader(title: Text('Satellites tonight'), subtitle: 'The bright ones, besides the stations'),
-      body: RefreshIndicator(
-        onRefresh: () => ref.refresh(brightTonightProvider.future),
-        child: list.when(
-          loading: () => ListView(children: const [
-            SizedBox(height: 120),
-            Center(child: CircularProgressIndicator()),
-            SizedBox(height: 16),
-            Center(child: Text('Working out tonight\'s passes…', style: TextStyle(color: LookUpColors.grey))),
-          ]),
-          error: (e, _) => ListView(padding: const EdgeInsets.all(24), children: const [
-            Text('Couldn\'t download satellite orbits. Pull to try again.', style: TextStyle(color: LookUpColors.grey)),
-          ]),
-          data: (events) => ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(4, 4, 4, 8),
-                child: Text(
-                  'The brightest things in orbit crossing your sky, besides the stations. Steady points of light, '
-                  'moving: no blinking, no sound. Brightness is approximate.',
-                  style: TextStyle(color: LookUpColors.grey, height: 1.45),
-                ),
-              ),
-              if (events.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(4, 24, 4, 0),
-                  child: Text('Nothing bright enough passes over tonight.', style: TextStyle(color: LookUpColors.grey)),
-                ),
-              for (final (i, e) in events.indexed) ...[
-                if (i == 0 || fmtDay(e.start) != fmtDay(events[i - 1].start))
-                  Padding(padding: const EdgeInsets.fromLTRB(0, 22, 0, 12), child: OrnamentRule(label: fmtDay(e.start))),
-                Rise(index: i, child: _SatelliteRow(e)),
-              ],
-            ],
+    return PageScaffold(
+      title: 'Satellites tonight',
+      subtitle: 'The bright ones, besides the stations',
+      onRefresh: () => ref.refresh(brightTonightProvider.future),
+      children: list.when(
+        loading: () => const [
+          SizedBox(height: 120),
+          Center(child: CircularProgressIndicator()),
+          SizedBox(height: 16),
+          Center(child: Text('Working out tonight\'s passes…', style: TextStyle(color: LookUpColors.grey))),
+        ],
+        error: (e, _) => const [
+          Padding(
+            padding: EdgeInsets.all(8),
+            child: Text('Couldn\'t download satellite orbits. Pull to try again.', style: TextStyle(color: LookUpColors.grey)),
           ),
-        ),
+        ],
+        data: (events) {
+          final days = <String, List<SkyEvent>>{};
+          for (final e in events) {
+            days.putIfAbsent(fmtDay(e.start), () => []).add(e);
+          }
+          var i = 0;
+          return [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 8, 4, 0),
+              child: Text(
+                'The brightest things in orbit crossing your sky, besides the stations. Steady points of light, '
+                'moving: no blinking, no sound. Brightness is approximate.',
+                style: TextStyle(color: LookUpColors.grey, height: 1.45),
+              ),
+            ),
+            if (events.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(4, 24, 4, 0),
+                child: Text('Nothing bright enough passes over tonight.', style: TextStyle(color: LookUpColors.grey)),
+              ),
+            for (final d in days.entries) ...[
+              SectionHeader(d.key, padding: const EdgeInsets.fromLTRB(4, 24, 4, 10)),
+              Rise(index: i++, child: GroupedList(indent: 64, children: [for (final e in d.value) _SatelliteRow(e)])),
+            ],
+          ];
+        },
       ),
     );
   }
@@ -72,44 +75,29 @@ class _SatelliteRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mag = (e.details['magnitude'] as num?)?.toDouble();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Card(
-        child: InkWell(
-          onTap: () => showLookSheet(context, e),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(eventTitle(e), style: displaySerif(context, size: 22, weight: FontWeight.w500)),
-                  const SizedBox(height: 4),
-                  Text(
-                    describeArc(riseAzimuthDeg: e.riseAzimuthDeg, peakElevationDeg: e.peakElevationDeg, duration: e.duration),
-                    style: const TextStyle(color: LookUpColors.grey, fontSize: 13, height: 1.35),
-                  ),
-                ]),
-              ),
-              const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(fmtTime(e.start), style: monoData(context, size: 14, weight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                if (mag != null)
-                  Text(_brightWord(mag),
-                      style: const TextStyle(fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.w700, color: LookUpColors.blue)),
-              ]),
-            ]),
-          ),
-        ),
-      ),
+    return ListRow(
+      onTap: () => showLookSheet(context, e),
+      leading: EventGlyph.of(e),
+      title: eventTitle(e),
+      subtitle: _sentence(describeArc(riseAzimuthDeg: e.riseAzimuthDeg, peakElevationDeg: e.peakElevationDeg, duration: e.duration)),
+      trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+        Text(fmtTime(e.start), style: numeric(size: 14, weight: FontWeight.w600)),
+        if (mag != null) ...[
+          const SizedBox(height: 4),
+          Text(_brightWord(mag),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mag <= 1.5 ? LookUpColors.gold : LookUpColors.grey)),
+        ],
+      ]),
     );
   }
 
+  static String _sentence(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
   static String _brightWord(double mag) => mag <= 0
-      ? 'VERY BRIGHT'
+      ? 'Very bright'
       : mag <= 1.5
-          ? 'BRIGHT'
+          ? 'Bright'
           : mag <= 2.5
-              ? 'EASY'
-              : 'DARK SKY';
+              ? 'Easy'
+              : 'Dark sky';
 }

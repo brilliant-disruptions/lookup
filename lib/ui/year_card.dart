@@ -6,10 +6,8 @@ import '../data/local_store.dart';
 import '../domain/log/year_review.dart';
 import '../domain/models/sky_event.dart';
 import '../state/providers.dart';
-import 'fancy/foil_text.dart';
-import 'fancy/ornament_rule.dart';
-import 'fancy/starfield.dart';
 import 'format.dart';
+import 'kit/kit.dart';
 import 'share_card.dart';
 import 'theme.dart';
 
@@ -79,8 +77,8 @@ class _YearSheetState extends State<_YearSheet> {
                         if (mounted) setState(() => _busy = false);
                       }
                     },
-              icon: const Icon(Icons.ios_share),
-              label: const Text('SHARE YOUR YEAR'),
+              icon: const Icon(Icons.ios_share_rounded),
+              label: const Text('Share your year'),
             ),
           ]),
         ),
@@ -103,13 +101,9 @@ class YearCard extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 4 / 5,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Radii.lg),
         child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0x553C9DFF)),
-          ),
+          decoration: posterDecoration(LookUpColors.violet),
           child: Starfield(
             density: 0.0008,
             maxOpacity: 0.6,
@@ -118,12 +112,12 @@ class YearCard extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Eyebrow('My sky year', color: LookUpColors.blue),
+                const Kicker('My sky year', color: LookUpColors.violet),
                 const SizedBox(height: 6),
-                FoilText('${r.year}', gold: true, style: displaySerif(context, size: 64, weight: FontWeight.w600, italic: true, height: 1)),
+                Text('${r.year}', style: display(64, weight: FontWeight.w800, height: 1)),
                 const SizedBox(height: 8),
                 Text('${r.seen} seen · ${r.nights} night${r.nights == 1 ? '' : 's'} out',
-                    style: displaySerif(context, size: 24, weight: FontWeight.w500)),
+                    style: display(20, weight: FontWeight.w600)),
                 const SizedBox(height: 14),
                 for (final l in lines)
                   Padding(
@@ -133,20 +127,14 @@ class YearCard extends StatelessWidget {
                 const Spacer(),
                 if (r.bestMonth != null)
                   Text('Best month: ${DateFormat.MMMM().format(DateTime(r.year, r.bestMonth!))}',
-                      style: monoData(context, size: 11, color: LookUpColors.greyDim)),
+                      style: numeric(size: 11.5, color: LookUpColors.grey)),
                 if (r.first != null)
                   Text('First: ${fmtDay(r.first!.eventTime ?? r.first!.at)}',
-                      style: monoData(context, size: 11, color: LookUpColors.greyDim)),
-                const SizedBox(height: 10),
-                const OrnamentRule(),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Text('LookUp', style: displaySerif(context, size: 20, weight: FontWeight.w600)),
-                  Text('.', style: displaySerif(context, size: 20, weight: FontWeight.w700, color: LookUpColors.blue)),
-                  const Spacer(),
-                  const Text('STEP OUTSIDE RIGHT NOW',
-                      style: TextStyle(color: LookUpColors.greyDim, fontSize: 8.5, letterSpacing: 1.6, fontWeight: FontWeight.w700)),
-                ]),
+                      style: numeric(size: 11.5, color: LookUpColors.grey)),
+                const SizedBox(height: 12),
+                const Divider(),
+                const SizedBox(height: 12),
+                const PosterFooter(),
               ]),
             ),
           ),
