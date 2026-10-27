@@ -6,12 +6,14 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
+import '../../domain/models/sky_event.dart';
 import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../../domain/sky/direction.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import 'sky_thing.dart';
+import 'sky_track.dart';
 
 /// How wide a slice of the horizon fits on screen, in degrees.
 const panoramaFov = 140.0;
@@ -50,6 +52,9 @@ class SkyPanorama extends StatefulWidget {
     required this.things,
     this.selectedId,
     this.onTap,
+    this.tracks = const [],
+    this.trackTime,
+    this.onTrackTap,
     this.height = 440,
   });
 
@@ -59,6 +64,12 @@ class SkyPanorama extends StatefulWidget {
   final List<SkyThing> things;
   final String? selectedId;
   final ValueChanged<SkyThing>? onTap;
+
+  /// Passes to draw across the sky, and the moment their live dots are at
+  /// (defaults to [time]; pass a per-second clock while one is up).
+  final List<SkyTrack> tracks;
+  final DateTime? trackTime;
+  final ValueChanged<SkyEvent>? onTrackTap;
   final double height;
 
   /// The sky itself, for tests that drag or tap it.
@@ -69,7 +80,12 @@ class SkyPanorama extends StatefulWidget {
 }
 
 class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStateMixin {
-  late double _facing = bestFacing(widget.things, widget.time.toUtc());
+  // Something passing over right now beats everything else.
+  late double _facing = widget.tracks
+          .map((t) => t.at(widget.trackTime ?? widget.time)?.azimuthDeg)
+          .nonNulls
+          .firstOrNull ??
+      bestFacing(widget.things, widget.time.toUtc());
   late final AnimationController _spin = AnimationController.unbounded(vsync: this)
     ..addListener(() => setState(() => _facing = _spin.value % 360));
   late _SkyCache _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon);
@@ -112,6 +128,9 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
     final ahead = [
       for (final t in widget.things)
         if (t.position(utc).altitudeDeg > 0 && _wrap(t.position(utc).azimuthDeg - _facing).abs() < panoramaFov / 2) t.name,
+      for (final tr in widget.tracks)
+        if (tr.points.any((p) => p.h.altitudeDeg > 0 && _wrap(p.h.azimuthDeg - _facing).abs() < panoramaFov / 2))
+          '${tr.label}, passing ${compassWord(tr.event.riseAzimuthDeg)} to ${compassWord(tr.event.setAzimuthDeg)}',
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Padding(
@@ -143,6 +162,8 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
             utc: utc,
             selectedId: widget.selectedId,
             label: label,
+            tracks: widget.tracks,
+            trackTime: (widget.trackTime ?? widget.time).toUtc(),
           );
           return Semantics(
             label: 'Sky facing ${compassWord(_facing)}. '
@@ -151,12 +172,15 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
               GestureDetector(
                 onHorizontalDragUpdate: (d) => _drag(d, size.width),
                 onHorizontalDragEnd: (d) => _fling(d, size.width),
-                onTapUp: widget.onTap == null
-                    ? null
-                    : (d) {
-                        final hit = painter.thingAt(size, d.localPosition);
-                        if (hit != null) widget.onTap!(hit);
-                      },
+                onTapUp: (d) {
+                  final hit = painter.thingAt(size, d.localPosition);
+                  if (hit != null) {
+                    widget.onTap?.call(hit);
+                    return;
+                  }
+                  final track = painter.trackAt(size, d.localPosition);
+                  if (track != null) widget.onTrackTap?.call(track.event);
+                },
                 child: CustomPaint(key: SkyPanorama.canvasKey, size: size, painter: painter),
               ),
               for (final (left, deg) in const [(true, -45.0), (false, 45.0)])
@@ -210,6 +234,8 @@ class _PanoramaPainter extends CustomPainter {
     required this.utc,
     required this.selectedId,
     required this.label,
+    required this.tracks,
+    required this.trackTime,
   });
 
   final _SkyCache cache;
@@ -218,6 +244,8 @@ class _PanoramaPainter extends CustomPainter {
   final DateTime utc;
   final String? selectedId;
   final TextStyle label;
+  final List<SkyTrack> tracks;
+  final DateTime trackTime;
 
   static const _groundH = 64.0;
   static const _ground = Color(0xFF05080F);
@@ -230,6 +258,19 @@ class _PanoramaPainter extends CustomPainter {
     final d = _wrap(h.azimuthDeg - facing);
     if (d.abs() > panoramaFov / 2 + 4 || h.altitudeDeg < -2) return null;
     return Offset(s.width / 2 + d / panoramaFov * s.width, _horizon(s) - h.altitudeDeg / 90 * _skyH(s));
+  }
+
+  /// A track projected into view; null where it's out of view or set.
+  List<Offset?> _project(Size s, SkyTrack tr) => [
+        for (final p in tr.points)
+          if (_xy(s, p.h) case final o? when p.h.altitudeDeg >= 0) o else null,
+      ];
+
+  SkyTrack? trackAt(Size s, Offset p) {
+    for (final tr in tracks) {
+      if (nearTrack(_project(s, tr), p)) return tr;
+    }
+    return null;
   }
 
   SkyThing? thingAt(Size s, Offset p) {
@@ -306,6 +347,12 @@ class _PanoramaPainter extends CustomPainter {
       if (o != null && o.dy < horizon - 10) {
         _text(canvas, name, o, label.copyWith(fontSize: 10.5, fontWeight: FontWeight.w500, color: const Color(0x88A0A8B8)));
       }
+    }
+
+    for (final tr in tracks) {
+      final live = tr.at(trackTime);
+      paintTrack(canvas, tr, _project(s, tr), trackTime, label,
+          maxJump: s.width / 3, bounds: Offset.zero & Size(s.width, _horizon(s)), liveAt: live == null || live.altitudeDeg < 0 ? null : _xy(s, live));
     }
 
     for (final t in things) {
@@ -437,5 +484,11 @@ class _PanoramaPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PanoramaPainter o) =>
-      o.facing != facing || o.cache != cache || o.selectedId != selectedId || o.things != things || o.utc != utc;
+      o.facing != facing ||
+      o.cache != cache ||
+      o.selectedId != selectedId ||
+      o.things != things ||
+      o.utc != utc ||
+      o.tracks != tracks ||
+      o.trackTime != trackTime;
 }

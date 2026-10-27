@@ -55,6 +55,8 @@ Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/go
 | `FloatingTabBar` | Frosted capsule of four tabs (Tonight, Sky, Week, Log) floating above content; Settings sits behind the gear |
 | `Rise` | 520 ms transform-only entrance, staggered 60 ms |
 | `SkyPanorama` | The Sky tab's main view: what you'd see standing outside (ground at the bottom, compass along the horizon, height in words). Drag or use the arrows to turn; it opens facing the direction with the most to see. The round whole-sky map is behind the header button |
+| `SkyTrack` | Passes that move (stations, Starlink, bright satellites) drawn across the panorama and the round map: dashed ahead with arrows for direction, solid where it has been, its name and start time, a dot where it is now (updated every second while it's up). Tap it for the Look sheet |
+| `NightVisionButton` | One-tap red night vision in the Tonight and Sky headers and the finder; the same setting as Settings › Night vision |
 
 Emoji stay out of the UI; warmth comes from colour and type.
 

@@ -22,6 +22,7 @@ import '../state/sky_state.dart';
 import 'finder_camera.dart';
 import 'format.dart';
 import 'kit/kit.dart';
+import 'night_vision_button.dart';
 import 'theme.dart';
 
 Future<void> openFinder(BuildContext context, SkyEvent event) =>
@@ -249,6 +250,8 @@ class _FinderState extends ConsumerState<FinderScreen> {
                 const Spacer(),
                 const Text('Sky finder', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
                 const Spacer(),
+                const NightVisionButton(),
+                const SizedBox(width: 8),
                 CircleButton(
                   tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
                   icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,

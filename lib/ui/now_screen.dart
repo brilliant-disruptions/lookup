@@ -12,6 +12,7 @@ import 'finder_screen.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
+import 'night_vision_button.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'settings_screen.dart';
@@ -37,6 +38,7 @@ class NowScreen extends ConsumerWidget {
         place: place,
         onPlaceTap: () => openPlaces(context),
         actions: [
+          const NightVisionButton(),
           CircleButton(tooltip: 'Settings', icon: Icons.settings_outlined, onPressed: () => openSettings(context)),
         ],
       ),

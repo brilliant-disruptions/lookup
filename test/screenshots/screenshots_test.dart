@@ -286,6 +286,8 @@ void main() {
 
   testWidgets('now', (t) => shot(t, const HomeShell(), '2-now'));
 
+  testWidgets('night vision', (t) => shot(t, const NightVision(enabled: true, child: HomeShell()), '18-night-vision'));
+
   testWidgets('quiet week', (t) async {
     _homeEvents = _quietEvents;
     addTearDown(() => _homeEvents = _events);
