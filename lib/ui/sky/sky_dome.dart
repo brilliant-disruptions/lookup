@@ -49,7 +49,7 @@ class SkyDome extends StatelessWidget {
             label: labelStyle ?? Theme.of(context).textTheme.labelSmall ?? const TextStyle(),
           );
           return Semantics(
-            label: 'Sky map. ${things.where((t) => t.position(time).altitudeDeg > 0).map((t) => t.name).join(', ')} are up now.',
+            label: 'Sky map, with you in the middle looking up. ${things.where((t) => t.position(time).altitudeDeg > 0).map((t) => t.name).join(', ')} are up now.',
             child: GestureDetector(
               onTapUp: onTap == null
                   ? null
@@ -132,13 +132,6 @@ class _DomePainter extends CustomPainter {
     canvas.drawCircle(c, rim * 2 / 3, hairline); // 30° up
     canvas.drawCircle(c, rim / 3, hairline); // 60° up
 
-    // Straight up: a small cross at the zenith.
-    final zenith = Paint()
-      ..color = const Color(0x40FFFFFF)
-      ..strokeWidth = 1;
-    canvas.drawLine(c - const Offset(5, 0), c + const Offset(5, 0), zenith);
-    canvas.drawLine(c - const Offset(0, 5), c + const Offset(0, 5), zenith);
-
     // Constellation figures.
     final linePaint = Paint()
       ..color = LookUpColors.blue.withValues(alpha: 0.24)
@@ -216,6 +209,18 @@ class _DomePainter extends CustomPainter {
             label.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600, color: LookUpColors.white));
       }
     }
+
+    // You: standing under the middle of the map, looking straight up.
+    canvas.drawCircle(c, 11, Paint()..color = LookUpColors.blue.withValues(alpha: 0.16));
+    canvas.drawCircle(
+        c,
+        11,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = LookUpColors.blue.withValues(alpha: 0.55));
+    canvas.drawCircle(c, 3.5, Paint()..color = LookUpColors.blue);
+    _text(canvas, 'You', c + const Offset(0, 21), label.copyWith(fontSize: 10.5, fontWeight: FontWeight.w700, color: LookUpColors.blue));
 
     // Compass letters at the rim (east on the left: we're looking up).
     for (final (az, l) in const [(0.0, 'N'), (90.0, 'E'), (180.0, 'S'), (270.0, 'W')]) {

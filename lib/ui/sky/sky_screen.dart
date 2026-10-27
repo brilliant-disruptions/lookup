@@ -88,8 +88,8 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
               const Padding(
                 padding: EdgeInsets.fromLTRB(24, 6, 24, 0),
                 child: Text(
-                  'The whole sky above you: the edge is the horizon, the middle is straight up. '
-                  'Hold it overhead with N to the north and it matches the real thing.',
+                  'You\'re in the middle, looking straight up; the edge is the horizon all around you. '
+                  'Hold it overhead with N to the north and it matches the real sky.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
                 ),
