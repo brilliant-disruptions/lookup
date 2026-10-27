@@ -18,6 +18,7 @@ import 'look_sheet.dart';
 import 'night_vision_button.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
+import 'plan_screen.dart';
 import 'settings_screen.dart';
 import 'sky/night_strip.dart';
 import 'sky/object_sheet.dart';
@@ -462,8 +463,12 @@ class _Favourites extends ConsumerWidget {
                 subtitle: favouriteWhen(f, night == null ? null : nights[night]),
                 subtitleLines: 1,
                 trailing: night == 0 ? const Pill('Tonight', dot: true, color: LookUpColors.good) : null,
-                chevron: thing != null,
-                onTap: thing == null ? null : () => showObjectSheet(context, thing),
+                chevron: night != null,
+                onTap: night == null
+                    ? null
+                    : night == 0 && thing != null
+                        ? () => showObjectSheet(context, thing)
+                        : () => openPlan(context, night: night),
               );
             }(),
         ]),

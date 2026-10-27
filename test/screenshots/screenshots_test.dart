@@ -37,6 +37,7 @@ import 'package:lookup/state/plan_state.dart';
 import 'package:lookup/domain/plan/night_plan.dart';
 import 'package:lookup/ui/finder_camera.dart';
 import 'package:lookup/ui/places_screen.dart';
+import 'package:lookup/ui/plan_screen.dart';
 import 'package:lookup/ui/satellites_screen.dart';
 import 'package:lookup/ui/year_card.dart';
 import 'package:lookup/domain/sky/astro.dart';
@@ -296,6 +297,12 @@ void main() {
   testWidgets('now', (t) => shot(t, const HomeShell(), '2-now'));
 
   testWidgets('night vision', (t) => shot(t, const NightVision(enabled: true, child: HomeShell()), '18-night-vision'));
+
+  testWidgets('plan a night', (t) => shot(t, const PlanScreen(), '19-plan',
+      settings: const LookUpSettings(
+          latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true,
+          favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus'],
+          places: [SavedPlace(name: 'The cabin', latitude: 35.61, longitude: -83.49, skyDarkness: SkyDarkness.dark)])));
 
   testWidgets('quiet week', (t) async {
     _homeEvents = _quietEvents;

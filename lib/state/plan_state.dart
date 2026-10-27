@@ -6,6 +6,8 @@ import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/open_meteo_client.dart';
+import '../domain/models/settings.dart';
 import '../domain/plan/night_plan.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/tonight.dart';
@@ -57,4 +59,58 @@ final favouritesAheadProvider = FutureProvider<List<FavouriteOutlook>>((ref) asy
       else
         (id: id, night: null, sighting: null),
   ];
+});
+
+/// Somewhere to look from: where they are now, or a saved place.
+typedef Spot = ({String name, double lat, double lon, SkyDarkness? darkness, bool here});
+
+/// Here first, then saved places that aren't here.
+List<Spot> planSpots(LookUpSettings s) => [
+      if (s.hasLocation)
+        (
+          name: (s.placeName?.isNotEmpty ?? false) ? s.placeName! : 'Here',
+          lat: s.latitude!,
+          lon: s.longitude!,
+          darkness: s.activePlace?.skyDarkness,
+          here: true,
+        ),
+      for (final p in s.places)
+        if (!s.hasLocation || !p.sameSpot(s.latitude!, s.longitude!))
+          (name: p.name, lat: p.latitude, lon: p.longitude, darkness: p.skyDarkness, here: false),
+    ];
+
+final openMeteoProvider = Provider<OpenMeteoClient>((_) => OpenMeteoClient());
+
+/// Hourly clouds for a place: the main forecast when it's where they are,
+/// otherwise the place's own copy, fetched only when looked at and at most
+/// every 6 hours (Open-Meteo etiquette, see CLAUDE.md).
+final placeForecastProvider = FutureProvider.family<CloudForecast?, ({double lat, double lon})>((ref, at) async {
+  final main = await ref.watch(weatherProvider.future);
+  if (main != null && (main.latitude - at.lat).abs() < 0.2 && (main.longitude - at.lon).abs() < 0.2) return main;
+  final store = ref.read(storeProvider);
+  final cached = await store.loadPlaceClouds(at.lat, at.lon);
+  if (cached != null && !cached.isStale(DateTime.now(), maxAge: placeCloudsMaxAge)) return cached;
+  try {
+    final fresh = await ref.read(openMeteoProvider).fetchCloudForecast(at.lat, at.lon, pastDays: 0);
+    await store.savePlaceClouds(fresh);
+    return fresh;
+  } catch (_) {
+    return cached;
+  }
+});
+
+const placeCloudsMaxAge = Duration(hours: 6);
+
+/// One night ([night] 0 = tonight) at one place, with that place's clouds.
+final nightPlanProvider =
+    FutureProvider.family<NightPlan, ({double lat, double lon, int night, SkyDarkness darkness})>((ref, k) async {
+  final catalog = await ref.watch(skyCatalogProvider.future);
+  final weather = await ref.watch(placeForecastProvider((lat: k.lat, lon: k.lon)).future);
+  return planNight(
+      catalog: catalog,
+      at: DateTime.now().toUtc().add(Duration(days: k.night)),
+      lat: k.lat,
+      lon: k.lon,
+      darkness: k.darkness,
+      weather: weather);
 });

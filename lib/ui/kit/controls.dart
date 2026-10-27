@@ -224,3 +224,42 @@ class CountdownText extends StatelessWidget {
     );
   }
 }
+
+/// A sideways-scrolling row of choice chips: nights, places.
+class ChipRow extends StatelessWidget {
+  const ChipRow({super.key, required this.labels, required this.index, required this.onSelect});
+  final List<String> labels;
+  final int index;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          for (final (i, l) in labels.indexed) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Semantics(
+              selected: i == index,
+              button: true,
+              child: Material(
+                color: i == index ? LookUpColors.glassStrong : LookUpColors.glass,
+                shape: StadiumBorder(side: BorderSide(color: i == index ? LookUpColors.blue : LookUpColors.line)),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => onSelect(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    child: Text(l,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: i == index ? LookUpColors.white : LookUpColors.grey,
+                        )),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ]),
+      );
+}

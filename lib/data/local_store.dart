@@ -126,6 +126,24 @@ class LocalStore {
   Future<void> saveClouds(CloudForecast f) =>
       _prefs.setString(_kClouds, jsonEncode(f.toJson()));
 
+  /// Forecasts for other places (saved places, "where to go"), one per
+  /// ~10 km square so nearby spots share a copy.
+  static String placeCloudsKey(double lat, double lon) =>
+      'clouds_at_${lat.toStringAsFixed(1)}_${lon.toStringAsFixed(1)}';
+
+  Future<CloudForecast?> loadPlaceClouds(double lat, double lon) async {
+    final raw = await _prefs.getString(placeCloudsKey(lat, lon));
+    if (raw == null) return null;
+    try {
+      return CloudForecast.fromJson((jsonDecode(raw) as Map).cast<String, Object?>());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> savePlaceClouds(CloudForecast f) =>
+      _prefs.setString(placeCloudsKey(f.latitude, f.longitude), jsonEncode(f.toJson()));
+
   Future<AuroraSnapshot?> loadAurora() async {
     final raw = await _prefs.getString(_kAurora);
     if (raw == null) return null;

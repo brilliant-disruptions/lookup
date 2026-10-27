@@ -7,6 +7,7 @@ import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'places_screen.dart';
+import 'plan_screen.dart';
 import 'satellites_screen.dart';
 import 'theme.dart';
 
@@ -51,6 +52,12 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                 const SizedBox(height: 14),
                 if (_tab == 0) ...[
                   GroupedList(indent: 64, children: [
+                    ListRow(
+                      leading: const EventGlyph(icon: Icons.calendar_month_rounded, color: LookUpColors.violet),
+                      title: 'Plan a night',
+                      subtitle: 'Any night in the next two weeks, here or at a saved place',
+                      onTap: () => openPlan(context),
+                    ),
                     ListRow(
                       leading: EventGlyph.forType(SkyEventType.satellitePass),
                       title: 'Satellites tonight',
