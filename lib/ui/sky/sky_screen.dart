@@ -179,7 +179,8 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
                 child: Text(
-                  'Judged for a ${t.darkness.label.toLowerCase()} sky, tonight\'s forecast and the Moon. Change your sky in Settings.',
+                  'Judged for a ${t.darkness.label.toLowerCase()} sky, tonight\'s forecast and the Moon. Change your sky in Settings. '
+                  'Tap the heart on anything to follow it on Tonight.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
                 ),

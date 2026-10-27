@@ -71,6 +71,13 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
                 Text(t.kind, style: const TextStyle(fontSize: 14, color: LookUpColors.grey)),
               ]),
             ),
+            CircleButton(
+              tooltip: (s?.isFavourite(t.id) ?? false) ? 'Remove from favourites' : 'Add to favourites',
+              icon: (s?.isFavourite(t.id) ?? false) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: LookUpColors.red,
+              active: s?.isFavourite(t.id) ?? false,
+              onPressed: () => ref.read(settingsProvider.notifier).edit((s) => s.toggleFavourite(t.id)),
+            ),
           ]),
           const SizedBox(height: 20),
           Text(headline, style: display(34, weight: FontWeight.w700)),

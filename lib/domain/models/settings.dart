@@ -33,18 +33,24 @@ enum LocationMode { auto, pinned }
 
 /// A place the user saved: home, the cabin, a trip.
 class SavedPlace {
-  const SavedPlace({required this.name, required this.latitude, required this.longitude});
+  const SavedPlace({required this.name, required this.latitude, required this.longitude, this.skyDarkness});
   final String name;
   final double latitude;
   final double longitude;
 
+  /// How dark the sky is there, if they've said (a dark-sky park vs home).
+  final SkyDarkness? skyDarkness;
+
   bool sameSpot(double lat, double lon) => (latitude - lat).abs() < 1e-4 && (longitude - lon).abs() < 1e-4;
 
-  Map<String, Object?> toJson() => {'n': name, 'la': latitude, 'lo': longitude};
+  SavedPlace withDarkness(SkyDarkness? d) => SavedPlace(name: name, latitude: latitude, longitude: longitude, skyDarkness: d);
+
+  Map<String, Object?> toJson() => {'n': name, 'la': latitude, 'lo': longitude, if (skyDarkness != null) 'sky': skyDarkness!.name};
   factory SavedPlace.fromJson(Map<String, Object?> j) => SavedPlace(
         name: j['n'] as String? ?? '',
         latitude: (j['la'] as num).toDouble(),
         longitude: (j['lo'] as num).toDouble(),
+        skyDarkness: SkyDarkness.values.where((d) => d.name == j['sky']).firstOrNull,
       );
 }
 
@@ -76,6 +82,7 @@ class LookUpSettings {
     this.onboarded = false,
     this.places = const [],
     this.skyDarkness = SkyDarkness.suburbs,
+    this.favourites = const [],
   });
 
   final double? latitude;
@@ -113,6 +120,15 @@ class LookUpSettings {
 
   /// How dark the sky is where they usually look (drives "can I see it").
   final SkyDarkness skyDarkness;
+
+  /// Sky things they follow, by id ("planet:saturn", "moon", "con:Ori",
+  /// showpiece ids). Never affects alerts.
+  final List<String> favourites;
+
+  bool isFavourite(String id) => favourites.contains(id);
+
+  LookUpSettings toggleFavourite(String id) =>
+      copyWith(favourites: isFavourite(id) ? [for (final f in favourites) if (f != id) f] : [...favourites, id]);
 
   bool get hasLocation => latitude != null && longitude != null;
 
@@ -161,6 +177,7 @@ class LookUpSettings {
     bool? onboarded,
     List<SavedPlace>? places,
     SkyDarkness? skyDarkness,
+    List<String>? favourites,
   }) =>
       LookUpSettings(
         latitude: latitude ?? this.latitude,
@@ -191,6 +208,7 @@ class LookUpSettings {
         onboarded: onboarded ?? this.onboarded,
         places: places ?? this.places,
         skyDarkness: skyDarkness ?? this.skyDarkness,
+        favourites: favourites ?? this.favourites,
       );
 
   Map<String, Object?> toJson() => {
@@ -220,6 +238,7 @@ class LookUpSettings {
         'onboarded': onboarded,
         'places': [for (final p in places) p.toJson()],
         'skyDarkness': skyDarkness.name,
+        'favourites': favourites,
       };
 
   factory LookUpSettings.fromJson(Map<String, Object?> j) {
@@ -260,6 +279,7 @@ class LookUpSettings {
           if (p is Map) SavedPlace.fromJson(p.cast<String, Object?>()),
       ],
       skyDarkness: SkyDarkness.values.where((d) => d.name == j['skyDarkness']).firstOrNull ?? d.skyDarkness,
+      favourites: [for (final f in (j['favourites'] as List? ?? const [])) if (f is String) f],
     );
   }
 }

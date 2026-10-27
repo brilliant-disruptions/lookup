@@ -33,6 +33,8 @@ import 'package:lookup/domain/finder/pointing.dart';
 import 'package:lookup/domain/log/year_review.dart';
 import 'package:lookup/domain/satellites/crew.dart';
 import 'package:lookup/state/sky_extras.dart';
+import 'package:lookup/state/plan_state.dart';
+import 'package:lookup/domain/plan/night_plan.dart';
 import 'package:lookup/ui/finder_camera.dart';
 import 'package:lookup/ui/places_screen.dart';
 import 'package:lookup/ui/satellites_screen.dart';
@@ -173,7 +175,8 @@ Future<void> _loadFonts() async {
 }
 
 Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
-  latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true)}) {
+  latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true,
+  favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus'])}) {
   final base = LookUpApp.theme;
   final theme = base.copyWith(
     textTheme: base.textTheme.apply(fontFamilyFallback: const ['Noto Color Emoji']),
@@ -202,6 +205,12 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
       brightTonightProvider.overrideWith((_) async => _satellites),
       weatherProvider.overrideWith((_) async => _clearThenCloudy),
       skyCatalogProvider.overrideWith((_) async => _catalog),
+      // Isolate.run doesn't finish under the test clock; plan the nights here.
+      nightsAheadProvider.overrideWith((_) async => [
+            for (var i = 0; i < nightsAhead; i++)
+              planNight(catalog: _catalog, at: _now.toUtc().add(Duration(days: i)), lat: 36.17, lon: -86.78,
+                  darkness: SkyDarkness.suburbs, weather: _clearThenCloudy),
+          ]),
     ],
     child: MaterialApp(theme: theme, debugShowCheckedModeBanner: false, home: home),
   );

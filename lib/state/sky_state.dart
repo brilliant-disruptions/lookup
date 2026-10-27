@@ -7,9 +7,8 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/plan/night_plan.dart';
 import '../domain/sky/catalog.dart';
-import '../domain/sky/tonight.dart';
-import '../domain/sky/visibility.dart';
 import '../domain/weather/cloud_forecast.dart';
 import 'providers.dart';
 
@@ -26,28 +25,8 @@ final weatherProvider = FutureProvider<CloudForecast?>((ref) async {
   return ref.read(storeProvider).loadClouds();
 });
 
-class TonightSky {
-  const TonightSky({
-    required this.window,
-    required this.outlook,
-    required this.planets,
-    required this.moon,
-    required this.constellations,
-    required this.showpieces,
-    required this.darkness,
-  });
-
-  /// Dark enough to look (sun ≤ −6°); null in polar summer.
-  final ({DateTime start, DateTime end})? window;
-  final NightOutlook? outlook;
-  final List<PlanetTonight> planets;
-  final MoonTonight moon;
-  final List<ConstellationTonight> constellations;
-  final List<ShowpieceTonight> showpieces;
-  final SkyDarkness darkness;
-
-  List<PlanetTonight> get visiblePlanets => [for (final p in planets) if (p.visible) p];
-}
+/// Tonight is the coming night's [NightPlan].
+typedef TonightSky = NightPlan;
 
 /// Recomputed when the place, sky darkness or forecast changes, and at
 /// most every 15 minutes otherwise.
@@ -56,19 +35,8 @@ final tonightSkyProvider = FutureProvider<TonightSky?>((ref) async {
   if (!s.hasLocation) return null;
   final catalog = await ref.watch(skyCatalogProvider.future);
   final weather = await ref.watch(weatherProvider.future);
-  final now = DateTime.now().toUtc();
-  final lat = s.latitude!, lon = s.longitude!;
-  final window = tonightWindow(now, lat, lon);
-  return TonightSky(
-    window: window,
-    outlook: window == null ? null : NightOutlook.from(start: window.start, end: window.end, weather: weather),
-    planets: planetsTonight(now: now, lat: lat, lon: lon, darkness: s.skyDarkness, weather: weather),
-    moon: moonTonight(now: now, lat: lat, lon: lon, weather: weather),
-    constellations:
-        constellationsTonight(catalog: catalog, now: now, lat: lat, lon: lon, darkness: s.skyDarkness, weather: weather),
-    showpieces: showpiecesTonight(now: now, lat: lat, lon: lon, darkness: s.skyDarkness, weather: weather),
-    darkness: s.skyDarkness,
-  );
+  return planNight(
+      catalog: catalog, at: DateTime.now(), lat: s.latitude!, lon: s.longitude!, darkness: s.skyDarkness, weather: weather);
 });
 
 /// Ticks once a minute: the dome map follows the turning sky.
