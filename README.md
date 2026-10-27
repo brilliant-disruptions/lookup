@@ -53,6 +53,7 @@ Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/go
 | `AppHeader` / `PageHeader` / `PageScaffold` | Large left-aligned titles with a place chip on the tabs; round back button and centred title on pushed pages; frosted |
 | `FloatingTabBar` | Frosted capsule of four tabs (Tonight, Sky, Week, Log) floating above content; Settings sits behind the gear |
 | `Rise` | 520 ms transform-only entrance, staggered 60 ms |
+| `SkyPanorama` | The Sky tab's main view: what you'd see standing outside (ground at the bottom, compass along the horizon, height in words). Drag or use the arrows to turn; it opens facing the direction with the most to see. The round whole-sky map is behind the header button |
 
 Emoji stay out of the UI; warmth comes from colour and type.
 

@@ -10,6 +10,7 @@ import '../theme.dart';
 import 'night_strip.dart';
 import 'object_sheet.dart';
 import 'sky_dome.dart';
+import 'sky_panorama.dart';
 import 'sky_thing.dart';
 
 /// Everything above you: a live map, tonight's clouds, and what's worth
@@ -24,6 +25,9 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
   int _tab = 0;
   String? _selected;
 
+  /// The round whole-sky map instead of the horizon view.
+  bool _whole = false;
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider).value;
@@ -34,7 +38,18 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     final top = MediaQuery.paddingOf(context).top + AppHeader.height;
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppHeader(title: const Text('Sky'), place: place, onPlaceTap: () => openPlaces(context)),
+      appBar: AppHeader(
+        title: const Text('Sky'),
+        place: place,
+        onPlaceTap: () => openPlaces(context),
+        actions: [
+          CircleButton(
+            tooltip: _whole ? 'Horizon view' : 'Whole sky',
+            icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
+            onPressed: () => setState(() => _whole = !_whole),
+          ),
+        ],
+      ),
       body: SkyBackdrop(
         stars: false,
         child: sky.when(
@@ -63,15 +78,25 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
             children: [
               Rise(
                 index: 0,
-                child: SkyDome(
-                  time: now,
-                  lat: lat,
-                  lon: lon,
-                  catalog: catalog,
-                  things: [moon, ...planets, ...shows],
-                  selectedId: _selected,
-                  onTap: open,
-                ),
+                child: _whole
+                    ? SkyDome(
+                        time: now,
+                        lat: lat,
+                        lon: lon,
+                        catalog: catalog,
+                        things: [moon, ...planets, ...shows],
+                        selectedId: _selected,
+                        onTap: open,
+                      )
+                    : SkyPanorama(
+                        time: now,
+                        lat: lat,
+                        lon: lon,
+                        catalog: catalog,
+                        things: [moon, ...planets, ...shows],
+                        selectedId: _selected,
+                        onTap: open,
+                      ),
               ),
               Center(
                 child: Padding(
@@ -85,13 +110,15 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                   ]),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(24, 6, 24, 0),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
                 child: Text(
-                  'You\'re in the middle, looking straight up; the edge is the horizon all around you. '
-                  'Hold it overhead with N to the north and it matches the real sky.',
+                  _whole
+                      ? 'You\'re in the middle, looking straight up; the edge is the horizon all around you. '
+                          'Hold it overhead with N to the north and it matches the real sky.'
+                      : 'What you\'d see standing outside. The ground is at the bottom; higher up the screen is higher in the sky.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
+                  style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
                 ),
               ),
               if (t.outlook != null) ...[
