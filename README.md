@@ -49,6 +49,7 @@ Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/go
 | `EventGlyph` | Tinted rounded-square icon per event type (`eventStyle()`), so lists scan by colour |
 | `Pill`, `CloudPill`, `Kicker` | Status capsules ("Clear", "Easy to see", planets up tonight) and small coloured labels ("Next up", "Happening now" with a live dot) |
 | `CountdownText` | Big numerals, small muted units: "3h 12m", the way flight trackers show departure |
+| `LivePassArc` | On the Tonight card for station and Starlink passes: the arc draws itself in, a light runs the route once then waits where it will rise; during the pass the flown part fills in and the dot is where it is now. Direction words and times, no degrees |
 | `SegmentedTabs` | Pill segmented control with a sliding thumb and counts |
 | `AppHeader` / `PageHeader` / `PageScaffold` | Large left-aligned titles with a place chip on the tabs; round back button and centred title on pushed pages; frosted |
 | `FloatingTabBar` | Frosted capsule of four tabs (Tonight, Sky, Week, Log) floating above content; Settings sits behind the gear |

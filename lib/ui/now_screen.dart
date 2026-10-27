@@ -18,7 +18,7 @@ import 'settings_screen.dart';
 import 'sky/night_strip.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
-import 'widgets/pass_timeline.dart';
+import 'widgets/pass_arc.dart';
 
 class NowScreen extends ConsumerWidget {
   const NowScreen({super.key});
@@ -170,12 +170,12 @@ class _NextCardState extends ConsumerState<_NextCard> {
                 ? Text('Go outside now', style: display(40, weight: FontWeight.w700, color: tint))
                 : CountdownText(fmtCountdown(until), size: 64),
           ),
+          if (isPass) ...[
+            const SizedBox(height: 18),
+            LivePassArc(event: event, now: now),
+          ],
           const SizedBox(height: 14),
           Text(eventSubtitle(event), style: t.bodyMedium?.copyWith(color: LookUpColors.grey)),
-          if (live && isPass) ...[
-            const SizedBox(height: 18),
-            PassTimeline(event: event, now: now),
-          ],
           if (live || until < const Duration(minutes: 30)) ...[
             const SizedBox(height: 18),
             FilledButton.icon(
