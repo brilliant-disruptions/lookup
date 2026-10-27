@@ -329,6 +329,15 @@ void main() {
             SavedPlace(name: 'Percy Priest Lake', latitude: 36.06, longitude: -86.51),
           ])));
 
+  testWidgets('dark skies', (t) async {
+    await mount(t, const WhereToGoScreen());
+    await t.drag(find.byType(ListView).first, const Offset(0, -200));
+    await t.pump(const Duration(seconds: 1));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/21-dark-skies.png'));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 5));
+  });
+
   testWidgets('quiet week', (t) async {
     _homeEvents = _quietEvents;
     addTearDown(() => _homeEvents = _events);

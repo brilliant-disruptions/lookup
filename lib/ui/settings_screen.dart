@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/settings.dart';
+import '../domain/sky/skyglow.dart';
 import '../domain/sky/visibility.dart';
 import '../state/providers.dart';
+import '../state/sky_state.dart';
 import 'demo.dart';
 import '../domain/models/sky_event.dart';
 import 'kit/kit.dart';
@@ -109,6 +111,20 @@ class SettingsScreen extends ConsumerWidget {
                 selected: {s.skyDarkness},
                 onSelectionChanged: (v) => set((s) => s.copyWith(skyDarkness: v.first)),
               ),
+              if (ref.watch(darkSpotsProvider).value?.here case final m? when darknessForSqm(m) != s.skyDarkness)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Row(children: [
+                    Expanded(
+                      child: Text('The night-lights map puts your sky at ${darknessForSqm(m).label}.',
+                          style: const TextStyle(color: LookUpColors.grey, fontSize: 13.5)),
+                    ),
+                    TextButton(
+                      onPressed: () => set((s) => s.copyWith(skyDarkness: darknessForSqm(m))),
+                      child: const Text('Use it'),
+                    ),
+                  ]),
+                ),
             ]),
           ),
           _Switch(

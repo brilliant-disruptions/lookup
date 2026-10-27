@@ -51,6 +51,7 @@ flutter:
   assets:
     - assets/sky/stars.json
     - assets/sky/constellations.json
+    - assets/sky/skyglow.bin.gz
   fonts:
     # Inter (OFL): one family for everything, variable wght + opsz.
     - family: Inter

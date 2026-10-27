@@ -60,6 +60,7 @@ Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/go
 | Favourites | A heart on any sky object's sheet. Tonight lists them soonest first with their next good night in the coming fortnight (`NightPlan` + `firstGoodNight`, planned in a background isolate). Never affects alerts |
 | `PlanScreen` | Plan a night (Week tab): any of the next 14 nights, here or at a saved place: dark window, clouds once the forecast reaches, the Moon, favourites, what's worth finding, and passes (for where you are). Other places' forecasts are fetched only when looked at, at most every 6 hours |
 | `WhereToGoScreen` | Where to go tonight (Tonight card + Week tab): here and each saved place ranked on tonight's longest clear spell, weighted by how dark the sky is (set per place in Places). Says "Head to the cabin" only when it's clearly better, "Stay put" otherwise, and never suggests a trip into cloud. Logic in `domain/plan/where_to_go.dart` |
+| Darker skies nearby | `domain/sky/skyglow.dart` reads a bundled night-sky brightness map (~350 KB, built by `tool/skyglow/` from NASA's Black Marble night lights + Natural Earth land) and finds clearly darker land within 150 km. Shown on Where to go tonight (tonight's clouds, Directions, Save) and as a Tonight nudge before any place is saved; also pre-fills a new saved place's sky and suggests one in Settings |
 
 Emoji stay out of the UI; warmth comes from colour and type.
 

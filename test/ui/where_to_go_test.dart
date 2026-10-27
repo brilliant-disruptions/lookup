@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/data/open_meteo_client.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/plan/where_to_go.dart';
+import 'package:lookup/domain/sky/skyglow.dart';
 import 'package:lookup/domain/sky/visibility.dart';
 import 'package:lookup/domain/weather/cloud_forecast.dart';
 import 'package:lookup/state/plan_state.dart';
@@ -19,6 +20,9 @@ class _Settings extends SettingsNotifier {
   final LookUpSettings s;
   @override
   Future<LookUpSettings> build() async => s;
+
+  @override
+  Future<void> edit(LookUpSettings Function(LookUpSettings) f) async => state = AsyncData(f(state.value!));
 }
 
 /// Every hour of the next two days at [cover]%.
@@ -131,14 +135,14 @@ void main() {
     Future<void> show(({WhereToGo result, List<Spot> spots})? w) async {
       await t.pumpWidget(ProviderScope(
         key: UniqueKey(),
-        overrides: [whereToGoProvider.overrideWith((_) async => w)],
+        overrides: [whereToGoProvider.overrideWith((_) async => w), darkSpotsProvider.overrideWith((_) async => null)],
         child: MaterialApp(theme: buildLookUpTheme(), home: const WhereToGoScreen()),
       ));
       await t.pumpAndSettle();
     }
 
     await show(null);
-    expect(find.text('Save somewhere darker'), findsOneWidget);
+    expect(find.text('Compare your places'), findsOneWidget);
     expect(find.text('Add a place'), findsOneWidget);
 
     final r = whereToGo([place('Home', 100, here: true), place('The cabin', 0, sky: SkyDarkness.dark)]);
@@ -155,5 +159,50 @@ void main() {
     expect(find.text('240 km east'), findsOneWidget);
     // Best first.
     expect(t.getTopLeft(find.text('Dark sky')).dy, lessThan(t.getTopLeft(find.text('You\'re here')).dy));
+  });
+
+  testWidgets('darker skies nearby: tonight\'s clouds there, directions, and one tap to save', (t) async {
+    const here = LookUpSettings(latitude: 36.17, longitude: -86.78);
+    final container = ProviderContainer(overrides: [
+      settingsProvider.overrideWith(() => _Settings(here)),
+      whereToGoProvider.overrideWith((_) async => null),
+      placeForecastProvider.overrideWith((ref, at) async => _forecast(at.lat, at.lon, 0)),
+      darkSpotsProvider.overrideWith((_) async => (
+            here: 18.0,
+            spots: <DarkSpot>[
+              (lat: 36.15, lon: -87.15, sqm: 20.6, distanceKm: 33, bearingDeg: 268),
+              (lat: 35.95, lon: -87.65, sqm: 21.7, distanceKm: 82, bearingDeg: 252),
+            ],
+          )),
+    ]);
+    addTearDown(container.dispose);
+    t.view.physicalSize = const Size(1179, 2556);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(theme: buildLookUpTheme(), home: const WhereToGoScreen()),
+    ));
+    await t.pumpAndSettle();
+
+    expect(find.text('Your sky here: about city.'), findsOneWidget);
+    expect(find.text('35 km west'), findsOneWidget);
+    expect(find.text('80 km west-southwest'), findsOneWidget);
+    // 20.6 is darker than a city but not a dark sky: no Milky Way promised.
+    expect(find.text('More stars than here'), findsOneWidget);
+    expect(find.text('The Milky Way shows'), findsOneWidget);
+    expect(find.text('Clear all night'), findsNWidgets(2));
+    expect(find.text('Directions'), findsNWidgets(2));
+
+    // Middle of the screen, clear of the see-through header.
+    await Scrollable.ensureVisible(t.element(find.text('Save').last), alignment: 0.5);
+    await t.pumpAndSettle();
+    await t.tap(find.text('Save').last);
+    await t.pumpAndSettle();
+    final places = container.read(settingsProvider).value!.places;
+    expect(places.single.name, 'Dark sky, 80 km west-southwest');
+    expect(places.single.skyDarkness, SkyDarkness.dark);
+    expect(container.read(settingsProvider).value!.latitude, 36.17, reason: 'saving a spot never moves "here"');
+    expect(find.text('Saved'), findsOneWidget);
   });
 }

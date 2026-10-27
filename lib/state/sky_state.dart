@@ -3,14 +3,33 @@
 library;
 
 import 'dart:convert';
+import 'dart:io' show gzip;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/plan/night_plan.dart';
 import '../domain/sky/catalog.dart';
+import '../domain/sky/skyglow.dart';
 import '../domain/weather/cloud_forecast.dart';
 import 'providers.dart';
+
+/// How bright the night sky is over land, from the bundled night-lights
+/// map (~350 KB, see assets/sky/SOURCES-skyglow.txt).
+final skyGlowProvider = FutureProvider<SkyGlowMap>((ref) async {
+  final data = await rootBundle.load('assets/sky/skyglow.bin.gz');
+  final bytes = gzip.decode(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
+  return SkyGlowMap.decode(bytes is Uint8List ? bytes : Uint8List.fromList(bytes));
+});
+
+/// Their sky where they are (estimated), and darker places within reach.
+/// Null without a location.
+final darkSpotsProvider = FutureProvider<({Sqm? here, List<DarkSpot> spots})?>((ref) async {
+  final at = await ref.watch(settingsProvider.selectAsync((s) => (lat: s.latitude, lon: s.longitude)));
+  if (at.lat == null || at.lon == null) return null;
+  final map = await ref.watch(skyGlowProvider.future);
+  return (here: map.sqmNear(at.lat!, at.lon!), spots: map.darkerSpots(at.lat!, at.lon!));
+});
 
 /// Stars and constellations, from the bundled assets (~80 KB).
 final skyCatalogProvider = FutureProvider<SkyCatalog>((ref) async {

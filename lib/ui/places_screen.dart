@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/geocoding_client.dart';
 import '../domain/models/settings.dart';
+import '../domain/sky/skyglow.dart';
 import '../domain/sky/visibility.dart';
 import '../state/providers.dart';
+import '../state/sky_state.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
 
@@ -100,7 +102,9 @@ class PlacesScreen extends ConsumerWidget {
             subtitle: 'A town, a dark-sky park, where you\'re headed',
             onTap: () async {
               final p = await showDialog<SavedPlace>(context: context, builder: (_) => const _SearchDialog());
-              if (p != null) await set((s) => s.usePlace(p));
+              if (p == null) return;
+              final q = await _withSky(ref, p);
+              await set((s) => s.usePlace(q));
             },
           ),
           ListRow(
@@ -116,6 +120,18 @@ class PlacesScreen extends ConsumerWidget {
           ),
       ],
     );
+  }
+
+  /// A new place starts with its sky estimated from the night-lights map;
+  /// they can change it from the moon icon.
+  static Future<SavedPlace> _withSky(WidgetRef ref, SavedPlace p) async {
+    if (p.skyDarkness != null) return p;
+    try {
+      final m = (await ref.read(skyGlowProvider.future)).sqmNear(p.latitude, p.longitude);
+      return m == null ? p : p.withDarkness(darknessForSqm(m));
+    } catch (_) {
+      return p;
+    }
   }
 
   static String _key(SavedPlace p) => '${p.latitude.toStringAsFixed(4)},${p.longitude.toStringAsFixed(4)}';
@@ -150,7 +166,8 @@ class PlacesScreen extends ConsumerWidget {
     );
     if (ok != true) return;
     final label = name.text.trim().isEmpty ? 'Saved place' : name.text.trim();
-    await set((s) => s.usePlace(SavedPlace(name: label, latitude: fix.lat, longitude: fix.lon)));
+    final p = await _withSky(ref, SavedPlace(name: label, latitude: fix.lat, longitude: fix.lon));
+    await set((s) => s.usePlace(p));
   }
 }
 
