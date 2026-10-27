@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/geocoding_client.dart';
 import '../domain/models/settings.dart';
+import '../domain/sky/visibility.dart';
 import '../state/providers.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
@@ -71,8 +72,19 @@ class PlacesScreen extends ConsumerWidget {
                   child: ListRow(
                     leading: const EventGlyph(icon: Icons.place_rounded, color: LookUpColors.violet, size: 32),
                     title: p.name,
-                    subtitle: '${p.latitude.toStringAsFixed(2)}, ${p.longitude.toStringAsFixed(2)}',
-                    trailing: isActive(p) ? check : null,
+                    subtitle: p.skyDarkness == null
+                        ? '${p.latitude.toStringAsFixed(2)}, ${p.longitude.toStringAsFixed(2)}'
+                        : '${p.skyDarkness!.label} · ${p.latitude.toStringAsFixed(2)}, ${p.longitude.toStringAsFixed(2)}',
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      _SkyMenu(
+                        place: p,
+                        fallback: s.skyDarkness,
+                        onChanged: (d) => ref.read(settingsProvider.notifier).edit((s) => s.copyWith(places: [
+                              for (final x in s.places) _key(x) == _key(p) ? x.withDarkness(d) : x,
+                            ])),
+                      ),
+                      if (isActive(p)) ...[const SizedBox(width: 6), check],
+                    ]),
                     chevron: false,
                     onTap: () => set((s) => s.usePlace(p)),
                   ),
@@ -100,7 +112,7 @@ class PlacesScreen extends ConsumerWidget {
         if (s.places.isNotEmpty)
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: Text('Swipe a place left to remove it.', style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5)),
+            child: Text('Tap the sky icon to say how dark a place is. Swipe a place left to remove it.', style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5)),
           ),
       ],
     );
@@ -139,6 +151,31 @@ class PlacesScreen extends ConsumerWidget {
     if (ok != true) return;
     final label = name.text.trim().isEmpty ? 'Saved place' : name.text.trim();
     await set((s) => s.usePlace(SavedPlace(name: label, latitude: fix.lat, longitude: fix.lon)));
+  }
+}
+
+/// How dark a saved place's sky is: unset follows Settings.
+class _SkyMenu extends StatelessWidget {
+  const _SkyMenu({required this.place, required this.fallback, required this.onChanged});
+  final SavedPlace place;
+  final SkyDarkness fallback;
+  final ValueChanged<SkyDarkness?> onChanged;
+  static const _same = 'same';
+
+  @override
+  Widget build(BuildContext context) {
+    final d = place.skyDarkness;
+    // A null value would read as "dismissed", so the default has its own key.
+    return PopupMenuButton<String>(
+      tooltip: 'How dark is the sky at ${place.name}?',
+      initialValue: d?.name ?? _same,
+      onSelected: (v) => onChanged(SkyDarkness.values.where((x) => x.name == v).firstOrNull),
+      itemBuilder: (_) => [
+        PopupMenuItem(value: _same, child: Text('Same as Settings (${fallback.label})')),
+        for (final x in SkyDarkness.values) PopupMenuItem(value: x.name, child: Text('${x.label} · ${x.hint}')),
+      ],
+      icon: Icon(Icons.nights_stay_rounded, size: 20, color: d == SkyDarkness.dark ? LookUpColors.good : d == null ? LookUpColors.greyDim : LookUpColors.grey),
+    );
   }
 }
 

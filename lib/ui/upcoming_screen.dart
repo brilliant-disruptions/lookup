@@ -10,6 +10,7 @@ import 'places_screen.dart';
 import 'plan_screen.dart';
 import 'satellites_screen.dart';
 import 'theme.dart';
+import 'where_to_go_screen.dart';
 
 /// The week ahead (and the week behind), night by night.
 class UpcomingScreen extends ConsumerStatefulWidget {
@@ -57,6 +58,12 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                       title: 'Plan a night',
                       subtitle: 'Any night in the next two weeks, here or at a saved place',
                       onTap: () => openPlan(context),
+                    ),
+                    ListRow(
+                      leading: const EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.violet),
+                      title: 'Where to go tonight',
+                      subtitle: 'Compare tonight\'s clouds at your saved places',
+                      onTap: () => openWhereToGo(context),
                     ),
                     ListRow(
                       leading: EventGlyph.forType(SkyEventType.satellitePass),

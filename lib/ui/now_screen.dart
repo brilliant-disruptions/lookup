@@ -24,6 +24,7 @@ import 'sky/night_strip.dart';
 import 'sky/object_sheet.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
+import 'where_to_go_screen.dart';
 import 'widgets/pass_arc.dart';
 
 class NowScreen extends ConsumerWidget {
@@ -75,6 +76,7 @@ class NowScreen extends ConsumerWidget {
                   Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
                 ],
                 if (!d.needsLocation) const Padding(padding: EdgeInsets.only(top: 12), child: Rise(index: 2, child: _TonightSkyCard())),
+                if (!d.needsLocation) const WhereToGoCard(),
                 if (!d.needsLocation) const _Favourites(),
                 if (d.next?.details['lookahead'] != true) ..._later(context, ref, d),
                 if (d.errors.isNotEmpty && !d.needsLocation)

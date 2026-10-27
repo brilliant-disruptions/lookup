@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/open_meteo_client.dart';
 import '../domain/models/settings.dart';
 import '../domain/plan/night_plan.dart';
+import '../domain/plan/where_to_go.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/tonight.dart';
 import '../domain/sky/visibility.dart';
@@ -113,4 +114,30 @@ final nightPlanProvider =
       lon: k.lon,
       darkness: k.darkness,
       weather: weather);
+});
+
+/// Tonight at every spot (here and their saved places), best first, with
+/// a recommendation. Null until they have somewhere to compare. Each
+/// place's clouds come from [placeForecastProvider], so nothing is fetched
+/// until this is looked at and then at most every 6 hours.
+final whereToGoProvider = FutureProvider<({WhereToGo result, List<Spot> spots})?>((ref) async {
+  final s = await ref.watch(settingsProvider.future);
+  final spots = planSpots(s);
+  if (spots.length < 2) return null;
+  final now = DateTime.now().toUtc();
+  final places = await Future.wait([
+    for (final spot in spots)
+      ref.watch(placeForecastProvider((lat: spot.lat, lon: spot.lon)).future).then((weather) {
+        final w = tonightWindow(now, spot.lat, spot.lon);
+        return PlaceNight(
+          name: spot.name,
+          here: spot.here,
+          darkness: spot.darkness ?? s.skyDarkness,
+          outlook: w == null ? null : NightOutlook.from(start: w.start, end: w.end, weather: weather),
+          distanceKm: spot.here || !s.hasLocation ? null : distanceKm(s.latitude!, s.longitude!, spot.lat, spot.lon),
+          bearingDeg: spot.here || !s.hasLocation ? null : bearingDeg(s.latitude!, s.longitude!, spot.lat, spot.lon),
+        );
+      }),
+  ]);
+  return (result: whereToGo(places), spots: spots);
 });
