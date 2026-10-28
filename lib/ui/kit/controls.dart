@@ -129,28 +129,46 @@ class SegmentedTabs extends StatelessWidget {
       );
 }
 
-/// A round translucent icon button for headers.
+/// A round translucent icon button for headers. [color] tints the icon;
+/// [active] fills the circle with it, for toggles that are on.
 class CircleButton extends StatelessWidget {
-  const CircleButton({super.key, required this.icon, required this.onPressed, this.tooltip, this.size = 38});
+  const CircleButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+    this.size = 38,
+    this.color = LookUpColors.white,
+    this.active,
+  });
   final IconData icon;
   final VoidCallback? onPressed;
   final String? tooltip;
   final double size;
+  final Color color;
+
+  /// Null for a plain button; true/false for a toggle.
+  final bool? active;
 
   @override
   Widget build(BuildContext context) {
+    final on = active ?? false;
     final button = Material(
-      color: LookUpColors.glass,
-      shape: const CircleBorder(side: BorderSide(color: LookUpColors.line)),
+      color: on ? color.withValues(alpha: 0.28) : LookUpColors.glass,
+      shape: CircleBorder(side: BorderSide(color: on ? color.withValues(alpha: 0.7) : LookUpColors.line)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onPressed,
-        child: SizedBox(width: size, height: size, child: Icon(icon, size: size * 0.5, color: LookUpColors.white)),
+        child: SizedBox(width: size, height: size, child: Icon(icon, size: size * 0.5, color: color)),
       ),
     );
     return Semantics(
       button: true,
+      toggled: active,
       label: tooltip,
+      // The label replaces the icon's semantics, so the tap has to be
+      // offered here or screen readers can't press it.
+      onTap: onPressed,
       excludeSemantics: tooltip != null,
       child: tooltip == null ? button : Tooltip(message: tooltip!, child: button),
     );
@@ -205,4 +223,43 @@ class CountdownText extends StatelessWidget {
       maxLines: 1,
     );
   }
+}
+
+/// A sideways-scrolling row of choice chips: nights, places.
+class ChipRow extends StatelessWidget {
+  const ChipRow({super.key, required this.labels, required this.index, required this.onSelect});
+  final List<String> labels;
+  final int index;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          for (final (i, l) in labels.indexed) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Semantics(
+              selected: i == index,
+              button: true,
+              child: Material(
+                color: i == index ? LookUpColors.glassStrong : LookUpColors.glass,
+                shape: StadiumBorder(side: BorderSide(color: i == index ? LookUpColors.blue : LookUpColors.line)),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => onSelect(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    child: Text(l,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: i == index ? LookUpColors.white : LookUpColors.grey,
+                        )),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ]),
+      );
 }

@@ -6,6 +6,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../domain/models/sky_event.dart';
+import '../../domain/plan/night_plan.dart';
 import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../../domain/sky/tonight.dart';
@@ -80,7 +81,7 @@ class SkyThing {
   }
 
   static SkyThing planet(PlanetTonight p, double lat, double lon) => SkyThing(
-        id: 'planet:${p.planet.name}',
+        id: SkyId.planet(p.planet),
         name: p.planet.label,
         kind: 'Planet',
         position: (t) => planetHorizontal(p.planet, t, lat, lon),
@@ -95,7 +96,7 @@ class SkyThing {
       );
 
   static SkyThing moon(MoonTonight m, double lat, double lon) => SkyThing(
-        id: 'moon',
+        id: SkyId.moon,
         name: 'The Moon',
         kind: '${m.phase.label} · ${(m.illumination * 100).round()}% lit',
         position: (t) => moonHorizontal(t, lat, lon),
@@ -114,7 +115,7 @@ class SkyThing {
   static SkyThing constellation(ConstellationTonight c, double lat, double lon, SkyCatalog catalog) {
     final con = c.constellation;
     return SkyThing(
-      id: 'con:${con.id}',
+      id: SkyId.constellation(con.id),
       name: con.name,
       kind: con.meaning == null ? 'Constellation' : 'Constellation · ${con.meaning}',
       position: (t) => con.center(t, lat, lon),
@@ -177,22 +178,47 @@ Color verdictColor(Seeability v) => switch (v) {
     };
 
 /// A glyph per kind of thing in the sky, greyed when it's not seeable.
-EventGlyph thingGlyph(SkyThing x, {double size = 36}) {
-  final (IconData? icon, Color color) = x.id == 'moon'
+EventGlyph thingGlyph(SkyThing x, {double size = 36}) =>
+    glyphForId(x.id, size: size, dim: !x.seeable && x.id != SkyId.moon);
+
+/// The glyph for a [SkyId], for things that aren't in tonight's lists.
+EventGlyph glyphForId(String id, {double size = 36, bool dim = false}) {
+  final kind = showpieces.where((s) => s.id == id).firstOrNull?.kind;
+  final (IconData? icon, Color color) = id == SkyId.moon
       ? (Icons.nightlight_round, LookUpColors.white)
-      : x.id.startsWith('planet:')
+      : id.startsWith('planet:')
           ? (null, LookUpColors.gold)
-          : x.id.startsWith('con:')
+          : id.startsWith('con:')
               ? (Icons.hub_outlined, LookUpColors.blue)
-              : switch (x.kind) {
-                  'Galaxy' => (Icons.cyclone_rounded, LookUpColors.violet),
-                  'Nebula' => (Icons.cloud_rounded, LookUpColors.cyan),
-                  'Milky Way' => (Icons.blur_on_rounded, LookUpColors.violet),
-                  'Double star' => (Icons.join_full_rounded, LookUpColors.gold),
+              : switch (kind) {
+                  ShowpieceKind.galaxy => (Icons.cyclone_rounded, LookUpColors.violet),
+                  ShowpieceKind.nebula => (Icons.cloud_rounded, LookUpColors.cyan),
+                  ShowpieceKind.milkyWay => (Icons.blur_on_rounded, LookUpColors.violet),
+                  ShowpieceKind.doubleStar => (Icons.join_full_rounded, LookUpColors.gold),
                   _ => (Icons.grain_rounded, LookUpColors.cyan),
                 };
-  return EventGlyph(icon: icon, color: color, size: size, dim: !x.seeable && x.id != 'moon');
+  return EventGlyph(icon: icon, color: color, size: size, dim: dim);
 }
+
+/// The display name for a [SkyId], from the catalogues.
+String skyName(String id, SkyCatalog catalog) {
+  if (id == SkyId.moon) return 'The Moon';
+  if (id.startsWith('planet:')) {
+    return Planet.values.where((p) => SkyId.planet(p) == id).firstOrNull?.label ?? id;
+  }
+  if (id.startsWith('con:')) {
+    return catalog.constellations.where((c) => SkyId.constellation(c.id) == id).firstOrNull?.name ?? id;
+  }
+  return showpieces.where((s) => s.id == id).firstOrNull?.name ?? id;
+}
+
+/// Everything in [p] as [SkyThing]s, by id.
+Map<String, SkyThing> skyThingsOf(NightPlan p, double lat, double lon, SkyCatalog catalog) => {
+      for (final x in p.planets) SkyId.planet(x.planet): SkyThing.planet(x, lat, lon),
+      SkyId.moon: SkyThing.moon(p.moon, lat, lon),
+      for (final c in p.constellations) SkyId.constellation(c.constellation.id): SkyThing.constellation(c, lat, lon, catalog),
+      for (final s in p.showpieces) s.showpiece.id: SkyThing.showpiece(s, lat, lon),
+    };
 
 /// The night's weather as one phrase.
 String outlookWords(NightOutlook o) => switch (o.shape) {

@@ -33,8 +33,12 @@ import 'package:lookup/domain/finder/pointing.dart';
 import 'package:lookup/domain/log/year_review.dart';
 import 'package:lookup/domain/satellites/crew.dart';
 import 'package:lookup/state/sky_extras.dart';
+import 'package:lookup/state/plan_state.dart';
+import 'package:lookup/domain/plan/night_plan.dart';
 import 'package:lookup/ui/finder_camera.dart';
 import 'package:lookup/ui/places_screen.dart';
+import 'package:lookup/ui/plan_screen.dart';
+import 'package:lookup/ui/where_to_go_screen.dart';
 import 'package:lookup/ui/satellites_screen.dart';
 import 'package:lookup/ui/year_card.dart';
 import 'package:lookup/domain/sky/astro.dart';
@@ -173,7 +177,8 @@ Future<void> _loadFonts() async {
 }
 
 Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
-  latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true)}) {
+  latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true,
+  favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus'])}) {
   final base = LookUpApp.theme;
   final theme = base.copyWith(
     textTheme: base.textTheme.apply(fontFamilyFallback: const ['Noto Color Emoji']),
@@ -201,7 +206,16 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
       alertsEnabledProvider.overrideWith((_) async => true),
       brightTonightProvider.overrideWith((_) async => _satellites),
       weatherProvider.overrideWith((_) async => _clearThenCloudy),
+      // Saved places away from Nashville stay clear all night.
+      placeForecastProvider.overrideWith((ref, at) async =>
+          (at.lat - 36.17).abs() < 0.2 && (at.lon + 86.78).abs() < 0.2 ? _clearThenCloudy : _clear(at.lat, at.lon)),
       skyCatalogProvider.overrideWith((_) async => _catalog),
+      // Isolate.run doesn't finish under the test clock; plan the nights here.
+      nightsAheadProvider.overrideWith((_) async => [
+            for (var i = 0; i < nightsAhead; i++)
+              planNight(catalog: _catalog, at: _now.toUtc().add(Duration(days: i)), lat: 36.17, lon: -86.78,
+                  darkness: SkyDarkness.suburbs, weather: _clearThenCloudy),
+          ]),
     ],
     child: MaterialApp(theme: theme, debugShowCheckedModeBanner: false, home: home),
   );
@@ -223,6 +237,19 @@ final _clearThenCloudy = CloudForecast(
       ),
   ],
 );
+
+CloudForecast _clear(double lat, double lon) => CloudForecast(
+      latitude: lat,
+      longitude: lon,
+      fetchedAt: _now.toUtc(),
+      hourly: [
+        for (var h = -2; h < 30; h++)
+          CloudSample(
+            time: DateTime.utc(_now.toUtc().year, _now.toUtc().month, _now.toUtc().day, _now.toUtc().hour).add(Duration(hours: h)),
+            coverPercent: 5,
+          ),
+      ],
+    );
 
 final _satellites = [
   _ev('sat:20580:1', SkyEventType.satellitePass, const Duration(hours: 2, minutes: 4), el: 48, rise: 225, peakAz: 160, setAz: 95,
@@ -285,6 +312,31 @@ void main() {
   testWidgets('onboarding', (t) => shot(t, const OnboardingScreen(), '1-onboarding'));
 
   testWidgets('now', (t) => shot(t, const HomeShell(), '2-now'));
+
+  testWidgets('night vision', (t) => shot(t, const NightVision(enabled: true, child: HomeShell()), '18-night-vision'));
+
+  testWidgets('plan a night', (t) => shot(t, const PlanScreen(), '19-plan',
+      settings: const LookUpSettings(
+          latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true,
+          favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus'],
+          places: [SavedPlace(name: 'The cabin', latitude: 35.61, longitude: -83.49, skyDarkness: SkyDarkness.dark)])));
+
+  testWidgets('where to go', (t) => shot(t, const WhereToGoScreen(), '20-where-to-go',
+      settings: const LookUpSettings(
+          latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true,
+          places: [
+            SavedPlace(name: 'The cabin', latitude: 35.61, longitude: -83.49, skyDarkness: SkyDarkness.dark),
+            SavedPlace(name: 'Percy Priest Lake', latitude: 36.06, longitude: -86.51),
+          ])));
+
+  testWidgets('dark skies', (t) async {
+    await mount(t, const WhereToGoScreen());
+    await t.drag(find.byType(ListView).first, const Offset(0, -200));
+    await t.pump(const Duration(seconds: 1));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/21-dark-skies.png'));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 5));
+  });
 
   testWidgets('quiet week', (t) async {
     _homeEvents = _quietEvents;
@@ -423,7 +475,7 @@ void main() {
   testWidgets('places', (t) => shot(t, const PlacesScreen(), '13-places',
       settings: const LookUpSettings(onboarded: true, isPlus: true)
           .usePlace(const SavedPlace(name: 'Home', latitude: 36.1659, longitude: -86.7844))
-          .usePlace(const SavedPlace(name: 'Cabin in the Smokies', latitude: 35.6118, longitude: -83.4895))
+          .usePlace(const SavedPlace(name: 'Cabin in the Smokies', latitude: 35.6118, longitude: -83.4895, skyDarkness: SkyDarkness.dark))
           .usePlace(const SavedPlace(name: 'Home', latitude: 36.1659, longitude: -86.7844))));
 
   testWidgets('year card', (t) async {

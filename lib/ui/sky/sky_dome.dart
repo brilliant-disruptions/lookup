@@ -8,10 +8,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../domain/models/sky_event.dart';
 import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../theme.dart';
 import 'sky_thing.dart';
+import 'sky_track.dart';
 
 class SkyDome extends StatelessWidget {
   const SkyDome({
@@ -24,6 +26,9 @@ class SkyDome extends StatelessWidget {
     this.selectedId,
     this.onTap,
     this.labelStyle,
+    this.tracks = const [],
+    this.trackTime,
+    this.onTrackTap,
   });
 
   final DateTime time;
@@ -33,6 +38,11 @@ class SkyDome extends StatelessWidget {
   final String? selectedId;
   final ValueChanged<SkyThing>? onTap;
   final TextStyle? labelStyle;
+
+  /// Passes to draw across the map; see [SkyPanorama.tracks].
+  final List<SkyTrack> tracks;
+  final DateTime? trackTime;
+  final ValueChanged<SkyEvent>? onTrackTap;
 
   @override
   Widget build(BuildContext context) => AspectRatio(
@@ -47,16 +57,21 @@ class SkyDome extends StatelessWidget {
             things: things,
             selectedId: selectedId,
             label: labelStyle ?? Theme.of(context).textTheme.labelSmall ?? const TextStyle(),
+            tracks: tracks,
+            trackTime: (trackTime ?? time).toUtc(),
           );
           return Semantics(
             label: 'Sky map, with you in the middle looking up. ${things.where((t) => t.position(time).altitudeDeg > 0).map((t) => t.name).join(', ')} are up now.',
             child: GestureDetector(
-              onTapUp: onTap == null
-                  ? null
-                  : (d) {
-                      final hit = painter.thingAt(size, d.localPosition);
-                      if (hit != null) onTap!(hit);
-                    },
+              onTapUp: (d) {
+                final hit = painter.thingAt(size, d.localPosition);
+                if (hit != null) {
+                  onTap?.call(hit);
+                  return;
+                }
+                final track = painter.trackAt(size, d.localPosition);
+                if (track != null) onTrackTap?.call(track.event);
+              },
               child: CustomPaint(size: size, painter: painter),
             ),
           );
@@ -73,6 +88,8 @@ class _DomePainter extends CustomPainter {
     required this.things,
     required this.selectedId,
     required this.label,
+    required this.tracks,
+    required this.trackTime,
   });
 
   final DateTime time;
@@ -81,6 +98,17 @@ class _DomePainter extends CustomPainter {
   final List<SkyThing> things;
   final String? selectedId;
   final TextStyle label;
+  final List<SkyTrack> tracks;
+  final DateTime trackTime;
+
+  List<Offset?> _project(Size s, SkyTrack tr) => [for (final p in tr.points) _xy(s, p.h.azimuthDeg, p.h.altitudeDeg)];
+
+  SkyTrack? trackAt(Size s, Offset p) {
+    for (final tr in tracks) {
+      if (nearTrack(_project(s, tr), p)) return tr;
+    }
+    return null;
+  }
 
   /// Azimuthal equidistant: radius grows linearly from zenith to horizon.
   Offset? _xy(Size s, double az, double alt) {
@@ -162,6 +190,13 @@ class _DomePainter extends CustomPainter {
       final o = _eq(s, con.centerRaDeg, con.centerDecDeg);
       if (o == null) continue;
       _text(canvas, con.name, o, label.copyWith(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0x99A0A8B8)));
+    }
+
+    // Passes, under the planets and the Moon.
+    for (final tr in tracks) {
+      final live = tr.at(trackTime);
+      paintTrack(canvas, tr, _project(s, tr), trackTime, label,
+          maxJump: s.width, bounds: Offset.zero & s, liveAt: live == null ? null : _xy(s, live.azimuthDeg, live.altitudeDeg));
     }
 
     // Planets, Moon, showpieces.
@@ -247,5 +282,11 @@ class _DomePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DomePainter o) =>
-      o.time != time || o.selectedId != selectedId || o.things != things || o.lat != lat || o.lon != lon;
+      o.time != time ||
+      o.selectedId != selectedId ||
+      o.things != things ||
+      o.lat != lat ||
+      o.lon != lon ||
+      o.tracks != tracks ||
+      o.trackTime != trackTime;
 }

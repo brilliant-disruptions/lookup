@@ -1,0 +1,12 @@
+skyglow.bin.gz: an estimate of night-sky brightness over land, built by
+tool/skyglow/build_skyglow.py from:
+
+- Earth at Night (Black Marble) 2016, grayscale 3 km map.
+  NASA Earth Observatory images by Joshua Stevens, using Suomi NPP VIIRS
+  data from Miguel Román, NASA's Goddard Space Flight Center.
+  https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps
+  NASA imagery is not copyrighted in the United States; credit NASA, and
+  don't imply NASA endorses the app.
+
+- Natural Earth 1:50m land and lakes. Public domain.
+  Made with Natural Earth. https://www.naturalearthdata.com

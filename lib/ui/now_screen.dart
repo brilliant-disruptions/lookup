@@ -3,21 +3,28 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/sky_event.dart';
+import '../domain/plan/night_plan.dart';
 import '../domain/sky/astro.dart' show PlanetInfo;
+import '../domain/sky/direction.dart';
 import '../services/location_service.dart';
 import '../state/providers.dart';
+import '../state/plan_state.dart';
 import '../state/sky_state.dart';
 import 'demo.dart';
 import 'finder_screen.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
+import 'night_vision_button.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
+import 'plan_screen.dart';
 import 'settings_screen.dart';
 import 'sky/night_strip.dart';
+import 'sky/object_sheet.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
+import 'where_to_go_screen.dart';
 import 'widgets/pass_arc.dart';
 
 class NowScreen extends ConsumerWidget {
@@ -37,6 +44,7 @@ class NowScreen extends ConsumerWidget {
         place: place,
         onPlaceTap: () => openPlaces(context),
         actions: [
+          const NightVisionButton(),
           CircleButton(tooltip: 'Settings', icon: Icons.settings_outlined, onPressed: () => openSettings(context)),
         ],
       ),
@@ -68,6 +76,8 @@ class NowScreen extends ConsumerWidget {
                   Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
                 ],
                 if (!d.needsLocation) const Padding(padding: EdgeInsets.only(top: 12), child: Rise(index: 2, child: _TonightSkyCard())),
+                if (!d.needsLocation) const WhereToGoCard(),
+                if (!d.needsLocation) const _Favourites(),
                 if (d.next?.details['lookahead'] != true) ..._later(context, ref, d),
                 if (d.errors.isNotEmpty && !d.needsLocation)
                   const Padding(
@@ -420,4 +430,63 @@ class _TonightSkyCard extends ConsumerWidget {
       ]),
     );
   }
+}
+
+/// What they follow, soonest first: tonight, or the next good night.
+class _Favourites extends ConsumerWidget {
+  const _Favourites();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favourites = ref.watch(favouritesAheadProvider).value ?? const <FavouriteOutlook>[];
+    // No favourites, no fortnight of sky maths.
+    if (favourites.isEmpty) return const SizedBox.shrink();
+    final nights = ref.watch(nightsAheadProvider).value;
+    final catalog = ref.watch(skyCatalogProvider).value;
+    final s = ref.watch(settingsProvider).value;
+    if (nights == null || catalog == null || s?.latitude == null) return const SizedBox.shrink();
+    final things = <int, Map<String, SkyThing>>{};
+    final sorted = [...favourites]..sort((a, b) => (a.night ?? nightsAhead).compareTo(b.night ?? nightsAhead));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const SectionHeader('Your favourites'),
+      Rise(
+        index: 3,
+        child: GroupedList(indent: 64, children: [
+          for (final f in sorted)
+            () {
+              final night = f.night;
+              final thing = night == null
+                  ? null
+                  : things.putIfAbsent(night, () => skyThingsOf(nights[night], s!.latitude!, s.longitude!, catalog))[f.id];
+              return ListRow(
+                leading: glyphForId(f.id, dim: night == null),
+                title: skyName(f.id, catalog),
+                titleColor: night == null ? LookUpColors.grey : null,
+                subtitle: favouriteWhen(f, night == null ? null : nights[night]),
+                subtitleLines: 1,
+                trailing: night == 0 ? const Pill('Tonight', dot: true, color: LookUpColors.good) : null,
+                chevron: night != null,
+                onTap: night == null
+                    ? null
+                    : night == 0 && thing != null
+                        ? () => showObjectSheet(context, thing)
+                        : () => openPlan(context, night: night),
+              );
+            }(),
+        ]),
+      ),
+    ]);
+  }
+}
+
+/// "Tonight · best 9:40 PM, southeast", "Thursday · best 4:10 AM, east".
+String favouriteWhen(FavouriteOutlook f, NightPlan? plan) {
+  final s = f.sighting;
+  if (f.night == null || s == null) return 'Not well placed in the next two weeks';
+  final day = switch (f.night!) {
+    0 => 'Tonight',
+    1 => 'Tomorrow night',
+    _ => plan?.window == null ? 'In ${f.night} nights' : fmtDay(plan!.window!.start),
+  };
+  return '$day · best ${fmtTime(s.best)}, ${compassWord(s.azDeg)}';
 }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/models/sky_event.dart';
 import '../../state/providers.dart';
 import '../../state/sky_state.dart';
 import '../format.dart';
+import '../look_sheet.dart';
+import '../night_vision_button.dart';
 import '../kit/kit.dart';
 import '../places_screen.dart';
 import '../theme.dart';
@@ -12,6 +15,7 @@ import 'object_sheet.dart';
 import 'sky_dome.dart';
 import 'sky_panorama.dart';
 import 'sky_thing.dart';
+import 'sky_track.dart';
 
 /// Everything above you: a live map, tonight's clouds, and what's worth
 /// finding (planets, constellations, showpieces), each with a verdict.
@@ -28,6 +32,9 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
   /// The round whole-sky map instead of the horizon view.
   bool _whole = false;
 
+  /// Tracks are worked out once per pass and place, not on every tick.
+  final _tracks = <String, SkyTrack>{};
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider).value;
@@ -43,6 +50,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
         place: place,
         onPlaceTap: () => openPlaces(context),
         actions: [
+          const NightVisionButton(),
           CircleButton(
             tooltip: _whole ? 'Horizon view' : 'Whole sky',
             icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
@@ -72,6 +80,16 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
             showObjectSheet(context, x);
           }
 
+          final events = ref.watch(homeProvider).value?.events ?? const <SkyEvent>[];
+          final tracks = [
+            for (final e in upcomingPasses(events, now))
+              _tracks.putIfAbsent('${e.id}@$lat,$lon', () => passTrack(e, lat, lon)),
+          ];
+          // While one is overhead, move its dot every second.
+          final passing = tracks.any((t) => t.liveAt(DateTime.now()));
+          final trackTime = passing ? (ref.watch(clockProvider).value ?? DateTime.now()) : now;
+          void openPass(SkyEvent e) => showLookSheet(context, e);
+
           final list = switch (_tab) { 0 => planets, 1 => cons, _ => shows };
           return ListView(
             padding: EdgeInsets.fromLTRB(16, top + 8, 16, tabBarClearance(context)),
@@ -87,6 +105,9 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                         things: [moon, ...planets, ...shows],
                         selectedId: _selected,
                         onTap: open,
+                        tracks: tracks,
+                        trackTime: trackTime,
+                        onTrackTap: openPass,
                       )
                     : SkyPanorama(
                         time: now,
@@ -96,6 +117,9 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                         things: [moon, ...planets, ...shows],
                         selectedId: _selected,
                         onTap: open,
+                        tracks: tracks,
+                        trackTime: trackTime,
+                        onTrackTap: openPass,
                       ),
               ),
               Center(
@@ -155,7 +179,8 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
                 child: Text(
-                  'Judged for a ${t.darkness.label.toLowerCase()} sky, tonight\'s forecast and the Moon. Change your sky in Settings.',
+                  'Judged for a ${t.darkness.label.toLowerCase()} sky, tonight\'s forecast and the Moon. Change your sky in Settings. '
+                  'Tap the heart on anything to follow it on Tonight.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
                 ),

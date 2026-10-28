@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/data/geocoding_client.dart';
 import 'package:lookup/domain/models/settings.dart';
+import 'package:lookup/domain/sky/visibility.dart';
 
 void main() {
   const home = SavedPlace(name: 'Home', latitude: 36.1659, longitude: -86.7844);
@@ -37,5 +38,26 @@ void main() {
     expect(r.single.place.name, 'Nashville');
     expect(r.single.detail, 'Tennessee, United States');
     expect(GeocodingClient.parse({'generationtime_ms': 0.5}), isEmpty);
+  });
+
+  test('a place can say how dark its sky is, and keeps it through JSON and use', () {
+    final dark = cabin.withDarkness(SkyDarkness.dark);
+    final s = const LookUpSettings().usePlace(dark);
+    final back = LookUpSettings.fromJson(s.toJson());
+    expect(back.places.single.skyDarkness, SkyDarkness.dark);
+    expect(back.activePlace?.skyDarkness, SkyDarkness.dark);
+    // Older saved places have no darkness and still load.
+    expect(SavedPlace.fromJson({'n': 'Old', 'la': 1.0, 'lo': 2.0}).skyDarkness, isNull);
+  });
+
+  test('favourites toggle on and off, keep their order and survive JSON', () {
+    var s = const LookUpSettings();
+    s = s.toggleFavourite('planet:saturn').toggleFavourite('m31').toggleFavourite('moon');
+    expect(s.favourites, ['planet:saturn', 'm31', 'moon']);
+    expect(s.isFavourite('m31'), isTrue);
+    s = s.toggleFavourite('m31');
+    expect(s.favourites, ['planet:saturn', 'moon']);
+    expect(LookUpSettings.fromJson(s.toJson()).favourites, ['planet:saturn', 'moon']);
+    expect(LookUpSettings.fromJson(const {}).favourites, isEmpty);
   });
 }

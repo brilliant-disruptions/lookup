@@ -53,7 +53,9 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
             height: height,
             child: Row(children: [
               const SizedBox(width: 20),
-              Expanded(
+              // The title keeps its width; a long place name shrinks instead.
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
                 child: Semantics(
                   header: true,
                   child: DefaultTextStyle.merge(
@@ -64,7 +66,12 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
               ),
-              if (place != null) _PlaceChip(place: place!, onTap: onPlaceTap),
+              const SizedBox(width: 12),
+              Expanded(
+                child: place == null
+                    ? const SizedBox.shrink()
+                    : Align(alignment: Alignment.centerRight, child: _PlaceChip(place: place!, onTap: onPlaceTap)),
+              ),
               for (final a in actions) ...[const SizedBox(width: 8), a],
               const SizedBox(width: 16),
             ]),
