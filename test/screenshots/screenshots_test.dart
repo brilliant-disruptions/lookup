@@ -39,6 +39,7 @@ import 'package:lookup/ui/finder_camera.dart';
 import 'package:lookup/ui/places_screen.dart';
 import 'package:lookup/ui/plan_screen.dart';
 import 'package:lookup/ui/where_to_go_screen.dart';
+import 'package:lookup/ui/favourites_screen.dart';
 import 'package:lookup/ui/satellites_screen.dart';
 import 'package:lookup/ui/year_card.dart';
 import 'package:lookup/domain/sky/astro.dart';
@@ -177,7 +178,7 @@ Future<void> _loadFonts() async {
 }
 
 Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
-  latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true,
+  latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true, toured: true,
   favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus'])}) {
   final base = LookUpApp.theme;
   final theme = base.copyWith(
@@ -337,6 +338,32 @@ void main() {
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 5));
   });
+
+  testWidgets('tour', (t) async {
+    await mount(t, const HomeShell(),
+        settings: const LookUpSettings(
+            latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true));
+    await t.pump(const Duration(seconds: 1));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/22-tour-1.png'));
+    await t.tap(find.text('Next'));
+    for (var i = 0; i < 3; i++) {
+      await t.pump(const Duration(milliseconds: 400));
+    }
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/22-tour-2.png'));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 5));
+  });
+
+  testWidgets('now, scrolled', (t) async {
+    await mount(t, const HomeShell());
+    await t.drag(find.byType(ListView).first, const Offset(0, -700));
+    await t.pump(const Duration(seconds: 1));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/2c-now-more.png'));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 5));
+  });
+
+  testWidgets('favourites', (t) => shot(t, const FavouritesScreen(), '23-favourites'));
 
   testWidgets('quiet week', (t) async {
     _homeEvents = _quietEvents;

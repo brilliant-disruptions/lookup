@@ -12,6 +12,7 @@ import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
+import 'tour.dart';
 
 Future<void> openSettings(BuildContext context) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
@@ -141,6 +142,16 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Preview an alert',
             subtitle: 'A whole pass in fast-forward',
             onTap: () => showDemo(context, ref),
+          ),
+          _Row(
+            icon: Icons.tips_and_updates_rounded,
+            color: LookUpColors.blue,
+            title: 'Show me around',
+            subtitle: 'A quick tour of what\'s where',
+            onTap: () {
+              Navigator.of(context).popUntil((r) => r.isFirst);
+              ref.read(tourRequestProvider.notifier).request();
+            },
           ),
         ]),
         const _Header('LookUp+'),

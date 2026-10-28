@@ -60,4 +60,10 @@ void main() {
     expect(LookUpSettings.fromJson(s.toJson()).favourites, ['planet:saturn', 'moon']);
     expect(LookUpSettings.fromJson(const {}).favourites, isEmpty);
   });
+
+  test('the tour is shown once: existing installs get it, and it is remembered', () {
+    expect(LookUpSettings.fromJson(const {'onboarded': true}).toured, isFalse);
+    final seen = const LookUpSettings().copyWith(toured: true);
+    expect(LookUpSettings.fromJson(seen.toJson()).toured, isTrue);
+  });
 }

@@ -33,9 +33,12 @@ class _Frost extends StatelessWidget {
 /// Header for the four tab roots: a large left-aligned title, the place
 /// you're watching as a chip (tap to switch), then round actions.
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
-  const AppHeader({super.key, required this.title, this.place, this.onPlaceTap, this.actions = const []});
+  const AppHeader({super.key, required this.title, this.place, this.onPlaceTap, this.actions = const [], this.placeKey});
   final Widget title;
   final String? place;
+
+  /// For a spotlight tour to find the place chip.
+  final Key? placeKey;
   final VoidCallback? onPlaceTap;
   final List<Widget> actions;
 
@@ -70,7 +73,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
               Expanded(
                 child: place == null
                     ? const SizedBox.shrink()
-                    : Align(alignment: Alignment.centerRight, child: _PlaceChip(place: place!, onTap: onPlaceTap)),
+                    : Align(alignment: Alignment.centerRight, child: _PlaceChip(key: placeKey, place: place!, onTap: onPlaceTap)),
               ),
               for (final a in actions) ...[const SizedBox(width: 8), a],
               const SizedBox(width: 16),
@@ -81,7 +84,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class _PlaceChip extends StatelessWidget {
-  const _PlaceChip({required this.place, this.onTap});
+  const _PlaceChip({super.key, required this.place, this.onTap});
   final String place;
   final VoidCallback? onTap;
 
@@ -195,8 +198,11 @@ class PageScaffold extends StatelessWidget {
 }
 
 class TabItem {
-  const TabItem(this.icon, this.label, {this.activeIcon});
+  const TabItem(this.icon, this.label, {this.activeIcon, this.key});
   final IconData icon;
+
+  /// For a spotlight tour to find the tab.
+  final Key? key;
   final IconData? activeIcon;
   final String label;
 }
@@ -228,6 +234,7 @@ class FloatingTabBar extends StatelessWidget {
                 child: Row(children: [
                   for (final (i, t) in tabs.indexed)
                     Expanded(
+                      key: t.key,
                       child: Semantics(
                         selected: i == index,
                         button: true,
