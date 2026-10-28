@@ -76,40 +76,6 @@ String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 /// "Clear until 2:00 AM" → "clear until 2:00 AM" (times keep their case).
 String _lower(String s) => s.isEmpty ? s : s[0].toLowerCase() + s.substring(1);
 
-/// On Tonight: the one-line answer, when they have places to compare and
-/// the forecast is in. Tap for the side-by-side.
-class WhereToGoCard extends ConsumerWidget {
-  const WhereToGoCard({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final w = ref.watch(whereToGoProvider).value;
-    if (w == null) return const _DarkSkyNudge();
-    if (w.result.kind == WhereToGoKind.noForecast) return const SizedBox.shrink();
-    final words = whereToGoWords(w.result);
-    final go = w.result.kind == WhereToGoKind.go;
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: GlassCard(
-        tint: go ? LookUpColors.violet : null,
-        onTap: () => openWhereToGo(context),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Kicker('Where to go tonight', color: go ? LookUpColors.violet : LookUpColors.grey),
-            const Spacer(),
-            const Text('Compare', style: TextStyle(color: LookUpColors.blue, fontSize: 14, fontWeight: FontWeight.w500)),
-            const Icon(Icons.chevron_right_rounded, size: 18, color: LookUpColors.blue),
-          ]),
-          const SizedBox(height: 8),
-          Text(words.headline, style: display(22, weight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Text(words.detail, style: const TextStyle(color: LookUpColors.grey, fontSize: 14, height: 1.4)),
-        ]),
-      ),
-    );
-  }
-}
-
 /// Here and every saved place, side by side on tonight's clouds and how
 /// dark each sky is, best first.
 class WhereToGoScreen extends ConsumerWidget {
@@ -228,42 +194,6 @@ class _PlaceCard extends StatelessWidget {
           NightStrip(outlook: o, compact: true),
         ],
       ]),
-    );
-  }
-}
-
-/// On Tonight, before they've saved anywhere: the nearest properly dark sky.
-class _DarkSkyNudge extends ConsumerWidget {
-  const _DarkSkyNudge();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final d = ref.watch(darkSpotsProvider).value;
-    final here = d?.here;
-    if (d == null || (here != null && darknessForSqm(here) == SkyDarkness.dark)) return const SizedBox.shrink();
-    final spot = d.spots.where(_isDark).firstOrNull;
-    if (spot == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: GlassCard(
-        onTap: () => openWhereToGo(context),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Row(children: [
-            Kicker('Darker skies nearby'),
-            Spacer(),
-            Text('See', style: TextStyle(color: LookUpColors.blue, fontSize: 14, fontWeight: FontWeight.w500)),
-            Icon(Icons.chevron_right_rounded, size: 18, color: LookUpColors.blue),
-          ]),
-          const SizedBox(height: 8),
-          Text('A dark sky ${spotName(spot)}', style: display(22, weight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Text(
-            '${here == null ? 'The' : 'Your sky here is ${darknessForSqm(here).label.toLowerCase()}; there, the'} Milky Way shows. '
-            'See tonight\'s clouds there and get directions.',
-            style: const TextStyle(color: LookUpColors.grey, fontSize: 14, height: 1.4),
-          ),
-        ]),
-      ),
     );
   }
 }

@@ -3,14 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/sky_event.dart';
-import '../domain/plan/night_plan.dart';
+import '../domain/plan/where_to_go.dart';
 import '../domain/sky/astro.dart' show PlanetInfo;
-import '../domain/sky/direction.dart';
+import '../domain/sky/skyglow.dart';
+import '../domain/sky/visibility.dart';
 import '../services/location_service.dart';
 import '../state/providers.dart';
 import '../state/plan_state.dart';
 import '../state/sky_state.dart';
 import 'demo.dart';
+import 'favourites_screen.dart';
 import 'finder_screen.dart';
 import 'format.dart';
 import 'kit/kit.dart';
@@ -18,12 +20,11 @@ import 'look_sheet.dart';
 import 'night_vision_button.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
-import 'plan_screen.dart';
 import 'settings_screen.dart';
 import 'sky/night_strip.dart';
-import 'sky/object_sheet.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
+import 'tour.dart';
 import 'where_to_go_screen.dart';
 import 'widgets/pass_arc.dart';
 
@@ -42,9 +43,10 @@ class NowScreen extends ConsumerWidget {
       appBar: AppHeader(
         title: const _Wordmark(),
         place: place,
+        placeKey: TourKeys.place,
         onPlaceTap: () => openPlaces(context),
         actions: [
-          const NightVisionButton(),
+          KeyedSubtree(key: TourKeys.nightVision, child: const NightVisionButton()),
           CircleButton(tooltip: 'Settings', icon: Icons.settings_outlined, onPressed: () => openSettings(context)),
         ],
       ),
@@ -63,21 +65,23 @@ class NowScreen extends ConsumerWidget {
                   const Padding(padding: EdgeInsets.only(bottom: 12), child: _AlertsOffCard()),
                 Rise(
                   index: 0,
-                  child: d.needsLocation
+                  child: KeyedSubtree(
+                    key: TourKeys.next,
+                    child: d.needsLocation
                       ? const _LocationCard()
                       : d.noData
                           ? _OfflineCard(onRetry: () => ref.read(homeProvider.notifier).refresh(force: true))
                           : (d.next == null || d.next!.details['lookahead'] == true)
                               ? _QuietCard(nextBeyond: d.next)
                               : _NextCard(event: d.next!),
+                  ),
                 ),
                 if (d.auroraOutlook != null) ...[
                   const SizedBox(height: 12),
                   Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
                 ],
                 if (!d.needsLocation) const Padding(padding: EdgeInsets.only(top: 12), child: Rise(index: 2, child: _TonightSkyCard())),
-                if (!d.needsLocation) const WhereToGoCard(),
-                if (!d.needsLocation) const _Favourites(),
+                if (!d.needsLocation) const _MoreTonight(),
                 if (d.next?.details['lookahead'] != true) ..._later(context, ref, d),
                 if (d.errors.isNotEmpty && !d.needsLocation)
                   const Padding(
@@ -432,61 +436,75 @@ class _TonightSkyCard extends ConsumerWidget {
   }
 }
 
-/// What they follow, soonest first: tonight, or the next good night.
-class _Favourites extends ConsumerWidget {
-  const _Favourites();
+/// Everything else worth a look tonight, one row each, so the screen stays
+/// about the next thing to see.
+class _MoreTonight extends ConsumerWidget {
+  const _MoreTonight();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final favourites = ref.watch(favouritesAheadProvider).value ?? const <FavouriteOutlook>[];
-    // No favourites, no fortnight of sky maths.
-    if (favourites.isEmpty) return const SizedBox.shrink();
-    final nights = ref.watch(nightsAheadProvider).value;
-    final catalog = ref.watch(skyCatalogProvider).value;
-    final s = ref.watch(settingsProvider).value;
-    if (nights == null || catalog == null || s?.latitude == null) return const SizedBox.shrink();
-    final things = <int, Map<String, SkyThing>>{};
-    final sorted = [...favourites]..sort((a, b) => (a.night ?? nightsAhead).compareTo(b.night ?? nightsAhead));
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const SectionHeader('Your favourites'),
-      Rise(
-        index: 3,
-        child: GroupedList(indent: 64, children: [
-          for (final f in sorted)
+  Widget build(BuildContext context, WidgetRef ref) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const SectionHeader('More tonight'),
+        Rise(
+          index: 3,
+          child: GroupedList(indent: 64, children: [
+            ListRow(
+              leading: const EventGlyph(icon: Icons.favorite_rounded, color: LookUpColors.red),
+              title: 'Your favourites',
+              subtitle: _favouritesLine(ref),
+              subtitleLines: 1,
+              onTap: () => openFavourites(context),
+            ),
             () {
-              final night = f.night;
-              final thing = night == null
-                  ? null
-                  : things.putIfAbsent(night, () => skyThingsOf(nights[night], s!.latitude!, s.longitude!, catalog))[f.id];
+              final (line, go) = _whereLine(ref);
               return ListRow(
-                leading: glyphForId(f.id, dim: night == null),
-                title: skyName(f.id, catalog),
-                titleColor: night == null ? LookUpColors.grey : null,
-                subtitle: favouriteWhen(f, night == null ? null : nights[night]),
+                leading: const EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.violet),
+                title: 'Where to go tonight',
+                subtitle: line,
                 subtitleLines: 1,
-                trailing: night == 0 ? const Pill('Tonight', dot: true, color: LookUpColors.good) : null,
-                chevron: night != null,
-                onTap: night == null
-                    ? null
-                    : night == 0 && thing != null
-                        ? () => showObjectSheet(context, thing)
-                        : () => openPlan(context, night: night),
+                trailing: go ? const Pill('Clearer', dot: true, color: LookUpColors.violet) : null,
+                chevron: true,
+                onTap: () => openWhereToGo(context),
               );
             }(),
-        ]),
-      ),
-    ]);
-  }
-}
+          ]),
+        ),
+      ]);
 
-/// "Tonight · best 9:40 PM, southeast", "Thursday · best 4:10 AM, east".
-String favouriteWhen(FavouriteOutlook f, NightPlan? plan) {
-  final s = f.sighting;
-  if (f.night == null || s == null) return 'Not well placed in the next two weeks';
-  final day = switch (f.night!) {
-    0 => 'Tonight',
-    1 => 'Tomorrow night',
-    _ => plan?.window == null ? 'In ${f.night} nights' : fmtDay(plan!.window!.start),
-  };
-  return '$day · best ${fmtTime(s.best)}, ${compassWord(s.azDeg)}';
+  /// "Saturn tonight", "Saturn, Thursday", or how to start.
+  static String _favouritesLine(WidgetRef ref) {
+    final favourites = ref.watch(favouritesAheadProvider).value ?? const <FavouriteOutlook>[];
+    if (favourites.isEmpty) return 'Tap \u2665 on anything in the Sky tab to follow it';
+    final catalog = ref.watch(skyCatalogProvider).value;
+    final nights = ref.watch(nightsAheadProvider).value;
+    final up = [for (final f in favourites) if (f.night != null) f]..sort((a, b) => a.night!.compareTo(b.night!));
+    if (up.isEmpty) return 'None well placed in the next two weeks';
+    String name(String id) => catalog == null ? 'One' : skyName(id, catalog);
+    final tonight = up.where((f) => f.night == 0).toList();
+    if (tonight.isNotEmpty) {
+      return tonight.length == 1 ? '${name(tonight.first.id)} tonight' : '${name(tonight.first.id)} and ${tonight.length - 1} more tonight';
+    }
+    final next = up.first;
+    final when = next.night == 1
+        ? 'tomorrow night'
+        : nights?[next.night!].window == null
+            ? 'in ${next.night} nights'
+            : fmtDay(nights![next.night!].window!.start);
+    return 'Next: ${name(next.id)}, $when';
+  }
+
+  /// The recommendation's headline, a darker sky nearby, or what it does.
+  static (String, bool) _whereLine(WidgetRef ref) {
+    final w = ref.watch(whereToGoProvider).value;
+    if (w != null && w.result.kind != WhereToGoKind.noForecast) {
+      return (whereToGoWords(w.result).headline, w.result.kind == WhereToGoKind.go);
+    }
+    if (w == null) {
+      final d = ref.watch(darkSpotsProvider).value;
+      final spot = d?.spots.where((s) => darknessForSqm(s.sqm) == SkyDarkness.dark).firstOrNull;
+      if (spot != null && (d!.here == null || darknessForSqm(d.here!) != SkyDarkness.dark)) {
+        return ('A dark sky ${spotName(spot)}', false);
+      }
+    }
+    return ('Compare clouds at your places, find darker skies', false);
+  }
 }

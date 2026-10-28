@@ -15,9 +15,15 @@ import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/year_card.dart';
 
 class _Settings extends SettingsNotifier {
+  _Settings({this.toured = true});
+  final bool toured;
+
   @override
   Future<LookUpSettings> build() async =>
-      const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true);
+      LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: toured);
+
+  @override
+  Future<void> edit(LookUpSettings Function(LookUpSettings) f) async => state = AsyncData(f(state.value!));
 }
 
 class _Home extends HomeNotifier {
@@ -56,13 +62,22 @@ void main() {
         jsonDecode(File('assets/sky/constellations.json').readAsStringSync()));
   });
 
-  Future<void> pump(WidgetTester t) async {
+  late ProviderContainer container;
+
+  // Route and caption transitions finish over a couple of frames.
+  Future<void> settle(WidgetTester t) async {
+    for (var i = 0; i < 5; i++) {
+      await t.pump(const Duration(milliseconds: 400));
+    }
+  }
+
+  Future<void> pump(WidgetTester t, {bool toured = true}) async {
     t.view.physicalSize = const Size(1179, 2556); // a phone, not the 800×600 default
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
-    await t.pumpWidget(ProviderScope(
+    container = ProviderContainer(
       overrides: [
-        settingsProvider.overrideWith(_Settings.new),
+        settingsProvider.overrideWith(() => _Settings(toured: toured)),
         homeProvider.overrideWith(_Home.new),
         clockProvider.overrideWith((_) => Stream.value(DateTime.now())),
         skyLogProvider.overrideWith((_) async => SkyLog.from(const [])),
@@ -71,9 +86,12 @@ void main() {
         weatherProvider.overrideWith((_) async => null),
         skyCatalogProvider.overrideWith((_) async => catalog),
       ],
-      child: const MaterialApp(home: HomeShell()),
-    ));
-    await t.pump(const Duration(seconds: 2));
+    );
+    addTearDown(container.dispose);
+    await t.pumpWidget(UncontrolledProviderScope(container: container, child: const MaterialApp(home: HomeShell())));
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 500));
+    }
   }
 
   testWidgets('four tabs; settings live behind the gear', (t) async {
@@ -103,6 +121,67 @@ void main() {
     await t.tap(find.byTooltip('Settings'));
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
     expect(find.text('What to tell me about'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 1));
+  });
+
+  testWidgets('Tonight keeps to the next thing; the rest is one row each', (t) async {
+    await pump(t);
+    expect(find.text('More tonight'), findsOneWidget);
+    expect(find.text('Your favourites'), findsOneWidget);
+    expect(find.textContaining('Sky tab to follow it'), findsOneWidget);
+    expect(find.text('Where to go tonight'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 1));
+  });
+
+  testWidgets('first time in, a five-stop tour; done once, then remembered', (t) async {
+    await pump(t, toured: false);
+    await settle(t);
+    expect(find.text('1 of 5'), findsOneWidget);
+    expect(find.text('The next thing worth stepping out for'), findsOneWidget);
+
+    await t.tap(find.text('Next'));
+    await settle(t);
+    expect(find.text('2 of 5'), findsOneWidget);
+    expect(find.text('Everything up there now'), findsOneWidget);
+    // Tapping anywhere goes on too.
+    await t.tapAt(const Offset(20, 20));
+    await settle(t);
+    expect(find.text('Plan ahead'), findsOneWidget);
+    await t.tap(find.text('Next'));
+    await settle(t);
+    expect(find.text('Red light for outside'), findsOneWidget);
+    await t.tap(find.text('Next'));
+    await settle(t);
+    expect(find.text('5 of 5'), findsOneWidget);
+    expect(find.text('Skip'), findsNothing);
+    await t.tap(find.text('Got it'));
+    await settle(t);
+    expect(find.text('5 of 5'), findsNothing);
+    expect(container.read(settingsProvider).value!.toured, isTrue);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 1));
+  });
+
+  testWidgets('skipping the tour counts as seen; Settings can replay it', (t) async {
+    await pump(t, toured: false);
+    await settle(t);
+    await t.tap(find.text('Skip'));
+    await settle(t);
+    expect(find.text('1 of 5'), findsNothing);
+    expect(container.read(settingsProvider).value!.toured, isTrue);
+
+    await t.tap(find.byTooltip('Settings'));
+    await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
+    await Scrollable.ensureVisible(t.element(find.text('Show me around')), alignment: 0.5);
+    await t.pump(const Duration(milliseconds: 400));
+    await t.tap(find.text('Show me around'));
+    await settle(t);
+    await settle(t);
+    expect(find.text('1 of 5'), findsOneWidget);
+    expect(find.text('The week'), findsNothing, reason: 'the tour starts on Tonight');
+    await t.tap(find.text('Skip'));
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
   });
