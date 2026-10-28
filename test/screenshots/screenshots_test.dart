@@ -112,6 +112,9 @@ class _FakeSettings extends SettingsNotifier {
   final LookUpSettings s;
   @override
   Future<LookUpSettings> build() async => s;
+
+  @override
+  Future<void> edit(LookUpSettings Function(LookUpSettings) f) async => state = AsyncData(f(state.value!));
 }
 
 class _FakePlus implements PlusService {
@@ -442,7 +445,7 @@ void main() {
       ]),
     );
     await shot(t, sheet, '6-paywall',
-        settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true));
+        settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true));
   });
 
   testWidgets('settings', (t) async {

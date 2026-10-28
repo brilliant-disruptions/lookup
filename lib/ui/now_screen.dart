@@ -212,15 +212,11 @@ class _NextCardState extends ConsumerState<_NextCard> {
           if (event.plusOnly && !(ref.watch(settingsProvider).value?.isPlus ?? false))
             Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: GestureDetector(
-                onTap: () => showPaywall(context, reason: event),
-                behavior: HitTestBehavior.opaque,
-                child: const Row(children: [
-                  Pill('LookUp+', color: LookUpColors.blue),
-                  SizedBox(width: 10),
-                  Expanded(child: Text('Get a tap 10 minutes before', style: TextStyle(fontSize: 14, color: LookUpColors.white))),
-                  Icon(Icons.arrow_forward_rounded, size: 18, color: LookUpColors.blue),
-                ]),
+              child: PlusNudge(
+                event.type == SkyEventType.milkyWayNight && event.details['here'] != true
+                    ? 'Get a tap in time to get there'
+                    : 'Get a tap ${ref.watch(settingsProvider).value?.leadMinutes ?? 10} minutes before',
+                reason: event,
               ),
             ),
         ],

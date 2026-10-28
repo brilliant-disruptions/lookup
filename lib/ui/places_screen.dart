@@ -10,7 +10,17 @@ import '../domain/sky/visibility.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'kit/kit.dart';
+import 'paywall_sheet.dart';
 import 'theme.dart';
+
+/// Whether [p] can be saved; if not, offers LookUp+ instead.
+bool canSaveOrOffer(BuildContext context, LookUpSettings s, SavedPlace p) {
+  if (s.canSave(p)) return true;
+  showPaywall(context,
+      because: 'Save as many places as you like with LookUp+, and compare them every night. '
+          'Without it you can keep ${LookUpSettings.freePlaces} saved place.');
+  return false;
+}
 
 Future<void> openPlaces(BuildContext context) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlacesScreen()));
@@ -102,7 +112,8 @@ class PlacesScreen extends ConsumerWidget {
             subtitle: 'A town, a dark-sky park, where you\'re headed',
             onTap: () async {
               final p = await showDialog<SavedPlace>(context: context, builder: (_) => const _SearchDialog());
-              if (p == null) return;
+              if (p == null || !context.mounted) return;
+              if (!canSaveOrOffer(context, ref.read(settingsProvider).value ?? const LookUpSettings(), p)) return;
               final q = await _withSky(ref, p);
               await set((s) => s.usePlace(q));
             },
@@ -113,6 +124,14 @@ class PlacesScreen extends ConsumerWidget {
             onTap: () => _saveHere(context, ref, set),
           ),
         ]),
+        if (!s.isPlus && s.places.length >= LookUpSettings.freePlaces)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: PlusNudge(
+              'Save more places and compare them every night',
+              because: 'Save as many places as you like with LookUp+, and compare them every night.',
+            ),
+          ),
         if (s.places.isNotEmpty)
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -147,6 +166,8 @@ class PlacesScreen extends ConsumerWidget {
       return;
     }
     if (!context.mounted) return;
+    final here = SavedPlace(name: '', latitude: fix.lat, longitude: fix.lon);
+    if (!canSaveOrOffer(context, ref.read(settingsProvider).value ?? const LookUpSettings(), here)) return;
     final name = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,

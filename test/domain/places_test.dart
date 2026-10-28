@@ -66,4 +66,18 @@ void main() {
     final seen = const LookUpSettings().copyWith(toured: true);
     expect(LookUpSettings.fromJson(seen.toJson()).toured, isTrue);
   });
+
+  test('one saved place free; LookUp+ saves any number; nobody loses places they had', () {
+    const home = SavedPlace(name: 'Home', latitude: 36.17, longitude: -86.78);
+    const cabin = SavedPlace(name: 'Cabin', latitude: 35.61, longitude: -83.49);
+    const free = LookUpSettings();
+    expect(free.canSave(home), isTrue);
+    final one = free.copyWith(places: [home]);
+    expect(one.canSave(cabin), isFalse);
+    expect(one.canSave(home), isTrue, reason: 'already saved');
+    expect(one.copyWith(isPlus: true).canSave(cabin), isTrue);
+    // Saved before the limit: kept, and still usable.
+    final grandfathered = free.copyWith(places: [home, cabin]);
+    expect(grandfathered.usePlace(cabin).places, hasLength(2));
+  });
 }

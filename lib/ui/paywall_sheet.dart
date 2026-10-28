@@ -2,24 +2,110 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/sky_event.dart';
+import '../domain/plus/upgrade_moments.dart';
 import '../services/plus_service.dart';
 import '../state/providers.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
 
-/// The paywall appears only when a Plus-only event is actually coming for
-/// this user (spec §7), or from Settings.
-Future<void> showPaywall(BuildContext context, {SkyEvent? reason}) => showModalBottomSheet<void>(
+/// The paywall appears only when there's a concrete reason: a Plus-only
+/// event actually coming for this user (spec §7), something they reached
+/// for ([because], e.g. a second saved place), or from Settings.
+Future<void> showPaywall(BuildContext context, {SkyEvent? reason, String? because}) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => PaywallSheet(reason: reason),
+      builder: (_) => PaywallSheet(reason: reason, because: because),
     );
 
-class PaywallSheet extends ConsumerStatefulWidget {
-  const PaywallSheet({super.key, this.reason});
+/// The line under the title: why LookUp+, right now.
+String paywallLine(SkyEvent? r, String? because) {
+  if (because != null) return because;
+  if (r == null) return 'Every reason to step outside, not just the station.';
+  return switch (r.type) {
+    SkyEventType.favourite =>
+      '${r.details['name']} is at its best ${fmtDay(r.start).toLowerCase()} at ${fmtTime(r.start)}. LookUp+ taps you when it\'s time.',
+    SkyEventType.milkyWayNight => r.details['here'] == true
+        ? 'It\'s a Milky Way night here ${fmtDay(r.start).toLowerCase()}. LookUp+ taps you when it\'s dark enough.'
+        : 'It\'s a Milky Way night at ${r.details['place']} ${fmtDay(r.start).toLowerCase()}. LookUp+ tells you in time to get there.',
+    _ => '${eventTitle(r)} passes over you ${fmtDay(r.start).toLowerCase()} at ${fmtTime(r.start)}. LookUp+ taps you 10 minutes before.',
+  };
+}
+
+/// One tappable line offering LookUp+ where it would help ("Get a tap 10
+/// minutes before"). Shows nothing once they have it.
+class PlusNudge extends ConsumerWidget {
+  const PlusNudge(this.text, {super.key, this.reason, this.because});
+  final String text;
   final SkyEvent? reason;
+  final String? because;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(settingsProvider).value?.isPlus ?? false) return const SizedBox.shrink();
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: () => showPaywall(context, reason: reason, because: because),
+        behavior: HitTestBehavior.opaque,
+        child: Row(children: [
+          const Pill('LookUp+', color: LookUpColors.blue),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 14, color: LookUpColors.white))),
+          const Icon(Icons.arrow_forward_rounded, size: 18, color: LookUpColors.blue),
+        ]),
+      ),
+    );
+  }
+}
+
+/// After they've logged a sighting: one quiet offer, only for people really
+/// using the app and at most weekly (see [offerPlusAfterSighting]).
+class PlusAfterSighting extends ConsumerStatefulWidget {
+  const PlusAfterSighting({super.key});
+  @override
+  ConsumerState<PlusAfterSighting> createState() => _PlusAfterSightingState();
+}
+
+class _PlusAfterSightingState extends ConsumerState<PlusAfterSighting> {
+  int? _seen;
+
+  @override
+  void initState() {
+    super.initState();
+    _decide();
+  }
+
+  // Decided once, so recording the ask doesn't make it vanish.
+  Future<void> _decide() async {
+    final s = await ref.read(settingsProvider.future);
+    final log = await ref.read(skyLogProvider.future);
+    final now = DateTime.now().toUtc();
+    if (!offerPlusAfterSighting(s, seenCount: log.total, now: now) || !mounted) return;
+    setState(() => _seen = log.total);
+    await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(lastPlusAskAt: now));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final n = _seen;
+    if (n == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: PlusNudge(
+        'Want Starlink trains, aurora and your favourites too?',
+        because: 'You\'ve seen ${n == 1 ? 'one thing' : '$n things'} with LookUp. '
+            'LookUp+ taps you for everything else worth stepping out for.',
+      ),
+    );
+  }
+}
+
+class PaywallSheet extends ConsumerStatefulWidget {
+  const PaywallSheet({super.key, this.reason, this.because});
+  final SkyEvent? reason;
+  final String? because;
   @override
   ConsumerState<PaywallSheet> createState() => _PaywallState();
 }
@@ -48,7 +134,8 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
       child: Starfield(
         density: 0.00012,
         maxOpacity: 0.45,
-        child: Padding(
+        // Scrolls on short phones so the offers are always reachable.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -60,25 +147,22 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
               ]),
               const SizedBox(height: 8),
               Text(
-                r == null
-                    ? 'Every reason to step outside, not just the station.'
-                    : '${eventTitle(r)} passes over you ${fmtDay(r.start).toLowerCase()} at ${fmtTime(r.start)}. LookUp+ taps you 10 minutes before.',
+                paywallLine(r, widget.because),
                 style: t.bodyLarge?.copyWith(color: LookUpColors.grey, fontSize: 17),
               ),
               const SizedBox(height: 22),
               GroupedList(indent: 60, children: [
-                for (final (type, line) in const [
-                  (SkyEventType.auroraNow, 'Aurora alerts the moment it\'s happening, and a wake-me option'),
-                  (SkyEventType.starlinkTrain, 'Starlink trains for two weeks after every launch'),
-                  (SkyEventType.tiangong, 'Tiangong flyovers'),
-                  (null, 'The one-minute "go outside now" nudge'),
+                for (final (glyph, line) in [
+                  (EventGlyph.forType(SkyEventType.auroraNow, size: 32), 'Aurora alerts the moment it\'s happening, and a wake-me option'),
+                  (EventGlyph.forType(SkyEventType.starlinkTrain, size: 32), 'Starlink trains, Tiangong and rocket launches you can see'),
+                  (EventGlyph.forType(SkyEventType.favourite, size: 32), 'A tap when a favourite is at its best on a clear night'),
+                  (EventGlyph.forType(SkyEventType.milkyWayNight, size: 32), 'Milky Way nights at your dark places'),
+                  (const EventGlyph(icon: Icons.place_rounded, color: LookUpColors.violet, size: 32), 'All your places compared every night, two weeks of planning, and the home-screen widget'),
                 ])
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                     child: Row(children: [
-                      type == null
-                          ? const EventGlyph(icon: Icons.directions_walk_rounded, color: LookUpColors.blue, size: 32)
-                          : EventGlyph.forType(type, size: 32),
+                      glyph,
                       const SizedBox(width: 12),
                       Expanded(child: Text(line, style: t.bodyMedium?.copyWith(height: 1.35))),
                     ]),

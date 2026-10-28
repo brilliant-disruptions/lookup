@@ -13,6 +13,7 @@ import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
+import 'paywall_sheet.dart';
 import 'sky/night_strip.dart';
 import 'sky/object_sheet.dart';
 import 'sky/sky_thing.dart';
@@ -70,7 +71,11 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
         ChipRow(
           labels: [for (var i = 0; i < nightsAhead; i++) nightLabel(i)],
           index: _night,
-          onSelect: (i) => setState(() => _night = i),
+          locked: (i) => !s!.isPlus && i >= LookUpSettings.freePlanNights,
+          onSelect: (i) => !s!.isPlus && i >= LookUpSettings.freePlanNights
+              ? showPaywall(context,
+                  because: 'Plan any night in the next two weeks with LookUp+. The next ${LookUpSettings.freePlanNights} nights are free.')
+              : setState(() => _night = i),
         ),
         const SizedBox(height: 16),
         ...plan.when(

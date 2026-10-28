@@ -19,7 +19,14 @@ enum SkyEventType {
   /// A planet, star, constellation or showpiece opened from the Sky tab:
   /// not an event, but the finder and sheets speak [SkyEvent].
   skyObject('Sky object', plusOnly: false, pushes: false),
-  satellitePass('Satellite pass', plusOnly: false, pushes: false);
+  satellitePass('Satellite pass', plusOnly: false, pushes: false),
+
+  /// Something they follow (a planet, the Moon, a constellation, a
+  /// showpiece) at its best on a clear night.
+  favourite('Favourite at its best', plusOnly: true),
+
+  /// Clear and moonless at a dark place with the Milky Way up.
+  milkyWayNight('Milky Way night', plusOnly: true);
 
   const SkyEventType(this.label, {required this.plusOnly, this.pushes = true});
 

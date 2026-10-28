@@ -10,7 +10,11 @@ import '../data/open_meteo_client.dart';
 import '../data/swpc_client.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/events/standing_alerts.dart';
 import '../domain/orbit/omm.dart';
+import '../domain/sky/catalog.dart';
+import '../domain/sky/visibility.dart';
+import '../domain/weather/cloud_forecast.dart';
 import '../domain/scheduling/alert_planner.dart';
 import 'event_pipeline.dart';
 import 'location_service.dart';
@@ -35,6 +39,7 @@ class RefreshService {
     LaunchLibraryClient? launchLibrary,
     LocationService? location,
     this.onRefreshed,
+    this.loadCatalog,
     this.pipeline = const EventPipeline(),
     this.planner = const AlertPlanner(),
   })  : celestrak = celestrak ?? CelestrakClient(),
@@ -54,6 +59,9 @@ class RefreshService {
   /// Called after each successful refresh (home-screen widgets). Errors
   /// there never fail the refresh.
   final Future<void> Function(LookUpSettings settings, List<SkyEvent> events)? onRefreshed;
+
+  /// The fixed sky, for favourite constellations. Null skips favourites.
+  final Future<SkyCatalog?> Function()? loadCatalog;
   final EventPipeline pipeline;
   final AlertPlanner planner;
 
@@ -163,6 +171,18 @@ class RefreshService {
     final tuning = AlertTuning.from([for (final f in await store.loadFeedback()) f.toSighting()], now: now);
     final tuned = tuning.apply(settings);
 
+    // LookUp+ standing taps: favourites and Milky Way nights.
+    final standingLog = await store.loadStandingLog();
+    SkyCatalog? catalog;
+    if (settings.favouriteAlertsEnabled && settings.favourites.isNotEmpty && loadCatalog != null) {
+      try {
+        catalog = await loadCatalog!();
+      } catch (e) {
+        errors.add('catalog: $e');
+      }
+    }
+    final darkPlaces = settings.milkyWayEnabled ? await _darkPlaces(settings, clouds, now, errors) : const <DarkPlace>[];
+
     final events = pipeline.build(PipelineInputs(
       launches: launches,
       settings: tuned,
@@ -172,6 +192,9 @@ class RefreshService {
       starlink: starlink,
       clouds: clouds,
       aurora: aurora,
+      catalog: catalog,
+      standingLog: standingLog,
+      darkPlaces: darkPlaces,
     ));
     await store.saveEvents(events);
     final recent = pipeline.buildRecent(PipelineInputs(
@@ -192,6 +215,8 @@ class RefreshService {
       final previous = await store.loadPlannedIds();
       final scheduled = await notifications.applyPlan(plan, previous);
       await store.savePlannedIds(scheduled);
+      await store.saveStandingLog(updateStandingLog(
+          standingLog, [for (final p in plan) if (p.kind == AlertKind.headsUp) (event: p.event, fireAt: p.fireAt)], now));
       await _fireAuroraNow(events, settings, offset);
     } catch (e) {
       errors.add('schedule: $e');
@@ -209,6 +234,34 @@ class RefreshService {
     // retries instead of waiting out the 3-hour staleness window.
     if (iss != null && iss.isNotEmpty) await store.saveLastRefresh(now);
     return RefreshReport(events: events, plan: plan, errors: errors, recent: recent);
+  }
+
+  /// Where to check for Milky Way nights: here if their sky is dark, and
+  /// (LookUp+ only, since each costs a forecast) saved places marked dark,
+  /// each with its own clouds, fetched at most every 6 hours.
+  Future<List<DarkPlace>> _darkPlaces(
+      LookUpSettings s, CloudForecast? clouds, DateTime now, List<String> errors) async {
+    if (!s.hasLocation) return const [];
+    final out = <DarkPlace>[];
+    if ((s.activePlace?.skyDarkness ?? s.skyDarkness) == SkyDarkness.dark) {
+      final name = (s.placeName?.isNotEmpty ?? false) ? s.placeName! : 'Here';
+      out.add((name: name, lat: s.latitude!, lon: s.longitude!, here: true, weather: clouds));
+    }
+    if (!s.isPlus) return out;
+    for (final p in s.places) {
+      if (p.skyDarkness != SkyDarkness.dark || p.sameSpot(s.latitude!, s.longitude!)) continue;
+      var w = await store.loadPlaceClouds(p.latitude, p.longitude);
+      if (w == null || w.isStale(now, maxAge: cloudsMaxAge)) {
+        try {
+          w = await meteo.fetchCloudForecast(p.latitude, p.longitude, pastDays: 0);
+          await store.savePlaceClouds(w);
+        } catch (e) {
+          errors.add('clouds ${p.name}: $e');
+        }
+      }
+      out.add((name: p.name, lat: p.latitude, lon: p.longitude, here: false, weather: w));
+    }
+    return out;
   }
 
   /// "Aurora now" can't be scheduled ahead; show it immediately, once per

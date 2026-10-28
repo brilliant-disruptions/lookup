@@ -22,4 +22,10 @@ void main() {
     expect(p['next_direction'], 'Look west-southwest, high in the sky');
     expect(p['next_start_ms'], start.millisecondsSinceEpoch);
   });
+
+  test('without LookUp+ the widget says what it is instead of the next event', () {
+    final p = WidgetService.payloadFor(null, isPlus: false);
+    expect(p['next_when'], 'The widget is part of LookUp+');
+    expect(p['next_start_ms'], 0);
+  });
 }

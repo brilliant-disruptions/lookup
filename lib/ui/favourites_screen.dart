@@ -8,6 +8,7 @@ import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
+import 'paywall_sheet.dart';
 import 'plan_screen.dart';
 import 'sky/object_sheet.dart';
 import 'sky/sky_thing.dart';
@@ -29,7 +30,10 @@ class FavouritesScreen extends ConsumerWidget {
         favourites.isEmpty
             ? 'Open the Sky tab, tap a planet, the Moon or a constellation, and tap the heart. '
                   'It shows up here with its next good night.'
-            : 'Tap the heart on anything in the Sky tab to add or remove it. Following something never sends alerts.',
+            : (ref.watch(settingsProvider).value?.isPlus ?? false)
+            ? 'Tap the heart on anything in the Sky tab to add or remove it. We tap you when one is at its best on a '
+                  'clear night, at most once a week each (Settings → What to tell me about).'
+            : 'Tap the heart on anything in the Sky tab to add or remove it.',
         textAlign: TextAlign.center,
         style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
       ),
@@ -112,6 +116,13 @@ class FavouritesScreen extends ConsumerWidget {
                 );
               }(),
           ],
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: PlusNudge(
+            'Get a tap when one\'s at its best on a clear night',
+            because: 'LookUp+ taps you when something you follow is at its best and the sky is clear.',
+          ),
         ),
         footnote,
       ],

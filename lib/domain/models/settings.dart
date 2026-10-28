@@ -67,6 +67,8 @@ class LookUpSettings {
     this.meteorsEnabled = true,
     this.eclipsesEnabled = true,
     this.pairingsEnabled = true,
+    this.favouriteAlertsEnabled = true,
+    this.milkyWayEnabled = true,
     this.launchesEnabled = true,
     this.transitsEnabled = true,
     this.nightVision = false,
@@ -84,6 +86,8 @@ class LookUpSettings {
     this.skyDarkness = SkyDarkness.suburbs,
     this.favourites = const [],
     this.toured = false,
+    this.firstOpenedAt,
+    this.lastPlusAskAt,
   });
 
   final double? latitude;
@@ -97,6 +101,12 @@ class LookUpSettings {
   final bool meteorsEnabled;
   final bool eclipsesEnabled;
   final bool pairingsEnabled;
+
+  /// LookUp+: a tap when something they follow is at its best and it's clear.
+  final bool favouriteAlertsEnabled;
+
+  /// LookUp+: a tap on clear, moonless nights at a dark place.
+  final bool milkyWayEnabled;
   final bool launchesEnabled;
 
   /// List ISS transits of the Sun and Moon (never pushed).
@@ -129,12 +139,28 @@ class LookUpSettings {
   /// Seen the spotlight tour (or skipped it).
   final bool toured;
 
+  /// First time this version saw them (UTC); for "really using it".
+  final DateTime? firstOpenedAt;
+
+  /// Last general LookUp+ ask (UTC); asks are at least a week apart.
+  final DateTime? lastPlusAskAt;
+
   bool isFavourite(String id) => favourites.contains(id);
 
   LookUpSettings toggleFavourite(String id) =>
       copyWith(favourites: isFavourite(id) ? [for (final f in favourites) if (f != id) f] : [...favourites, id]);
 
   bool get hasLocation => latitude != null && longitude != null;
+
+  /// Saved places without LookUp+. Anyone who saved more before keeps them.
+  static const freePlaces = 1;
+
+  /// Nights ahead "Plan a night" covers without LookUp+ (tonight first).
+  static const freePlanNights = 3;
+
+  /// Whether [p] can be saved: it's already saved, or there's room.
+  bool canSave(SavedPlace p) =>
+      isPlus || places.length < freePlaces || places.any((x) => x.sameSpot(p.latitude, p.longitude));
 
   /// Pin [p] as the active place (adding it to [places] if new).
   LookUpSettings usePlace(SavedPlace p) => copyWith(
@@ -166,6 +192,8 @@ class LookUpSettings {
     bool? meteorsEnabled,
     bool? eclipsesEnabled,
     bool? pairingsEnabled,
+    bool? favouriteAlertsEnabled,
+    bool? milkyWayEnabled,
     bool? launchesEnabled,
     bool? transitsEnabled,
     bool? nightVision,
@@ -183,6 +211,8 @@ class LookUpSettings {
     SkyDarkness? skyDarkness,
     List<String>? favourites,
     bool? toured,
+    DateTime? firstOpenedAt,
+    DateTime? lastPlusAskAt,
   }) =>
       LookUpSettings(
         latitude: latitude ?? this.latitude,
@@ -196,6 +226,8 @@ class LookUpSettings {
         meteorsEnabled: meteorsEnabled ?? this.meteorsEnabled,
         eclipsesEnabled: eclipsesEnabled ?? this.eclipsesEnabled,
         pairingsEnabled: pairingsEnabled ?? this.pairingsEnabled,
+        favouriteAlertsEnabled: favouriteAlertsEnabled ?? this.favouriteAlertsEnabled,
+        milkyWayEnabled: milkyWayEnabled ?? this.milkyWayEnabled,
         launchesEnabled: launchesEnabled ?? this.launchesEnabled,
         transitsEnabled: transitsEnabled ?? this.transitsEnabled,
         nightVision: nightVision ?? this.nightVision,
@@ -215,6 +247,8 @@ class LookUpSettings {
         skyDarkness: skyDarkness ?? this.skyDarkness,
         favourites: favourites ?? this.favourites,
         toured: toured ?? this.toured,
+        firstOpenedAt: firstOpenedAt ?? this.firstOpenedAt,
+        lastPlusAskAt: lastPlusAskAt ?? this.lastPlusAskAt,
       );
 
   Map<String, Object?> toJson() => {
@@ -229,6 +263,8 @@ class LookUpSettings {
         'meteorsEnabled': meteorsEnabled,
         'eclipsesEnabled': eclipsesEnabled,
         'pairingsEnabled': pairingsEnabled,
+        'favouriteAlertsEnabled': favouriteAlertsEnabled,
+        'milkyWayEnabled': milkyWayEnabled,
         'launchesEnabled': launchesEnabled,
         'transitsEnabled': transitsEnabled,
         'nightVision': nightVision,
@@ -246,6 +282,8 @@ class LookUpSettings {
         'skyDarkness': skyDarkness.name,
         'favourites': favourites,
         'toured': toured,
+        if (firstOpenedAt != null) 'firstOpenedAt': firstOpenedAt!.toIso8601String(),
+        if (lastPlusAskAt != null) 'lastPlusAskAt': lastPlusAskAt!.toIso8601String(),
       };
 
   factory LookUpSettings.fromJson(Map<String, Object?> j) {
@@ -263,6 +301,8 @@ class LookUpSettings {
       meteorsEnabled: j['meteorsEnabled'] as bool? ?? d.meteorsEnabled,
       eclipsesEnabled: j['eclipsesEnabled'] as bool? ?? d.eclipsesEnabled,
       pairingsEnabled: j['pairingsEnabled'] as bool? ?? d.pairingsEnabled,
+      favouriteAlertsEnabled: j['favouriteAlertsEnabled'] as bool? ?? d.favouriteAlertsEnabled,
+      milkyWayEnabled: j['milkyWayEnabled'] as bool? ?? d.milkyWayEnabled,
       launchesEnabled: j['launchesEnabled'] as bool? ?? d.launchesEnabled,
       transitsEnabled: j['transitsEnabled'] as bool? ?? d.transitsEnabled,
       nightVision: j['nightVision'] as bool? ?? d.nightVision,
@@ -288,6 +328,8 @@ class LookUpSettings {
       skyDarkness: SkyDarkness.values.where((d) => d.name == j['skyDarkness']).firstOrNull ?? d.skyDarkness,
       favourites: [for (final f in (j['favourites'] as List? ?? const [])) if (f is String) f],
       toured: j['toured'] as bool? ?? d.toured,
+      firstOpenedAt: DateTime.tryParse(j['firstOpenedAt'] as String? ?? '')?.toUtc(),
+      lastPlusAskAt: DateTime.tryParse(j['lastPlusAskAt'] as String? ?? '')?.toUtc(),
     );
   }
 }

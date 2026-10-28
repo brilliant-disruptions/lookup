@@ -160,7 +160,7 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.auto_awesome_rounded,
             color: LookUpColors.gold,
             title: s.isPlus ? 'You have LookUp+' : 'Get LookUp+',
-            subtitle: s.isPlus ? 'Thank you' : 'Aurora now, Starlink trains, launches. From \$2.99/mo.',
+            subtitle: s.isPlus ? 'Thank you' : 'Aurora, Starlink trains, your favourites, Milky Way nights. From \$2.99/mo.',
             onTap: () => showPaywall(context),
           ),
           _Row(
@@ -239,6 +239,10 @@ class _AlertTypesScreen extends ConsumerWidget {
         toggle(SkyEventType.planetPairing, s.pairingsEnabled, (s, v) => s.copyWith(pairingsEnabled: v), 'Planet pairings', 'The Moon and bright planets side by side'),
         toggle(SkyEventType.rocketLaunch, s.launchesEnabled, (s, v) => s.copyWith(launchesEnabled: v), 'Rocket launches', 'Ones you can see from here · LookUp+'),
         toggle(SkyEventType.tiangong, s.tiangongEnabled, (s, v) => s.copyWith(tiangongEnabled: v), 'Tiangong', 'China\'s station · LookUp+'),
+        toggle(SkyEventType.favourite, s.favouriteAlertsEnabled, (s, v) => s.copyWith(favouriteAlertsEnabled: v), 'Your favourites',
+            'When one\'s at its best and it\'s clear, at most weekly · LookUp+'),
+        toggle(SkyEventType.milkyWayNight, s.milkyWayEnabled, (s, v) => s.copyWith(milkyWayEnabled: v), 'Milky Way nights',
+            'Clear and moonless at your dark places · LookUp+'),
       ]),
       const _Header('Listed, never tapped'),
       GroupedList(indent: 60, children: [

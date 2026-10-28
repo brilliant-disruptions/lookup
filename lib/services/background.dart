@@ -5,6 +5,7 @@ library;
 import 'package:workmanager/workmanager.dart';
 
 import '../data/local_store.dart';
+import '../data/sky_assets.dart';
 import 'notification_service.dart';
 import 'refresh_service.dart';
 import 'shortcut_summary.dart';
@@ -22,9 +23,10 @@ void callbackDispatcher() {
       final service = RefreshService(
         store: LocalStore(),
         notifications: notifications,
+        loadCatalog: loadBundledCatalog,
         // Keep the home-screen widget and Siri's answer fresh too.
         onRefreshed: (settings, events) async {
-          await const WidgetService().update(events);
+          await const WidgetService().update(events, isPlus: settings.isPlus);
           await saveShortcutSummary(events);
         },
       );

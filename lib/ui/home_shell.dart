@@ -60,6 +60,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       await showDemo(context, ref);
     }
     final s = await ref.read(settingsProvider.future);
+    if (s.firstOpenedAt == null) {
+      await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(firstOpenedAt: DateTime.now().toUtc()));
+    }
     if (!mounted || s.toured || !s.onboarded) return;
     await startTour(context, ref);
   }

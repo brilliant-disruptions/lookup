@@ -8,6 +8,7 @@ library;
 import '../models/settings.dart';
 import '../models/sky_event.dart';
 import '../sky/direction.dart';
+import '../events/standing_alerts.dart' show milkyWayTripLead;
 import 'alert_tuning.dart';
 
 /// [snooze] is the user's "Remind me in 5 min", never planned here.
@@ -58,7 +59,13 @@ class AlertPlanner {
             (e.cloudCoverPercent ?? 0) <= tuning.cloudCutoffPercent)
         .where((e) => passesQuietHours(e, settings, utcOffsetMinutes))
         .toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
+      // Moments first (a pass, a shower), then by score. A favourite or a
+      // Milky Way night is up for hours, so its score would swamp a
+      // four-minute pass; it only takes a slot nothing fleeting wants.
+      ..sort((a, b) {
+        final t = _standing(a).compareTo(_standing(b));
+        return t != 0 ? t : b.score.compareTo(a.score);
+      });
 
     // Nightly cap: best-scored events win.
     final perNight = <String, int>{};
@@ -74,7 +81,7 @@ class AlertPlanner {
 
     final out = <PlannedAlert>[];
     for (final e in chosen) {
-      final headsUpAt = e.start.subtract(Duration(minutes: settings.leadMinutes));
+      final headsUpAt = e.start.subtract(leadFor(e, settings));
       if (headsUpAt.isAfter(nowUtc)) {
         out.add(PlannedAlert(
           notificationId: notificationIdFor(e.id, AlertKind.headsUp),
@@ -87,6 +94,7 @@ class AlertPlanner {
       }
       final goNowAt = e.start.subtract(const Duration(minutes: 1));
       if (settings.goNowNudge &&
+          _standing(e) == 0 &&
           !e.isEstimate &&
           settings.leadMinutes > 1 &&
           goNowAt.isAfter(nowUtc)) {
@@ -124,6 +132,16 @@ class AlertPlanner {
     );
   }
 
+  static int _standing(SkyEvent e) =>
+      e.type == SkyEventType.favourite || e.type == SkyEventType.milkyWayNight ? 1 : 0;
+
+  /// Most taps come [LookUpSettings.leadMinutes] before; a Milky Way night
+  /// somewhere else comes hours ahead, to leave time to get there.
+  static Duration leadFor(SkyEvent e, LookUpSettings s) =>
+      e.type == SkyEventType.milkyWayNight && e.details['here'] != true
+          ? milkyWayTripLead
+          : Duration(minutes: s.leadMinutes);
+
   static bool _typeEnabled(SkyEventType t, LookUpSettings s) => switch (t) {
         SkyEventType.iss => s.issEnabled,
         SkyEventType.tiangong => s.tiangongEnabled,
@@ -134,6 +152,8 @@ class AlertPlanner {
         SkyEventType.lunarEclipse => s.eclipsesEnabled,
         SkyEventType.planetPairing || SkyEventType.planetHighlight => s.pairingsEnabled,
         SkyEventType.rocketLaunch => s.launchesEnabled,
+        SkyEventType.favourite => s.favouriteAlertsEnabled,
+        SkyEventType.milkyWayNight => s.milkyWayEnabled,
         // Listed for planning, never pushed.
         SkyEventType.issTransit || SkyEventType.satellitePass || SkyEventType.skyObject => false,
       };
@@ -142,7 +162,11 @@ class AlertPlanner {
   /// wake-me is on (both are rare and worth getting up for).
   static bool passesQuietHours(
       SkyEvent e, LookUpSettings s, int utcOffsetMinutes) {
-    final local = e.start.add(Duration(minutes: utcOffsetMinutes));
+    // A trip tap is judged by when it arrives, not when the night starts.
+    final at = e.type == SkyEventType.milkyWayNight && e.details['here'] != true
+        ? e.start.subtract(milkyWayTripLead)
+        : e.start;
+    final local = at.add(Duration(minutes: utcOffsetMinutes));
     final minuteOfDay = local.hour * 60 + local.minute;
     if (!s.quietHours.contains(minuteOfDay)) return true;
     return s.auroraWakeMe &&
@@ -182,8 +206,12 @@ class AlertPlanner {
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? 'Satellite pass',
       SkyEventType.planetHighlight => (e.details['label'] as String?) ?? 'Planet highlight',
       SkyEventType.skyObject => (e.details['name'] as String?) ?? 'Sky object',
+      SkyEventType.favourite => '${e.details['name']} at its best',
+      SkyEventType.milkyWayNight =>
+        e.details['here'] == true ? 'Milky Way night' : 'Milky Way night at ${e.details['place']}',
     };
     if (e.type == SkyEventType.planetHighlight) return what;
+    if (e.type == SkyEventType.milkyWayNight) return e.details['here'] == true ? '$what from ${_hm(e.start)}' : '$what tonight';
     if (e.type == SkyEventType.meteorShower) return what;
     return '$what in $leadMinutes min';
   }
@@ -206,6 +234,14 @@ class AlertPlanner {
       case SkyEventType.planetHighlight:
         final b = e.details['brightness'] as String?;
         return '${e.details['planet']} is ${b ?? 'bright'}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. ${_cloudNote(e)}'.trim();
+      case SkyEventType.favourite:
+        return 'Look ${compassWord(e.peakAzimuthDeg)}, ${elevationWord(e.peakElevationDeg)}. ${_cloudNote(e)}'.trim();
+      case SkyEventType.milkyWayNight:
+        final until = _hm(e.end);
+        if (e.details['here'] == true) {
+          return 'The Moon\'s down and it\'s clear until $until. Face ${compassWord(e.peakAzimuthDeg)}, away from lights, and give your eyes 20 minutes.';
+        }
+        return 'Moonless and clear there ${_hm(e.start)}–$until. A good night for the trip.';
       case SkyEventType.rocketLaunch:
         final dist = e.details['distanceKm'];
         final name = e.details['name'] ?? 'A rocket';

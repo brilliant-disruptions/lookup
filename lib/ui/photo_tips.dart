@@ -22,6 +22,11 @@ List<(String, String)> photoTips(SkyEventType t) => switch (t) {
           ('Camera', 'Wide lens, f/2.8, ISO 1600–3200, 5–15 s. Shorter when it\'s dancing so the curtains stay sharp.'),
           ('Focus', 'Manual focus on a bright star, then tape the ring so it can\'t drift.'),
         ],
+      SkyEventType.milkyWayNight => const [
+          ('Phone', 'Night mode on its longest setting, phone propped or on a mini tripod, pointed at the brightest band.'),
+          ('Camera', 'Widest, fastest lens. f/2.8 or wider, ISO 3200, 15–20 s (shorter on longer lenses so stars stay points).'),
+          ('Focus', 'Manual focus on a bright star at full zoom on the screen, then leave it.'),
+        ],
       SkyEventType.meteorShower => const [
           ('Patience', 'Meteors are luck. Set a camera on a tripod shooting continuously for an hour and pick the frames that caught one.'),
           ('Settings', 'Wide lens, f/2.8, ISO 1600–3200, 20 s exposures, interval shooting on.'),
@@ -32,7 +37,7 @@ List<(String, String)> photoTips(SkyEventType t) => switch (t) {
           ('Camera', 'A long lens on a tripod. The eclipsed Moon is dim: ISO 800–1600, 1–2 s at totality; much faster before and after.'),
           ('Sequence', 'Shoot every 5 minutes from start to end and line them up for a classic eclipse sequence.'),
         ],
-      SkyEventType.planetPairing || SkyEventType.planetHighlight || SkyEventType.skyObject => const [
+      SkyEventType.planetPairing || SkyEventType.planetHighlight || SkyEventType.skyObject || SkyEventType.favourite => const [
           ('Phone', 'Use 2–3× zoom and frame some landscape; the pair reads best low over a skyline at dusk.'),
           ('Camera', 'Tripod, 50–200 mm, ISO 400, 1–2 s. Shoot in twilight, not full dark, for a deep-blue sky.'),
         ],

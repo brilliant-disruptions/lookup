@@ -13,6 +13,7 @@ import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart' show openDirections;
+import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'plan_screen.dart';
 import 'sky/night_strip.dart';
@@ -227,6 +228,13 @@ class _DarkSpots extends ConsumerWidget {
           ),
         for (final (i, s) in d.spots.indexed)
           Padding(padding: EdgeInsets.only(top: i == 0 ? 0 : 12), child: _SpotCard(s)),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 16, 4, 0),
+          child: PlusNudge(
+            'Get a tap on Milky Way nights at the places you save',
+            because: 'LookUp+ tells you when it\'s clear and moonless at your dark places, in time to get there.',
+          ),
+        ),
       ],
     ]);
   }
@@ -282,14 +290,15 @@ class _SpotCard extends ConsumerWidget {
           else
             TextButton.icon(
               style: _compact,
-              onPressed: () => ref.read(settingsProvider.notifier).edit((x) => x.copyWith(places: [
-                    ...x.places,
-                    SavedPlace(
-                        name: '${dark ? 'Dark sky' : 'Darker sky'}, ${spotName(s)}',
-                        latitude: s.lat,
-                        longitude: s.lon,
-                        skyDarkness: darknessForSqm(s.sqm)),
-                  ])),
+              onPressed: () {
+                final place = SavedPlace(
+                    name: '${dark ? 'Dark sky' : 'Darker sky'}, ${spotName(s)}',
+                    latitude: s.lat,
+                    longitude: s.lon,
+                    skyDarkness: darknessForSqm(s.sqm));
+                if (!canSaveOrOffer(context, settings ?? const LookUpSettings(), place)) return;
+                ref.read(settingsProvider.notifier).edit((x) => x.copyWith(places: [...x.places, place]));
+              },
               icon: const Icon(Icons.bookmark_add_outlined, size: 18),
               label: const Text('Save'),
             ),

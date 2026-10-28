@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/sky_event.dart';
 import '../../domain/plan/night_plan.dart';
+
+export '../../domain/plan/night_plan.dart' show skyName;
 import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../../domain/sky/tonight.dart';
@@ -201,16 +203,6 @@ EventGlyph glyphForId(String id, {double size = 36, bool dim = false}) {
 }
 
 /// The display name for a [SkyId], from the catalogues.
-String skyName(String id, SkyCatalog catalog) {
-  if (id == SkyId.moon) return 'The Moon';
-  if (id.startsWith('planet:')) {
-    return Planet.values.where((p) => SkyId.planet(p) == id).firstOrNull?.label ?? id;
-  }
-  if (id.startsWith('con:')) {
-    return catalog.constellations.where((c) => SkyId.constellation(c.id) == id).firstOrNull?.name ?? id;
-  }
-  return showpieces.where((s) => s.id == id).firstOrNull?.name ?? id;
-}
 
 /// Everything in [p] as [SkyThing]s, by id.
 Map<String, SkyThing> skyThingsOf(NightPlan p, double lat, double lon, SkyCatalog catalog) => {

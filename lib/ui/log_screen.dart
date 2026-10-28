@@ -160,6 +160,8 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         SkyEventType.satellitePass => 'Satellite',
         SkyEventType.planetHighlight => 'Planet',
         SkyEventType.skyObject => 'Sky object',
+        SkyEventType.favourite => 'Favourite',
+        SkyEventType.milkyWayNight => 'Milky Way',
         null => 'Sky event',
       };
 }

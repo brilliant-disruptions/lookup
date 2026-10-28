@@ -21,6 +21,7 @@ import 'widgets/compass_arrow.dart';
 import 'widgets/countdown_ring.dart';
 import 'widgets/station_facts.dart';
 import 'widgets/pass_timeline.dart';
+import 'paywall_sheet.dart';
 
 Future<void> showLookSheet(BuildContext context, SkyEvent event) =>
     showModalBottomSheet<void>(
@@ -325,6 +326,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
             ),
           ),
         ]),
+        if (!widget.demo) const PlusAfterSighting(),
       ]);
     }
     if (_askingWhy) {

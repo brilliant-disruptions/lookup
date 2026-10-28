@@ -227,10 +227,13 @@ class CountdownText extends StatelessWidget {
 
 /// A sideways-scrolling row of choice chips: nights, places.
 class ChipRow extends StatelessWidget {
-  const ChipRow({super.key, required this.labels, required this.index, required this.onSelect});
+  const ChipRow({super.key, required this.labels, required this.index, required this.onSelect, this.locked});
   final List<String> labels;
   final int index;
   final ValueChanged<int> onSelect;
+
+  /// Chips that open an upgrade instead: shown with a small "+".
+  final bool Function(int i)? locked;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -249,12 +252,22 @@ class ChipRow extends StatelessWidget {
                   onTap: () => onSelect(i),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    child: Text(l,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: i == index ? LookUpColors.white : LookUpColors.grey,
-                        )),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(l,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: i == index
+                                ? LookUpColors.white
+                                : (locked?.call(i) ?? false)
+                                ? LookUpColors.greyDim
+                                : LookUpColors.grey,
+                          )),
+                      if (locked?.call(i) ?? false) ...[
+                        const SizedBox(width: 4),
+                        Text('+', semanticsLabel: ', LookUp+', style: display(14, weight: FontWeight.w800, color: LookUpColors.blue)),
+                      ],
+                    ]),
                   ),
                 ),
               ),

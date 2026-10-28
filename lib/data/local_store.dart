@@ -73,6 +73,7 @@ class LocalStore {
   static const _kLastRefresh = 'last_refresh';
   static const _kFeedback = 'feedback';
   static const _kCrew = 'crew';
+  static const _kStanding = 'standing_alerts';
   static String _kElements(String key) => 'elements_$key';
 
   Future<LookUpSettings> loadSettings() async {
@@ -143,6 +144,23 @@ class LocalStore {
 
   Future<void> savePlaceClouds(CloudForecast f) =>
       _prefs.setString(placeCloudsKey(f.latitude, f.longitude), jsonEncode(f.toJson()));
+
+  /// When each favourite / Milky Way place last had a tap.
+  Future<Map<String, DateTime>> loadStandingLog() async {
+    final raw = await _prefs.getString(_kStanding);
+    if (raw == null) return {};
+    try {
+      return {
+        for (final MapEntry(:key, :value) in (jsonDecode(raw) as Map).cast<String, Object?>().entries)
+          if (value is String) key: DateTime.parse(value).toUtc(),
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> saveStandingLog(Map<String, DateTime> log) => _prefs.setString(
+      _kStanding, jsonEncode({for (final MapEntry(:key, :value) in log.entries) key: value.toIso8601String()}));
 
   Future<AuroraSnapshot?> loadAurora() async {
     final raw = await _prefs.getString(_kAurora);

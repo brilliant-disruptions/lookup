@@ -8,9 +8,12 @@ import '../domain/events/launches.dart';
 import '../domain/events/meteors.dart';
 import '../domain/events/pairings.dart';
 import '../domain/events/planet_highlights.dart';
+import '../domain/events/standing_alerts.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
+import '../domain/plan/night_plan.dart';
+import '../domain/sky/catalog.dart';
 import '../domain/sky/sun.dart';
 import '../domain/transits/transit_events.dart';
 import '../domain/passes/pass_predictor.dart';
@@ -27,6 +30,9 @@ class PipelineInputs {
     this.clouds,
     this.aurora,
     this.launches = const [],
+    this.catalog,
+    this.standingLog = const {},
+    this.darkPlaces = const [],
   });
 
   final LookUpSettings settings;
@@ -37,6 +43,15 @@ class PipelineInputs {
   final List<OmmRecord>? starlink;
   final CloudForecast? clouds;
   final AuroraSnapshot? aurora;
+
+  /// Needed for favourite constellations; without it favourites are skipped.
+  final SkyCatalog? catalog;
+
+  /// When each favourite / place last had a tap (see [updateStandingLog]).
+  final StandingLog standingLog;
+
+  /// Dark places to check for Milky Way nights, each with its own clouds.
+  final List<DarkPlace> darkPlaces;
 }
 
 class EventPipeline {
@@ -188,6 +203,26 @@ class EventPipeline {
     }
     if (s.launchesEnabled && i.launches.isNotEmpty) {
       out.addAll(launchEvents(launches: i.launches, now: now, latDeg: lat, lonDeg: lon, window: horizon).map(withClouds));
+    }
+
+    // LookUp+ standing taps. Listed for everyone, pushed only with Plus.
+    if (s.favouriteAlertsEnabled && s.favourites.isNotEmpty && i.catalog != null) {
+      final catalog = i.catalog!;
+      final nights = [
+        for (final w in darkWindows(now, lat, lon))
+          planNight(catalog: catalog, at: w.start, lat: lat, lon: lon, darkness: s.skyDarkness, weather: i.clouds),
+      ];
+      out.addAll(favouriteEvents(
+        favourites: s.favourites,
+        nights: nights,
+        weather: i.clouds,
+        names: {for (final id in s.favourites) id: skyName(id, catalog)},
+        log: i.standingLog,
+        now: now,
+      ));
+    }
+    if (s.milkyWayEnabled && i.darkPlaces.isNotEmpty) {
+      out.addAll(milkyWayEvents(places: i.darkPlaces, now: now, log: i.standingLog));
     }
 
     out.removeWhere((e) => !e.end.isAfter(now));

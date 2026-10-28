@@ -5,9 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/data/local_store.dart';
 import 'package:lookup/data/open_meteo_client.dart';
 import 'package:lookup/domain/aurora/aurora_rules.dart';
+import 'package:lookup/domain/events/standing_alerts.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/orbit/omm.dart';
+import 'package:lookup/domain/sky/catalog.dart';
 import 'package:lookup/domain/weather/cloud_forecast.dart';
 import 'package:lookup/services/event_pipeline.dart';
 
@@ -204,5 +206,34 @@ void main() {
     test('nothing without a location', () {
       expect(const EventPipeline().buildRecent(PipelineInputs(settings: const LookUpSettings(), now: later, iss: iss)), isEmpty);
     });
+  });
+
+  test('favourites at their best need the sky catalog and a clear forecast', () {
+    final catalog = SkyCatalog.fromJson(jsonDecode(File('assets/sky/stars.json').readAsStringSync()),
+        jsonDecode(File('assets/sky/constellations.json').readAsStringSync()));
+    final clear = CloudForecast(latitude: 36.17, longitude: -86.78, fetchedAt: now, hourly: [
+      for (var h = 0; h < 48; h++) CloudSample(time: now.add(Duration(hours: h)), coverPercent: 5),
+    ]);
+    final s = nashville.copyWith(favourites: ['planet:saturn', 'con:Ori']);
+    List<SkyEvent> favs(PipelineInputs i) =>
+        const EventPipeline().build(i).where((e) => e.type == SkyEventType.favourite).toList();
+    expect(favs(PipelineInputs(settings: s, now: now, clouds: clear)), isEmpty);
+    final withCatalog = favs(PipelineInputs(settings: s, now: now, clouds: clear, catalog: catalog));
+    expect(withCatalog.map((e) => e.details['name']), contains('Saturn'));
+    expect(favs(PipelineInputs(settings: s.copyWith(favouriteAlertsEnabled: false), now: now, clouds: clear, catalog: catalog)),
+        isEmpty);
+  });
+
+  test('Milky Way nights only for the dark places it is given', () {
+    final darkNight = DateTime.utc(2026, 10, 10, 17);
+    final clear = CloudForecast(latitude: 36.55, longitude: -84.80, fetchedAt: darkNight, hourly: [
+      for (var h = 0; h < 48; h++) CloudSample(time: darkNight.add(Duration(hours: h)), coverPercent: 5),
+    ]);
+    List<SkyEvent> mw(List<DarkPlace> places) => const EventPipeline()
+        .build(PipelineInputs(settings: nashville, now: darkNight, darkPlaces: places))
+        .where((e) => e.type == SkyEventType.milkyWayNight)
+        .toList();
+    expect(mw(const []), isEmpty);
+    expect(mw([(name: 'Pickett', lat: 36.55, lon: -84.80, here: false, weather: clear)]), hasLength(1));
   });
 }

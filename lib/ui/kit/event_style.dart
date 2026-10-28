@@ -18,6 +18,8 @@ import '../theme.dart';
       SkyEventType.planetPairing => (icon: Icons.workspaces_rounded, color: LookUpColors.gold),
       SkyEventType.planetHighlight => (icon: null, color: LookUpColors.gold),
       SkyEventType.skyObject => (icon: Icons.star_rounded, color: LookUpColors.gold),
+      SkyEventType.favourite => (icon: Icons.favorite_rounded, color: LookUpColors.red),
+      SkyEventType.milkyWayNight => (icon: Icons.blur_on_rounded, color: LookUpColors.violet),
       SkyEventType.rocketLaunch => (icon: Icons.rocket_launch_rounded, color: LookUpColors.red),
       SkyEventType.issTransit => (
           icon: details['body'] == 'Moon' ? Icons.nightlight_round : Icons.wb_sunny_rounded,

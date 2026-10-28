@@ -73,6 +73,18 @@ abstract final class SkyId {
   static String constellation(String iauId) => 'con:$iauId';
 }
 
+/// What to call a [SkyId]: "Saturn", "The Moon", "Orion", "Andromeda Galaxy".
+String skyName(String id, SkyCatalog catalog) {
+  if (id == SkyId.moon) return 'The Moon';
+  if (id.startsWith('planet:')) {
+    return Planet.values.where((p) => SkyId.planet(p) == id).firstOrNull?.label ?? id;
+  }
+  if (id.startsWith('con:')) {
+    return catalog.constellations.where((c) => SkyId.constellation(c.id) == id).firstOrNull?.name ?? id;
+  }
+  return showpieces.where((s) => s.id == id).firstOrNull?.name ?? id;
+}
+
 /// A favourite's next good night among [nights] (in order, tonight first):
 /// the first one where it's easy to see, with its sighting. Null if none.
 ({int night, SkySighting sighting})? firstGoodNight(String id, List<NightPlan> nights) {

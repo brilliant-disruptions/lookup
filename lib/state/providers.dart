@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/sky_assets.dart';
 import '../data/local_store.dart';
 import '../domain/log/sky_log.dart';
 import '../domain/scheduling/alert_tuning.dart';
@@ -25,8 +26,9 @@ final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(
       store: ref.watch(storeProvider),
       notifications: ref.watch(notificationServiceProvider),
       location: ref.watch(locationServiceProvider),
+      loadCatalog: loadBundledCatalog,
       onRefreshed: (settings, events) async {
-        await ref.read(widgetServiceProvider).update(events);
+        await ref.read(widgetServiceProvider).update(events, isPlus: settings.isPlus);
         await saveShortcutSummary(events);
       },
     ));

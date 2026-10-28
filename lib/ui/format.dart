@@ -44,6 +44,8 @@ String eventTitle(SkyEvent e) => switch (e.type) {
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? e.type.label,
       SkyEventType.planetHighlight => (e.details['label'] as String?) ?? e.type.label,
       SkyEventType.skyObject => (e.details['name'] as String?) ?? e.type.label,
+      SkyEventType.favourite => '${e.details['name']} at its best',
+      SkyEventType.milkyWayNight => e.details['here'] == true ? 'Milky Way night' : 'Milky Way night at ${e.details['place']}',
       _ => e.type.label,
     };
 
@@ -71,6 +73,11 @@ String eventSubtitle(SkyEvent e) {
     case SkyEventType.planetHighlight:
       final b = e.details['brightness'] as String?;
       return '${b == null ? '' : '${b[0].toUpperCase()}${b.substring(1)}, '}${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}';
+    case SkyEventType.favourite:
+      return 'At its best and clear · ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}';
+    case SkyEventType.milkyWayNight:
+      final where = e.details['here'] == true ? '' : ' at ${e.details['place']}';
+      return 'Moonless and clear$where until ${fmtTime(e.end)}';
     case SkyEventType.skyObject:
       return '${elevationWord(e.peakElevationDeg)[0].toUpperCase()}${elevationWord(e.peakElevationDeg).substring(1)} in the ${compassWord(e.peakAzimuthDeg)}';
     case SkyEventType.satellitePass:
@@ -106,6 +113,8 @@ String eventEmoji(SkyEvent e) => switch (e.type) {
       SkyEventType.satellitePass => '🛰️',
       SkyEventType.planetHighlight => '🪐',
       SkyEventType.skyObject => '✨',
+      SkyEventType.favourite => '✨',
+      SkyEventType.milkyWayNight => '🌌',
     };
 
 String shareText(SkyEvent e, String? place) {
@@ -123,6 +132,8 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.satellitePass => 'Watched ${e.details['name'] ?? 'a satellite'} cross the sky$where 🛰️ Spotted with LookUp.',
     SkyEventType.planetHighlight => '${e.details['label']}$where 🪐 Spotted with LookUp.',
     SkyEventType.skyObject => 'Found ${e.details['name'] ?? 'it'} in the sky$where ✨ with LookUp.',
+    SkyEventType.favourite => 'Caught ${e.details['name'] ?? 'it'} at its best$where ✨ LookUp told me when.',
+    SkyEventType.milkyWayNight => 'The Milky Way${e.details['here'] == true ? where : ' at ${e.details['place']}'} tonight 🌌 LookUp said it was the night.',
   };
 }
 

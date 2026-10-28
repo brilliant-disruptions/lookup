@@ -10,6 +10,7 @@ import '../kit/kit.dart';
 import '../theme.dart';
 import '../widgets/compass_arrow.dart';
 import 'sky_thing.dart';
+import '../paywall_sheet.dart';
 
 Future<void> showObjectSheet(BuildContext context, SkyThing thing) => showModalBottomSheet<void>(
       context: context,
@@ -133,6 +134,7 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
                 label: Text(_logged ? 'In your log' : 'I found it'),
               ),
             ),
+          if (_logged) const PlusAfterSighting(),
         ]),
       ),
     );

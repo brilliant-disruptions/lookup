@@ -67,7 +67,9 @@ Future<void> startTour(BuildContext context, WidgetRef ref) async {
     await ref.read(homeProvider.future);
   } catch (_) {}
   await Future<void>.delayed(const Duration(milliseconds: 800));
-  if (!context.mounted) return;
+  // Something else is open (an alert's sheet, a screen they went to):
+  // don't cover it; the tour waits for another launch.
+  if (!context.mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) return;
   await showSpotlight(context, tourSteps);
   await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(toured: true));
 }

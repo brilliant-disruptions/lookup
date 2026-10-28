@@ -21,8 +21,12 @@ class WidgetService {
     }
   }
 
-  /// Plain strings so both native widgets stay dumb.
-  static Map<String, Object?> payloadFor(SkyEvent? e) {
+  /// Plain strings so both native widgets stay dumb. The widget is part of
+  /// LookUp+; without it, it says so instead of showing the next event.
+  static Map<String, Object?> payloadFor(SkyEvent? e, {bool isPlus = true}) {
+    if (!isPlus) {
+      return {'next_title': 'LookUp', 'next_when': 'The widget is part of LookUp+', 'next_direction': 'Open the app for what\'s next', 'next_start_ms': 0};
+    }
     if (e == null) {
       return {'next_title': 'A quiet sky', 'next_when': 'We\'ll tap you when something\'s up', 'next_direction': '', 'next_start_ms': 0};
     }
@@ -34,10 +38,10 @@ class WidgetService {
     };
   }
 
-  Future<void> update(List<SkyEvent> events) async {
+  Future<void> update(List<SkyEvent> events, {bool isPlus = true}) async {
     final next = events.where((e) => e.type.pushes && e.details['past'] != true).firstOrNull;
     try {
-      for (final entry in payloadFor(next).entries) {
+      for (final entry in payloadFor(next, isPlus: isPlus).entries) {
         await HomeWidget.saveWidgetData(entry.key, entry.value);
       }
       await HomeWidget.updateWidget(androidName: 'NextEventWidget', iOSName: 'LookUpWidget');
