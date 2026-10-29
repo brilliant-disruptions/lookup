@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/domain/sky/astro.dart';
@@ -38,7 +40,7 @@ void main() {
   });
 
   group('SkyPanorama', () {
-    Future<List<SkyThing>> pump(WidgetTester t, List<SkyThing> things) async {
+    Future<List<SkyThing>> pump(WidgetTester t, List<SkyThing> things, {Stream<List<double>>? orientation}) async {
       final tapped = <SkyThing>[];
       t.view.physicalSize = const Size(1179, 2556);
       t.view.devicePixelRatio = 3;
@@ -53,6 +55,7 @@ void main() {
             catalog: SkyCatalog.empty,
             things: things,
             onTap: tapped.add,
+            orientationStream: orientation,
           ),
         ),
       ));
@@ -81,6 +84,31 @@ void main() {
         await t.pumpAndSettle();
       }
       expect(find.text('Facing southeast'), findsOneWidget);
+    });
+
+    testWidgets('follows the phone round until you drag', (t) async {
+      final sensor = StreamController<List<double>>.broadcast();
+      addTearDown(sensor.close);
+      await pump(t, [fixed('moon', 'The Moon', 'Full Moon', 180, 25)], orientation: sensor.stream);
+      expect(find.text('Facing south'), findsOneWidget);
+
+      await t.tap(find.text('Follow my phone'));
+      await t.pump();
+      expect(find.text('Following your phone'), findsOneWidget);
+      // Upright, camera to magnetic east: device x→south, y→up, z→west.
+      // Nashville's declination is a few degrees, so it still reads east.
+      for (var i = 0; i < 40; i++) {
+        sensor.add(const [0.0, 0, -1, -1, 0, 0, 0, 1, 0]);
+        await t.pump();
+      }
+      expect(find.text('Facing east'), findsOneWidget);
+
+      await t.drag(find.byKey(SkyPanorama.canvasKey), const Offset(-140, 0));
+      await t.pumpAndSettle();
+      expect(find.text('Follow my phone'), findsOneWidget);
+      sensor.add(const [1.0, 0, 0, 0, 0, -1, 0, 1, 0]); // north: ignored now
+      await t.pump();
+      expect(find.text('Facing north'), findsNothing);
     });
 
     testWidgets('tapping a planet opens it', (t) async {

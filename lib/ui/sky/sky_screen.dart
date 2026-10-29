@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/sky_event.dart';
+import '../../domain/sky/visibility.dart';
 import '../../state/providers.dart';
 import '../../state/sky_state.dart';
 import '../format.dart';
@@ -32,6 +33,9 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
   /// The round whole-sky map instead of the horizon view.
   bool _whole = false;
 
+  /// How far ahead the map is looking, in minutes (0 = live).
+  double _ahead = 0;
+
   /// Tracks are worked out once per pass and place, not on every tick.
   final _tracks = <String, SkyTrack>{};
 
@@ -42,6 +46,8 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     final sky = ref.watch(tonightSkyProvider);
     final catalog = ref.watch(skyCatalogProvider).value;
     final now = ref.watch(minuteProvider).value ?? DateTime.now();
+    final later = _ahead > 0;
+    final at = now.add(Duration(minutes: _ahead.round()));
     final top = MediaQuery.paddingOf(context).top + AppHeader.height;
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -75,19 +81,24 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
           final moon = SkyThing.moon(t.moon, lat, lon);
           final cons = [for (final c in t.constellations) SkyThing.constellation(c, lat, lon, catalog)];
           final shows = [for (final s in t.showpieces) SkyThing.showpiece(s, lat, lon)];
-          void open(SkyThing x) {
+          // Ringed and named on the map while its sheet is open, then let go.
+          Future<void> open(SkyThing x) async {
             setState(() => _selected = x.id);
-            showObjectSheet(context, x);
+            await showObjectSheet(context, x, at: later ? at : null);
+            if (mounted && _selected == x.id) setState(() => _selected = null);
           }
 
           final events = ref.watch(homeProvider).value?.events ?? const <SkyEvent>[];
           final tracks = [
-            for (final e in upcomingPasses(events, now))
+            for (final e in upcomingPasses(events, at))
               _tracks.putIfAbsent('${e.id}@$lat,$lon', () => passTrack(e, lat, lon)),
           ];
           // While one is overhead, move its dot every second.
-          final passing = tracks.any((t) => t.liveAt(DateTime.now()));
-          final trackTime = passing ? (ref.watch(clockProvider).value ?? DateTime.now()) : now;
+          final passing = !later && tracks.any((t) => t.liveAt(DateTime.now()));
+          final trackTime = passing ? (ref.watch(clockProvider).value ?? DateTime.now()) : at;
+          final skyThen = later
+              ? skyWords(SkyConditions.at(at.toUtc(), lat, lon, weather: ref.watch(weatherProvider).value))
+              : null;
           void openPass(SkyEvent e) => showLookSheet(context, e);
 
           final list = switch (_tab) { 0 => planets, 1 => cons, _ => shows };
@@ -98,7 +109,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                 index: 0,
                 child: _whole
                     ? SkyDome(
-                        time: now,
+                        time: at,
                         lat: lat,
                         lon: lon,
                         catalog: catalog,
@@ -110,7 +121,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                         onTrackTap: openPass,
                       )
                     : SkyPanorama(
-                        time: now,
+                        time: at,
                         lat: lat,
                         lon: lon,
                         catalog: catalog,
@@ -126,13 +137,26 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Kicker('Live', color: LookUpColors.good, live: true),
+                    later
+                        ? const Kicker('Later', color: LookUpColors.blue)
+                        : const Kicker('Live', color: LookUpColors.good, live: true),
                     Flexible(
-                      child: Text('  ${fmtTime(now.toUtc())} · tap anything to open it',
-                          maxLines: 1, overflow: TextOverflow.ellipsis, style: numeric(size: 13, color: LookUpColors.grey)),
+                      child: Text(
+                          later
+                              ? '  ${fmtTime(at.toUtc())} · in ${_hoursWord(_ahead.round())}'
+                              : '  ${fmtTime(now.toUtc())} · tap anything to open it',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: numeric(size: 13, color: LookUpColors.grey)),
                     ),
                   ]),
                 ),
+              ),
+              _LookAhead(
+                minutes: _ahead,
+                onChanged: (m) => setState(() => _ahead = m),
+                skyThen: skyThen,
+                at: at,
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
@@ -192,6 +216,52 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
       ),
     );
   }
+}
+
+/// "45 min", "3 h", "7 h 30 min".
+String _hoursWord(int minutes) {
+  final h = minutes ~/ 60, m = minutes % 60;
+  if (h == 0) return '$m min';
+  return m == 0 ? '$h h' : '$h h $m min';
+}
+
+/// Slide the map up to ten hours ahead ("cloudy now, but clear at 3 AM:
+/// will Saturn be up then?"), with the forecast sky for that moment.
+class _LookAhead extends StatelessWidget {
+  const _LookAhead({required this.minutes, required this.onChanged, required this.at, this.skyThen});
+  final double minutes;
+  final ValueChanged<double> onChanged;
+  final DateTime at;
+  final String? skyThen;
+
+  static const max = 600.0;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Expanded(
+              child: Slider(
+                value: minutes,
+                max: max,
+                divisions: (max / 15).round(),
+                label: minutes == 0 ? 'Now' : fmtTime(at.toUtc()),
+                semanticFormatterCallback: (_) => minutes == 0 ? 'Now' : 'At ${fmtTime(at.toUtc())}',
+                onChanged: onChanged,
+              ),
+            ),
+            TextButton(onPressed: minutes == 0 ? null : () => onChanged(0), child: const Text('Now')),
+          ]),
+          Text(
+            skyThen == null
+                ? 'Slide to see the sky up to 10 hours from now.'
+                : 'Sky at ${fmtTime(at.toUtc())}: ${skyThen!.toLowerCase()}. Tap anything to see if you could spot it then.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: skyThen == null ? LookUpColors.greyDim : LookUpColors.grey, fontSize: 12.5, height: 1.4),
+          ),
+        ]),
+      );
 }
 
 class _Row extends StatelessWidget {

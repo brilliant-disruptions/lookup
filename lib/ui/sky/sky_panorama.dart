@@ -1,15 +1,21 @@
 /// The sky as you'd see it standing outside: rooftops and trees along the
 /// bottom, the horizon across, straight up at the top. Drag (or use the
-/// arrows) to turn round. Tap a planet, the Moon or a showpiece to open it.
+/// arrows) to turn round, or let it follow the phone. Tap a planet, the Moon
+/// or a showpiece to open it.
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter_rotation_sensor/flutter_rotation_sensor.dart';
 
+import '../../domain/finder/pointing.dart';
 import '../../domain/models/sky_event.dart';
 import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../../domain/sky/direction.dart';
+import '../../domain/sky/wmm.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import 'sky_thing.dart';
@@ -56,6 +62,7 @@ class SkyPanorama extends StatefulWidget {
     this.trackTime,
     this.onTrackTap,
     this.height = 440,
+    this.orientationStream,
   });
 
   final DateTime time;
@@ -71,6 +78,9 @@ class SkyPanorama extends StatefulWidget {
   final DateTime? trackTime;
   final ValueChanged<SkyEvent>? onTrackTap;
   final double height;
+
+  /// Injected in tests; defaults to the fused rotation sensor.
+  final Stream<List<double>>? orientationStream;
 
   /// The sky itself, for tests that drag or tap it.
   static const canvasKey = ValueKey('sky-panorama');
@@ -90,6 +100,11 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
     ..addListener(() => setState(() => _facing = _spin.value % 360));
   late _SkyCache _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon);
 
+  /// Following the phone: the view turns as you do, and a ring marks where
+  /// the back of the phone points.
+  StreamSubscription<List<double>>? _sensor;
+  double? _pointingAlt;
+
   @override
   void didUpdateWidget(SkyPanorama old) {
     super.didUpdateWidget(old);
@@ -100,16 +115,66 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    _sensor?.cancel();
     _spin.dispose();
     super.dispose();
   }
 
+  void _follow() {
+    if (_sensor != null) {
+      _unfollow();
+      return;
+    }
+    var stream = widget.orientationStream;
+    try {
+      if (stream == null && RotationSensor.isPlatformSupported) {
+        RotationSensor.samplingPeriod = SensorInterval.uiInterval;
+        RotationSensor.referenceFrame = ReferenceFrame.magneticNorth;
+        RotationSensor.coordinateSystem = CoordinateSystem.device();
+        stream = RotationSensor.orientationStream.map((e) {
+          final m = e.rotationMatrix;
+          return [m.a, m.b, m.c, m.d, m.e, m.f, m.g, m.h, m.i];
+        });
+      }
+    } catch (_) {
+      stream = null;
+    }
+    if (stream == null) {
+      ScaffoldMessenger.maybeOf(context)
+          ?.showSnackBar(const SnackBar(content: Text('This phone has no compass to follow. Drag to turn instead.')));
+      return;
+    }
+    final declination = declinationDeg(widget.lat, widget.lon, DateTime.now().toUtc());
+    _spin.stop();
+    final sub = stream.listen((r) {
+      if (!mounted) return;
+      final az = facingAzimuth(r, declinationDeg: declination);
+      setState(() {
+        // Ease toward the compass so its jitter doesn't shake the sky.
+        _facing = (_facing + 0.25 * _wrap(az - _facing)) % 360;
+        _pointingAlt = cameraDirection(r).elevationDeg;
+      });
+    }, onError: (_) => _unfollow());
+    setState(() => _sensor = sub);
+  }
+
+  void _unfollow() {
+    _sensor?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _sensor = null;
+      _pointingAlt = null;
+    });
+  }
+
   void _turnBy(double deg) {
+    _unfollow();
     _spin.value = _facing;
     _spin.animateTo(_facing + deg, duration: const Duration(milliseconds: 380), curve: Curves.easeOutCubic);
   }
 
   void _drag(DragUpdateDetails d, double width) {
+    if (_sensor != null) _unfollow();
     _spin.stop();
     setState(() => _facing = (_facing - d.delta.dx / width * panoramaFov) % 360);
   }
@@ -142,14 +207,30 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
           ),
-          const Flexible(
-            child: Text('Drag to turn round',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: TextStyle(fontSize: 13, color: LookUpColors.greyDim)),
+          Flexible(
+            child: TextButton.icon(
+              onPressed: _follow,
+              icon: Icon(_sensor == null ? Icons.explore_outlined : Icons.explore_rounded, size: 18),
+              label: Text(_sensor == null ? 'Follow my phone' : 'Following your phone',
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: TextButton.styleFrom(
+                foregroundColor: _sensor == null ? LookUpColors.grey : LookUpColors.blue,
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           ),
         ]),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+        child: Text(
+          _sensor == null
+              ? 'Drag to turn round, or follow your phone and hold it up to the sky.'
+              : 'Hold your phone up to the sky and turn: the ring is where it\'s pointing.',
+          maxLines: 2,
+          style: const TextStyle(fontSize: 12.5, color: LookUpColors.greyDim, height: 1.35),
+        ),
       ),
       SizedBox(
         height: widget.height,
@@ -164,6 +245,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
             label: label,
             tracks: widget.tracks,
             trackTime: (widget.trackTime ?? widget.time).toUtc(),
+            pointingAlt: _pointingAlt,
           );
           return Semantics(
             label: 'Sky facing ${compassWord(_facing)}. '
@@ -236,6 +318,7 @@ class _PanoramaPainter extends CustomPainter {
     required this.label,
     required this.tracks,
     required this.trackTime,
+    this.pointingAlt,
   });
 
   final _SkyCache cache;
@@ -246,6 +329,9 @@ class _PanoramaPainter extends CustomPainter {
   final TextStyle label;
   final List<SkyTrack> tracks;
   final DateTime trackTime;
+
+  /// How high the phone points, when following it; it faces mid-view.
+  final double? pointingAlt;
 
   static const _groundH = 64.0;
   static const _ground = Color(0xFF05080F);
@@ -401,6 +487,20 @@ class _PanoramaPainter extends CustomPainter {
       tp.paint(canvas, r.topLeft + const Offset(6, 2));
     }
 
+    // Where the phone points: a ring mid-view at its height, held to the
+    // horizon when it's aimed at the ground.
+    if (pointingAlt case final alt?) {
+      final o = Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH);
+      final ring = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = LookUpColors.blue.withValues(alpha: 0.9);
+      canvas.drawCircle(o, 22, ring);
+      for (final d in const [Offset(1, 0), Offset(-1, 0), Offset(0, 1), Offset(0, -1)]) {
+        canvas.drawLine(o + d * 26, o + d * 34, ring);
+      }
+    }
+
     // The ground: rooftops and trees, then the compass along the horizon.
     canvas.drawPath(_skyline(s.width, horizon), Paint()..color = _ground);
     canvas.drawRect(Rect.fromLTWH(0, horizon + 2, s.width, _groundH), Paint()..color = _ground);
@@ -490,5 +590,6 @@ class _PanoramaPainter extends CustomPainter {
       o.things != things ||
       o.utc != utc ||
       o.tracks != tracks ||
-      o.trackTime != trackTime;
+      o.trackTime != trackTime ||
+      o.pointingAlt != pointingAlt;
 }

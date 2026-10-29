@@ -24,6 +24,21 @@ void main() {
       expect(d.elevationDeg, closeTo(-90, 1e-9));
     });
 
+    test('facing follows the camera, and the top edge when the phone is flat', () {
+      expect(facingAzimuth(uprightNorth), closeTo(0, 1e-9));
+      expect(facingAzimuth(uprightNorth, declinationDeg: -4), closeTo(356, 1e-9));
+      // Upright, camera east: device x→south, y→up, z→west.
+      expect(facingAzimuth(const [0.0, 0, -1, -1, 0, 0, 0, 1, 0]), closeTo(90, 1e-9));
+      // Tilted back 45° to look up at the northern sky: still facing north,
+      // though the top edge now leans south.
+      const s = 0.7071067811865476;
+      expect(facingAzimuth(const [1.0, 0, 0, 0, -s, -s, 0, s, -s]), closeTo(0, 1e-9));
+      // Face up on a palm, top edge to the north: camera at the ground.
+      expect(facingAzimuth(const [1.0, 0, 0, 0, 1, 0, 0, 0, 1]), closeTo(0, 1e-9));
+      // Held overhead face down, tipped back from facing north.
+      expect(facingAzimuth(const [1.0, 0, 0, 0, -1, 0, 0, 0, -1]), closeTo(0, 1e-9));
+    });
+
     test('guidance words and on-target', () {
       expect(guide(const SkyDir(0, 10), const SkyDir(90, 40)).words, 'Turn right, tilt up a little');
       expect(guide(const SkyDir(350, 20), const SkyDir(10, 20)).dAzimuth, closeTo(20, 1e-9));

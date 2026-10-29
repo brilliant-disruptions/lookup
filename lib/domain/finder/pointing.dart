@@ -25,6 +25,21 @@ SkyDir cameraDirection(List<double> r, {double declinationDeg = 0}) {
   return SkyDir(_norm360(az), el);
 }
 
+/// Which way you're facing, true azimuth: where the camera looks, flattened
+/// onto the horizon. With the camera near the ground or the zenith that's
+/// undefined, so the phone's top edge stands in: it points ahead when the
+/// phone lies face up, and back at you when it's held overhead face down.
+double facingAzimuth(List<double> r, {double declinationDeg = 0}) {
+  assert(r.length == 9);
+  final u = -r[8];
+  final (e, n) = u.abs() < 0.94 // camera within ~70° of the horizon
+      ? (-r[2], -r[5])
+      : u < 0
+          ? (r[1], r[4])
+          : (-r[1], -r[4]);
+  return _norm360(math.atan2(e, n) * 180 / math.pi + declinationDeg);
+}
+
 double _norm360(double a) => ((a % 360) + 360) % 360;
 
 /// Signed smallest difference target − current, in (−180, 180].

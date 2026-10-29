@@ -123,6 +123,24 @@ Seeability canSee({
   return limit - (effective + extinction) > 1.5 ? Seeability.great : Seeability.good;
 }
 
+/// The sky itself at one moment, for looking ahead on the map: light and
+/// weather first, in [canSee]'s order and thresholds. Never a promise that
+/// anything in particular will show.
+String skyWords(SkyConditions c) {
+  if (c.sunAltDeg > 0) return 'Daylight';
+  if (c.sunAltDeg > -6) return 'Twilight';
+  final p = c.precipProbability;
+  if (p != null && p >= 60) return 'Rain likely';
+  final cloud = c.cloudPercent;
+  if (cloud == null) return 'No cloud forecast that far ahead';
+  if (cloud >= 75) return 'Cloudy';
+  final vis = c.visibilityM;
+  if (vis != null && vis < 4000) return 'Hazy';
+  if (cloud > 40) return 'Some cloud';
+  if (c.sunAltDeg > -12) return 'Clear, not fully dark';
+  return 'Clear';
+}
+
 /// Tonight's weather in one line and the best stretch to be out.
 class NightOutlook {
   const NightOutlook({required this.start, required this.end, required this.hours, this.bestStart, this.bestEnd});
