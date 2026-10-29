@@ -1,0 +1,34 @@
+/* LookUp brand tokens: "Night glass", from lib/ui/theme.dart. Dark only, like the app. */
+:root {
+  color-scheme: dark;
+  --black: #04060B; --night: #0B1328;
+  --glass: rgba(255, 255, 255, 0.06); --line: rgba(255, 255, 255, 0.09);
+  --white: #F4F6FA; --grey: #A0A8B8; --grey-dim: #687083;
+  --blue: #5AA2FF;
+}
+* { box-sizing: border-box; }
+html { background: var(--black); }
+body {
+  margin: 0; min-height: 100vh; color: var(--white);
+  background: linear-gradient(180deg, var(--night) 0%, var(--black) 70%) no-repeat;
+  font: 17px/1.6 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+header { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
+header img { width: 40px; height: 40px; border-radius: 10px; }
+header a { color: var(--white); text-decoration: none; font-weight: 600; font-size: 19px; letter-spacing: -0.01em; }
+.hero { width: 112px; height: 112px; border-radius: 26px; box-shadow: 0 0 60px rgba(90, 162, 255, 0.25); }
+h1 { font-size: 38px; line-height: 1.12; margin: 24px 0 10px; letter-spacing: -0.025em; font-weight: 700; }
+h2 { font-size: 20px; margin: 32px 0 8px; font-weight: 600; }
+.lede { font-size: 19px; color: var(--grey); margin: 0 0 8px; }
+.muted { color: var(--grey); }
+.card { background: var(--glass); border: 1px solid var(--line); border-radius: 22px; padding: 20px 22px; margin: 24px 0; }
+a { color: var(--blue); }
+ul { padding-left: 1.2em; }
+li { margin: 6px 0; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.btn { display: inline-block; padding: 10px 18px; border-radius: 14px; border: 1px solid var(--line);
+  background: var(--glass); color: var(--white); text-decoration: none; font-weight: 600; }
+footer { margin-top: 56px; font-size: 14px; color: var(--grey-dim); }
+footer a { color: var(--grey); }
