@@ -124,6 +124,18 @@ void main() {
       expect(canSee(altDeg: 20, mag: 2.0, c: sky(sun: -4), darkness: SkyDarkness.dark), Seeability.twilight);
       expect(canSee(altDeg: 20, mag: -4.2, c: sky(sun: -4), darkness: SkyDarkness.dark).yes, isTrue);
     });
+
+    test('looking ahead: never "clear" through light, rain, cloud or haze', () {
+      expect(skyWords(sky(sun: 10, cloud: 0)), 'Daylight');
+      expect(skyWords(sky(sun: -3, cloud: 0)), 'Twilight');
+      expect(skyWords(sky(cloud: 10, rain: 70)), 'Rain likely');
+      expect(skyWords(sky(cloud: 90)), 'Cloudy');
+      expect(skyWords(sky(cloud: 10, vis: 800)), 'Hazy');
+      expect(skyWords(sky(cloud: 55)), 'Some cloud');
+      expect(skyWords(sky()), 'No cloud forecast that far ahead');
+      expect(skyWords(sky(sun: -9, cloud: 5)), 'Clear, not fully dark');
+      expect(skyWords(sky(cloud: 5)), 'Clear');
+    });
   });
 
   test('night outlook finds the clear stretch and says its shape', () {

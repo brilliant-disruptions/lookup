@@ -30,6 +30,7 @@ class SkyThing {
     this.rise,
     this.set,
     this.extra,
+    this.diffuse = false,
   });
 
   final String id;
@@ -48,6 +49,9 @@ class SkyThing {
 
   /// One more fact line ("Brightest star: Betelgeuse", "Binoculars").
   final String? extra;
+
+  /// Galaxies and nebulae: judged as fainter, and hurt more by moonlight.
+  final bool diffuse;
 
   bool get seeable => sighting?.verdict.yes ?? false;
 
@@ -140,6 +144,7 @@ class SkyThing {
         position: (t) => s.showpiece.horizontal(t, lat, lon),
         mag: s.showpiece.mag,
         finder: {'ra': s.showpiece.raDeg, 'dec': s.showpiece.decDeg},
+        diffuse: s.showpiece.diffuse,
         blurb: s.showpiece.blurb,
         sighting: s.sighting,
         extra: switch (s.showpiece.aid) {

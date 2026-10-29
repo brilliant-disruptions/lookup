@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local_store.dart';
 import '../../domain/sky/direction.dart';
+import '../../domain/sky/visibility.dart';
 import '../../state/providers.dart';
+import '../../state/sky_state.dart';
 import '../finder_screen.dart';
 import '../format.dart';
 import '../kit/kit.dart';
@@ -11,18 +13,21 @@ import '../theme.dart';
 import '../widgets/compass_arrow.dart';
 import 'sky_thing.dart';
 
-Future<void> showObjectSheet(BuildContext context, SkyThing thing) => showModalBottomSheet<void>(
+Future<void> showObjectSheet(BuildContext context, SkyThing thing, {DateTime? at}) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => ObjectSheet(thing: thing),
+      builder: (_) => ObjectSheet(thing: thing, at: at),
     );
 
 /// A planet, the Moon, a constellation or a showpiece: can I see it
 /// tonight, when, and where to look.
 class ObjectSheet extends ConsumerStatefulWidget {
-  const ObjectSheet({super.key, required this.thing});
+  const ObjectSheet({super.key, required this.thing, this.at});
   final SkyThing thing;
+
+  /// A later moment the sky map was moved to: answer for then, not now.
+  final DateTime? at;
   @override
   ConsumerState<ObjectSheet> createState() => _ObjectSheetState();
 }
@@ -48,15 +53,32 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
     final h = t.position(now);
     final upNow = h.altitudeDeg > 0;
     final sight = t.sighting;
-    final az = upNow ? h.azimuthDeg : (sight?.azDeg ?? h.azimuthDeg);
-    final alt = upNow ? h.altitudeDeg : (sight?.altDeg ?? 0);
-    final headline = t.whyNot != null
-        ? 'Not tonight'
-        : sight == null
-            ? 'Not up tonight'
-            : sight.verdict.yes
-                ? (upNow && sight.best.difference(now).inMinutes.abs() < 45 ? 'Up now' : 'Best at ${fmtTime(sight.best)}')
-                : sight.verdict.words;
+    // Looking ahead: where it'll be then, and the sky's verdict for then.
+    final at = widget.at?.toUtc();
+    final then = at != null && at.difference(now) > const Duration(minutes: 10) && s?.latitude != null ? at : null;
+    final hThen = then == null ? null : t.position(then);
+    final vThen = then == null
+        ? null
+        : canSee(
+            altDeg: hThen!.altitudeDeg,
+            mag: t.mag,
+            diffuse: t.diffuse,
+            c: SkyConditions.at(then, s!.latitude!, s.longitude!, weather: ref.watch(weatherProvider).value),
+            darkness: s.skyDarkness,
+          );
+    final hUp = hThen != null && hThen.altitudeDeg > 0 ? hThen : null;
+    final upThen = hUp != null;
+    final az = hUp?.azimuthDeg ?? (upNow ? h.azimuthDeg : (sight?.azDeg ?? h.azimuthDeg));
+    final alt = hUp?.altitudeDeg ?? (upNow ? h.altitudeDeg : (sight?.altDeg ?? 0));
+    final headline = then != null
+        ? 'At ${fmtTime(then)}'
+        : t.whyNot != null
+            ? 'Not tonight'
+            : sight == null
+                ? 'Not up tonight'
+                : sight.verdict.yes
+                    ? (upNow && sight.best.difference(now).inMinutes.abs() < 45 ? 'Up now' : 'Best at ${fmtTime(sight.best)}')
+                    : sight.verdict.words;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -81,7 +103,16 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
           ]),
           const SizedBox(height: 20),
           Text(headline, style: display(34, weight: FontWeight.w700)),
-          if (sight != null && t.whyNot == null)
+          if (vThen != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Wrap(spacing: 6, runSpacing: 6, children: [
+                Pill(vThen.words, dot: true, color: verdictColor(vThen)),
+                if (sight != null && sight.verdict.yes && t.whyNot == null)
+                  Pill('Tonight: best ${fmtTime(sight.best)}', color: LookUpColors.grey),
+              ]),
+            )
+          else if (sight != null && t.whyNot == null)
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Align(
@@ -99,11 +130,11 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
               child: Text(t.whyNot!, style: const TextStyle(color: LookUpColors.grey)),
             ),
           const SizedBox(height: 18),
-          if (t.whyNot == null && (upNow || sight != null)) ...[
+          if (then != null ? upThen : t.whyNot == null && (upNow || sight != null)) ...[
             Center(child: CompassArrow(azimuthDeg: az, size: 150)),
             const SizedBox(height: 10),
             Text(
-              '${upNow ? 'Now' : 'At ${fmtTime(sight!.best)}'}: look ${compassWord(az)}, ${elevationWord(alt)}.',
+              '${then != null ? 'At ${fmtTime(then)}' : upNow ? 'Now' : 'At ${fmtTime(sight!.best)}'}: look ${compassWord(az)}, ${elevationWord(alt)}.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
