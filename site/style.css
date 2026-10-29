@@ -32,3 +32,48 @@ li { margin: 6px 0; }
   background: var(--glass); color: var(--white); text-decoration: none; font-weight: 600; }
 footer { margin-top: 56px; font-size: 14px; color: var(--grey-dim); }
 footer a { color: var(--grey); }
+
+/* Home showcase: an alert lands on the lock screen, then real app screens play through, in sync with the steps. */
+main:has(.split) { max-width: 980px; }
+.split { display: grid; gap: 36px; align-items: center; }
+@media (min-width: 760px) { .split { grid-template-columns: 1fr 280px; gap: 56px; } }
+.steps { list-style: none; padding: 0; margin: 20px 0 0; counter-reset: step; }
+.steps li { counter-increment: step; display: flex; gap: 12px; align-items: baseline; margin: 0; padding: 6px 0;
+  color: var(--grey-dim); animation: step 9s infinite; }
+.steps li::before { content: "0" counter(step); font-size: 13px; }
+.phone { margin: 0 auto; width: min(280px, 72vw); padding: 10px; border-radius: 46px; background: var(--black);
+  box-shadow: 0 0 0 1px var(--line), 0 0 80px rgba(90, 162, 255, 0.18); }
+.screen { position: relative; aspect-ratio: 520 / 1130; border-radius: 36px; overflow: hidden; background: var(--black); }
+.screen > * { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; animation: frame 9s infinite both; }
+.screen > :nth-child(2), .steps li:nth-child(2) { animation-delay: 3s; }
+.screen > :nth-child(3), .steps li:nth-child(3) { animation-delay: 6s; }
+.lock { padding: 56px 12px 0; text-align: center;
+  background: radial-gradient(120% 70% at 50% 110%, #1B3A6B 0%, var(--night) 55%, var(--black) 100%); }
+.clock { font-size: 64px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.date { font-size: 13px; color: var(--grey); margin-top: 6px; }
+.note { display: flex; gap: 10px; text-align: left; margin-top: 40px; padding: 12px; border-radius: 20px;
+  background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(20px); border: 1px solid var(--line);
+  font-size: 12px; line-height: 1.35; animation: note 9s infinite both; }
+.note img { width: 36px; height: 36px; border-radius: 9px; flex: none; }
+.note b { font-weight: 600; color: var(--grey); text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; }
+.note span { float: right; color: var(--grey-dim); font-size: 10px; }
+.note strong { display: block; font-size: 13px; margin-top: 2px; }
+.note p { margin: 2px 0 0; color: var(--grey); }
+@keyframes frame {
+  0% { opacity: 0; transform: scale(1.03); }
+  5%, 31% { opacity: 1; transform: scale(1); }
+  36%, 100% { opacity: 0; transform: scale(1); }
+}
+@keyframes note {
+  0%, 6% { opacity: 0; transform: translateY(-40px); }
+  12%, 100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes step {
+  0%, 31% { color: var(--white); }
+  36%, 100% { color: var(--grey-dim); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen > *, .note, .steps li { animation: none; }
+  .screen > :first-child { opacity: 1; }
+  .steps li { color: var(--white); }
+}
