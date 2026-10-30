@@ -9,7 +9,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../domain/models/sky_event.dart';
-import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../theme.dart';
 import 'sky_thing.dart';

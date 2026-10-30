@@ -9,7 +9,6 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../domain/finder/pointing.dart';
-import '../domain/sky/astro.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/direction.dart';
 import 'format.dart';
