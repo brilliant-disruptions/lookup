@@ -84,6 +84,7 @@ void main() {
     c.add(east);
     await t.pump();
     c.add(north);
+    await t.pump(); // sees it's back on target
     await t.pump(const Duration(seconds: 2));
     expect(find.text('Lower your phone.'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
@@ -106,8 +107,10 @@ void main() {
   testWidgets('leaving the target early cancels the hand-off', (t) async {
     final c = await pump(t);
     c.add(north);
+    await t.pump();
     await t.pump(const Duration(milliseconds: 800));
     c.add(east);
+    await t.pump(); // sees it's left the target
     await t.pump(const Duration(seconds: 2));
     expect(find.text('Lower your phone.'), findsNothing);
     await t.pumpWidget(const SizedBox());
