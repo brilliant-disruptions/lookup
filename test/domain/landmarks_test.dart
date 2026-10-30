@@ -91,4 +91,16 @@ void main() {
     expect(identical(withLandmarks(e, const []), e), isTrue);
     expect(landmarkPoints(e), isEmpty);
   });
+
+  test('where a landmark is: planets, the Moon and named stars', () {
+    final jupiter = landmarkDirection('Jupiter', catalog, t, lat, lon)!;
+    final want = planetHorizontal(Planet.jupiter, t, lat, lon);
+    expect(jupiter.azimuthDeg, want.azimuthDeg);
+    expect(jupiter.altitudeDeg, want.altitudeDeg);
+    final vega = landmarkDirection('Vega', catalog, t, lat, lon)!;
+    expect(vega.altitudeDeg, greaterThan(30)); // high in the west at 8 PM
+    expect(landmarkDirection('the Moon', null, t, lat, lon), isNotNull);
+    expect(landmarkDirection('Vega', null, t, lat, lon), isNull); // stars need the catalogue
+    expect(landmarkDirection('Nowhere', catalog, t, lat, lon), isNull);
+  });
 }

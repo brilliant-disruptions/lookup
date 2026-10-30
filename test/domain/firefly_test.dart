@@ -52,4 +52,38 @@ void main() {
     expect(mid, greaterThan(near));
     expect(fireflyBlink(5), isNull);
   });
+
+  test('the ghost run flies rise to set once, eased, then stops', () {
+    expect(ghostProgress(Duration.zero), 0);
+    expect(ghostProgress(ghostRunLength ~/ 2), closeTo(0.5, 1e-9));
+    expect(ghostProgress(ghostRunLength), isNull);
+    expect(ghostProgress(const Duration(milliseconds: -1)), isNull);
+    var last = -1.0;
+    for (var ms = 0; ms < ghostRunLength.inMilliseconds; ms += 100) {
+      final f = ghostProgress(Duration(milliseconds: ms))!;
+      expect(f, greaterThanOrEqualTo(last));
+      last = f;
+    }
+  });
+
+  test('along the route, the short way round through north', () {
+    const route = [SkyDir(340, 10), SkyDir(20, 50), SkyDir(60, 10)];
+    expect(alongRoute(route, 0).azimuthDeg, 340);
+    expect(alongRoute(route, 1).azimuthDeg, 60);
+    final quarter = alongRoute(route, 0.25);
+    expect(quarter.azimuthDeg, closeTo(0, 1e-9));
+    expect(quarter.elevationDeg, closeTo(30, 1e-9));
+  });
+
+  test('ghost run, then the landmark, then the spot by it; once it is up, only the thing itself', () {
+    FireflyStep step({bool before = true, bool ghost = false, bool lm = true, bool found = false, bool skipped = false}) =>
+        fireflyStep(beforePass: before, ghostRunning: ghost, hasLandmark: lm, landmarkFound: found, skipped: skipped);
+    expect(step(ghost: true), FireflyStep.ghostRun);
+    expect(step(), FireflyStep.findLandmark);
+    expect(step(found: true), FireflyStep.meetingPoint);
+    expect(step(skipped: true), FireflyStep.target);
+    expect(step(lm: false), FireflyStep.target);
+    expect(step(before: false, ghost: true), FireflyStep.target);
+    expect(step(before: false), FireflyStep.target);
+  });
 }

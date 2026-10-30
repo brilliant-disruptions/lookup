@@ -69,3 +69,57 @@ Duration? fireflyBlink(double distanceDeg, {double toleranceDeg = 7}) {
   if (distanceDeg <= toleranceDeg) return null;
   return pulseInterval(distanceDeg, toleranceDeg: toleranceDeg) ?? const Duration(milliseconds: 1300);
 }
+
+/// How long the ghost run takes to fly the whole route.
+const ghostRunLength = Duration(milliseconds: 3600);
+
+/// How far along the route the ghost is [since] its run began (0 at rise,
+/// 1 at set), eased in and out; null before it starts and once it's done.
+double? ghostProgress(Duration since, {Duration length = ghostRunLength}) {
+  if (since.isNegative || since >= length) return null;
+  final x = since.inMicroseconds / length.inMicroseconds;
+  return x < 0.5 ? 2 * x * x : 1 - math.pow(-2 * x + 2, 2).toDouble() / 2;
+}
+
+/// The point [f] of the way along [route] (0 at the first point, 1 at the
+/// last), interpolated the short way round in azimuth.
+SkyDir alongRoute(List<SkyDir> route, double f) {
+  assert(route.isNotEmpty);
+  if (route.length == 1) return route.first;
+  final x = f.clamp(0.0, 1.0) * (route.length - 1);
+  final i = math.min(x.floor(), route.length - 2);
+  final u = x - i;
+  final a = route[i], b = route[i + 1];
+  final az = a.azimuthDeg + azimuthDelta(a.azimuthDeg, b.azimuthDeg) * u;
+  return SkyDir(((az % 360) + 360) % 360, a.elevationDeg + (b.elevationDeg - a.elevationDeg) * u);
+}
+
+/// What the firefly is showing you.
+enum FireflyStep {
+  /// Flying the route once before the pass.
+  ghostRun,
+
+  /// A bright planet or star the pass goes near: find that first.
+  findLandmark,
+
+  /// Then the spot by it where the pass will go.
+  meetingPoint,
+
+  /// The thing itself: where it will rise, or where it is now.
+  target,
+}
+
+/// Before the pass: the ghost run, then the landmark and the spot by it,
+/// then where it rises. Once it's up, always the thing itself.
+FireflyStep fireflyStep({
+  required bool beforePass,
+  required bool ghostRunning,
+  required bool hasLandmark,
+  required bool landmarkFound,
+  bool skipped = false,
+}) {
+  if (!beforePass) return FireflyStep.target;
+  if (ghostRunning) return FireflyStep.ghostRun;
+  if (hasLandmark && !skipped) return landmarkFound ? FireflyStep.meetingPoint : FireflyStep.findLandmark;
+  return FireflyStep.target;
+}

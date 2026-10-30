@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:satellite_observer/satellite_observer.dart';
@@ -16,6 +17,7 @@ import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
 import '../domain/sky/astro.dart';
 import '../domain/sky/direction.dart';
+import '../domain/sky/landmarks.dart';
 import '../domain/sky/wmm.dart';
 import '../services/orientation.dart';
 import '../state/providers.dart';
@@ -122,17 +124,20 @@ class FinderTarget {
 }
 
 class FinderScreen extends ConsumerStatefulWidget {
-  const FinderScreen({super.key, required this.event, this.orientationStream});
+  const FinderScreen({super.key, required this.event, this.orientationStream, this.camera});
   final SkyEvent event;
 
   /// Injected in tests; defaults to the fused rotation sensor.
   final Stream<List<double>>? orientationStream;
 
+  /// Start over the camera; defaults to yes for things tracked live.
+  final bool? camera;
+
   @override
   ConsumerState<FinderScreen> createState() => _FinderState();
 }
 
-class _FinderState extends ConsumerState<FinderScreen> {
+class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProviderStateMixin {
   StreamSubscription<List<double>>? _sub;
   List<double>? _r;
   String? _error;
@@ -142,6 +147,18 @@ class _FinderState extends ConsumerState<FinderScreen> {
   /// Whether it had appeared at the last build; null before the first.
   bool? _wasUp;
   bool _details = false;
+
+  /// The ghost run: the firefly flies the route once before the pass.
+  late final Ticker _ghost = createTicker((elapsed) => setState(() {
+        _ghostSince = elapsed;
+        if (elapsed >= ghostRunLength) _ghost.stop();
+      }));
+  Duration? _ghostSince;
+  bool _ghostStarted = false;
+
+  /// Star-hop: held on the landmark a moment (or skipped it).
+  bool _landmarkFound = false, _skipHop = false;
+  Timer? _landmarkHold;
   late final double _declination;
   FinderTarget? _target;
   double? _previewHeight;
@@ -156,7 +173,7 @@ class _FinderState extends ConsumerState<FinderScreen> {
     _target = FinderTarget(widget.event, latDeg: lat, lonDeg: lon);
     // Things tracked live open over the camera: the path shows through
     // cloud, haze and rooftops.
-    _cameraOn = _target!.isLive;
+    _cameraOn = widget.camera ?? _target!.isLive;
     Stream<List<double>>? stream = widget.orientationStream;
     if (stream == null) {
       try {
@@ -171,9 +188,19 @@ class _FinderState extends ConsumerState<FinderScreen> {
 
   @override
   void dispose() {
+    _landmarkHold?.cancel();
+    _ghost.dispose();
     _sub?.cancel();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
+  }
+
+  late final List<SkyDir> _route = [for (final p in _target!.path) p.d];
+
+  void _replay() {
+    _ghost.stop();
+    setState(() => _ghostSince = Duration.zero);
+    _ghost.start();
   }
 
   @override
@@ -182,12 +209,53 @@ class _FinderState extends ConsumerState<FinderScreen> {
     final target = _target!.at(now);
     final r = _r;
     final camera = r == null ? null : cameraDirection(r, declinationDeg: _declination);
-    final g = camera == null ? null : guide(camera, target);
     final e = widget.event;
     final nowUtc = now.toUtc();
+    final before = nowUtc.isBefore(e.start);
+    final over = !nowUtc.isBefore(e.end);
+
+    // Before a pass, the firefly first flies its route once.
+    if (!_ghostStarted && before && _route.length >= 2 && !MediaQuery.of(context).disableAnimations) {
+      _ghostStarted = true;
+      _ghostSince = Duration.zero;
+      _ghost.start();
+    }
+    final ghostAt = _ghostSince == null ? null : ghostProgress(_ghostSince!);
+
+    // Star-hop: when the pass goes by a bright planet or star, find that
+    // first, then the spot by it where the pass will go.
+    final hop = landmarkPoints(e).firstOrNull;
+    final hopAt = hop == null
+        ? null
+        : landmarkDirection(hop.name, ref.watch(skyCatalogProvider).value, nowUtc, _target!.latDeg, _target!.lonDeg);
+    final step = fireflyStep(
+      beforePass: before,
+      ghostRunning: ghostAt != null && _ghost.isActive,
+      hasLandmark: hop != null && hopAt != null && hopAt.altitudeDeg > 0 && _route.length >= 2,
+      landmarkFound: _landmarkFound,
+      skipped: _skipHop,
+    );
+    final goal = switch (step) {
+      FireflyStep.ghostRun => alongRoute(_route, ghostAt!),
+      FireflyStep.findLandmark => SkyDir(hopAt!.azimuthDeg, hopAt.altitudeDeg),
+      FireflyStep.meetingPoint => alongRoute(_route, hop!.f),
+      FireflyStep.target => target,
+    };
+    final hopName = hop == null ? '' : '${hop.name[0].toUpperCase()}${hop.name.substring(1)}';
+    final hopWhen = hop == null ? null : e.start.add(e.end.difference(e.start) * hop.f);
+    final hopHow = hop == null ? '' : (hop.close ? 'right by' : 'close to');
+
+    final g = camera == null ? null : guide(camera, goal);
     if (g != null && g.onTarget != _wasOnTarget) {
       _wasOnTarget = g.onTarget;
-      if (g.onTarget) HapticFeedback.heavyImpact();
+      _landmarkHold?.cancel();
+      if (g.onTarget && step != FireflyStep.ghostRun) HapticFeedback.heavyImpact();
+    }
+    // On the landmark for a moment: hop to the spot by it.
+    if (step == FireflyStep.findLandmark && (g?.onTarget ?? false) && !(_landmarkHold?.isActive ?? false)) {
+      _landmarkHold = Timer(const Duration(seconds: 1), () {
+        if (mounted) setState(() => _landmarkFound = true);
+      });
     }
     // It appears while the finder is open: one firm buzz.
     final up = !nowUtc.isBefore(e.start);
@@ -198,7 +266,7 @@ class _FinderState extends ConsumerState<FinderScreen> {
     ({double x, double y})? onScreen;
     if (g != null && r != null) {
       if (_cameraOn) {
-        onScreen = projectToScreen(r, target,
+        onScreen = projectToScreen(r, goal,
             declinationDeg: _declination, previewHeightPx: _previewHeight ?? MediaQuery.sizeOf(context).height);
       } else {
         onScreen = (x: g.dAzimuth * 6, y: -g.dElevation * 6);
@@ -206,25 +274,39 @@ class _FinderState extends ConsumerState<FinderScreen> {
     }
     final targetLabel = !_target!.isLive
         ? eventTitle(e)
-        : nowUtc.isBefore(e.start)
+        : before
             ? 'Comes up here ${fmtTime(e.start)}'
-            : nowUtc.isBefore(e.end)
+            : !over
                 ? '${eventTitle(e)} · now'
                 : null;
+    final ghosting = step == FireflyStep.ghostRun;
     Widget? firefly(bool full) => g == null || _cameraOn != full
         ? null
         : FireflyLayer(
             target: onScreen,
             toward: towardOnScreen(g),
-            distanceDeg: g.distanceDeg,
-            onTarget: g.onTarget,
-            label: targetLabel,
+            // A lazy blink while it flies the route; no "you're on it".
+            distanceDeg: ghosting ? 40 : g.distanceDeg,
+            onTarget: !ghosting && g.onTarget,
+            label: switch (step) {
+              FireflyStep.ghostRun => null,
+              FireflyStep.findLandmark => hopName,
+              FireflyStep.meetingPoint => 'Passes here · ${fmtTime(hopWhen!)}',
+              FireflyStep.target => targetLabel,
+            },
           );
-    final status = nowUtc.isBefore(e.start)
-        ? 'Appears in ${fmtCountdown(e.start.difference(nowUtc))}. Point where it will rise.'
-        : nowUtc.isBefore(e.end)
-            ? (_target!.isLive || e.type == SkyEventType.skyObject ? 'Tracking it live' : 'Happening now')
-            : 'That one\'s over';
+    final status = switch (step) {
+      FireflyStep.ghostRun => 'Here\'s the route it will take.',
+      FireflyStep.findLandmark => 'Start from $hopName: it passes $hopHow it at ${fmtTime(hopWhen!)}.',
+      FireflyStep.meetingPoint =>
+        'It passes $hopHow ${hop!.name} here at ${fmtTime(hopWhen!)}. Appears in ${fmtCountdown(e.start.difference(nowUtc))}.',
+      FireflyStep.target => before
+          ? 'Appears in ${fmtCountdown(e.start.difference(nowUtc))}. Point where it will rise.'
+          : !over
+              ? (_target!.isLive || e.type == SkyEventType.skyObject ? 'Tracking it live' : 'Happening now')
+              : 'That one\'s over',
+    };
+    final hopping = step == FireflyStep.findLandmark || step == FireflyStep.meetingPoint;
     final overlay = _cameraOn && r != null
         ? Positioned.fill(
             child: LayoutBuilder(
@@ -289,6 +371,25 @@ class _FinderState extends ConsumerState<FinderScreen> {
                 Text(eventTitle(e), textAlign: TextAlign.center, style: display(28, weight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Text(status, textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.grey, fontSize: 15)),
+                if (hopping)
+                  TextButton(
+                    onPressed: () => setState(() => _skipHop = true),
+                    child: const Text('Go straight to where it rises'),
+                  ),
+                if (_route.length >= 2 && !over)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: RouteMap(
+                      route: _route,
+                      at: ghosting
+                          ? ghostAt
+                          : before
+                              ? null
+                              : nowUtc.difference(e.start).inMilliseconds / e.end.difference(e.start).inMilliseconds,
+                      facingAzimuth: camera?.azimuthDeg,
+                      onReplay: before ? _replay : null,
+                    ),
+                  ),
               ]),
             ),
             Expanded(
@@ -313,7 +414,7 @@ class _FinderState extends ConsumerState<FinderScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
               child: Text(
-                g?.words ?? (_error != null ? 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}' : 'Hold your phone up toward the sky'),
+                (ghosting ? 'Watch the route' : g?.words) ?? (_error != null ? 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}' : 'Hold your phone up toward the sky'),
                 textAlign: TextAlign.center,
                 style: display(28, weight: FontWeight.w700,
                     color: (g?.onTarget ?? false) ? LookUpColors.blue : LookUpColors.white),

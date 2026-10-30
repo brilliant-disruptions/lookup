@@ -10,6 +10,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../domain/finder/firefly.dart';
+import '../domain/finder/pointing.dart';
+import '../domain/sky/direction.dart';
 
 const fireflyWarm = Color(0xFFFFB347);
 const _core = Color(0xFFFFF3D6);
@@ -187,4 +189,122 @@ class _FireflyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FireflyPainter o) => true;
+}
+
+/// The whole route as a small map: the horizon, the arc from where it
+/// rises to where it sets, where the ghost (or the pass) is on it, and which
+/// way you're facing. Tap it to fly the route again.
+class RouteMap extends StatelessWidget {
+  const RouteMap({super.key, required this.route, this.at, this.facingAzimuth, this.onReplay});
+  final List<SkyDir> route;
+
+  /// How far along the route the firefly or the pass is (0…1).
+  final double? at;
+  final double? facingAzimuth;
+  final VoidCallback? onReplay;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: onReplay != null,
+        label: 'The route: rises in the ${compassWord(route.first.azimuthDeg)}, '
+            'sets in the ${compassWord(route.last.azimuthDeg)}. Tap to see it again.',
+        excludeSemantics: true,
+        child: GestureDetector(
+          onTap: onReplay,
+          child: Container(
+            height: 62,
+            decoration: BoxDecoration(
+              color: const Color(0xCC080C1A),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0x1FFFFFFF)),
+            ),
+            child: CustomPaint(painter: _RoutePainter(route, at, facingAzimuth), size: Size.infinite),
+          ),
+        ),
+      );
+}
+
+class _RoutePainter extends CustomPainter {
+  _RoutePainter(this.route, this.at, this.facing);
+  final List<SkyDir> route;
+  final double? at;
+  final double? facing;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Azimuth unrolled along the way it travels, so the arc never jumps.
+    final xs = <double>[0];
+    for (var i = 1; i < route.length; i++) {
+      xs.add(xs.last + azimuthDelta(route[i - 1].azimuthDeg, route[i].azimuthDeg));
+    }
+    final lo = xs.reduce(math.min), hi = xs.reduce(math.max);
+    final span = math.max(hi - lo, 30.0);
+    final mid = (lo + hi) / 2;
+    const padX = 30.0, top = 8.0;
+    final base = size.height - 18;
+    double x(double unrolled) => padX + ((unrolled - mid) / span + 0.5) * (size.width - 2 * padX);
+    double y(double el) => base - (el.clamp(0, 90) / 90) * (base - top);
+
+    canvas.drawLine(Offset(12, base), Offset(size.width - 12, base), Paint()..color = const Color(0x4DFFFFFF));
+    final arc = Path();
+    for (var i = 0; i < route.length; i++) {
+      final p = Offset(x(xs[i]), y(route[i].elevationDeg));
+      i == 0 ? arc.moveTo(p.dx, p.dy) : arc.lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(
+        arc,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..strokeCap = StrokeCap.round
+          ..color = fireflyWarm.withValues(alpha: 0.55));
+
+    void label(String s, double cx) {
+      final tp = TextPainter(
+        text: TextSpan(text: s, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFA0A8B8))),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(cx - tp.width / 2, base + 3));
+    }
+
+    label(compassAbbrev(route.first.azimuthDeg), x(xs.first));
+    label(compassAbbrev(route.last.azimuthDeg), x(xs.last));
+
+    // Which way you're facing, if it's along the route.
+    final f = facing;
+    if (f != null) {
+      final u = azimuthDelta(route.first.azimuthDeg, f);
+      if (u >= lo - 15 && u <= hi + 15) {
+        final cx = x(u).clamp(8.0, size.width - 8);
+        canvas.drawPath(
+            Path()
+              ..moveTo(cx, base - 2)
+              ..lineTo(cx - 5, base + 5)
+              ..lineTo(cx + 5, base + 5)
+              ..close(),
+            Paint()..color = Colors.white);
+      }
+    }
+
+    final a = at;
+    if (a != null) {
+      final i = (a.clamp(0.0, 1.0) * (route.length - 1));
+      final j = math.min(i.floor(), route.length - 2);
+      final u = i - j;
+      final p = Offset(
+        x(xs[j] + (xs[j + 1] - xs[j]) * u),
+        y(route[j].elevationDeg + (route[j + 1].elevationDeg - route[j].elevationDeg) * u),
+      );
+      canvas.drawCircle(
+          p,
+          9,
+          Paint()
+            ..color = fireflyWarm.withValues(alpha: 0.6)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+      canvas.drawCircle(p, 3, Paint()..color = _core);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RoutePainter o) => o.at != at || o.facing != facing || o.route != route;
 }
