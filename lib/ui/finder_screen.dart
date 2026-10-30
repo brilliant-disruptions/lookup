@@ -139,10 +139,8 @@ class _FinderState extends ConsumerState<FinderScreen> {
   bool _wasOnTarget = false;
   bool _cameraOn = false;
 
-  /// Held on the target for a moment: hand off to your eyes.
-  Timer? _holding;
-  bool _lookUp = false;
-  bool _wasUp = false;
+  /// Whether it had appeared at the last build; null before the first.
+  bool? _wasUp;
   bool _details = false;
   late final double _declination;
   FinderTarget? _target;
@@ -173,7 +171,6 @@ class _FinderState extends ConsumerState<FinderScreen> {
 
   @override
   void dispose() {
-    _holding?.cancel();
     _sub?.cancel();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
@@ -188,27 +185,13 @@ class _FinderState extends ConsumerState<FinderScreen> {
     final g = camera == null ? null : guide(camera, target);
     final e = widget.event;
     final nowUtc = now.toUtc();
-    final over = !nowUtc.isBefore(e.end);
     if (g != null && g.onTarget != _wasOnTarget) {
       _wasOnTarget = g.onTarget;
-      _holding?.cancel();
-      if (g.onTarget) {
-        HapticFeedback.heavyImpact();
-        // Held there for a moment: time to look with your eyes.
-        if (!over) {
-          _holding = Timer(const Duration(milliseconds: 1500), () {
-            if (mounted) setState(() => _lookUp = true);
-          });
-        }
-      }
+      if (g.onTarget) HapticFeedback.heavyImpact();
     }
-    // It appears while you're looking up: buzz so you never look back down.
+    // It appears while the finder is open: one firm buzz.
     final up = !nowUtc.isBefore(e.start);
-    if (up && !_wasUp && _lookUp) {
-      HapticFeedback.heavyImpact();
-      Future.delayed(const Duration(milliseconds: 180), HapticFeedback.heavyImpact);
-      Future.delayed(const Duration(milliseconds: 360), HapticFeedback.heavyImpact);
-    }
+    if (up && _wasUp == false) HapticFeedback.heavyImpact();
     _wasUp = up;
     // The firefly's guide: where the target is on screen, and which way to
     // turn when it isn't.
@@ -378,20 +361,6 @@ class _FinderState extends ConsumerState<FinderScreen> {
           ]),
         ),
       ),
-        if (_lookUp)
-          Positioned.fill(
-            child: LookUpNow(
-              headline: 'Look just above where it was pointing.',
-              detail: !up
-                  ? 'It buzzes when it appears · ${fmtTime(e.start)}'
-                  : over
-                      ? 'That one\'s over.'
-                      : 'It\'s up there now.',
-              // Back to guiding; it hands off again only after you leave
-              // the target and find it again.
-              onBack: () => setState(() => _lookUp = false),
-            ),
-          ),
       ]),
     );
   }

@@ -10,7 +10,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../domain/finder/firefly.dart';
-import 'theme.dart';
 
 const fireflyWarm = Color(0xFFFFB347);
 const _core = Color(0xFFFFF3D6);
@@ -188,63 +187,4 @@ class _FireflyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FireflyPainter o) => true;
-}
-
-/// "Lower your phone": once you've held the target, the screen goes dark
-/// red to keep your night vision, and the phone buzzes when it appears.
-class LookUpNow extends StatelessWidget {
-  const LookUpNow({super.key, required this.headline, required this.detail, required this.onBack});
-  final String headline;
-  final String detail;
-  final VoidCallback onBack;
-
-  static const red = Color(0xFFFF5A48);
-
-  @override
-  Widget build(BuildContext context) => ColoredBox(
-        color: const Color(0xFF0E0304),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(children: [
-              const Spacer(flex: 2),
-              const _Ember(),
-              const SizedBox(height: 28),
-              Text('Lower your phone.',
-                  textAlign: TextAlign.center, style: display(30, weight: FontWeight.w700, color: red)),
-              const SizedBox(height: 10),
-              Text(headline,
-                  textAlign: TextAlign.center, style: TextStyle(color: red.withValues(alpha: 0.8), fontSize: 17, height: 1.4)),
-              const SizedBox(height: 18),
-              Text(detail,
-                  textAlign: TextAlign.center, style: TextStyle(color: red.withValues(alpha: 0.55), fontSize: 14)),
-              const Spacer(flex: 3),
-              TextButton(
-                onPressed: onBack,
-                style: TextButton.styleFrom(foregroundColor: red.withValues(alpha: 0.75)),
-                child: const Text('Back to the finder'),
-              ),
-              const SizedBox(height: 12),
-            ]),
-          ),
-        ),
-      );
-}
-
-/// The firefly, now a dim red ember.
-class _Ember extends StatelessWidget {
-  const _Ember();
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [
-            const Color(0xFFFF8A70).withValues(alpha: 0.9),
-            LookUpNow.red.withValues(alpha: 0.35),
-            LookUpNow.red.withValues(alpha: 0),
-          ], stops: const [0, 0.35, 1]),
-        ),
-      );
 }
