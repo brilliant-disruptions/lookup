@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/sky_event.dart';
+import '../domain/scheduling/missed.dart';
 import '../state/providers.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
+import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'plan_screen.dart';
 import 'satellites_screen.dart';
@@ -25,7 +27,9 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
   @override
   Widget build(BuildContext context) {
     final home = ref.watch(homeProvider);
-    final place = ref.watch(settingsProvider).value?.placeName;
+    final settings = ref.watch(settingsProvider).value;
+    final place = settings?.placeName;
+    final isPlus = settings?.isPlus ?? false;
     final top = MediaQuery.paddingOf(context).top + AppHeader.height;
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -41,6 +45,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
           error: (e, _) => Center(child: Text('$e')),
           data: (d) {
             final coming = d.events;
+            final missed = isPlus ? const <SkyEvent>[] : missedWithoutPlus(d.recent);
             return ListView(
               padding: EdgeInsets.fromLTRB(16, top + 14, 16, tabBarClearance(context)),
               children: [
@@ -52,6 +57,14 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                 ),
                 const SizedBox(height: 14),
                 if (_tab == 0) ...[
+                  if (missed.isNotEmpty) ...[
+                    _MissedCard(
+                      missed: missed,
+                      lead: settings?.leadMinutes ?? 10,
+                      next: coming.where((e) => e.plusOnly && e.type.pushes).firstOrNull,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   GroupedList(indent: 64, children: [
                     ListRow(
                       leading: const EventGlyph(icon: Icons.calendar_month_rounded, color: LookUpColors.violet),
@@ -75,11 +88,11 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                   if (coming.isEmpty)
                     const _Empty('Nothing worth stepping out for this week. We\'ll tap you when there is.')
                   else
-                    ..._byNight(coming, past: false),
+                    ..._byNight(coming, past: false, isPlus: isPlus),
                 ] else if (d.recent.isEmpty)
                   const _Empty('Nothing passed over in the last week.')
                 else
-                  ..._byNight(d.recent, past: true),
+                  ..._byNight(d.recent, past: true, isPlus: isPlus),
               ],
             );
           },
@@ -89,7 +102,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
   }
 
   /// Day header, then that day's events on one card.
-  List<Widget> _byNight(List<SkyEvent> events, {required bool past}) {
+  List<Widget> _byNight(List<SkyEvent> events, {required bool past, required bool isPlus}) {
     final groups = <String, List<SkyEvent>>{};
     for (final e in events) {
       groups.putIfAbsent(fmtDay(e.start), () => []).add(e);
@@ -104,7 +117,10 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
             SectionHeader(g.key, padding: const EdgeInsets.fromLTRB(4, 24, 4, 10)),
             GroupedList(indent: 64, children: [
               for (final e in g.value)
-                _EventRow(e, past: past, now: !past && !now.isBefore(e.start) && now.isBefore(e.end)),
+                _EventRow(e,
+                    past: past,
+                    now: !past && !now.isBefore(e.start) && now.isBefore(e.end),
+                    locked: !isPlus && e.plusOnly && e.type.pushes),
             ]),
           ]),
         ),
@@ -113,10 +129,13 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
 }
 
 class _EventRow extends StatelessWidget {
-  const _EventRow(this.e, {required this.past, required this.now});
+  const _EventRow(this.e, {required this.past, required this.now, this.locked = false});
   final SkyEvent e;
   final bool past;
   final bool now;
+
+  /// Plus-only, for someone on free: no tap unless they upgrade.
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +154,59 @@ class _EventRow extends StatelessWidget {
         ] else if (!past && !e.type.pushes) ...[
           const SizedBox(height: 4),
           const Text('No alert', style: TextStyle(fontSize: 11.5, color: LookUpColors.greyDim)),
+        ] else if (!past && locked) ...[
+          const SizedBox(height: 4),
+          const Text('LookUp+', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
         ],
+      ]),
+    );
+  }
+}
+
+/// "You missed it": Plus-only sights that really went over in clear sky
+/// last week, for someone on free. Loss is the honest pitch here, because
+/// every one of these happened.
+class _MissedCard extends StatelessWidget {
+  const _MissedCard({required this.missed, required this.lead, this.next});
+  final List<SkyEvent> missed;
+  final int lead;
+
+  /// The next Plus-only thing coming, for the paywall's headline.
+  final SkyEvent? next;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = missed.length;
+    return GlassCard(
+      tint: LookUpColors.orange,
+      onTap: () => showPaywall(context, reason: next),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Kicker('Last 7 nights', color: LookUpColors.orange),
+        const SizedBox(height: 6),
+        Text(n == 1 ? 'You missed one' : 'You missed $n', style: display(26, weight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        for (final e in missed.take(3))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              EventGlyph.of(e, size: 28),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(pastTitle(e), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+              Text('${fmtDay(e.start)}, ${fmtTime(e.start)}', style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
+            ]),
+          ),
+        const SizedBox(height: 2),
+        Text(
+          'Each under a mostly clear sky over you. LookUp+ would have tapped you $lead minutes before.',
+          style: const TextStyle(color: LookUpColors.grey, height: 1.4),
+        ),
+        const SizedBox(height: 14),
+        FilledButton(
+          onPressed: () => showPaywall(context, reason: next),
+          child: const Text('Don\'t miss the next one'),
+        ),
       ]),
     );
   }
