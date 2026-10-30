@@ -25,6 +25,7 @@ class SkySnapshot extends StatelessWidget {
     this.track = const [],
     this.mark,
     this.tint = const Color(0xFF5AA2FF),
+    this.labels = const [],
   });
 
   final SkyCatalog catalog;
@@ -40,6 +41,9 @@ class SkySnapshot extends StatelessWidget {
   /// Something to ring when there's no track (a planet pairing, the Moon).
   final Horizontal? mark;
   final Color tint;
+
+  /// Names to write beside things in the frame ("Vega", "Jupiter").
+  final List<(String, Horizontal)> labels;
 
   @override
   Widget build(BuildContext context) => CustomPaint(
@@ -134,6 +138,19 @@ class _SnapshotPainter extends CustomPainter {
       paintMoonPhase(canvas, mp, moonIllumination(w.utc), dir, r: 8);
     }
 
+    for (final (name, h) in w.labels) {
+      if (o(h) case final p? when bounds.contains(p)) {
+        canvas.drawCircle(
+            p,
+            7,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.2
+              ..color = Colors.white70);
+        _label(canvas, name, p + const Offset(4, 0));
+      }
+    }
+
     // The pass itself: a glow, the line, its peak, and which way it went.
     final path = [for (final h in w.track) if (h.altitudeDeg >= 0) o(h)].nonNulls.toList();
     if (path.length > 1) {
@@ -185,6 +202,18 @@ class _SnapshotPainter extends CustomPainter {
               ..color = w.tint);
       }
     }
+  }
+
+  static void _label(Canvas canvas, String text, Offset at) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+            fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white, shadows: [Shadow(blurRadius: 4, color: Colors.black)]),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, at + const Offset(7, -7) - Offset(0, tp.height / 2));
   }
 
   @override

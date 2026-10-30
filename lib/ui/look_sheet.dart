@@ -8,12 +8,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/local_store.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/sky/direction.dart';
+import '../domain/sky/landmarks.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
+import '../state/sky_state.dart';
 import 'calendar.dart';
 import 'finder_screen.dart';
 import 'photo_tips.dart';
 import 'share_card.dart';
+import 'sky/sky_track.dart';
+import 'sky_snapshot.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
@@ -165,6 +169,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               textAlign: TextAlign.center,
               style: t.bodyLarge,
             ),
+            if (isPass) _Landmarks(event: event),
             if (isTransit && ((event.details['travelKm'] as num?) ?? 0) >= 0.5 && !over)
               Padding(
                 padding: const EdgeInsets.only(top: 14),
@@ -424,4 +429,79 @@ Future<void> openDirections(double lat, double lon) async {
   try {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   } catch (_) {}
+}
+
+/// Find it by what's there: the bright stars, planets and Moon the pass
+/// really goes near, in words and drawn on the real sky.
+class _Landmarks extends ConsumerStatefulWidget {
+  const _Landmarks({required this.event});
+  final SkyEvent event;
+  @override
+  ConsumerState<_Landmarks> createState() => _LandmarksState();
+}
+
+class _LandmarksState extends ConsumerState<_Landmarks> {
+  // The sheet rebuilds every second for its countdown; the sky doesn't need to.
+  Object? _key;
+  Widget _built = const SizedBox.shrink();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(settingsProvider).value;
+    final catalog = ref.watch(skyCatalogProvider).value;
+    final lat = s?.latitude, lon = s?.longitude;
+    final key = (widget.event.id, lat, lon, catalog);
+    if (key == _key) return _built;
+    _key = key;
+    if (lat == null || lon == null || catalog == null || catalog.stars.isEmpty) {
+      return _built = const SizedBox.shrink();
+    }
+    final e = widget.event;
+    final track = passTrack(e, lat, lon);
+    final marks = landmarksAlong(
+      track: [for (final p in track.points) (t: p.t, h: p.h)],
+      catalog: catalog,
+      lat: lat,
+      lon: lon,
+    );
+    final words = landmarkWords(marks);
+    if (words == null) return _built = const SizedBox.shrink();
+    return _built = Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(
+          'Look for it $words.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: LookUpColors.blue, height: 1.35),
+        ),
+        const SizedBox(height: 12),
+        AspectRatio(
+          aspectRatio: 16 / 10,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(Radii.md),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [LookUpColors.black, LookUpColors.night],
+                ),
+              ),
+              child: SkySnapshot(
+                catalog: catalog,
+                utc: e.peak.toUtc(),
+                lat: lat,
+                lon: lon,
+                centerAz: e.peakAzimuthDeg,
+                centerAlt: (e.peakElevationDeg * 0.55).clamp(12.0, 50.0),
+                track: [for (final p in track.points) p.h],
+                tint: track.color,
+                labels: [for (final m in marks) (m.name == 'the Moon' ? 'Moon' : m.name, m.position)],
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
 }
