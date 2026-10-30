@@ -8,7 +8,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_rotation_sensor/flutter_rotation_sensor.dart';
 import 'package:satellite_observer/satellite_observer.dart';
 
 import '../domain/finder/pointing.dart';
@@ -17,6 +16,7 @@ import '../domain/orbit/omm.dart';
 import '../domain/sky/astro.dart';
 import '../domain/sky/direction.dart';
 import '../domain/sky/wmm.dart';
+import '../services/orientation.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'finder_camera.dart';
@@ -90,7 +90,7 @@ class FinderTarget {
         }
         final ra = event.details['ra'], dec = event.details['dec'];
         if (ra is num && dec is num) {
-          final h = toHorizontal(Equatorial(ra.toDouble(), dec.toDouble(), 1), u, latDeg, lonDeg);
+          final h = catalogHorizontal(ra.toDouble(), dec.toDouble(), u, latDeg, lonDeg);
           return SkyDir(h.azimuthDeg, h.altitudeDeg);
         }
         return SkyDir(event.peakAzimuthDeg, event.peakElevationDeg);
@@ -149,18 +149,13 @@ class _FinderState extends ConsumerState<FinderScreen> {
     final lat = s?.latitude ?? 0, lon = s?.longitude ?? 0;
     _declination = declinationDeg(lat, lon, DateTime.now().toUtc());
     _target = FinderTarget(widget.event, latDeg: lat, lonDeg: lon);
+    // Things tracked live open over the camera: the path shows through
+    // cloud, haze and rooftops.
+    _cameraOn = _target!.isLive;
     Stream<List<double>>? stream = widget.orientationStream;
     if (stream == null) {
       try {
-        if (RotationSensor.isPlatformSupported) {
-          RotationSensor.samplingPeriod = SensorInterval.uiInterval;
-          RotationSensor.referenceFrame = ReferenceFrame.magneticNorth;
-          RotationSensor.coordinateSystem = CoordinateSystem.device();
-          stream = RotationSensor.orientationStream.map((e) {
-            final m = e.rotationMatrix;
-            return [m.a, m.b, m.c, m.d, m.e, m.f, m.g, m.h, m.i];
-          });
-        }
+        stream = deviceRotation();
       } catch (e) {
         _error = '$e';
       }
@@ -209,6 +204,13 @@ class _FinderState extends ConsumerState<FinderScreen> {
                   r: r,
                   declinationDeg: _declination,
                   target: target,
+                  targetLabel: !_target!.isLive
+                      ? null
+                      : nowUtc.isBefore(e.start)
+                          ? 'Comes up here ${fmtTime(e.start)}'
+                          : nowUtc.isBefore(e.end)
+                              ? '${eventTitle(e)} · now'
+                              : null,
                   path: _target!.path,
                   now: nowUtc,
                   onTarget: g?.onTarget ?? false,
@@ -310,10 +312,15 @@ class _FinderState extends ConsumerState<FinderScreen> {
                 child: Text('No motion sensor here, so use the directions above.',
                     textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
               ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 0, 24, 16),
-              child: Text('Tip: wave the phone in a figure-8 once to calibrate the compass.',
-                  textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: Text(
+                  _cameraOn
+                      ? 'Cloud or a roof in the way? The line still shows where it is. '
+                          'Wave the phone in a figure-8 if it drifts.'
+                      : 'Tip: wave the phone in a figure-8 once to calibrate the compass.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
             ),
           ]),
         ),

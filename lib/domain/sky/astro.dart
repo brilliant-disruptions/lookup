@@ -217,6 +217,26 @@ double localSiderealDeg(DateTime utc, double lonDeg) {
   return _rev(gmst0 + hours * 15.04107 + lonDeg);
 }
 
+/// J2000 catalogue coordinates moved to the equator and equinox of [utc]
+/// (IAU 1976 precession, Meeus ch. 21): about 1.4° a century, so it's what
+/// lets the stars sit right on a date centuries away. Proper motion is not
+/// applied (under 0.3° for any bright star within 400 years of 2000).
+Equatorial precessFromJ2000(double raDeg, double decDeg, DateTime utc) {
+  final t = (dayNumber(utc) - 1.5) / 36525; // Julian centuries from J2000.0
+  final zeta = (2306.2181 * t + 0.30188 * t * t + 0.017998 * t * t * t) / 3600;
+  final z = (2306.2181 * t + 1.09468 * t * t + 0.018203 * t * t * t) / 3600;
+  final theta = (2004.3109 * t - 0.42665 * t * t - 0.041833 * t * t * t) / 3600;
+  final a = _cosd(decDeg) * _sind(raDeg + zeta);
+  final b = _cosd(theta) * _cosd(decDeg) * _cosd(raDeg + zeta) - _sind(theta) * _sind(decDeg);
+  final c = _sind(theta) * _cosd(decDeg) * _cosd(raDeg + zeta) + _cosd(theta) * _sind(decDeg);
+  return Equatorial(_rev(_atan2d(a, b) + z), math.asin(c.clamp(-1.0, 1.0)) * _r2d, 1);
+}
+
+/// Where a J2000 catalogue position (a star, a constellation, a showpiece)
+/// is in your sky at [utc].
+Horizontal catalogHorizontal(double raDeg, double decDeg, DateTime utc, double latDeg, double lonDeg) =>
+    toHorizontal(precessFromJ2000(raDeg, decDeg, utc), utc, latDeg, lonDeg);
+
 Horizontal toHorizontal(Equatorial eq, DateTime utc, double latDeg, double lonDeg) {
   final ha = localSiderealDeg(utc, lonDeg) - eq.raDeg;
   final x = _cosd(ha) * _cosd(eq.decDeg);

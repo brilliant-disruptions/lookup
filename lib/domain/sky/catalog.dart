@@ -1,6 +1,6 @@
 /// The fixed sky: naked-eye stars, the 88 constellations and a handful of
-/// showpieces worth stepping out for. Positions are J2000 (precession moves
-/// them ~0.4° by 2026: invisible at this scale).
+/// showpieces worth stepping out for. Positions are J2000, precessed to the
+/// date when placed in the sky ([catalogHorizontal]).
 ///
 /// Star and constellation data: d3-celestial (c) Olaf Frohn, BSD-3-Clause,
 /// from Hipparcos / the Yale Bright Star Catalog (assets/sky/).
@@ -20,7 +20,7 @@ class Star {
   final String? name;
 
   Horizontal horizontal(DateTime utc, double lat, double lon) =>
-      toHorizontal(Equatorial(raDeg, decDeg, 1), utc, lat, lon);
+      catalogHorizontal(raDeg, decDeg, utc, lat, lon);
 }
 
 class Constellation {
@@ -48,7 +48,7 @@ class Constellation {
   final List<List<(double, double)>> lines;
 
   Horizontal center(DateTime utc, double lat, double lon) =>
-      toHorizontal(Equatorial(centerRaDeg, centerDecDeg, 1), utc, lat, lon);
+      catalogHorizontal(centerRaDeg, centerDecDeg, utc, lat, lon);
 }
 
 class SkyCatalog {
@@ -122,7 +122,7 @@ class Showpiece {
   final bool diffuse;
 
   Horizontal horizontal(DateTime utc, double lat, double lon) =>
-      toHorizontal(Equatorial(raDeg, decDeg, 1), utc, lat, lon);
+      catalogHorizontal(raDeg, decDeg, utc, lat, lon);
 }
 
 const showpieces = <Showpiece>[

@@ -26,7 +26,7 @@ class ObjectSheet extends ConsumerStatefulWidget {
   const ObjectSheet({super.key, required this.thing, this.at});
   final SkyThing thing;
 
-  /// A later moment the sky map was moved to: answer for then, not now.
+  /// Another moment the sky map was moved to: answer for then, not now.
   final DateTime? at;
   @override
   ConsumerState<ObjectSheet> createState() => _ObjectSheetState();
@@ -55,23 +55,30 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
     final sight = t.sighting;
     // Looking ahead: where it'll be then, and the sky's verdict for then.
     final at = widget.at?.toUtc();
-    final then = at != null && at.difference(now) > const Duration(minutes: 10) && s?.latitude != null ? at : null;
+    final then = at != null && at.difference(now).abs() > const Duration(minutes: 10) && s?.latitude != null ? at : null;
     final hThen = then == null ? null : t.position(then);
+    final weather = ref.watch(weatherProvider).value;
     final vThen = then == null
         ? null
         : canSee(
             altDeg: hThen!.altitudeDeg,
             mag: t.mag,
             diffuse: t.diffuse,
-            c: SkyConditions.at(then, s!.latitude!, s.longitude!, weather: ref.watch(weatherProvider).value),
+            c: SkyConditions.at(then, s!.latitude!, s.longitude!, weather: weather),
             darkness: s.skyDarkness,
           );
+    // Outside the forecast nobody knows the clouds: never a plain yes then.
+    final thenWords = vThen == null
+        ? null
+        : vThen.yes && weather?.sampleAt(then!) == null
+            ? 'Up then, if it\'s clear'
+            : vThen.words;
     final hUp = hThen != null && hThen.altitudeDeg > 0 ? hThen : null;
     final upThen = hUp != null;
     final az = hUp?.azimuthDeg ?? (upNow ? h.azimuthDeg : (sight?.azDeg ?? h.azimuthDeg));
     final alt = hUp?.altitudeDeg ?? (upNow ? h.altitudeDeg : (sight?.altDeg ?? 0));
     final headline = then != null
-        ? 'At ${fmtTime(then)}'
+        ? 'At ${fmtMoment(then)}'
         : t.whyNot != null
             ? 'Not tonight'
             : sight == null
@@ -107,7 +114,7 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Wrap(spacing: 6, runSpacing: 6, children: [
-                Pill(vThen.words, dot: true, color: verdictColor(vThen)),
+                Pill(thenWords!, dot: true, color: thenWords == vThen.words ? verdictColor(vThen) : LookUpColors.warn),
                 if (sight != null && sight.verdict.yes && t.whyNot == null)
                   Pill('Tonight: best ${fmtTime(sight.best)}', color: LookUpColors.grey),
               ]),
@@ -134,7 +141,7 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
             Center(child: CompassArrow(azimuthDeg: az, size: 150)),
             const SizedBox(height: 10),
             Text(
-              '${then != null ? 'At ${fmtTime(then)}' : upNow ? 'Now' : 'At ${fmtTime(sight!.best)}'}: look ${compassWord(az)}, ${elevationWord(alt)}.',
+              '${then != null ? 'At ${fmtMoment(then)}' : upNow ? 'Now' : 'At ${fmtTime(sight!.best)}'}: look ${compassWord(az)}, ${elevationWord(alt)}.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge,
             ),

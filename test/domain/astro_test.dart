@@ -46,4 +46,19 @@ void main() {
     expect(h.altitudeDeg, closeTo(36.17, 0.05));
     expect(h.azimuthDeg % 360, anyOf(closeTo(0, 1), closeTo(360, 1)));
   });
+
+  test('precession carries J2000 stars to their place on other dates', () {
+    // Meeus, Astronomical Algorithms, example 21.b: θ Persei (J2000, with
+    // its proper motion already applied) to 2028 Nov 13.19.
+    final p = precessFromJ2000(41.054063, 49.227750, DateTime.utc(2028, 11, 13, 4, 33, 36));
+    expect(p.raDeg, closeTo(41.547214, 0.001));
+    expect(p.decDeg, closeTo(49.348483, 0.001));
+    // Polaris creeps to within 0.45° of the pole around 2100 (Meeus ch. 21;
+    // its proper motion, not applied here, adds another 0.007°).
+    expect(precessFromJ2000(37.954561, 89.264109, DateTime.utc(2100, 3, 24)).decDeg, closeTo(89.547, 0.02));
+    // At J2000 itself nothing moves.
+    final j = precessFromJ2000(100, -20, DateTime.utc(2000, 1, 1, 12));
+    expect(j.raDeg, closeTo(100, 1e-6));
+    expect(j.decDeg, closeTo(-20, 1e-6));
+  });
 }

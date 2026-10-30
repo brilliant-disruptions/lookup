@@ -5,6 +5,13 @@ import '../domain/sky/direction.dart';
 
 String fmtTime(DateTime utc) => DateFormat.jm().format(utc.toLocal());
 
+/// "9:00 PM" today; with the date on any other day: "Mar 3, 1610, 9:00 PM".
+String fmtMoment(DateTime utc) {
+  final l = utc.toLocal(), n = DateTime.now();
+  if (l.year == n.year && l.month == n.month && l.day == n.day) return fmtTime(utc);
+  return '${DateFormat.yMMMd().format(l)}, ${fmtTime(utc)}';
+}
+
 /// To the second, for transits that last under one.
 String fmtTimeSeconds(DateTime utc) => DateFormat.jms().format(utc.toLocal());
 

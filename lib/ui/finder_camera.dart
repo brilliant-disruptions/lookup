@@ -101,22 +101,37 @@ class _CameraBackdropState extends State<CameraBackdrop> with WidgetsBindingObse
   }
 }
 
+/// A pass drawn over the camera: its track with minute marks and, while
+/// it's up, where it is now.
+typedef OverlayTrack = ({String label, List<({DateTime t, SkyDir d})> path, SkyDir? now, Color color});
+
+/// A planet, the Moon or a showpiece, labelled where it sits.
+typedef OverlayMark = ({String label, SkyDir d, bool bright});
+
 /// The pass's track with minute marks, where it is now, the target ring
 /// and the horizon's compass points, all projected onto the camera view.
+/// Clouds, roofs and trees don't hide any of it.
 class SkyOverlayPainter extends CustomPainter {
   SkyOverlayPainter({
     required this.r,
     required this.declinationDeg,
-    required this.target,
-    required this.path,
+    this.target,
+    this.targetLabel,
+    this.path = const [],
     required this.now,
-    required this.onTarget,
+    this.onTarget = false,
     required this.previewHeightPx,
     this.labelStyle = const TextStyle(),
     this.catalog,
     this.latDeg = 0,
     this.lonDeg = 0,
+    this.tracks = const [],
+    this.marks = const [],
   });
+
+  /// Everything else up there, for the whole-sky camera view.
+  final List<OverlayTrack> tracks;
+  final List<OverlayMark> marks;
 
   /// When set, the real stars and constellation figures are drawn too.
   final SkyCatalog? catalog;
@@ -126,7 +141,10 @@ class SkyOverlayPainter extends CustomPainter {
   final TextStyle labelStyle;
   final List<double> r;
   final double declinationDeg;
-  final SkyDir target;
+
+  /// The one thing being found, ringed, with its name above the ring.
+  final SkyDir? target;
+  final String? targetLabel;
   final List<({DateTime t, SkyDir d})> path;
   final DateTime now;
   final bool onTarget;
@@ -149,7 +167,7 @@ class SkyOverlayPainter extends CustomPainter {
         ..color = LookUpColors.blue.withValues(alpha: 0.45)
         ..strokeWidth = 1.2;
       Offset? eq(double ra, double dec) {
-        final h = toHorizontal(Equatorial(ra, dec, 1), now, latDeg, lonDeg);
+        final h = catalogHorizontal(ra, dec, now, latDeg, lonDeg);
         return _at(size, SkyDir(h.azimuthDeg, h.altitudeDeg));
       }
 
@@ -193,35 +211,49 @@ class SkyOverlayPainter extends CustomPainter {
       _label(canvas, compassAbbrev(az.toDouble()), p + const Offset(0, 12), Colors.white.withValues(alpha: 0.8), 13);
     }
 
-    // The pass: past part dim, future part bright, minute ticks with times.
-    if (path.length > 1) {
-      final past = Paint()
-        ..color = LookUpColors.blue.withValues(alpha: 0.35)
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round;
-      final ahead = Paint()
-        ..color = LookUpColors.blue
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round;
-      for (var i = 1; i < path.length; i++) {
-        final a = _at(size, path[i - 1].d), b = _at(size, path[i].d);
-        if (a == null || b == null || (b - a).distance > size.width) continue;
-        canvas.drawLine(a, b, path[i].t.isBefore(now) ? past : ahead);
+    // Planets, the Moon and showpieces.
+    for (final m in marks) {
+      final o = _at(size, m.d);
+      if (o == null) continue;
+      if (m.bright) {
+        canvas.drawCircle(
+            o,
+            10,
+            Paint()
+              ..color = LookUpColors.gold.withValues(alpha: 0.45)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+        canvas.drawCircle(o, 4.5, Paint()..color = const Color(0xFFFFF2C8));
+      } else {
+        canvas.drawCircle(
+            o,
+            6,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.4
+              ..color = Colors.white70);
       }
-      int? lastMinute;
-      for (final p in path) {
-        final minute = p.t.toLocal().minute;
-        if (minute == lastMinute) continue;
-        lastMinute = minute;
-        final o = _at(size, p.d);
-        if (o == null) continue;
-        canvas.drawCircle(o, 3.5, Paint()..color = Colors.white);
-        _label(canvas, fmtTime(p.t), o + const Offset(0, -16), Colors.white, 11);
+      _label(canvas, m.label, o + const Offset(0, 18), Colors.white, 12);
+    }
+
+    // The passes: past part dim, future part bright, minute ticks with
+    // times, and a dot where each one is now.
+    _paintPath(canvas, size, path, LookUpColors.blue);
+    for (final tr in tracks) {
+      _paintPath(canvas, size, tr.path, tr.color);
+      final first = tr.path.map((p) => _at(size, p.d)).nonNulls.firstOrNull;
+      final live = tr.now == null ? null : _at(size, tr.now!);
+      if (live != null) {
+        canvas.drawCircle(live, 16, Paint()..color = tr.color.withValues(alpha: 0.35));
+        canvas.drawCircle(live, 6, Paint()..color = Colors.white);
+        _label(canvas, '${tr.label} · now', live + const Offset(0, -28), Colors.white, 13);
+      } else if (first != null) {
+        _label(canvas, tr.label, first + const Offset(0, 18), tr.color, 12);
       }
     }
 
     // Target: where it is now (or will appear).
-    final t = _at(size, target);
+    final target = this.target;
+    final t = target == null ? null : _at(size, target);
     if (t != null) {
       canvas.drawCircle(t, 26, Paint()..color = LookUpColors.blue.withValues(alpha: 0.25));
       canvas.drawCircle(t, 26,
@@ -230,6 +262,7 @@ class SkyOverlayPainter extends CustomPainter {
             ..strokeWidth = onTarget ? 3 : 2
             ..color = onTarget ? LookUpColors.blue : Colors.white);
       canvas.drawCircle(t, 6, Paint()..color = Colors.white);
+      if (targetLabel case final l?) _label(canvas, l, t + const Offset(0, -40), Colors.white, 13);
     }
 
     // Centre crosshair.
@@ -239,6 +272,33 @@ class SkyOverlayPainter extends CustomPainter {
       ..strokeWidth = 1.2;
     canvas.drawLine(c - const Offset(14, 0), c + const Offset(14, 0), cross);
     canvas.drawLine(c - const Offset(0, 14), c + const Offset(0, 14), cross);
+  }
+
+  void _paintPath(Canvas canvas, Size size, List<({DateTime t, SkyDir d})> path, Color color) {
+    if (path.length < 2) return;
+    final past = Paint()
+      ..color = color.withValues(alpha: 0.35)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    final ahead = Paint()
+      ..color = color
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    for (var i = 1; i < path.length; i++) {
+      final a = _at(size, path[i - 1].d), b = _at(size, path[i].d);
+      if (a == null || b == null || (b - a).distance > size.width) continue;
+      canvas.drawLine(a, b, path[i].t.isBefore(now) ? past : ahead);
+    }
+    int? lastMinute;
+    for (final p in path) {
+      final minute = p.t.toLocal().minute;
+      if (minute == lastMinute) continue;
+      lastMinute = minute;
+      final o = _at(size, p.d);
+      if (o == null) continue;
+      canvas.drawCircle(o, 3.5, Paint()..color = Colors.white);
+      _label(canvas, fmtTime(p.t), o + const Offset(0, -16), Colors.white, 11);
+    }
   }
 
   void _label(Canvas canvas, String text, Offset at, Color color, double size) {

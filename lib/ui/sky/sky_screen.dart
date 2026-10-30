@@ -13,6 +13,7 @@ import '../places_screen.dart';
 import '../theme.dart';
 import 'night_strip.dart';
 import 'object_sheet.dart';
+import 'sky_camera_screen.dart';
 import 'sky_dome.dart';
 import 'sky_panorama.dart';
 import 'sky_thing.dart';
@@ -28,13 +29,39 @@ class SkyScreen extends ConsumerStatefulWidget {
 
 class _SkyScreenState extends ConsumerState<SkyScreen> {
   int _tab = 0;
+
+  /// What the camera view would show, from the last build.
+  ({List<SkyThing> things, List<SkyTrack> tracks, DateTime? time})? _camera;
+
+  void _openCamera() {
+    final c = _camera;
+    if (c == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set a location to see your sky.')));
+      return;
+    }
+    openSkyCamera(context, things: c.things, tracks: c.tracks, time: c.time);
+  }
+
+  Future<void> _pickDate(DateTime now, DateTime at) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: at.isBefore(_firstDay) || at.isAfter(_lastDay) ? now : at,
+      firstDate: _firstDay,
+      lastDate: _lastDay,
+      helpText: 'See the sky on',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _days = _daysBetween(now, picked).clamp(_minDays(now), _maxDays(now)));
+  }
   String? _selected;
 
   /// The round whole-sky map instead of the horizon view.
   bool _whole = false;
 
-  /// How far ahead the map is looking, in minutes (0 = live).
-  double _ahead = 0;
+  /// How far the map is moved from now: whole days (the date buttons) plus
+  /// up to 12 hours either way (the slider). Both zero = live.
+  int _days = 0;
+  double _minutes = 0;
 
   /// Tracks are worked out once per pass and place, not on every tick.
   final _tracks = <String, SkyTrack>{};
@@ -46,8 +73,9 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     final sky = ref.watch(tonightSkyProvider);
     final catalog = ref.watch(skyCatalogProvider).value;
     final now = ref.watch(minuteProvider).value ?? DateTime.now();
-    final later = _ahead > 0;
-    final at = now.add(Duration(minutes: _ahead.round()));
+    final offset = Duration(days: _days, minutes: _minutes.round());
+    final later = offset != Duration.zero;
+    final at = now.add(offset);
     final top = MediaQuery.paddingOf(context).top + AppHeader.height;
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -57,6 +85,11 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
         onPlaceTap: () => openPlaces(context),
         actions: [
           const NightVisionButton(),
+          CircleButton(
+            tooltip: 'Sky through your camera',
+            icon: Icons.photo_camera_rounded,
+            onPressed: _openCamera,
+          ),
           CircleButton(
             tooltip: _whole ? 'Horizon view' : 'Whole sky',
             icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
@@ -100,6 +133,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
               ? skyWords(SkyConditions.at(at.toUtc(), lat, lon, weather: ref.watch(weatherProvider).value))
               : null;
           void openPass(SkyEvent e) => showLookSheet(context, e);
+          _camera = (things: [moon, ...planets, ...shows], tracks: tracks, time: later ? at : null);
 
           final list = switch (_tab) { 0 => planets, 1 => cons, _ => shows };
           return ListView(
@@ -138,12 +172,12 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                   padding: const EdgeInsets.only(top: 6),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     later
-                        ? const Kicker('Later', color: LookUpColors.blue)
+                        ? Kicker(offset.isNegative ? 'Earlier' : 'Later', color: LookUpColors.blue)
                         : const Kicker('Live', color: LookUpColors.good, live: true),
                     Flexible(
                       child: Text(
                           later
-                              ? '  ${fmtTime(at.toUtc())} · in ${_hoursWord(_ahead.round())}'
+                              ? '  ${fmtMoment(at.toUtc())}${offset.inMinutes.abs() < 24 * 60 ? ' · ${_offsetWord(offset)}' : ''}'
                               : '  ${fmtTime(now.toUtc())} · tap anything to open it',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -152,9 +186,16 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                   ]),
                 ),
               ),
-              _LookAhead(
-                minutes: _ahead,
-                onChanged: (m) => setState(() => _ahead = m),
+              _TimeTravel(
+                minutes: _minutes,
+                onMinutes: (m) => setState(() => _minutes = m),
+                onDays: (d) => setState(() => _days = d.clamp(_minDays(now), _maxDays(now))),
+                days: _days,
+                onNow: () => setState(() {
+                  _days = 0;
+                  _minutes = 0;
+                }),
+                onPickDate: () => _pickDate(now, at),
                 skyThen: skyThen,
                 at: at,
               ),
@@ -218,50 +259,93 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
   }
 }
 
-/// "45 min", "3 h", "7 h 30 min".
-String _hoursWord(int minutes) {
-  final h = minutes ~/ 60, m = minutes % 60;
-  if (h == 0) return '$m min';
-  return m == 0 ? '$h h' : '$h h $m min';
+/// "in 45 min", "in 7 h 30 min", "3 h ago".
+String _offsetWord(Duration d) {
+  final total = d.inMinutes.abs(), h = total ~/ 60, m = total % 60;
+  final span = h == 0 ? '$m min' : (m == 0 ? '$h h' : '$h h $m min');
+  return d.isNegative ? '$span ago' : 'in $span';
 }
 
-/// Slide the map up to ten hours ahead ("cloudy now, but clear at 3 AM:
-/// will Saturn be up then?"), with the forecast sky for that moment.
-class _LookAhead extends StatelessWidget {
-  const _LookAhead({required this.minutes, required this.onChanged, required this.at, this.skyThen});
+/// How far the date buttons go: the years 1600 to 2400. Wider needs the
+/// Julian calendar, ΔT and proper motion, which the sky maths leaves out.
+final _firstDay = DateTime(1600), _lastDay = DateTime(2400, 12, 31);
+int _daysBetween(DateTime a, DateTime b) =>
+    (DateTime(b.year, b.month, b.day).difference(DateTime(a.year, a.month, a.day)).inHours / 24).round();
+int _minDays(DateTime now) => _daysBetween(now, _firstDay) + 1;
+int _maxDays(DateTime now) => _daysBetween(now, _lastDay) - 1;
+
+/// Move the map through time: the slider for tonight ("cloudy now, but
+/// clear at 3 AM: will Saturn be up then?"), a day at a time either way, or
+/// any date from 1600 to 2400. Says the forecast sky when there is one.
+class _TimeTravel extends StatelessWidget {
+  const _TimeTravel({
+    required this.minutes,
+    required this.onMinutes,
+    required this.days,
+    required this.onDays,
+    required this.onNow,
+    required this.onPickDate,
+    required this.at,
+    this.skyThen,
+  });
   final double minutes;
-  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onMinutes;
+  final int days;
+  final ValueChanged<int> onDays;
+  final VoidCallback onNow;
+  final VoidCallback onPickDate;
   final DateTime at;
   final String? skyThen;
 
-  static const max = 600.0;
+  static const span = 720.0; // 12 h either way
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-              child: Slider(
-                value: minutes,
-                max: max,
-                divisions: (max / 15).round(),
-                label: minutes == 0 ? 'Now' : fmtTime(at.toUtc()),
-                semanticFormatterCallback: (_) => minutes == 0 ? 'Now' : 'At ${fmtTime(at.toUtc())}',
-                onChanged: onChanged,
-              ),
-            ),
-            TextButton(onPressed: minutes == 0 ? null : () => onChanged(0), child: const Text('Now')),
-          ]),
-          Text(
-            skyThen == null
-                ? 'Slide to see the sky up to 10 hours from now.'
-                : 'Sky at ${fmtTime(at.toUtc())}: ${skyThen!.toLowerCase()}. Tap anything to see if you could spot it then.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: skyThen == null ? LookUpColors.greyDim : LookUpColors.grey, fontSize: 12.5, height: 1.4),
+  Widget build(BuildContext context) {
+    final live = minutes == 0 && days == 0;
+    const small = TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Slider(
+          value: minutes,
+          min: -span,
+          max: span,
+          divisions: (2 * span / 15).round(),
+          label: live ? 'Now' : fmtMoment(at.toUtc()),
+          semanticFormatterCallback: (_) => live ? 'Now' : 'At ${fmtMoment(at.toUtc())}',
+          onChanged: onMinutes,
+        ),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          TextButton.icon(
+            onPressed: () => onDays(days - 1),
+            icon: const Icon(Icons.chevron_left_rounded, size: 18),
+            label: const Text('Day', style: small),
           ),
+          TextButton.icon(
+            onPressed: onPickDate,
+            icon: const Icon(Icons.calendar_month_rounded, size: 18),
+            label: const Text('Date', style: small),
+          ),
+          TextButton(
+            onPressed: () => onDays(days + 1),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('Day', style: small),
+              SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, size: 18),
+            ]),
+          ),
+          TextButton(onPressed: live ? null : onNow, child: const Text('Now', style: small)),
         ]),
-      );
+        Text(
+          skyThen == null
+              ? 'Slide through tonight, or step to any date from 1600 to 2400.'
+              : 'Sky at ${fmtMoment(at.toUtc())}: ${skyThen!.toLowerCase()}. Tap anything to see if you could spot it then.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: skyThen == null ? LookUpColors.greyDim : LookUpColors.grey, fontSize: 12.5, height: 1.4),
+        ),
+      ]),
+    );
+  }
 }
 
 class _Row extends StatelessWidget {
