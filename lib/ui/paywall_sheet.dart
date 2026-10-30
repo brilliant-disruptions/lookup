@@ -397,7 +397,7 @@ class _TrialTimeline extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(color: LookUpColors.glass, borderRadius: BorderRadius.circular(Radii.md)),
       child: Column(children: [
-        for (final (i, (icon, when, what)) in steps.indexed)
+        for (final (i, (icon, step, what)) in steps.indexed)
           Padding(
             padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -405,7 +405,7 @@ class _TrialTimeline extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text.rich(TextSpan(children: [
-                  TextSpan(text: '$when  ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(text: '$step  ', style: const TextStyle(fontWeight: FontWeight.w700)),
                   TextSpan(text: what, style: const TextStyle(color: LookUpColors.grey)),
                 ]), style: const TextStyle(fontSize: 13.5, height: 1.35)),
               ),
