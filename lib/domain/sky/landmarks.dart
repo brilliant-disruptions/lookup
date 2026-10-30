@@ -135,3 +135,13 @@ List<({String name, double f, bool above, bool close})> landmarkPoints(SkyEvent 
         ),
   ];
 }
+
+/// Where the landmark called [name] is at [utc]: "the Moon", a planet, or
+/// a named star in [catalog]. Null for anything else.
+Horizontal? landmarkDirection(String name, SkyCatalog? catalog, DateTime utc, double lat, double lon) {
+  if (name == 'the Moon') return moonHorizontal(utc, lat, lon);
+  for (final p in Planet.values) {
+    if (p.label == name) return planetHorizontal(p, utc, lat, lon);
+  }
+  return catalog?.stars.where((s) => s.name == name).firstOrNull?.horizontal(utc, lat, lon);
+}
