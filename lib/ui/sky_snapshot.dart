@@ -84,7 +84,7 @@ class _SnapshotPainter extends CustomPainter {
     // Horizon, and the ground below it.
     final horizon = <Offset>[
       for (var d = -100.0; d <= 100; d += 4)
-        if (o(Horizontal((w.centerAz + d + 360) % 360, 0)) case final p?) p,
+        ?o(Horizontal((w.centerAz + d + 360) % 360, 0)),
     ];
     if (horizon.length > 1) {
       final ground = Path()..moveTo(horizon.first.dx, size.height + 10);
