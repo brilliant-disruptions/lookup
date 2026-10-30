@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/sky_event.dart';
+import '../../domain/plan/night_plan.dart';
+import '../../domain/sky/calendar.dart';
+import '../../domain/sky/catalog.dart';
+import '../../domain/sky/history.dart';
 import '../../domain/sky/visibility.dart';
 import '../../state/providers.dart';
 import '../../state/sky_state.dart';
@@ -18,6 +22,7 @@ import 'sky_dome.dart';
 import 'sky_panorama.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
+import 'time_travel_sheet.dart';
 
 /// Everything above you: a live map, tonight's clouds, and what's worth
 /// finding (planets, constellations, showpieces), each with a verdict.
@@ -30,8 +35,22 @@ class SkyScreen extends ConsumerStatefulWidget {
 class _SkyScreenState extends ConsumerState<SkyScreen> {
   int _tab = 0;
 
+  String? _selected;
+
+  /// The round whole-sky map instead of the horizon view.
+  bool _whole = false;
+
+  /// Where the map is in time: a fixed moment once you jump (day steps, a
+  /// picked date, a famous night), otherwise now; plus up to 12 hours either
+  /// way on the slider. No anchor and no slide = live.
+  DateTime? _anchor;
+  double _minutes = 0;
+
+  /// A famous night being visited: the map stands where it happened.
+  FamousNight? _night;
+
   /// What the camera view would show, from the last build.
-  ({List<SkyThing> things, List<SkyTrack> tracks, DateTime? time})? _camera;
+  ({List<SkyThing> things, List<SkyTrack> tracks, DateTime? time, double lat, double lon})? _camera;
 
   void _openCamera() {
     final c = _camera;
@@ -39,29 +58,41 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set a location to see your sky.')));
       return;
     }
-    openSkyCamera(context, things: c.things, tracks: c.tracks, time: c.time);
+    openSkyCamera(context, things: c.things, tracks: c.tracks, time: c.time, lat: c.lat, lon: c.lon);
   }
 
-  Future<void> _pickDate(DateTime now, DateTime at) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: at.isBefore(_firstDay) || at.isAfter(_lastDay) ? now : at,
-      firstDate: _firstDay,
-      lastDate: _lastDay,
-      helpText: 'See the sky on',
-    );
-    if (picked == null || !mounted) return;
-    setState(() => _days = _daysBetween(now, picked).clamp(_minDays(now), _maxDays(now)));
+  void _backToNow() => setState(() {
+        _anchor = null;
+        _minutes = 0;
+        _night = null;
+        _selected = null;
+      });
+
+  /// A day either way, staying inside 3000 BC – 3000 AD.
+  void _step(DateTime now, int days) {
+    final to = (_anchor ?? now.toUtc()).add(Duration(days: days));
+    if (to.isBefore(skyTimeFirst) || to.isAfter(skyTimeLast)) return;
+    setState(() => _anchor = to);
   }
-  String? _selected;
 
-  /// The round whole-sky map instead of the horizon view.
-  bool _whole = false;
+  Future<void> _travel(DateTime at, double lon) async {
+    final go = await showTimeTravelSheet(context, at: at, lonDeg: lon);
+    if (go == null || !mounted) return;
+    setState(() {
+      _night = go.night;
+      _minutes = 0;
+      _anchor = go.utc;
+      _selected = _focusId(go.night);
+    });
+  }
 
-  /// How far the map is moved from now: whole days (the date buttons) plus
-  /// up to 12 hours either way (the slider). Both zero = live.
-  int _days = 0;
-  double _minutes = 0;
+  /// The map id of what a famous night is about ("planet:jupiter", "moon",
+  /// or "star:Thuban" for a star).
+  static String? _focusId(FamousNight? n) {
+    final f = n?.focus;
+    if (f == null) return null;
+    return f.contains(':') || f == SkyId.moon ? f : 'star:$f';
+  }
 
   /// Tracks are worked out once per pass and place, not on every tick.
   final _tracks = <String, SkyTrack>{};
@@ -73,15 +104,15 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     final sky = ref.watch(tonightSkyProvider);
     final catalog = ref.watch(skyCatalogProvider).value;
     final now = ref.watch(minuteProvider).value ?? DateTime.now();
-    final offset = Duration(days: _days, minutes: _minutes.round());
-    final later = offset != Duration.zero;
-    final at = now.add(offset);
+    final at = (_anchor ?? now.toUtc()).add(Duration(minutes: _minutes.round()));
+    final offset = at.difference(now.toUtc());
+    final later = _anchor != null || _minutes != 0;
     final top = MediaQuery.paddingOf(context).top + AppHeader.height;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppHeader(
         title: const Text('Sky'),
-        place: place,
+        place: _night?.place ?? place,
         onPlaceTap: () => openPlaces(context),
         actions: [
           const NightVisionButton(),
@@ -109,31 +140,38 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
               child: const Text('Set a location to see your sky.', style: TextStyle(color: LookUpColors.grey)),
             );
           }
-          final lat = settings!.latitude!, lon = settings.longitude!;
+          final night = _night;
+          final lat = night?.lat ?? settings!.latitude!, lon = night?.lon ?? settings!.longitude!;
           final planets = [for (final p in t.planets) SkyThing.planet(p, lat, lon)];
           final moon = SkyThing.moon(t.moon, lat, lon);
           final cons = [for (final c in t.constellations) SkyThing.constellation(c, lat, lon, catalog)];
           final shows = [for (final s in t.showpieces) SkyThing.showpiece(s, lat, lon)];
+          // A famous night about a star (Thuban at Giza) puts that star on the map.
+          final focusStar = night?.focus == null ? null : catalog.stars.where((s) => s.name == night!.focus).firstOrNull;
+          final stars = [if (focusStar != null) _starThing(focusStar, lat, lon)];
           // Ringed and named on the map while its sheet is open, then let go.
           Future<void> open(SkyThing x) async {
             setState(() => _selected = x.id);
-            await showObjectSheet(context, x, at: later ? at : null);
-            if (mounted && _selected == x.id) setState(() => _selected = null);
+            await showObjectSheet(context, x, at: later ? at : null, place: night == null ? null : (lat, lon));
+            if (mounted && _selected == x.id) setState(() => _selected = _focusId(_night));
           }
 
           final events = ref.watch(homeProvider).value?.events ?? const <SkyEvent>[];
+          // Passes are for here and near now; history has none.
           final tracks = [
-            for (final e in upcomingPasses(events, at))
+            if (night == null && offset.inHours.abs() < 24)
+              for (final e in upcomingPasses(events, at))
               _tracks.putIfAbsent('${e.id}@$lat,$lon', () => passTrack(e, lat, lon)),
           ];
           // While one is overhead, move its dot every second.
           final passing = !later && tracks.any((t) => t.liveAt(DateTime.now()));
           final trackTime = passing ? (ref.watch(clockProvider).value ?? DateTime.now()) : at;
           final skyThen = later
-              ? skyWords(SkyConditions.at(at.toUtc(), lat, lon, weather: ref.watch(weatherProvider).value))
+              ? skyWords(SkyConditions.at(at.toUtc(), lat, lon, weather: night == null ? ref.watch(weatherProvider).value : null))
               : null;
           void openPass(SkyEvent e) => showLookSheet(context, e);
-          _camera = (things: [moon, ...planets, ...shows], tracks: tracks, time: later ? at : null);
+          final mapped = [moon, ...planets, ...shows, ...stars];
+          _camera = (things: mapped, tracks: tracks, time: later ? at : null, lat: lat, lon: lon);
 
           final list = switch (_tab) { 0 => planets, 1 => cons, _ => shows };
           return ListView(
@@ -147,7 +185,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                         lat: lat,
                         lon: lon,
                         catalog: catalog,
-                        things: [moon, ...planets, ...shows],
+                        things: mapped,
                         selectedId: _selected,
                         onTap: open,
                         tracks: tracks,
@@ -155,11 +193,14 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                         onTrackTap: openPass,
                       )
                     : SkyPanorama(
+                        // A famous night turns you to face what it's about.
+                        key: ValueKey(night?.id),
+                        initialFacing: mapped.where((x) => x.id == _focusId(night)).firstOrNull?.position(at).azimuthDeg,
                         time: at,
                         lat: lat,
                         lon: lon,
                         catalog: catalog,
-                        things: [moon, ...planets, ...shows],
+                        things: mapped,
                         selectedId: _selected,
                         onTap: open,
                         tracks: tracks,
@@ -177,7 +218,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                     Flexible(
                       child: Text(
                           later
-                              ? '  ${fmtMoment(at.toUtc())}${offset.inMinutes.abs() < 24 * 60 ? ' · ${_offsetWord(offset)}' : ''}'
+                              ? '  ${fmtSkyMoment(at.toUtc(), lon)}${offset.inMinutes.abs() < 24 * 60 ? ' · ${_offsetWord(offset)}' : ''}'
                               : '  ${fmtTime(now.toUtc())} · tap anything to open it',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -186,18 +227,28 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                   ]),
                 ),
               ),
+              if (night != null && at.difference(night.utc).inHours.abs() < 13) ...[
+                const SizedBox(height: 10),
+                GlassCard(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Kicker('${night.place} · ${fmtSkyMoment(night.utc, night.lon)}', color: LookUpColors.blue),
+                    const SizedBox(height: 6),
+                    Text(night.title, style: display(20, weight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text(night.blurb, style: const TextStyle(color: LookUpColors.grey, height: 1.45)),
+                  ]),
+                ),
+              ],
               _TimeTravel(
                 minutes: _minutes,
                 onMinutes: (m) => setState(() => _minutes = m),
-                onDays: (d) => setState(() => _days = d.clamp(_minDays(now), _maxDays(now))),
-                days: _days,
-                onNow: () => setState(() {
-                  _days = 0;
-                  _minutes = 0;
-                }),
-                onPickDate: () => _pickDate(now, at),
+                onStep: (d) => _step(now, d),
+                live: !later && night == null,
+                onNow: _backToNow,
+                onPickDate: () => _travel(at, lon),
                 skyThen: skyThen,
                 at: at,
+                lon: lon,
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
@@ -266,43 +317,50 @@ String _offsetWord(Duration d) {
   return d.isNegative ? '$span ago' : 'in $span';
 }
 
-/// How far the date buttons go: the years 1600 to 2400. Wider needs the
-/// Julian calendar, ΔT and proper motion, which the sky maths leaves out.
-final _firstDay = DateTime(1600), _lastDay = DateTime(2400, 12, 31);
-int _daysBetween(DateTime a, DateTime b) =>
-    (DateTime(b.year, b.month, b.day).difference(DateTime(a.year, a.month, a.day)).inHours / 24).round();
-int _minDays(DateTime now) => _daysBetween(now, _firstDay) + 1;
-int _maxDays(DateTime now) => _daysBetween(now, _lastDay) - 1;
+/// A star on the map as a [SkyThing] (for famous nights about one).
+SkyThing _starThing(Star star, double lat, double lon) => SkyThing(
+      id: 'star:${star.name}',
+      name: star.name!,
+      kind: 'Star',
+      position: (t) => star.horizontal(t, lat, lon),
+      mag: star.mag,
+      finder: {'ra': star.raDeg, 'dec': star.decDeg},
+    );
 
 /// Move the map through time: the slider for tonight ("cloudy now, but
 /// clear at 3 AM: will Saturn be up then?"), a day at a time either way, or
-/// any date from 1600 to 2400. Says the forecast sky when there is one.
+/// any night from 3000 BC to 3000 AD, famous ones included. Says the
+/// forecast sky when there is one.
 class _TimeTravel extends StatelessWidget {
   const _TimeTravel({
     required this.minutes,
     required this.onMinutes,
-    required this.days,
-    required this.onDays,
+    required this.onStep,
+    required this.live,
     required this.onNow,
     required this.onPickDate,
     required this.at,
+    required this.lon,
     this.skyThen,
   });
   final double minutes;
   final ValueChanged<double> onMinutes;
-  final int days;
-  final ValueChanged<int> onDays;
+  final ValueChanged<int> onStep;
+  final bool live;
   final VoidCallback onNow;
   final VoidCallback onPickDate;
   final DateTime at;
+  final double lon;
   final String? skyThen;
 
   static const span = 720.0; // 12 h either way
 
   @override
   Widget build(BuildContext context) {
-    final live = minutes == 0 && days == 0;
     const small = TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
+    final when = fmtSkyMoment(at.toUtc(), lon);
+    // Measured against JPL: the Moon drifts past half a degree before here.
+    final rough = at.toUtc().isBefore(_roughBefore);
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -311,23 +369,23 @@ class _TimeTravel extends StatelessWidget {
           min: -span,
           max: span,
           divisions: (2 * span / 15).round(),
-          label: live ? 'Now' : fmtMoment(at.toUtc()),
-          semanticFormatterCallback: (_) => live ? 'Now' : 'At ${fmtMoment(at.toUtc())}',
+          label: live ? 'Now' : when,
+          semanticFormatterCallback: (_) => live ? 'Now' : 'At $when',
           onChanged: onMinutes,
         ),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           TextButton.icon(
-            onPressed: () => onDays(days - 1),
+            onPressed: () => onStep(-1),
             icon: const Icon(Icons.chevron_left_rounded, size: 18),
             label: const Text('Day', style: small),
           ),
           TextButton.icon(
             onPressed: onPickDate,
-            icon: const Icon(Icons.calendar_month_rounded, size: 18),
-            label: const Text('Date', style: small),
+            icon: const Icon(Icons.history_edu_rounded, size: 18),
+            label: const Text('Any night', style: small),
           ),
           TextButton(
-            onPressed: () => onDays(days + 1),
+            onPressed: () => onStep(1),
             child: const Row(mainAxisSize: MainAxisSize.min, children: [
               Text('Day', style: small),
               SizedBox(width: 4),
@@ -337,9 +395,12 @@ class _TimeTravel extends StatelessWidget {
           TextButton(onPressed: live ? null : onNow, child: const Text('Now', style: small)),
         ]),
         Text(
-          skyThen == null
-              ? 'Slide through tonight, or step to any date from 1600 to 2400.'
-              : 'Sky at ${fmtMoment(at.toUtc())}: ${skyThen!.toLowerCase()}. Tap anything to see if you could spot it then.',
+          [
+            skyThen == null
+                ? 'Slide through tonight, or go to any night from 3000 BC to 3000 AD.'
+                : 'Sky at $when: ${skyThen!.toLowerCase()}. Tap anything to see if you could spot it then.',
+            if (rough) 'This long ago the Moon can be a degree or two out; the stars and planets hold.',
+          ].join(' '),
           textAlign: TextAlign.center,
           style: TextStyle(color: skyThen == null ? LookUpColors.greyDim : LookUpColors.grey, fontSize: 12.5, height: 1.4),
         ),
@@ -347,6 +408,8 @@ class _TimeTravel extends StatelessWidget {
     );
   }
 }
+
+final _roughBefore = utcFromJulianDay(julianDay(-999, 1, 1));
 
 class _Row extends StatelessWidget {
   const _Row(this.x, {required this.onTap});

@@ -35,7 +35,8 @@ final darkSpotsProvider = FutureProvider<({Sqm? here, List<DarkSpot> spots})?>((
 final skyCatalogProvider = FutureProvider<SkyCatalog>((ref) async {
   final stars = jsonDecode(await rootBundle.loadString('assets/sky/stars.json')) as Map<String, Object?>;
   final cons = jsonDecode(await rootBundle.loadString('assets/sky/constellations.json')) as Map<String, Object?>;
-  return SkyCatalog.fromJson(stars, cons);
+  final pm = jsonDecode(await rootBundle.loadString('assets/sky/proper_motion.json')) as Map<String, Object?>;
+  return SkyCatalog.fromJson(stars, cons, pm);
 });
 
 /// The cached hourly forecast; reloaded after every refresh.

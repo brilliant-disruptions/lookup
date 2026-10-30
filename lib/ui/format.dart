@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 
 import '../domain/models/sky_event.dart';
+import '../domain/sky/calendar.dart';
 import '../domain/sky/direction.dart';
 
 String fmtTime(DateTime utc) => DateFormat.jm().format(utc.toLocal());
@@ -10,6 +11,15 @@ String fmtMoment(DateTime utc) {
   final l = utc.toLocal(), n = DateTime.now();
   if (l.year == n.year && l.month == n.month && l.day == n.day) return fmtTime(utc);
   return '${DateFormat.yMMMd().format(l)}, ${fmtTime(utc)}';
+}
+
+/// A moment on the sky map at [lonDeg]: [fmtMoment] from 1900 on; before
+/// that, the date as written then (Julian before 1582, BC years) at local
+/// mean time, which is what clocks there kept: "Feb 29, 1504, 7:30 PM".
+String fmtSkyMoment(DateTime utc, double lonDeg) {
+  if (utc.year >= 1900) return fmtMoment(utc);
+  final d = localMeanTime(utc, lonDeg);
+  return '${d.dateLabel}, ${d.timeLabel}';
 }
 
 /// To the second, for transits that last under one.

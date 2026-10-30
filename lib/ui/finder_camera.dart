@@ -167,7 +167,7 @@ class SkyOverlayPainter extends CustomPainter {
         ..color = LookUpColors.blue.withValues(alpha: 0.45)
         ..strokeWidth = 1.2;
       Offset? eq(double ra, double dec) {
-        final h = catalogHorizontal(ra, dec, now, latDeg, lonDeg);
+        final h = cat.place(ra, dec, now, latDeg, lonDeg);
         return _at(size, SkyDir(h.azimuthDeg, h.altitudeDeg));
       }
 

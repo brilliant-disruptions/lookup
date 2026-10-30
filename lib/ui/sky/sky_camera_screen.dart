@@ -23,14 +23,20 @@ import '../theme.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 
-Future<void> openSkyCamera(BuildContext context, {required List<SkyThing> things, required List<SkyTrack> tracks, DateTime? time}) =>
+Future<void> openSkyCamera(BuildContext context,
+        {required List<SkyThing> things, required List<SkyTrack> tracks, DateTime? time, double? lat, double? lon}) =>
     Navigator.of(context).push(MaterialPageRoute(
-        fullscreenDialog: true, builder: (_) => SkyCameraScreen(things: things, tracks: tracks, time: time)));
+        fullscreenDialog: true,
+        builder: (_) => SkyCameraScreen(things: things, tracks: tracks, time: time, lat: lat, lon: lon)));
 
 class SkyCameraScreen extends ConsumerStatefulWidget {
-  const SkyCameraScreen({super.key, required this.things, required this.tracks, this.time, this.orientationStream, this.camera = true});
+  const SkyCameraScreen(
+      {super.key, required this.things, required this.tracks, this.time, this.lat, this.lon, this.orientationStream, this.camera = true});
   final List<SkyThing> things;
   final List<SkyTrack> tracks;
+
+  /// Where the sky map is standing, when it isn't home (a famous night).
+  final double? lat, lon;
 
   /// A moment the Sky map was moved to; null follows the clock.
   final DateTime? time;
@@ -79,6 +85,8 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(settingsProvider).value;
+    // The sky drawn is the map's place; the compass is always where you are.
+    final lat = widget.lat ?? s?.latitude, lon = widget.lon ?? s?.longitude;
     final now = widget.time ?? ref.watch(clockProvider).value ?? DateTime.now();
     final utc = now.toUtc();
     final r = _r;
@@ -106,7 +114,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
             .fold<({OverlayMark m, double d})?>(null, (best, x) => best == null || x.d < best.d ? x : best);
     final passing = widget.tracks.where((tr) => tr.liveAt(utc)).map((tr) => eventTitle(tr.event)).toList();
     final status = widget.time != null
-        ? 'The sky at ${fmtMoment(utc)}'
+        ? 'The sky at ${fmtSkyMoment(utc, lon ?? 0)}'
         : passing.isNotEmpty
             ? '${passing.join(' and ')} going over now'
             : widget.tracks.isNotEmpty
@@ -126,7 +134,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
               },
             ),
           ),
-        if (r != null && s?.latitude != null)
+        if (r != null && lat != null && lon != null)
           Positioned.fill(
             child: LayoutBuilder(
               builder: (context, c) => CustomPaint(
@@ -137,8 +145,8 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
                   previewHeightPx: _previewHeight ?? c.maxHeight,
                   labelStyle: Theme.of(context).textTheme.labelSmall ?? const TextStyle(),
                   catalog: ref.watch(skyCatalogProvider).value,
-                  latDeg: s!.latitude!,
-                  lonDeg: s.longitude!,
+                  latDeg: lat,
+                  lonDeg: lon,
                   tracks: tracks,
                   marks: marks,
                 ),

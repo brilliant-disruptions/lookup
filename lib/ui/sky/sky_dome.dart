@@ -119,7 +119,7 @@ class _DomePainter extends CustomPainter {
   }
 
   Offset? _eq(Size s, double ra, double dec) {
-    final h = catalogHorizontal(ra, dec, time, lat, lon);
+    final h = catalog.place(ra, dec, time, lat, lon);
     return _xy(s, h.azimuthDeg, h.altitudeDeg);
   }
 

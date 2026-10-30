@@ -63,6 +63,7 @@ class SkyPanorama extends StatefulWidget {
     this.onTrackTap,
     this.height = 440,
     this.orientationStream,
+    this.initialFacing,
   });
 
   final DateTime time;
@@ -82,6 +83,9 @@ class SkyPanorama extends StatefulWidget {
   /// Injected in tests; defaults to the fused rotation sensor.
   final Stream<List<double>>? orientationStream;
 
+  /// The way to face first; otherwise a pass going over, else [bestFacing].
+  final double? initialFacing;
+
   /// The sky itself, for tests that drag or tap it.
   static const canvasKey = ValueKey('sky-panorama');
 
@@ -91,7 +95,8 @@ class SkyPanorama extends StatefulWidget {
 
 class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStateMixin {
   // Something passing over right now beats everything else.
-  late double _facing = widget.tracks
+  late double _facing = widget.initialFacing ??
+      widget.tracks
           .map((t) => t.at(widget.trackTime ?? widget.time)?.azimuthDeg)
           .nonNulls
           .firstOrNull ??
@@ -288,7 +293,7 @@ class _SkyCache {
         lines = [
           for (final con in catalog.constellations)
             for (final seg in con.lines)
-              [for (final (ra, dec) in seg) catalogHorizontal(ra, dec, utc, lat, lon)],
+              [for (final (ra, dec) in seg) catalog.place(ra, dec, utc, lat, lon)],
         ],
         names = [
           for (final con in catalog.constellations.where((c) => c.rank == 1))
