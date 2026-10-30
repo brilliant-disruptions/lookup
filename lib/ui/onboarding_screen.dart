@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/scheduling/alert_planner.dart';
 import 'format.dart';
 import 'kit/kit.dart';
+import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
 
@@ -67,8 +69,19 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
         try {
           await ref.read(homeProvider.notifier).refresh();
         } catch (_) {}
+        // Taps are on. If something Plus-only really is coming over them,
+        // this is the moment to show the tap they'd get for it too (the
+        // paywall only ever appears for a real coming event, spec §7).
+        final s = ref.read(settingsProvider).value;
+        final events = ref.read(homeProvider).value?.events ?? const <SkyEvent>[];
+        final plus = AlertPlanner.plusOnlyAhead(events, DateTime.now());
+        if (!(s?.isPlus ?? false) && plus.isNotEmpty) {
+          if (!mounted) return;
+          await showPaywall(context, reason: plus.first);
+        }
       }
     }
+    if (!mounted) return;
     ref.read(playIntroProvider.notifier).set(true);
     await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(onboarded: true));
   }
