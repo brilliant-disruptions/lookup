@@ -157,6 +157,19 @@ class AlertPlanner {
   }
 
   /// Stable, positive 31-bit id from the event key and kind (FNV-1a).
+  /// What LookUp+ would add for someone on the free plan: Plus-only events
+  /// we'd actually push, coming up within [within], soonest first. The
+  /// paywall shows these, real and dated, instead of a feature list.
+  static List<SkyEvent> plusOnlyAhead(Iterable<SkyEvent> events, DateTime now,
+      {Duration within = const Duration(days: 14), int max = 3}) {
+    final u = now.toUtc();
+    final ahead = events
+        .where((e) => e.plusOnly && e.type.pushes && e.start.isAfter(u) && e.start.isBefore(u.add(within)))
+        .toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+    return ahead.take(max).toList();
+  }
+
   static int notificationIdFor(String eventId, AlertKind kind) {
     var h = 0x811C9DC5;
     for (final c in '$eventId|${kind.name}'.codeUnits) {

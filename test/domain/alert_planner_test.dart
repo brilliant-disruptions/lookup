@@ -191,6 +191,20 @@ void main() {
     expect(plan, isEmpty);
   });
 
+  test('the paywall lists only Plus-only alerts we would push, soonest first', () {
+    final ahead = AlertPlanner.plusOnlyAhead([
+      ev('iss:free', SkyEventType.iss, now.add(const Duration(hours: 2))),
+      ev('starlink:b', SkyEventType.starlinkTrain, now.add(const Duration(days: 2))),
+      ev('tiangong:a', SkyEventType.tiangong, now.add(const Duration(days: 1))),
+      ev('starlink:gone', SkyEventType.starlinkTrain, now.subtract(const Duration(hours: 1))),
+      ev('tiangong:far', SkyEventType.tiangong, now.add(const Duration(days: 20))),
+      ev('aurora-outlook:x', SkyEventType.auroraOutlook, now.add(const Duration(hours: 3))),
+    ], now);
+    expect(ahead.map((e) => e.id), ['tiangong:a', 'starlink:b']);
+    final many = [for (var i = 1; i <= 5; i++) ev('starlink:$i', SkyEventType.starlinkTrain, now.add(Duration(hours: i)))];
+    expect(AlertPlanner.plusOnlyAhead(many, now).length, 3);
+  });
+
   group('snooze ("Remind me in 5 min")', () {
     test('fires five minutes later with a fresh lead time', () {
       final e = ev('iss:s', SkyEventType.iss, now.add(const Duration(minutes: 10)));
