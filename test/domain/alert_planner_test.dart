@@ -28,6 +28,16 @@ void main() {
   const cdt = -5 * 60;
   const plus = LookUpSettings(isPlus: true);
 
+  test('a heads-up names what the pass goes near', () {
+    final e = ev('iss:l', SkyEventType.iss, now.add(const Duration(hours: 5)),
+        clouds: 10, details: {'brightness': 'brighter than any star', 'landmarks': 'passing right by Jupiter'});
+    final plan = planner.plan(events: [e], settings: plus, now: now, utcOffsetMinutes: cdt);
+    expect(plan[0].body,
+        'Brighter than any star, rising in the west-southwest, high in the sky at its best, 4 min. Look for it passing right by Jupiter. Clear skies.');
+    // Go-now stays short: just where to look.
+    expect(plan[1].body, 'Look west-southwest. High in the sky at its best.');
+  });
+
   test('heads-up and go-now with stable ids and readable copy', () {
     final e = ev('iss:a', SkyEventType.iss, now.add(const Duration(hours: 5)),
         clouds: 10, details: {'brightness': 'brighter than any star'});

@@ -236,7 +236,10 @@ class AlertPlanner {
     final lead = count != null ? 'A line of ~$count lights, ' : '';
     final hedge = e.isEstimate ? ' (estimate)' : '';
     final bright = b != null && count == null ? '${_cap(b)}, ' : '';
-    return '$lead$bright$arc$hedge. ${_cloudNote(e)}'.trim();
+    // "Look for it passing right by Jupiter": what to look near, not where.
+    final marks = e.details['landmarks'] as String?;
+    final near = marks == null ? '' : ' Look for it $marks.';
+    return '$lead$bright$arc$hedge.$near ${_cloudNote(e)}'.trim();
   }
 
   static String goNowBody(SkyEvent e) =>

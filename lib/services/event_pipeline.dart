@@ -11,6 +11,8 @@ import '../domain/events/planet_highlights.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
+import '../domain/sky/catalog.dart';
+import '../domain/sky/landmarks.dart';
 import '../domain/sky/sun.dart';
 import '../domain/transits/transit_events.dart';
 import '../domain/passes/pass_predictor.dart';
@@ -27,6 +29,7 @@ class PipelineInputs {
     this.clouds,
     this.aurora,
     this.launches = const [],
+    this.catalog,
   });
 
   final LookUpSettings settings;
@@ -37,6 +40,10 @@ class PipelineInputs {
   final List<OmmRecord>? starlink;
   final CloudForecast? clouds;
   final AuroraSnapshot? aurora;
+
+  /// The fixed sky, for naming the bright things a pass goes near. Without
+  /// it passes just don't carry landmarks.
+  final SkyCatalog? catalog;
 }
 
 class EventPipeline {
@@ -192,7 +199,15 @@ class EventPipeline {
 
     out.removeWhere((e) => !e.end.isAfter(now));
     out.sort((x, y) => x.start.compareTo(y.start));
-    return out;
+    final cat = i.catalog;
+    if (cat == null) return out;
+    return [
+      for (final e in out)
+        if (passLandmarkWords(e, cat, lat, lon) case final words?)
+          e.copyWith(details: {...e.details, 'landmarks': words})
+        else
+          e,
+    ];
   }
 
   SkyEvent? _nextIssBeyond(PipelineInputs i, PassPredictor predictor, DateTime from, DateTime to) {

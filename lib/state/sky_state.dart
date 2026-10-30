@@ -2,7 +2,6 @@
 /// Sky tab and the Tonight card show. All computed on the phone.
 library;
 
-import 'dart:convert';
 import 'dart:io' show gzip;
 
 import 'package:flutter/services.dart';
@@ -12,6 +11,7 @@ import '../domain/plan/night_plan.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/skyglow.dart';
 import '../domain/weather/cloud_forecast.dart';
+import '../services/sky_catalog_loader.dart';
 import 'providers.dart';
 
 /// How bright the night sky is over land, from the bundled night-lights
@@ -32,12 +32,7 @@ final darkSpotsProvider = FutureProvider<({Sqm? here, List<DarkSpot> spots})?>((
 });
 
 /// Stars and constellations, from the bundled assets (~80 KB).
-final skyCatalogProvider = FutureProvider<SkyCatalog>((ref) async {
-  final stars = jsonDecode(await rootBundle.loadString('assets/sky/stars.json')) as Map<String, Object?>;
-  final cons = jsonDecode(await rootBundle.loadString('assets/sky/constellations.json')) as Map<String, Object?>;
-  final pm = jsonDecode(await rootBundle.loadString('assets/sky/proper_motion.json')) as Map<String, Object?>;
-  return SkyCatalog.fromJson(stars, cons, pm);
-});
+final skyCatalogProvider = FutureProvider<SkyCatalog>((ref) => loadSkyCatalog());
 
 /// The cached hourly forecast; reloaded after every refresh.
 final weatherProvider = FutureProvider<CloudForecast?>((ref) async {
