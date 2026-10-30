@@ -65,4 +65,17 @@ void main() {
     await t.pumpWidget(const SizedBox());
     unawaited(c.close());
   });
+
+  testWidgets('words on the main screen, numbers only behind Details', (t) async {
+    final c = await pump(t);
+    c.add(east);
+    await t.pump();
+    expect(find.textContaining('°'), findsNothing);
+    expect(find.textContaining('Look north'), findsOneWidget);
+    await t.tap(find.textContaining('Details'));
+    await t.pump();
+    expect(find.textContaining('°'), findsWidgets);
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
 }

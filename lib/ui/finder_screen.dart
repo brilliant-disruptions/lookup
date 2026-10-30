@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:satellite_observer/satellite_observer.dart';
 
+import '../domain/finder/firefly.dart';
 import '../domain/finder/pointing.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
@@ -20,6 +21,7 @@ import '../services/orientation.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'finder_camera.dart';
+import 'finder_firefly.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'night_vision_button.dart';
@@ -135,8 +137,11 @@ class _FinderState extends ConsumerState<FinderScreen> {
   List<double>? _r;
   String? _error;
   bool _wasOnTarget = false;
-  DateTime _lastTick = DateTime(0);
   bool _cameraOn = false;
+
+  /// Whether it had appeared at the last build; null before the first.
+  bool? _wasUp;
+  bool _details = false;
   late final double _declination;
   FinderTarget? _target;
   double? _previewHeight;
@@ -178,19 +183,43 @@ class _FinderState extends ConsumerState<FinderScreen> {
     final r = _r;
     final camera = r == null ? null : cameraDirection(r, declinationDeg: _declination);
     final g = camera == null ? null : guide(camera, target);
+    final e = widget.event;
+    final nowUtc = now.toUtc();
     if (g != null && g.onTarget != _wasOnTarget) {
       _wasOnTarget = g.onTarget;
       if (g.onTarget) HapticFeedback.heavyImpact();
     }
-    // Geiger-counter ticks while homing in.
-    final tick = g == null ? null : pulseInterval(g.distanceDeg);
-    final wall = DateTime.now();
-    if (tick != null && wall.difference(_lastTick) >= tick) {
-      _lastTick = wall;
-      HapticFeedback.selectionClick();
+    // It appears while the finder is open: one firm buzz.
+    final up = !nowUtc.isBefore(e.start);
+    if (up && _wasUp == false) HapticFeedback.heavyImpact();
+    _wasUp = up;
+    // The firefly's guide: where the target is on screen, and which way to
+    // turn when it isn't.
+    ({double x, double y})? onScreen;
+    if (g != null && r != null) {
+      if (_cameraOn) {
+        onScreen = projectToScreen(r, target,
+            declinationDeg: _declination, previewHeightPx: _previewHeight ?? MediaQuery.sizeOf(context).height);
+      } else {
+        onScreen = (x: g.dAzimuth * 6, y: -g.dElevation * 6);
+      }
     }
-    final e = widget.event;
-    final nowUtc = now.toUtc();
+    final targetLabel = !_target!.isLive
+        ? eventTitle(e)
+        : nowUtc.isBefore(e.start)
+            ? 'Comes up here ${fmtTime(e.start)}'
+            : nowUtc.isBefore(e.end)
+                ? '${eventTitle(e)} · now'
+                : null;
+    Widget? firefly(bool full) => g == null || _cameraOn != full
+        ? null
+        : FireflyLayer(
+            target: onScreen,
+            toward: towardOnScreen(g),
+            distanceDeg: g.distanceDeg,
+            onTarget: g.onTarget,
+            label: targetLabel,
+          );
     final status = nowUtc.isBefore(e.start)
         ? 'Appears in ${fmtCountdown(e.start.difference(nowUtc))}. Point where it will rise.'
         : nowUtc.isBefore(e.end)
@@ -203,14 +232,6 @@ class _FinderState extends ConsumerState<FinderScreen> {
                 painter: SkyOverlayPainter(
                   r: r,
                   declinationDeg: _declination,
-                  target: target,
-                  targetLabel: !_target!.isLive
-                      ? null
-                      : nowUtc.isBefore(e.start)
-                          ? 'Comes up here ${fmtTime(e.start)}'
-                          : nowUtc.isBefore(e.end)
-                              ? '${eventTitle(e)} · now'
-                              : null,
                   path: _target!.path,
                   now: nowUtc,
                   onTarget: g?.onTarget ?? false,
@@ -239,6 +260,7 @@ class _FinderState extends ConsumerState<FinderScreen> {
             ),
           ),
         ?overlay,
+        if (firefly(true) case final f?) Positioned.fill(child: f),
         Starfield(
         density: _cameraOn ? 0 : 0.0002,
         maxOpacity: 0.5,
@@ -278,10 +300,13 @@ class _FinderState extends ConsumerState<FinderScreen> {
                       : g.words,
                   child: _cameraOn
                       ? const SizedBox.expand()
-                      : CustomPaint(
-                          size: Size(c.maxWidth, c.maxHeight),
-                          painter: _FinderPainter(guidance: g, onTarget: g?.onTarget ?? false),
-                        ),
+                      : Stack(children: [
+                          CustomPaint(
+                            size: Size(c.maxWidth, c.maxHeight),
+                            painter: _ReticlePainter(onTarget: g?.onTarget ?? false),
+                          ),
+                          ?firefly(false),
+                        ]),
                 ),
               ),
             ),
@@ -295,16 +320,27 @@ class _FinderState extends ConsumerState<FinderScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text('${compassAbbrev(target.azimuthDeg)} ${target.azimuthDeg.round()}°  ·  ${target.elevationDeg.round()}° up',
-                    style: numeric(size: 13, color: LookUpColors.grey)),
-                if (camera != null) ...[
-                  const SizedBox(width: 14),
-                  Text('you ${camera.azimuthDeg.round()}° / ${camera.elevationDeg.round()}°',
-                      style: numeric(size: 13, color: LookUpColors.greyDim)),
-                ],
-              ]),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _details = !_details),
+                child: Semantics(
+                  button: true,
+                  label: _details ? 'Hide details' : 'Show details',
+                  excludeSemantics: true,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(
+                      _details
+                          ? '${compassAbbrev(target.azimuthDeg)} ${target.azimuthDeg.round()}°  ·  ${target.elevationDeg.round()}° up'
+                              '${camera == null ? '' : '   ·   you ${camera.azimuthDeg.round()}° / ${camera.elevationDeg.round()}°'}'
+                          : 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}  ·  Details',
+                      textAlign: TextAlign.center,
+                      style: _details ? numeric(size: 13, color: LookUpColors.grey) : const TextStyle(fontSize: 13, color: LookUpColors.grey),
+                    ),
+                  ),
+                ),
+              ),
             ),
             if (_error != null)
               const Padding(
@@ -330,55 +366,27 @@ class _FinderState extends ConsumerState<FinderScreen> {
   }
 }
 
-/// Reticle in the middle; the target drawn where it is relative to where
-/// the camera points (≈ 5 px per degree), or an edge arrow when off-screen.
-class _FinderPainter extends CustomPainter {
-  _FinderPainter({required this.guidance, required this.onTarget});
-  final Guidance? guidance;
+/// The ring in the middle: bring the firefly into it.
+class _ReticlePainter extends CustomPainter {
+  _ReticlePainter({required this.onTarget});
   final bool onTarget;
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
-    final accent = onTarget ? LookUpColors.blue : LookUpColors.white;
     final ring = Paint()
-      ..color = accent.withValues(alpha: onTarget ? 1 : 0.6)
+      ..color = (onTarget ? fireflyWarm : LookUpColors.white).withValues(alpha: onTarget ? 0.9 : 0.35)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = onTarget ? 3 : 1.5;
+      ..strokeWidth = onTarget ? 2.5 : 1.2;
     canvas.drawCircle(c, 44, ring);
     final tick = Paint()
-      ..color = LookUpColors.grey.withValues(alpha: 0.6)
-      ..strokeWidth = 1.5;
+      ..color = LookUpColors.grey.withValues(alpha: 0.4)
+      ..strokeWidth = 1.2;
     for (final d in const [Offset(1, 0), Offset(-1, 0), Offset(0, 1), Offset(0, -1)]) {
-      canvas.drawLine(c + d * 52, c + d * 70, tick);
-    }
-    final g = guidance;
-    if (g == null) return;
-    const pxPerDeg = 6.0;
-    final p = c + Offset(g.dAzimuth * pxPerDeg, -g.dElevation * pxPerDeg);
-    final bounds = Rect.fromCenter(center: c, width: size.width - 60, height: size.height - 60);
-    if (bounds.contains(p)) {
-      final glow = Paint()
-        ..color = LookUpColors.blue.withValues(alpha: 0.35)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-      canvas.drawCircle(p, 22, glow);
-      canvas.drawCircle(p, 9, Paint()..color = Colors.white);
-    } else {
-      // Arrow on the edge pointing toward the target.
-      final dir = (p - c);
-      final ang = math.atan2(dir.dy, dir.dx);
-      final rx = bounds.width / 2, ry = bounds.height / 2;
-      final t = math.min(rx / dir.dx.abs().clamp(1e-6, double.infinity), ry / dir.dy.abs().clamp(1e-6, double.infinity));
-      final edge = c + dir * t;
-      final path = Path()
-        ..moveTo(edge.dx + 18 * math.cos(ang), edge.dy + 18 * math.sin(ang))
-        ..lineTo(edge.dx + 14 * math.cos(ang + 2.5), edge.dy + 14 * math.sin(ang + 2.5))
-        ..lineTo(edge.dx + 14 * math.cos(ang - 2.5), edge.dy + 14 * math.sin(ang - 2.5))
-        ..close();
-      canvas.drawPath(path, Paint()..color = LookUpColors.blue);
+      canvas.drawLine(c + d * 52, c + d * 64, tick);
     }
   }
 
   @override
-  bool shouldRepaint(_FinderPainter o) => true;
+  bool shouldRepaint(_ReticlePainter o) => o.onTarget != onTarget;
 }
