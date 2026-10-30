@@ -12,10 +12,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../domain/models/sky_event.dart';
+import '../domain/sky/astro.dart';
 import '../domain/sky/direction.dart';
 import '../state/providers.dart';
+import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
+import 'sky/sky_track.dart';
+import 'sky_snapshot.dart';
 import 'theme.dart';
 
 enum ShareMode { sawIt, invite }
@@ -96,30 +100,50 @@ String inviteText(SkyEvent e, String? place) =>
     '${place == null ? '' : ' over $place'}. Face ${compassWord(e.riseAzimuthDeg)}. (LookUp)';
 
 /// 4:5 poster. Fixed logical size so it renders identically everywhere.
-class ShareCard extends StatelessWidget {
+/// With a location and the star catalogue, the middle is a true snapshot of
+/// the sky at that minute, the pass's own track through the real stars;
+/// otherwise a stylised arc.
+class ShareCard extends ConsumerWidget {
   const ShareCard({super.key, required this.event, required this.mode, this.place});
   final SkyEvent event;
   final ShareMode mode;
   final String? place;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final e = event;
     final invite = mode == ShareMode.invite;
     final headline = invite ? 'Look up with me' : 'I saw it';
     final tint = eventStyle(e.type, details: e.details).color;
+    final s = ref.watch(settingsProvider).value;
+    final catalog = ref.watch(skyCatalogProvider).value;
+    final lat = s?.latitude, lon = s?.longitude;
+    Widget? snapshot;
+    if (lat != null && lon != null && catalog != null && catalog.stars.isNotEmpty) {
+      final moves = trackedTypes.contains(e.type);
+      snapshot = SkySnapshot(
+        catalog: catalog,
+        utc: e.peak.toUtc(),
+        lat: lat,
+        lon: lon,
+        centerAz: e.peakAzimuthDeg,
+        centerAlt: (e.peakElevationDeg * 0.55).clamp(12.0, 50.0),
+        track: moves ? [for (final p in passTrack(e, lat, lon).points) p.h] : const [],
+        mark: !moves && e.peakElevationDeg > 0 ? Horizontal(e.peakAzimuthDeg, e.peakElevationDeg) : null,
+        tint: tint,
+      );
+    }
+    Widget body(Widget child) => snapshot != null
+        ? child
+        : Starfield(density: 0.0007, maxOpacity: 0.6, seed: e.id.hashCode, fadeBottom: false, child: child);
     return AspectRatio(
       aspectRatio: 4 / 5,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(Radii.lg),
         child: Container(
           decoration: posterDecoration(tint),
-          child: Starfield(
-            density: 0.0007,
-            maxOpacity: 0.6,
-            seed: e.id.hashCode,
-            fadeBottom: false,
-            child: Padding(
+          child: body(
+            Padding(
               padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
@@ -134,9 +158,18 @@ class ShareCard extends StatelessWidget {
                   invite ? '${fmtDay(e.start)}, ${fmtTime(e.start)}' : fmtTime(e.peak),
                   style: display(invite ? 22 : 26, weight: FontWeight.w600, color: tint),
                 ),
-                const Spacer(),
-                SizedBox(height: 90, width: double.infinity, child: CustomPaint(painter: _MiniArc(e.peakElevationDeg, tint))),
-                const SizedBox(height: 8),
+                if (snapshot != null)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: ClipRRect(borderRadius: BorderRadius.circular(Radii.md), child: snapshot),
+                    ),
+                  )
+                else ...[
+                  const Spacer(),
+                  SizedBox(height: 90, width: double.infinity, child: CustomPaint(painter: _MiniArc(e.peakElevationDeg, tint))),
+                  const SizedBox(height: 8),
+                ],
                 Text(
                   invite
                       ? 'Face ${compassWord(e.riseAzimuthDeg)}. ${elevationWord(e.peakElevationDeg)[0].toUpperCase()}${elevationWord(e.peakElevationDeg).substring(1)} at its best.'

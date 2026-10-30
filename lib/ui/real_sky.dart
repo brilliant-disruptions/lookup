@@ -87,7 +87,7 @@ class _BackdropSky {
       // Which way the lit limb faces: a step from the Moon toward the Sun,
       // projected the same way.
       final mh = moonHorizontal(utc, lat, lon), sh = sunHorizontal(utc, lat, lon);
-      final step = at(_toward(mh, sh, 2));
+      final step = at(stepToward(mh, sh, 2));
       final dir = step == null ? 0.0 : math.atan2(-(step.y - m.y), step.x - m.x);
       moon = (x: m.x, y: m.y, lit: moonIllumination(utc), towardSun: dir);
     }
@@ -95,22 +95,6 @@ class _BackdropSky {
     _last = sky;
     _lastKey = key;
     return sky;
-  }
-
-  /// The point [deg] degrees from [a] along the great circle toward [b].
-  static Horizontal _toward(Horizontal a, Horizontal b, double deg) {
-    const k = math.pi / 180;
-    List<double> v(Horizontal h) => [
-          math.cos(h.altitudeDeg * k) * math.sin(h.azimuthDeg * k),
-          math.cos(h.altitudeDeg * k) * math.cos(h.azimuthDeg * k),
-          math.sin(h.altitudeDeg * k),
-        ];
-    final va = v(a), vb = v(b);
-    final f = deg * k;
-    final p = [for (var i = 0; i < 3; i++) va[i] + f * (vb[i] - va[i])];
-    final n = math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
-    final az = math.atan2(p[0] / n, p[1] / n) / k;
-    return Horizontal((az + 360) % 360, math.asin((p[2] / n).clamp(-1.0, 1.0)) / k);
   }
 }
 
@@ -155,32 +139,10 @@ class _RealSkyPainter extends CustomPainter {
     final m = sky.moon;
     if (m != null) {
       final p = o((x: m.x, y: m.y));
-      if (bounds.contains(p)) _paintMoon(canvas, p, m.lit, m.towardSun);
+      if (bounds.contains(p)) paintMoonPhase(canvas, p, m.lit, m.towardSun);
     }
   }
 
-  /// The Moon's real phase: the lit part turned toward the Sun.
-  void _paintMoon(Canvas canvas, Offset c, double lit, double towardSun) {
-    const r = 9.0;
-    canvas.drawCircle(
-        c,
-        r * 2.6,
-        Paint()
-          ..color = const Color(0xFFEDE7D9).withValues(alpha: 0.10 + 0.14 * lit)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10));
-    canvas.save();
-    canvas.translate(c.dx, c.dy);
-    canvas.rotate(towardSun);
-    canvas.drawCircle(Offset.zero, r, Paint()..color = const Color(0x22EDE7D9));
-    // Lit limb on +x; the terminator is an ellipse crossing at r·(1 − 2·lit).
-    final xm = r * (1 - 2 * lit);
-    final path = Path()
-      ..moveTo(0, -r)
-      ..arcToPoint(const Offset(0, r), radius: const Radius.circular(r))
-      ..arcToPoint(const Offset(0, -r), radius: Radius.elliptical(xm.abs(), r), clockwise: xm < 0);
-    canvas.drawPath(path, Paint()..color = const Color(0xFFEDE7D9).withValues(alpha: 0.9));
-    canvas.restore();
-  }
 
   static Color _tint(double? bv) {
     final b = bv ?? 0.6;
@@ -192,4 +154,43 @@ class _RealSkyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RealSkyPainter o) => o.sky != sky || o.maxOpacity != maxOpacity;
+}
+
+/// The Moon's real phase at [c]: the lit part turned toward the Sun
+/// ([towardSun], a screen angle).
+void paintMoonPhase(Canvas canvas, Offset c, double lit, double towardSun, {double r = 9}) {
+  canvas.drawCircle(
+      c,
+      r * 2.6,
+      Paint()
+        ..color = const Color(0xFFEDE7D9).withValues(alpha: 0.10 + 0.14 * lit)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10));
+  canvas.save();
+  canvas.translate(c.dx, c.dy);
+  canvas.rotate(towardSun);
+  canvas.drawCircle(Offset.zero, r, Paint()..color = const Color(0x22EDE7D9));
+  // Lit limb on +x; the terminator is an ellipse crossing at r·(1 − 2·lit).
+  final xm = r * (1 - 2 * lit);
+  final path = Path()
+    ..moveTo(0, -r)
+    ..arcToPoint(Offset(0, r), radius: Radius.circular(r))
+    ..arcToPoint(Offset(0, -r), radius: Radius.elliptical(xm.abs(), r), clockwise: xm < 0);
+  canvas.drawPath(path, Paint()..color = const Color(0xFFEDE7D9).withValues(alpha: 0.9));
+  canvas.restore();
+}
+
+/// The point [deg] degrees from [a] along the great circle toward [b].
+Horizontal stepToward(Horizontal a, Horizontal b, double deg) {
+  const k = math.pi / 180;
+  List<double> v(Horizontal h) => [
+        math.cos(h.altitudeDeg * k) * math.sin(h.azimuthDeg * k),
+        math.cos(h.altitudeDeg * k) * math.cos(h.azimuthDeg * k),
+        math.sin(h.altitudeDeg * k),
+      ];
+  final va = v(a), vb = v(b);
+  final f = deg * k;
+  final p = [for (var i = 0; i < 3; i++) va[i] + f * (vb[i] - va[i])];
+  final n = math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+  final az = math.atan2(p[0] / n, p[1] / n) / k;
+  return Horizontal((az + 360) % 360, math.asin((p[2] / n).clamp(-1.0, 1.0)) / k);
 }
