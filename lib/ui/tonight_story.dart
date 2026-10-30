@@ -344,11 +344,12 @@ class _EventWords extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
       Row(children: [
         EventGlyph.of(e, size: 34),
-        const SizedBox(width: 10),
-        Expanded(child: Kicker(live ? 'Happening now' : '${fmtDay(e.start)} · ${fmtTime(e.start)}', color: tint, live: live)),
+        const Spacer(),
         CloudPill(e.cloudCoverPercent),
       ]),
-      const SizedBox(height: 12),
+      const SizedBox(height: 14),
+      Kicker(live ? 'Happening now' : '${fmtDay(e.start)} · ${fmtTime(e.start)}', color: tint, live: live),
+      const SizedBox(height: 6),
       Text(eventTitle(e), style: display(34, weight: FontWeight.w700)),
       const SizedBox(height: 8),
       Text(eventSubtitle(e), style: _body),
