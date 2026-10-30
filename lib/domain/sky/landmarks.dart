@@ -3,6 +3,10 @@
 /// instead of by compass points.
 library;
 
+import 'package:satellite_observer/satellite_observer.dart';
+
+import '../models/sky_event.dart';
+import '../orbit/omm.dart';
 import 'astro.dart';
 import 'catalog.dart';
 
@@ -61,4 +65,26 @@ String? landmarkWords(List<Landmark> marks) {
   if (marks.isEmpty) return null;
   String one(Landmark m) => '${m.distanceDeg < 2 ? 'right by' : 'close to'} ${m.name}';
   return 'passing ${marks.map(one).join(', then ')}';
+}
+
+/// Landmark words for a pass that carries its orbital elements ('omm'),
+/// propagated every 10 s from rise to set; null when there are none.
+String? passLandmarkWords(SkyEvent e, SkyCatalog catalog, double lat, double lon) {
+  const passes = {SkyEventType.iss, SkyEventType.tiangong, SkyEventType.starlinkTrain};
+  final omm = e.details['omm'];
+  if (!passes.contains(e.type) || omm is! Map) return null;
+  try {
+    final sat = SatelliteObserver(
+      elements: OmmRecord.fromJson(omm.cast<String, Object?>()).toElements(),
+      observer: Observer(latitudeDeg: lat, longitudeDeg: lon),
+    );
+    final track = <({DateTime t, Horizontal h})>[];
+    for (var t = e.start; !t.isAfter(e.end); t = t.add(const Duration(seconds: 10))) {
+      final look = sat.lookAngleAt(t);
+      track.add((t: t, h: Horizontal(look.azimuthDeg, look.elevationDeg)));
+    }
+    return landmarkWords(landmarksAlong(track: track, catalog: catalog, lat: lat, lon: lon));
+  } catch (_) {
+    return null;
+  }
 }

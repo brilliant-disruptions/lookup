@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lookup/domain/models/sky_event.dart';
+import 'package:lookup/domain/orbit/omm.dart';
+import 'package:lookup/domain/passes/pass_predictor.dart';
 import 'package:lookup/domain/sky/astro.dart';
 import 'package:lookup/domain/sky/catalog.dart';
 import 'package:lookup/domain/sky/landmarks.dart';
@@ -46,5 +49,23 @@ void main() {
     final a = Landmark('Altair', t.add(const Duration(minutes: 2)), const Horizontal(0, 40), 3);
     final b = Landmark('Vega', t, const Horizontal(0, 60), 1);
     expect(landmarkWords([b, a]), 'passing right by Vega, then close to Altair');
+  });
+
+  test('a real ISS pass gets landmark words from its own orbit, or none', () {
+    final record = OmmRecord.listFromJson(jsonDecode(File('test/fixtures/iss_omm.json').readAsStringSync())).single;
+    final from = DateTime.utc(2026, 10, 20, 16);
+    final passes = PassPredictor(latitude: lat, longitude: lon).predict(
+        record: record, type: SkyEventType.iss, from: from, to: from.add(const Duration(days: 21)), minPeakElevationDeg: 10);
+    expect(passes, isNotEmpty);
+    for (final p in passes) {
+      final words = passLandmarkWords(p, catalog, lat, lon);
+      if (words != null) expect(words, startsWith('passing '));
+    }
+    // Not a pass, or no elements: nothing claimed.
+    final aurora = SkyEvent(
+        id: 'aurora:x', type: SkyEventType.auroraNow, start: from, peak: from, end: from.add(const Duration(hours: 1)),
+        peakElevationDeg: 20, riseAzimuthDeg: 0, peakAzimuthDeg: 0, setAzimuthDeg: 0);
+    expect(passLandmarkWords(aurora, catalog, lat, lon), isNull);
+    expect(passLandmarkWords(passes.first.copyWith(details: const {}), catalog, lat, lon), isNull);
   });
 }

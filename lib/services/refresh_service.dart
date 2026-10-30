@@ -12,9 +12,11 @@ import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
 import '../domain/scheduling/alert_planner.dart';
+import '../domain/sky/catalog.dart';
 import 'event_pipeline.dart';
 import 'location_service.dart';
 import 'notification_service.dart';
+import 'sky_catalog_loader.dart';
 
 class RefreshReport {
   RefreshReport({required this.events, required this.plan, required this.errors, this.recent = const []});
@@ -37,6 +39,7 @@ class RefreshService {
     this.onRefreshed,
     this.pipeline = const EventPipeline(),
     this.planner = const AlertPlanner(),
+    this.catalog = loadSkyCatalog,
   })  : celestrak = celestrak ?? CelestrakClient(),
         swpc = swpc ?? SwpcClient(),
         meteo = meteo ?? OpenMeteoClient(),
@@ -56,6 +59,9 @@ class RefreshService {
   final Future<void> Function(LookUpSettings settings, List<SkyEvent> events)? onRefreshed;
   final EventPipeline pipeline;
   final AlertPlanner planner;
+
+  /// The fixed sky, so alerts can say which bright things a pass goes near.
+  final Future<SkyCatalog> Function() catalog;
 
   static const elementsMaxAge = Duration(hours: 24);
   static const cloudsMaxAge = Duration(hours: 6);
@@ -163,7 +169,12 @@ class RefreshService {
     final tuning = AlertTuning.from([for (final f in await store.loadFeedback()) f.toSighting()], now: now);
     final tuned = tuning.apply(settings);
 
+    SkyCatalog? sky;
+    try {
+      sky = await catalog();
+    } catch (_) {} // no landmarks this time; everything else stands
     final events = pipeline.build(PipelineInputs(
+      catalog: sky,
       launches: launches,
       settings: tuned,
       now: now,
