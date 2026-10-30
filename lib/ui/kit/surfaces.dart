@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../real_sky.dart';
 import '../theme.dart';
-import 'starfield.dart';
 
-/// The page behind every tab: night-blue fading to black, with a few faint
-/// stars near the top. Content sits on [GlassCard]s over it.
+/// The page behind every tab: night-blue fading to black, with the real
+/// stars above you right now near the top ([RealSky]). Content sits on
+/// [GlassCard]s over it.
 class SkyBackdrop extends StatelessWidget {
   const SkyBackdrop({super.key, required this.child, this.stars = true, this.glow = LookUpColors.blue});
   final Widget child;
@@ -38,7 +39,7 @@ class SkyBackdrop extends StatelessWidget {
                 ),
               ),
             ),
-          if (stars) const Positioned.fill(child: Starfield(density: 0.00028, maxOpacity: 0.55)),
+          if (stars) const Positioned.fill(child: RealSky(maxOpacity: 0.55)),
           child,
         ]),
       );
