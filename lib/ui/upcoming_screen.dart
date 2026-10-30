@@ -46,6 +46,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
           data: (d) {
             final coming = d.events;
             final missed = isPlus ? const <SkyEvent>[] : missedWithoutPlus(d.recent);
+            final nextPlus = coming.where((e) => e.plusOnly && e.type.pushes && e.start.isAfter(DateTime.now().toUtc())).firstOrNull;
             return ListView(
               padding: EdgeInsets.fromLTRB(16, top + 14, 16, tabBarClearance(context)),
               children: [
@@ -57,12 +58,10 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                 ),
                 const SizedBox(height: 14),
                 if (_tab == 0) ...[
-                  if (missed.isNotEmpty) ...[
-                    _MissedCard(
-                      missed: missed,
-                      lead: settings?.leadMinutes ?? 10,
-                      next: coming.where((e) => e.plusOnly && e.type.pushes).firstOrNull,
-                    ),
+                  // Only with something Plus-only really coming: the paywall
+                  // never opens without one (spec §7).
+                  if (missed.isNotEmpty && nextPlus != null) ...[
+                    _MissedCard(missed: missed, lead: settings?.leadMinutes ?? 10, next: nextPlus),
                     const SizedBox(height: 14),
                   ],
                   GroupedList(indent: 64, children: [

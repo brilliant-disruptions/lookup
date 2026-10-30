@@ -5,6 +5,7 @@ import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/services/notification_service.dart';
+import 'package:lookup/services/plus_service.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/theme.dart';
@@ -61,6 +62,13 @@ class _Location implements LocationService {
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
+class _FakePlus implements PlusService {
+  @override
+  Future<List<PlusOffer>> offers() async => const [];
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
 class _Notifications implements NotificationService {
   int asked = 0;
   @override
@@ -90,6 +98,7 @@ void main() {
       locationServiceProvider.overrideWithValue(_Location(grantLocation)),
       notificationServiceProvider.overrideWithValue(notifications),
       clockProvider.overrideWith((_) => Stream.value(DateTime.now())),
+      plusServiceProvider.overrideWithValue(_FakePlus()),
     ]);
     addTearDown(container.dispose);
     await t.pumpWidget(UncontrolledProviderScope(
@@ -121,6 +130,15 @@ void main() {
     }
     expect(notifications.asked, 1);
     expect(home.refreshes, 2); // alerts planned again now they can land
+
+    // A Plus-only train really is coming, so the paywall shows its tap now;
+    // closing it finishes onboarding.
+    expect(find.text('Restore purchases'), findsOneWidget);
+    expect(container.read(settingsProvider).value?.onboarded, isNot(true));
+    Navigator.of(t.element(find.text('Restore purchases'))).pop();
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
     expect(container.read(settingsProvider).value?.onboarded, isTrue);
     await t.pumpWidget(const SizedBox());
   });
