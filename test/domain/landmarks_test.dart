@@ -68,4 +68,27 @@ void main() {
     expect(passLandmarkWords(aurora, catalog, lat, lon), isNull);
     expect(passLandmarkWords(passes.first.copyWith(details: const {}), catalog, lat, lon), isNull);
   });
+
+  test('landmarks ride on the event as words and points along the pass', () {
+    final start = DateTime.utc(2026, 10, 30, 1);
+    final e = SkyEvent(
+        id: 'iss:x', type: SkyEventType.iss, start: start, peak: start.add(const Duration(minutes: 2)),
+        end: start.add(const Duration(minutes: 4)), peakElevationDeg: 60, riseAzimuthDeg: 250, peakAzimuthDeg: 180, setAzimuthDeg: 100);
+    final marks = [
+      Landmark('Jupiter', start.add(const Duration(minutes: 1)), const Horizontal(200, 40), 1.2, above: false),
+      Landmark('Vega', start.add(const Duration(minutes: 3)), const Horizontal(120, 30), 4),
+    ];
+    final withMarks = withLandmarks(e, marks);
+    expect(withMarks.details['landmarks'], 'passing right by Jupiter, then close to Vega');
+    final points = landmarkPoints(SkyEvent.fromJson(jsonDecode(jsonEncode(withMarks.toJson())) as Map<String, Object?>));
+    expect(points.map((p) => p.name), ['Jupiter', 'Vega']);
+    expect(points[0].f, closeTo(0.25, 1e-9));
+    expect(points[0].above, isFalse);
+    expect(points[0].close, isTrue);
+    expect(points[1].f, closeTo(0.75, 1e-9));
+    expect(points[1].above, isTrue);
+    // Nothing nearby: the event is left alone.
+    expect(identical(withLandmarks(e, const []), e), isTrue);
+    expect(landmarkPoints(e), isEmpty);
+  });
 }

@@ -201,13 +201,7 @@ class EventPipeline {
     out.sort((x, y) => x.start.compareTo(y.start));
     final cat = i.catalog;
     if (cat == null) return out;
-    return [
-      for (final e in out)
-        if (passLandmarkWords(e, cat, lat, lon) case final words?)
-          e.copyWith(details: {...e.details, 'landmarks': words})
-        else
-          e,
-    ];
+    return [for (final e in out) withLandmarks(e, passLandmarks(e, cat, lat, lon))];
   }
 
   SkyEvent? _nextIssBeyond(PipelineInputs i, PassPredictor predictor, DateTime from, DateTime to) {

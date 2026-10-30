@@ -190,6 +190,17 @@ class _NextCardState extends ConsumerState<_NextCard> {
           ],
           const SizedBox(height: 14),
           Text(eventSubtitle(event), style: t.bodyMedium?.copyWith(color: LookUpColors.grey)),
+          if (event.details['landmarks'] case final String near) ...[
+            const SizedBox(height: 10),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(Icons.auto_awesome_rounded, size: 16, color: LookUpColors.gold),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Look for it $near', style: t.bodyMedium?.copyWith(color: LookUpColors.white))),
+            ]),
+          ],
           if (live || until < const Duration(minutes: 30)) ...[
             const SizedBox(height: 18),
             FilledButton.icon(
