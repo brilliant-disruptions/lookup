@@ -59,4 +59,29 @@ void main() {
     await t.pump(const Duration(milliseconds: 1200));
     expect(t.hasRunningAnimations, isFalse);
   });
+
+  testWidgets('names what it goes by beside the route, and says so', (t) async {
+    final withMarks = pass.copyWith(details: {
+      'landmarks': 'passing right by Jupiter, then close to Vega',
+      'landmarkPoints': [
+        {'name': 'Jupiter', 'f': 0.3, 'above': true, 'close': true},
+        {'name': 'Vega', 'f': 0.8, 'above': false, 'close': false},
+      ],
+    });
+    await t.pumpWidget(MaterialApp(
+      theme: buildLookUpTheme(),
+      home: Scaffold(
+          body: Padding(padding: const EdgeInsets.all(16), child: LivePassArc(event: withMarks, now: start.subtract(const Duration(hours: 3))))),
+    ));
+    await t.pump();
+    await t.pump(const Duration(seconds: 5));
+    await t.pump(const Duration(seconds: 3));
+    expect(find.text('Jupiter', skipOffstage: false), findsOneWidget);
+    expect(find.text('Vega', skipOffstage: false), findsOneWidget);
+    // Jupiter labels to the right of its dot, Vega (late in the pass) to the left.
+    expect(t.getTopLeft(find.text('Jupiter')).dx, lessThan(t.getTopLeft(find.text('Vega')).dx));
+    expect(find.bySemanticsLabel(RegExp(r'passing right by Jupiter, then close to Vega\.$')), findsOneWidget);
+    expect(find.textContaining('°'), findsNothing);
+    expect(t.takeException(), isNull);
+  });
 }

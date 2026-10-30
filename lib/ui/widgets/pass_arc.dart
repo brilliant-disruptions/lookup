@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../domain/models/sky_event.dart';
+import '../../domain/sky/astro.dart' show Planet, PlanetInfo;
+import '../../domain/sky/landmarks.dart';
 import '../../domain/sky/direction.dart';
 import '../format.dart';
 import '../kit/event_style.dart';
@@ -20,7 +22,8 @@ double? passProgress(SkyEvent e, DateTime now) {
 /// The pass drawn across the card: where it rises, how high it climbs,
 /// where it sets. The arc draws itself in; before the pass a light runs the
 /// route once so you see which way it goes, then waits where it will rise.
-/// Once it's up the dot is where it is right now. Words and times only.
+/// Once it's up the dot is where it is right now. The bright stars and
+/// planets it goes by sit beside the route, named. Words and times only.
 class LivePassArc extends StatefulWidget {
   const LivePassArc({super.key, required this.event, required this.now});
   final SkyEvent event;
@@ -64,25 +67,36 @@ class _LivePassArcState extends State<LivePassArc> with TickerProviderStateMixin
     final total = e.duration.inMilliseconds;
     final peakFrac = total <= 0 ? 0.5 : e.peak.difference(e.start).inMilliseconds / total;
     final height = elevationWord(e.peakElevationDeg);
+    final marks = landmarkPoints(e);
+    final near = e.details['landmarks'];
     return Semantics(
       label: 'Rises in the ${compassWord(e.riseAzimuthDeg)} at ${fmtTime(e.start)}, '
-          'climbs $height, sets in the ${compassWord(e.setAzimuthDeg)} at ${fmtTime(e.end)}.',
+          'climbs $height, sets in the ${compassWord(e.setAzimuthDeg)} at ${fmtTime(e.end)}'
+          '${near is String ? ', $near' : ''}.',
       excludeSemantics: true,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         SizedBox(
           height: 96,
           child: AnimatedBuilder(
             animation: Listenable.merge([_draw, _comet]),
-            builder: (context, _) => CustomPaint(
-              painter: _ArcPainter(
+            builder: (context, _) {
+              final painter = _ArcPainter(
                 draw: Curves.easeOutCubic.transform(_draw.value),
                 comet: _comet.isAnimating ? Curves.easeInOutSine.transform(_comet.value) : null,
                 progress: progress,
                 peakFrac: peakFrac,
                 peakElevation: e.peakElevationDeg,
                 tint: tint,
-              ),
-            ),
+                marks: marks,
+              );
+              return LayoutBuilder(builder: (context, box) {
+                final size = box.biggest;
+                return Stack(clipBehavior: Clip.none, children: [
+                  Positioned.fill(child: CustomPaint(painter: painter)),
+                  for (final m in marks) _label(painter.markAt(size, m), size, m, painter.draw),
+                ]);
+              });
+            },
           ),
         ),
         const SizedBox(height: 8),
@@ -98,6 +112,22 @@ class _LivePassArcState extends State<LivePassArc> with TickerProviderStateMixin
     );
   }
 }
+
+/// A landmark's name beside its dot, away from the card's nearer edge.
+Widget _label(Offset at, Size size, ({String name, double f, bool above, bool close}) m, double opacity) => Positioned(
+      left: m.f < 0.6 ? at.dx + 7 : null,
+      right: m.f < 0.6 ? null : size.width - at.dx + 7,
+      top: at.dy - 8,
+      child: Opacity(
+        opacity: opacity,
+        child: Text(m.name,
+            style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+                color: _isPlanet(m.name) ? LookUpColors.gold : LookUpColors.white.withValues(alpha: 0.85))),
+      ),
+    );
 
 class _End extends StatelessWidget {
   const _End(this.top, this.bottom, this.align, {this.small = false});
@@ -134,6 +164,7 @@ class _ArcPainter extends CustomPainter {
     required this.peakFrac,
     required this.peakElevation,
     required this.tint,
+    this.marks = const [],
   });
 
   /// 0…1 as the arc draws itself in.
@@ -147,7 +178,18 @@ class _ArcPainter extends CustomPainter {
   final double peakFrac, peakElevation;
   final Color tint;
 
+  /// What it passes near, along the route.
+  final List<({String name, double f, bool above, bool close})> marks;
+
   static const _inset = 6.0;
+
+  /// Where a landmark sits: beside the route where the pass meets it, on
+  /// the side it really is, nearer for a close one.
+  Offset markAt(Size s, ({String name, double f, bool above, bool close}) m) {
+    final o = _pt(s, m.f);
+    final dy = m.close ? 9.0 : 15.0;
+    return Offset(o.dx, (o.dy + (m.above ? -dy : dy)).clamp(5.0, s.height - 9));
+  }
 
   /// A parabola through rise, peak and set, higher for higher passes.
   Offset _pt(Size s, double f) {
@@ -212,6 +254,20 @@ class _ArcPainter extends CustomPainter {
             ..color = tint);
     }
 
+    // The stars and planets it goes by, fading in with the route.
+    for (final m in marks) {
+      final o = markAt(s, m);
+      final planet = _isPlanet(m.name), moon = m.name == 'the Moon';
+      final c = planet ? LookUpColors.gold : const Color(0xFFEDE7D9);
+      canvas.drawCircle(
+          o,
+          moon ? 9 : 7,
+          Paint()
+            ..color = c.withValues(alpha: 0.35 * draw)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+      canvas.drawCircle(o, moon ? 4 : (planet ? 3 : 2.3), Paint()..color = c.withValues(alpha: draw));
+    }
+
     // Rise and set markers.
     final end = Paint()..color = tint.withValues(alpha: 0.9);
     canvas.drawCircle(_pt(s, 0), 3, end);
@@ -240,5 +296,12 @@ class _ArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ArcPainter o) =>
-      o.draw != draw || o.comet != comet || o.progress != progress || o.peakFrac != peakFrac || o.tint != tint;
+      o.draw != draw ||
+      o.comet != comet ||
+      o.progress != progress ||
+      o.peakFrac != peakFrac ||
+      o.tint != tint ||
+      o.marks != marks;
 }
+
+bool _isPlanet(String name) => Planet.values.any((p) => p.label == name);

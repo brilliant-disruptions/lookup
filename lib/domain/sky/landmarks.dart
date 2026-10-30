@@ -11,7 +11,7 @@ import 'astro.dart';
 import 'catalog.dart';
 
 class Landmark {
-  const Landmark(this.name, this.at, this.position, this.distanceDeg);
+  const Landmark(this.name, this.at, this.position, this.distanceDeg, {this.above = true});
 
   /// "Vega", "Jupiter", "the Moon".
   final String name;
@@ -22,6 +22,9 @@ class Landmark {
   /// Where it is in the sky then.
   final Horizontal position;
   final double distanceDeg;
+
+  /// Whether it's higher in the sky than the pass where they meet.
+  final bool above;
 }
 
 /// The bright named stars (brighter than [maxStarMag]), planets and the
@@ -51,7 +54,9 @@ List<Landmark> landmarksAlong({
     Landmark? best;
     for (final p in up) {
       final d = separationDeg(p.h, pos);
-      if (d <= withinDeg && (best == null || d < best.distanceDeg)) best = Landmark(name, p.t, pos, d);
+      if (d <= withinDeg && (best == null || d < best.distanceDeg)) {
+        best = Landmark(name, p.t, pos, d, above: pos.altitudeDeg >= p.h.altitudeDeg);
+      }
     }
     if (best != null) found.add(best);
   }
@@ -67,12 +72,12 @@ String? landmarkWords(List<Landmark> marks) {
   return 'passing ${marks.map(one).join(', then ')}';
 }
 
-/// Landmark words for a pass that carries its orbital elements ('omm'),
-/// propagated every 10 s from rise to set; null when there are none.
-String? passLandmarkWords(SkyEvent e, SkyCatalog catalog, double lat, double lon) {
+/// The landmarks of a pass that carries its orbital elements ('omm'),
+/// propagated every 10 s from rise to set; empty when there are none.
+List<Landmark> passLandmarks(SkyEvent e, SkyCatalog catalog, double lat, double lon) {
   const passes = {SkyEventType.iss, SkyEventType.tiangong, SkyEventType.starlinkTrain};
   final omm = e.details['omm'];
-  if (!passes.contains(e.type) || omm is! Map) return null;
+  if (!passes.contains(e.type) || omm is! Map) return const [];
   try {
     final sat = SatelliteObserver(
       elements: OmmRecord.fromJson(omm.cast<String, Object?>()).toElements(),
@@ -83,8 +88,50 @@ String? passLandmarkWords(SkyEvent e, SkyCatalog catalog, double lat, double lon
       final look = sat.lookAngleAt(t);
       track.add((t: t, h: Horizontal(look.azimuthDeg, look.elevationDeg)));
     }
-    return landmarkWords(landmarksAlong(track: track, catalog: catalog, lat: lat, lon: lon));
+    return landmarksAlong(track: track, catalog: catalog, lat: lat, lon: lon);
   } catch (_) {
-    return null;
+    return const [];
   }
+}
+
+/// Landmark words for a pass, or null when it goes near nothing bright.
+String? passLandmarkWords(SkyEvent e, SkyCatalog catalog, double lat, double lon) =>
+    landmarkWords(passLandmarks(e, catalog, lat, lon));
+
+/// [e] with its landmarks attached: the words alerts use ('landmarks') and
+/// where along the pass each one is ('landmarkPoints'), for drawing.
+SkyEvent withLandmarks(SkyEvent e, List<Landmark> marks) {
+  final words = landmarkWords(marks);
+  if (words == null) return e;
+  final total = e.end.difference(e.start).inMilliseconds;
+  return e.copyWith(details: {
+    ...e.details,
+    'landmarks': words,
+    'landmarkPoints': [
+      for (final m in marks)
+        {
+          'name': m.name,
+          'f': total <= 0 ? 0.5 : (m.at.difference(e.start).inMilliseconds / total).clamp(0.0, 1.0),
+          'above': m.above,
+          'close': m.distanceDeg < 2,
+        },
+    ],
+  });
+}
+
+/// Where along [e] its landmarks are (0 at rise, 1 at set), as attached by
+/// [withLandmarks]; empty for anything else.
+List<({String name, double f, bool above, bool close})> landmarkPoints(SkyEvent e) {
+  final raw = e.details['landmarkPoints'];
+  if (raw is! List) return const [];
+  return [
+    for (final p in raw)
+      if (p is Map && p['name'] is String && p['f'] is num)
+        (
+          name: p['name'] as String,
+          f: (p['f'] as num).toDouble().clamp(0.0, 1.0),
+          above: p['above'] != false,
+          close: p['close'] == true,
+        ),
+  ];
 }
