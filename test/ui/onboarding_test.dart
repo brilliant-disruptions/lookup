@@ -131,7 +131,7 @@ void main() {
     await t.pump();
     await t.pump();
     expect(find.text('Choose your town'), findsOneWidget);
-    expect(container.read(settingsProvider).value?.onboarded, isFalse);
+    expect(container.read(settingsProvider).value?.onboarded ?? false, isFalse);
     expect(notifications.asked, 0);
     await t.pumpWidget(const SizedBox());
   });

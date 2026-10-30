@@ -48,6 +48,9 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   Future<void> _look() async {
     setState(() => _step = _Step.looking);
     try {
+      // Let the stored (empty) data finish loading first, or it can land
+      // after the refresh and hide what it found.
+      await ref.read(homeProvider.future);
       await ref.read(homeProvider.notifier).refresh();
     } catch (_) {
       // Offline: the sights screen says so and the shell retries.
@@ -96,8 +99,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: _FillOrScroll(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -173,6 +175,22 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   }
 }
 
+/// A full-height page whose spacers share out the room on a tall phone,
+/// and which scrolls instead of overflowing on a short one.
+class _FillOrScroll extends StatelessWidget {
+  const _FillOrScroll({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, box) => SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: box.maxHeight - 40),
+            child: IntrinsicHeight(child: child),
+          ),
+        ),
+      );
+}
 
 /// "Here's what's coming over you": the real next sights, then the one ask
 /// that makes them worth anything, a tap before each.
@@ -196,8 +214,7 @@ class _SightsPage extends ConsumerWidget {
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          child: _FillOrScroll(
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               const Spacer(),
               if (looking) ...[
