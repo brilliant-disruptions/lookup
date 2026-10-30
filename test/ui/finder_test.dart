@@ -65,4 +65,52 @@ void main() {
     await t.pumpWidget(const SizedBox());
     unawaited(c.close());
   });
+
+  testWidgets('hold it there and it hands off to your eyes, in red', (t) async {
+    final c = await pump(t);
+    c.add(north);
+    await t.pump();
+    expect(find.text('Lower your phone.'), findsNothing);
+    await t.pump(const Duration(seconds: 2));
+    expect(find.text('Lower your phone.'), findsOneWidget);
+    expect(find.textContaining('It buzzes when it appears'), findsOneWidget);
+
+    await t.tap(find.text('Back to the finder'));
+    await t.pump();
+    expect(find.text('Lower your phone.'), findsNothing);
+    // Still pointing at it: no second hand-off until you leave and come back.
+    await t.pump(const Duration(seconds: 2));
+    expect(find.text('Lower your phone.'), findsNothing);
+    c.add(east);
+    await t.pump();
+    c.add(north);
+    await t.pump(const Duration(seconds: 2));
+    expect(find.text('Lower your phone.'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
+
+  testWidgets('words on the main screen, numbers only behind Details', (t) async {
+    final c = await pump(t);
+    c.add(east);
+    await t.pump();
+    expect(find.textContaining('°'), findsNothing);
+    expect(find.textContaining('Look north'), findsOneWidget);
+    await t.tap(find.textContaining('Details'));
+    await t.pump();
+    expect(find.textContaining('°'), findsWidgets);
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
+
+  testWidgets('leaving the target early cancels the hand-off', (t) async {
+    final c = await pump(t);
+    c.add(north);
+    await t.pump(const Duration(milliseconds: 800));
+    c.add(east);
+    await t.pump(const Duration(seconds: 2));
+    expect(find.text('Lower your phone.'), findsNothing);
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
 }
