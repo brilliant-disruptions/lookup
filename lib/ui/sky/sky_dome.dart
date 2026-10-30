@@ -9,7 +9,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../domain/models/sky_event.dart';
-import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../theme.dart';
 import 'sky_thing.dart';
@@ -119,7 +118,7 @@ class _DomePainter extends CustomPainter {
   }
 
   Offset? _eq(Size s, double ra, double dec) {
-    final h = toHorizontal(Equatorial(ra, dec, 1), time, lat, lon);
+    final h = catalog.place(ra, dec, time, lat, lon);
     return _xy(s, h.azimuthDeg, h.altitudeDeg);
   }
 

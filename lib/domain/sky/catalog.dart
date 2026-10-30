@@ -1,6 +1,6 @@
 /// The fixed sky: naked-eye stars, the 88 constellations and a handful of
-/// showpieces worth stepping out for. Positions are J2000 (precession moves
-/// them ~0.4° by 2026: invisible at this scale).
+/// showpieces worth stepping out for. Positions are J2000, precessed to the
+/// date when placed in the sky ([catalogHorizontal]).
 ///
 /// Star and constellation data: d3-celestial (c) Olaf Frohn, BSD-3-Clause,
 /// from Hipparcos / the Yale Bright Star Catalog (assets/sky/).
@@ -9,7 +9,7 @@ library;
 import 'astro.dart';
 
 class Star {
-  const Star(this.raDeg, this.decDeg, this.mag, {this.bv, this.hip, this.name});
+  const Star(this.raDeg, this.decDeg, this.mag, {this.bv, this.hip, this.name, this.pm});
   final double raDeg;
   final double decDeg;
   final double mag;
@@ -19,8 +19,11 @@ class Star {
   final int? hip;
   final String? name;
 
+  /// Proper motion, mas/yr (RA·cos Dec, Dec); null when not in the table.
+  final (double, double)? pm;
+
   Horizontal horizontal(DateTime utc, double lat, double lon) =>
-      toHorizontal(Equatorial(raDeg, decDeg, 1), utc, lat, lon);
+      catalogHorizontal(raDeg, decDeg, utc, lat, lon, pm: pm);
 }
 
 class Constellation {
@@ -48,27 +51,58 @@ class Constellation {
   final List<List<(double, double)>> lines;
 
   Horizontal center(DateTime utc, double lat, double lon) =>
-      toHorizontal(Equatorial(centerRaDeg, centerDecDeg, 1), utc, lat, lon);
+      catalogHorizontal(centerRaDeg, centerDecDeg, utc, lat, lon);
 }
 
 class SkyCatalog {
-  SkyCatalog({required this.stars, required this.constellations});
+  SkyCatalog({required this.stars, required this.constellations}) {
+    // Constellation figures are drawn star to star: give each corner the
+    // proper motion of the star it sits on, so figures move with them.
+    final moving = stars.where((s) => s.pm != null).toList();
+    for (final s in moving) {
+      _pm[(s.raDeg, s.decDeg)] = s.pm!;
+    }
+    for (final c in constellations) {
+      for (final seg in c.lines) {
+        for (final p in seg) {
+          if (_pm.containsKey(p)) continue;
+          for (final s in moving) {
+            if ((s.raDeg - p.$1).abs() < 0.05 && (s.decDeg - p.$2).abs() < 0.05) _pm[p] = s.pm!;
+          }
+        }
+      }
+    }
+  }
   final List<Star> stars; // brightest first
   final List<Constellation> constellations;
+  final _pm = <(double, double), (double, double)>{};
 
   static final empty = SkyCatalog(stars: const [], constellations: const []);
 
-  /// From the decoded `assets/sky/stars.json` and `constellations.json`.
-  factory SkyCatalog.fromJson(Map<String, Object?> starsJson, Map<String, Object?> constellationsJson) {
+  /// Where a star or a constellation-figure corner from this catalogue is
+  /// in your sky at [utc], with its proper motion when it has one.
+  Horizontal place(double raDeg, double decDeg, DateTime utc, double lat, double lon) =>
+      catalogHorizontal(raDeg, decDeg, utc, lat, lon, pm: _pm[(raDeg, decDeg)]);
+
+  /// From the decoded `assets/sky/stars.json` and `constellations.json`, and
+  /// optionally `proper_motion.json` (by Hipparcos number).
+  factory SkyCatalog.fromJson(Map<String, Object?> starsJson, Map<String, Object?> constellationsJson,
+      [Map<String, Object?>? properMotionJson]) {
     final names = (starsJson['names'] as Map?)?.cast<String, Object?>() ?? const {};
+    final pms = (properMotionJson?['pm'] as Map?)?.cast<String, Object?>() ?? const {};
     double d(Object? x) => (x as num).toDouble();
+    (double, double)? pm(Object? hip) => switch (pms['$hip']) {
+          [final a, final b] => (d(a), d(b)),
+          _ => null,
+        };
     return SkyCatalog(
       stars: [
         for (final s in (starsJson['stars'] as List? ?? const []).cast<List>())
           Star(d(s[0]), d(s[1]), d(s[2]),
               bv: (s[3] as num?)?.toDouble(),
               hip: (s[4] as num?)?.toInt(),
-              name: names['${s[4]}'] as String?),
+              name: names['${s[4]}'] as String?,
+              pm: pm(s[4])),
       ],
       constellations: [
         for (final c in (constellationsJson['constellations'] as List? ?? const []).cast<Map>())
@@ -122,7 +156,7 @@ class Showpiece {
   final bool diffuse;
 
   Horizontal horizontal(DateTime utc, double lat, double lon) =>
-      toHorizontal(Equatorial(raDeg, decDeg, 1), utc, lat, lon);
+      catalogHorizontal(raDeg, decDeg, utc, lat, lon);
 }
 
 const showpieces = <Showpiece>[

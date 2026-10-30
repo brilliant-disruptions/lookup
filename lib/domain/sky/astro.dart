@@ -6,9 +6,17 @@
 /// "Venus and Jupiter are 1° apart low in the west after sunset", moon phase,
 /// and meteor-shower dates. Verified against NASA eclipse times and a known
 /// conjunction in test/domain/astro_test.dart.
+///
+/// For other centuries it adds what Schlyter's linear elements leave out:
+/// ΔT (the Sun, Moon and planets run on TT), the quadratic term of
+/// precession, the IAU obliquity polynomial and the Moon's secular
+/// acceleration (Meeus ch. 22 & 47). Checked against JPL Horizons from
+/// 3000 BC to 2400 AD in test/domain/history_test.dart.
 library;
 
 import 'dart:math' as math;
+
+import 'delta_t.dart';
 
 const _d2r = math.pi / 180;
 const _r2d = 180 / math.pi;
@@ -22,7 +30,19 @@ double _atan2d(double y, double x) => math.atan2(y, x) * _r2d;
 double dayNumber(DateTime utc) =>
     utc.toUtc().millisecondsSinceEpoch / 86400000.0 + 2440587.5 - 2451543.5;
 
-double _obliquity(double d) => 23.4393 - 3.563e-7 * d;
+/// Julian centuries from J2000.0 for a day number.
+double _centuries(double d) => (d - 1.5) / 36525;
+
+/// Day number on TT, the steady time the Sun, Moon and planets keep.
+double _ttDay(DateTime utc) {
+  final d = dayNumber(utc);
+  return d + deltaTSeconds(2000 + (d - 1.5) / 365.25) / 86400;
+}
+
+double _obliquity(double d) {
+  final t = _centuries(d);
+  return 23.439291 - 0.0130042 * t - 1.64e-7 * t * t + 5.04e-7 * t * t * t;
+}
 
 /// Right ascension / declination (degrees) plus distance (AU, or Earth radii
 /// for the Moon).
@@ -93,6 +113,10 @@ _SunState _sun(double d) {
 double solarLongitudeDeg(DateTime utc) => _sun(dayNumber(utc)).lonDeg;
 
 Equatorial _eclToEq(double lonDeg, double latDeg, double dist, double d) {
+  // Schlyter's elements precess linearly; this is the 1.11″·T² that's
+  // missing (0.7° by 3000 BC).
+  final t = _centuries(d);
+  lonDeg += 3.0865e-4 * t * t;
   final x = dist * _cosd(lonDeg) * _cosd(latDeg);
   final y = dist * _sind(lonDeg) * _cosd(latDeg);
   final z = dist * _sind(latDeg);
@@ -103,24 +127,27 @@ Equatorial _eclToEq(double lonDeg, double latDeg, double dist, double d) {
 }
 
 Equatorial sunEquatorial(DateTime utc) {
-  final d = dayNumber(utc);
+  final d = _ttDay(utc);
   final s = _sun(d);
   return _eclToEq(s.lonDeg, 0, s.r, d);
 }
 
 /// Geocentric Moon (distance in Earth radii).
 Equatorial moonEquatorial(DateTime utc) {
-  final d = dayNumber(utc);
+  final d = _ttDay(utc);
   final s = _sun(d);
-  final n = 125.1228 - 0.0529538083 * d;
-  final w = 318.0634 + 0.1643573223 * d;
-  final m = _rev(115.3654 + 13.0649929509 * d);
+  // The quadratic terms (Meeus 47.2–47.7) carry the Moon's secular
+  // acceleration: several degrees by 3000 BC without them.
+  final t2 = _centuries(d) * _centuries(d);
+  final n = 125.1228 - 0.0529538083 * d + 0.0020754 * t2;
+  final w = 318.0634 + 0.1643573223 * d - 0.0123954 * t2;
+  final m = _rev(115.3654 + 13.0649929509 * d + 0.0087414 * t2);
   final ecl = _orbit(n, 5.1454, w, 60.2666, 0.054900, m);
-  final ls = s.m + s.w;
+  final ms = s.m - 0.0001536 * t2;
+  final ls = ms + s.w;
   final lm = m + w + n;
   final dd = lm - ls;
   final f = lm - n;
-  final ms = s.m;
   final lon = ecl.lonDeg -
       1.274 * _sind(m - 2 * dd) +
       0.658 * _sind(2 * dd) -
@@ -199,7 +226,7 @@ _Ecl _heliocentric(Planet p, double d) {
 }
 
 Equatorial planetEquatorial(Planet p, DateTime utc) {
-  final d = dayNumber(utc);
+  final d = _ttDay(utc);
   final h = _heliocentric(p, d);
   final s = _sun(d);
   final x = h.x + s.x, y = h.y + s.y, z = h.z;
@@ -215,6 +242,34 @@ double localSiderealDeg(DateTime utc, double lonDeg) {
   final s0 = _sun(dayNumber(ut) - hours / 24);
   final gmst0 = _rev(s0.m + s0.w + 180);
   return _rev(gmst0 + hours * 15.04107 + lonDeg);
+}
+
+/// J2000 catalogue coordinates moved to the equator and equinox of [utc]
+/// (IAU 1976 precession, Meeus ch. 21): about 1.4° a century, so it's what
+/// lets the stars sit right on a date centuries away.
+Equatorial precessFromJ2000(double raDeg, double decDeg, DateTime utc) {
+  final t = _centuries(dayNumber(utc));
+  final zeta = (2306.2181 * t + 0.30188 * t * t + 0.017998 * t * t * t) / 3600;
+  final z = (2306.2181 * t + 1.09468 * t * t + 0.018203 * t * t * t) / 3600;
+  final theta = (2004.3109 * t - 0.42665 * t * t - 0.041833 * t * t * t) / 3600;
+  final a = _cosd(decDeg) * _sind(raDeg + zeta);
+  final b = _cosd(theta) * _cosd(decDeg) * _cosd(raDeg + zeta) - _sind(theta) * _sind(decDeg);
+  final c = _sind(theta) * _cosd(decDeg) * _cosd(raDeg + zeta) + _cosd(theta) * _sind(decDeg);
+  return Equatorial(_rev(_atan2d(a, b) + z), math.asin(c.clamp(-1.0, 1.0)) * _r2d, 1);
+}
+
+/// Where a J2000 catalogue position (a star, a constellation, a showpiece)
+/// is in your sky at [utc]. [pm] is the star's own drift across the sky in
+/// milliarcseconds a year (RA·cos Dec, Dec): Arcturus moves ~2° in 3,000
+/// years, Alpha Centauri ~3°.
+Horizontal catalogHorizontal(double raDeg, double decDeg, DateTime utc, double latDeg, double lonDeg,
+    {(double, double)? pm}) {
+  if (pm != null) {
+    final years = (dayNumber(utc) - 1.5) / 365.25;
+    decDeg += pm.$2 * years / 3.6e6;
+    raDeg += pm.$1 * years / 3.6e6 / math.max(_cosd(decDeg), 1e-3);
+  }
+  return toHorizontal(precessFromJ2000(raDeg, decDeg, utc), utc, latDeg, lonDeg);
 }
 
 Horizontal toHorizontal(Equatorial eq, DateTime utc, double latDeg, double lonDeg) {

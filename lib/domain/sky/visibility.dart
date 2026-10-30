@@ -132,7 +132,7 @@ String skyWords(SkyConditions c) {
   final p = c.precipProbability;
   if (p != null && p >= 60) return 'Rain likely';
   final cloud = c.cloudPercent;
-  if (cloud == null) return 'No cloud forecast that far ahead';
+  if (cloud == null) return 'No cloud forecast for then';
   if (cloud >= 75) return 'Cloudy';
   final vis = c.visibilityM;
   if (vis != null && vis < 4000) return 'Hazy';

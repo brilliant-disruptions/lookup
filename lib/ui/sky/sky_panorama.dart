@@ -8,7 +8,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
-import 'package:flutter_rotation_sensor/flutter_rotation_sensor.dart';
 
 import '../../domain/finder/pointing.dart';
 import '../../domain/models/sky_event.dart';
@@ -16,6 +15,7 @@ import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../../domain/sky/direction.dart';
 import '../../domain/sky/wmm.dart';
+import '../../services/orientation.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import 'sky_thing.dart';
@@ -63,6 +63,7 @@ class SkyPanorama extends StatefulWidget {
     this.onTrackTap,
     this.height = 440,
     this.orientationStream,
+    this.initialFacing,
   });
 
   final DateTime time;
@@ -82,6 +83,9 @@ class SkyPanorama extends StatefulWidget {
   /// Injected in tests; defaults to the fused rotation sensor.
   final Stream<List<double>>? orientationStream;
 
+  /// The way to face first; otherwise a pass going over, else [bestFacing].
+  final double? initialFacing;
+
   /// The sky itself, for tests that drag or tap it.
   static const canvasKey = ValueKey('sky-panorama');
 
@@ -91,7 +95,8 @@ class SkyPanorama extends StatefulWidget {
 
 class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStateMixin {
   // Something passing over right now beats everything else.
-  late double _facing = widget.tracks
+  late double _facing = widget.initialFacing ??
+      widget.tracks
           .map((t) => t.at(widget.trackTime ?? widget.time)?.azimuthDeg)
           .nonNulls
           .firstOrNull ??
@@ -127,15 +132,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
     }
     var stream = widget.orientationStream;
     try {
-      if (stream == null && RotationSensor.isPlatformSupported) {
-        RotationSensor.samplingPeriod = SensorInterval.uiInterval;
-        RotationSensor.referenceFrame = ReferenceFrame.magneticNorth;
-        RotationSensor.coordinateSystem = CoordinateSystem.device();
-        stream = RotationSensor.orientationStream.map((e) {
-          final m = e.rotationMatrix;
-          return [m.a, m.b, m.c, m.d, m.e, m.f, m.g, m.h, m.i];
-        });
-      }
+      stream ??= deviceRotation();
     } catch (_) {
       stream = null;
     }
@@ -296,11 +293,11 @@ class _SkyCache {
         lines = [
           for (final con in catalog.constellations)
             for (final seg in con.lines)
-              [for (final (ra, dec) in seg) toHorizontal(Equatorial(ra, dec, 1), utc, lat, lon)],
+              [for (final (ra, dec) in seg) catalog.place(ra, dec, utc, lat, lon)],
         ],
         names = [
           for (final con in catalog.constellations.where((c) => c.rank == 1))
-            (name: con.name, h: toHorizontal(Equatorial(con.centerRaDeg, con.centerDecDeg, 1), utc, lat, lon)),
+            (name: con.name, h: catalogHorizontal(con.centerRaDeg, con.centerDecDeg, utc, lat, lon)),
         ];
 
   final List<({Star star, Horizontal h})> stars;

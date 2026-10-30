@@ -132,7 +132,7 @@ void main() {
       expect(skyWords(sky(cloud: 90)), 'Cloudy');
       expect(skyWords(sky(cloud: 10, vis: 800)), 'Hazy');
       expect(skyWords(sky(cloud: 55)), 'Some cloud');
-      expect(skyWords(sky()), 'No cloud forecast that far ahead');
+      expect(skyWords(sky()), 'No cloud forecast for then');
       expect(skyWords(sky(sun: -9, cloud: 5)), 'Clear, not fully dark');
       expect(skyWords(sky(cloud: 5)), 'Clear');
     });
