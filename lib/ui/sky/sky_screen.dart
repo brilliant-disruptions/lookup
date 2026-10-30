@@ -373,7 +373,8 @@ class _TimeTravel extends StatelessWidget {
           semanticFormatterCallback: (_) => live ? 'Now' : 'At $when',
           onChanged: onMinutes,
         ),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        // Wraps to two lines on narrow phones rather than overflowing.
+        Wrap(alignment: WrapAlignment.center, children: [
           TextButton.icon(
             onPressed: () => onStep(-1),
             icon: const Icon(Icons.chevron_left_rounded, size: 18),
