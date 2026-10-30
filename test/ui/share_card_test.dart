@@ -44,6 +44,11 @@ void main() {
   );
 
   Future<void> pump(WidgetTester t, LookUpSettings s) async {
+    // The test font is far wider than Inter, so give the poster room to lay
+    // out as it does on a phone at 300 pt.
+    t.view.physicalSize = const Size(1600, 2400);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     await t.pumpWidget(ProviderScope(
       overrides: [
         settingsProvider.overrideWith(() => _Settings(s)),
@@ -51,7 +56,7 @@ void main() {
       ],
       child: MaterialApp(
         theme: buildLookUpTheme(),
-        home: Scaffold(body: Center(child: SizedBox(width: 300, child: ShareCard(event: pass, mode: ShareMode.sawIt, place: 'Nashville')))),
+        home: Scaffold(body: Center(child: SizedBox(width: 640, child: ShareCard(event: pass, mode: ShareMode.sawIt, place: 'Nashville')))),
       ),
     ));
     await t.pump();
