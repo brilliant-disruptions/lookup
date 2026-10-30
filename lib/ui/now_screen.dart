@@ -24,6 +24,7 @@ import 'settings_screen.dart';
 import 'sky/night_strip.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
+import 'tonight_story.dart';
 import 'tour.dart';
 import 'where_to_go_screen.dart';
 import 'widgets/pass_arc.dart';
@@ -442,6 +443,12 @@ class _TonightSkyCard extends ConsumerWidget {
             for (final p in planets) Pill(p.planet.label, dot: true, color: LookUpColors.gold),
             if (moonUp) Pill('Moon ${(t.moon.illumination * 100).round()}%', icon: Icons.nightlight_round, color: LookUpColors.white),
           ]),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: () => showTonightStory(context),
+          icon: const Icon(Icons.play_arrow_rounded),
+          label: const Text('Tonight in 20 seconds'),
+        ),
       ]),
     );
   }
