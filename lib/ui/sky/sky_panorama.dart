@@ -1,7 +1,8 @@
 /// The sky as you'd see it standing outside: rooftops and trees along the
-/// bottom, the horizon across, straight up at the top. Drag (or use the
-/// arrows) to turn round, or let it follow the phone. Tap a planet, the Moon
-/// or a showpiece to open it.
+/// bottom, the horizon across, straight up at the top. It follows the phone
+/// by default; drag (or use the arrows) to look round, and a few seconds
+/// after you let go it swings back to the phone. Tap a planet, the Moon or a
+/// showpiece to open it.
 library;
 
 import 'dart:async';
@@ -23,6 +24,10 @@ import 'sky_track.dart';
 
 /// How wide a slice of the horizon fits on screen, in degrees.
 const panoramaFov = 140.0;
+
+/// How long a drag holds the view after your finger lifts, before it swings
+/// back to following the phone.
+const panoramaHold = Duration(seconds: 3);
 
 /// The way to face first: where the most worth seeing is up right now. The
 /// Moon counts most, then planets, then showpieces you can actually see;
@@ -61,7 +66,7 @@ class SkyPanorama extends StatefulWidget {
     this.tracks = const [],
     this.trackTime,
     this.onTrackTap,
-    this.height = 440,
+    this.height = 532,
     this.orientationStream,
     this.initialFacing,
   });
@@ -84,6 +89,7 @@ class SkyPanorama extends StatefulWidget {
   final Stream<List<double>>? orientationStream;
 
   /// The way to face first; otherwise a pass going over, else [bestFacing].
+  /// Given one, it doesn't follow the phone.
   final double? initialFacing;
 
   /// The sky itself, for tests that drag or tap it.
@@ -105,10 +111,22 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
     ..addListener(() => setState(() => _facing = _spin.value % 360));
   late _SkyCache _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon);
 
-  /// Following the phone: the view turns as you do, and a ring marks where
-  /// the back of the phone points.
+  /// Following the phone, whenever it has a compass: the view turns as you
+  /// do, and a ring marks where the back of the phone points.
   StreamSubscription<List<double>>? _sensor;
   double? _pointingAlt;
+  double? _phoneAz;
+
+  /// A drag or arrow has the view while following: held while the finger is
+  /// down, then for [panoramaHold], then it swings back to the phone.
+  bool _peeking = false;
+  Timer? _peekTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialFacing == null) _follow();
+  }
 
   @override
   void didUpdateWidget(SkyPanorama old) {
@@ -120,32 +138,28 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    _peekTimer?.cancel();
     _sensor?.cancel();
     _spin.dispose();
     super.dispose();
   }
 
+  /// No compass is no news: it just turns by dragging.
   void _follow() {
-    if (_sensor != null) {
-      _unfollow();
-      return;
-    }
     var stream = widget.orientationStream;
     try {
       stream ??= deviceRotation();
     } catch (_) {
       stream = null;
     }
-    if (stream == null) {
-      ScaffoldMessenger.maybeOf(context)
-          ?.showSnackBar(const SnackBar(content: Text('This phone has no compass to follow. Drag to turn instead.')));
-      return;
-    }
+    if (stream == null) return;
     final declination = declinationDeg(widget.lat, widget.lon, DateTime.now().toUtc());
     _spin.stop();
     final sub = stream.listen((r) {
       if (!mounted) return;
       final az = facingAzimuth(r, declinationDeg: declination);
+      _phoneAz = az;
+      if (_peeking || _spin.isAnimating) return;
       setState(() {
         // Ease toward the compass so its jitter doesn't shake the sky.
         _facing = (_facing + 0.25 * _wrap(az - _facing)) % 360;
@@ -157,26 +171,57 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
 
   void _unfollow() {
     _sensor?.cancel();
+    _peekTimer?.cancel();
     if (!mounted) return;
     setState(() {
       _sensor = null;
       _pointingAlt = null;
+      _phoneAz = null;
+      _peeking = false;
     });
   }
 
+  /// Take the view from the phone until [_letGo].
+  void _hold() {
+    _peekTimer?.cancel();
+    if (_sensor != null && !_peeking) setState(() => _peeking = true);
+  }
+
+  /// Start the countdown back to the phone.
+  void _letGo() {
+    if (!_peeking) return;
+    _peekTimer?.cancel();
+    _peekTimer = Timer(panoramaHold, _swingBack);
+  }
+
+  /// Gently turn back to where the phone faces, then follow it again.
+  void _swingBack() {
+    if (!mounted) return;
+    setState(() => _peeking = false);
+    final az = _phoneAz;
+    if (az == null) return;
+    _spin.value = _facing;
+    _spin.animateTo(_facing + _wrap(az - _facing), duration: const Duration(milliseconds: 900), curve: Curves.easeInOutCubic);
+  }
+
   void _turnBy(double deg) {
-    _unfollow();
+    _hold();
     _spin.value = _facing;
     _spin.animateTo(_facing + deg, duration: const Duration(milliseconds: 380), curve: Curves.easeOutCubic);
+    _letGo();
+  }
+
+  void _dragStart(DragStartDetails _) {
+    _hold();
+    _spin.stop();
   }
 
   void _drag(DragUpdateDetails d, double width) {
-    if (_sensor != null) _unfollow();
-    _spin.stop();
     setState(() => _facing = (_facing - d.delta.dx / width * panoramaFov) % 360);
   }
 
   void _fling(DragEndDetails d, double width) {
+    _letGo();
     final degPerSec = -d.velocity.pixelsPerSecond.dx / width * panoramaFov;
     if (degPerSec.abs() < 20) return;
     _spin.value = _facing;
@@ -194,91 +239,75 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
         if (tr.points.any((p) => p.h.altitudeDeg > 0 && _wrap(p.h.azimuthDeg - _facing).abs() < panoramaFov / 2))
           '${tr.label}, passing ${compassWord(tr.event.riseAzimuthDeg)} to ${compassWord(tr.event.setAzimuthDeg)}',
     ];
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-        child: Row(children: [
-          Expanded(
-            child: Text('Facing ${compassWord(_facing)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
-          ),
-          Flexible(
-            child: TextButton.icon(
-              onPressed: _follow,
-              icon: Icon(_sensor == null ? Icons.explore_outlined : Icons.explore_rounded, size: 18),
-              label: Text(_sensor == null ? 'Follow my phone' : 'Following your phone',
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              style: TextButton.styleFrom(
-                foregroundColor: _sensor == null ? LookUpColors.grey : LookUpColors.blue,
-                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                visualDensity: VisualDensity.compact,
-              ),
+    return SizedBox(
+      height: widget.height,
+      child: LayoutBuilder(builder: (context, c) {
+        final size = Size(c.maxWidth, widget.height);
+        final painter = _PanoramaPainter(
+          cache: _cache,
+          facing: _facing,
+          things: widget.things,
+          utc: utc,
+          selectedId: widget.selectedId,
+          label: label,
+          tracks: widget.tracks,
+          trackTime: (widget.trackTime ?? widget.time).toUtc(),
+          // The ring sits mid-view, so it's only true while following.
+          pointingAlt: _peeking ? null : _pointingAlt,
+        );
+        return Semantics(
+          label: 'Sky facing ${compassWord(_facing)}. '
+              '${ahead.isEmpty ? 'Nothing bright that way.' : 'That way: ${ahead.join(', ')}.'}',
+          child: Stack(children: [
+            GestureDetector(
+              onHorizontalDragStart: _dragStart,
+              onHorizontalDragUpdate: (d) => _drag(d, size.width),
+              onHorizontalDragEnd: (d) => _fling(d, size.width),
+              onHorizontalDragCancel: _letGo,
+              onTapUp: (d) {
+                final hit = painter.thingAt(size, d.localPosition);
+                if (hit != null) {
+                  widget.onTap?.call(hit);
+                  return;
+                }
+                final track = painter.trackAt(size, d.localPosition);
+                if (track != null) widget.onTrackTap?.call(track.event);
+              },
+              child: CustomPaint(key: SkyPanorama.canvasKey, size: size, painter: painter),
             ),
-          ),
-        ]),
-      ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-        child: Text(
-          _sensor == null
-              ? 'Drag to turn round, or follow your phone and hold it up to the sky.'
-              : 'Hold your phone up to the sky and turn: the ring is where it\'s pointing.',
-          maxLines: 2,
-          style: const TextStyle(fontSize: 12.5, color: LookUpColors.greyDim, height: 1.35),
-        ),
-      ),
-      SizedBox(
-        height: widget.height,
-        child: LayoutBuilder(builder: (context, c) {
-          final size = Size(c.maxWidth, widget.height);
-          final painter = _PanoramaPainter(
-            cache: _cache,
-            facing: _facing,
-            things: widget.things,
-            utc: utc,
-            selectedId: widget.selectedId,
-            label: label,
-            tracks: widget.tracks,
-            trackTime: (widget.trackTime ?? widget.time).toUtc(),
-            pointingAlt: _pointingAlt,
-          );
-          return Semantics(
-            label: 'Sky facing ${compassWord(_facing)}. '
-                '${ahead.isEmpty ? 'Nothing bright that way.' : 'That way: ${ahead.join(', ')}.'}',
-            child: Stack(children: [
-              GestureDetector(
-                onHorizontalDragUpdate: (d) => _drag(d, size.width),
-                onHorizontalDragEnd: (d) => _fling(d, size.width),
-                onTapUp: (d) {
-                  final hit = painter.thingAt(size, d.localPosition);
-                  if (hit != null) {
-                    widget.onTap?.call(hit);
-                    return;
-                  }
-                  final track = painter.trackAt(size, d.localPosition);
-                  if (track != null) widget.onTrackTap?.call(track.event);
-                },
-                child: CustomPaint(key: SkyPanorama.canvasKey, size: size, painter: painter),
-              ),
-              for (final (left, deg) in const [(true, -45.0), (false, 45.0)])
-                Positioned(
-                  left: left ? 6 : null,
-                  right: left ? null : 6,
-                  bottom: 14, // in the ground strip, clear of the sky
-                  child: CircleButton(
-                    tooltip: left ? 'Turn left' : 'Turn right',
-                    icon: left ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
-                    size: 36,
-                    onPressed: () => _turnBy(deg),
+            Positioned(
+              top: 10,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(color: const Color(0xB304060B), borderRadius: BorderRadius.circular(13)),
+                    child: Text('Facing ${compassWord(_facing)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
                   ),
                 ),
-            ]),
-          );
-        }),
-      ),
-    ]);
+              ),
+            ),
+            for (final (left, deg) in const [(true, -45.0), (false, 45.0)])
+              Positioned(
+                left: left ? 6 : null,
+                right: left ? null : 6,
+                bottom: 14, // in the ground strip, clear of the sky
+                child: CircleButton(
+                  tooltip: left ? 'Turn left' : 'Turn right',
+                  icon: left ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+                  size: 36,
+                  onPressed: () => _turnBy(deg),
+                ),
+              ),
+          ]),
+        );
+      }),
+    );
   }
 }
 

@@ -86,29 +86,83 @@ void main() {
       expect(find.text('Facing southeast'), findsOneWidget);
     });
 
-    testWidgets('follows the phone round until you drag', (t) async {
+    // Upright, camera to magnetic east: device x→south, y→up, z→west.
+    // Nashville's declination is a few degrees, so it still reads east.
+    const east = <double>[0.0, 0, -1, -1, 0, 0, 0, 1, 0];
+    const north = <double>[1.0, 0, 0, 0, 0, -1, 0, 1, 0];
+    Future<void> point(WidgetTester t, StreamController<List<double>> sensor, List<double> r) async {
+      for (var i = 0; i < 40; i++) {
+        sensor.add(r);
+        await t.pump();
+      }
+    }
+
+    testWidgets('follows the phone from the start', (t) async {
       final sensor = StreamController<List<double>>.broadcast();
       addTearDown(sensor.close);
       await pump(t, [fixed('moon', 'The Moon', 'Full Moon', 180, 25)], orientation: sensor.stream);
       expect(find.text('Facing south'), findsOneWidget);
+      await point(t, sensor, east);
+      expect(find.text('Facing east'), findsOneWidget);
+    });
 
-      await t.tap(find.text('Follow my phone'));
-      await t.pump();
-      expect(find.text('Following your phone'), findsOneWidget);
-      // Upright, camera to magnetic east: device x→south, y→up, z→west.
-      // Nashville's declination is a few degrees, so it still reads east.
-      for (var i = 0; i < 40; i++) {
-        sensor.add(const [0.0, 0, -1, -1, 0, 0, 0, 1, 0]);
-        await t.pump();
-      }
+    // Looking round must not cost you the phone: a drag holds the view while
+    // your finger is down and a little after, then the sky comes back to
+    // where the phone points, so it never stays wrong about what's in front.
+    testWidgets('a drag holds the view, then it swings back to the phone', (t) async {
+      final sensor = StreamController<List<double>>.broadcast();
+      addTearDown(sensor.close);
+      await pump(t, [fixed('moon', 'The Moon', 'Full Moon', 180, 25)], orientation: sensor.stream);
+      await point(t, sensor, east);
       expect(find.text('Facing east'), findsOneWidget);
 
-      await t.drag(find.byKey(SkyPanorama.canvasKey), const Offset(-140, 0));
+      // Finger down and dragged: the phone doesn't pull the view back.
+      final g = await t.startGesture(t.getCenter(find.byKey(SkyPanorama.canvasKey)));
+      for (var i = 0; i < 7; i++) {
+        await g.moveBy(const Offset(-20, 0));
+        await t.pump();
+      }
+      expect(find.textContaining('south'), findsOneWidget);
+      await point(t, sensor, east);
+      await t.pump(panoramaHold * 2); // however long the finger stays down
+      expect(find.textContaining('south'), findsOneWidget);
+
+      // Let go: it stays put a while, then swings back.
+      await g.up();
+      await t.pump(panoramaHold - const Duration(milliseconds: 500));
+      await point(t, sensor, east);
+      expect(find.textContaining('south'), findsOneWidget);
+      await t.pump(const Duration(seconds: 1));
       await t.pumpAndSettle();
-      expect(find.text('Follow my phone'), findsOneWidget);
-      sensor.add(const [1.0, 0, 0, 0, 0, -1, 0, 1, 0]); // north: ignored now
-      await t.pump();
-      expect(find.text('Facing north'), findsNothing);
+      expect(find.text('Facing east'), findsOneWidget);
+
+      // And keeps following after.
+      await point(t, sensor, north);
+      expect(find.text('Facing north'), findsOneWidget);
+    });
+
+    testWidgets('a famous night faces what it is about, not the phone', (t) async {
+      final sensor = StreamController<List<double>>.broadcast();
+      addTearDown(sensor.close);
+      t.view.physicalSize = const Size(1179, 2556);
+      t.view.devicePixelRatio = 3;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(MaterialApp(
+        theme: buildLookUpTheme(),
+        home: Scaffold(
+          body: SkyPanorama(
+            time: now,
+            lat: 36.17,
+            lon: -86.78,
+            catalog: SkyCatalog.empty,
+            things: const [],
+            initialFacing: 270,
+            orientationStream: sensor.stream,
+          ),
+        ),
+      ));
+      await point(t, sensor, east);
+      expect(find.text('Facing west'), findsOneWidget);
     });
 
     testWidgets('tapping a planet opens it', (t) async {
