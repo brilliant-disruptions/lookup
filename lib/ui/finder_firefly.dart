@@ -14,7 +14,7 @@ import '../domain/finder/pointing.dart';
 import '../domain/sky/direction.dart';
 
 const fireflyWarm = Color(0xFFFFB347);
-const _core = Color(0xFFFFF3D6);
+const fireflyCore = Color(0xFFFFF3D6);
 
 class FireflyLayer extends StatefulWidget {
   const FireflyLayer({
@@ -135,7 +135,7 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
               child: Text(label,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                      color: _core, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(blurRadius: 6, color: Colors.black)])),
+                      color: fireflyCore, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(blurRadius: 6, color: Colors.black)])),
             ),
         ]);
       });
@@ -175,7 +175,7 @@ class _FireflyPainter extends CustomPainter {
         Paint()
           ..color = fireflyWarm.withValues(alpha: 0.5 + 0.4 * blink)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
-    canvas.drawCircle(p, 4.5, Paint()..color = _core.withValues(alpha: 0.75 + 0.25 * blink));
+    canvas.drawCircle(p, 4.5, Paint()..color = fireflyCore.withValues(alpha: 0.75 + 0.25 * blink));
     if (landed) {
       canvas.drawCircle(
           p,
@@ -301,7 +301,7 @@ class _RoutePainter extends CustomPainter {
           Paint()
             ..color = fireflyWarm.withValues(alpha: 0.6)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
-      canvas.drawCircle(p, 3, Paint()..color = _core);
+      canvas.drawCircle(p, 3, Paint()..color = fireflyCore);
     }
   }
 
