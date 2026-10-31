@@ -12,10 +12,13 @@ import 'theme.dart';
 /// sends drops in at the top, worded the way real alerts are. One loop is
 /// about 16 seconds. With reduced motion it holds the station mid-pass.
 class IntroScene extends StatefulWidget {
-  const IntroScene({super.key, this.animate = true});
+  const IntroScene({super.key, this.animate = true, this.chrome = true});
 
   /// Off in tests that need a still frame.
   final bool animate;
+
+  /// The alert banner and scene dots. Off to use the sky alone (store art).
+  final bool chrome;
 
   static const scenes = <_Scene>[
     _Scene(SkyEventType.iss, 'ISS flyover in 10 min', 'Brighter than any star. Face west-southwest; it climbs high in the sky.', (
@@ -78,39 +81,41 @@ class _IntroSceneState extends State<IntroScene> with SingleTickerProviderStateM
           CustomPaint(
             painter: _ScenePainter(scene: scene, p: p),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 6,
-            child: Opacity(
-              opacity: shown,
-              child: Transform.translate(
-                offset: Offset(0, -26 * (1 - shown)),
-                child: _Banner(scene: scene),
+          if (widget.chrome)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 6,
+              child: Opacity(
+                opacity: shown,
+                child: Transform.translate(
+                  offset: Offset(0, -26 * (1 - shown)),
+                  child: AlertBanner(type: scene.type, title: scene.title, body: scene.body),
+                ),
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var k = 0; k < n; k++)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: k == i ? 16 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: k == i ? eventStyle(scene.type).color : LookUpColors.line,
-                      borderRadius: BorderRadius.circular(3),
+          if (widget.chrome)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var k = 0; k < n; k++)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: k == i ? 16 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: k == i ? eventStyle(scene.type).color : LookUpColors.line,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       );
     },
@@ -123,15 +128,18 @@ double _smooth(double a, double b, double x) {
 }
 
 /// A lock-screen notification, as the phone draws it.
-class _Banner extends StatelessWidget {
-  const _Banner({required this.scene});
-  final _Scene scene;
+class AlertBanner extends StatelessWidget {
+  const AlertBanner({super.key, required this.type, required this.title, required this.body, this.when = 'now'});
+  final SkyEventType type;
+  final String title;
+  final String body;
+  final String when;
 
   @override
   Widget build(BuildContext context) {
-    final tint = eventStyle(scene.type).color;
+    final tint = eventStyle(type).color;
     return Semantics(
-      label: 'Example alert: ${scene.title}. ${scene.body}',
+      label: 'Example alert: $title. $body',
       excludeSemantics: true,
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 14, 12),
@@ -156,34 +164,34 @@ class _Banner extends StatelessWidget {
                 ),
               ),
               alignment: Alignment.center,
-              child: EventGlyph.forType(scene.type, size: 28),
+              child: EventGlyph.forType(type, size: 28),
             ),
             const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Expanded(
+                      const Expanded(
                         child: Text(
                           'LOOKUP',
                           style: TextStyle(fontSize: 11, letterSpacing: 0.8, fontWeight: FontWeight.w600, color: LookUpColors.grey),
                         ),
                       ),
-                      Text('now', style: TextStyle(fontSize: 11.5, color: LookUpColors.grey)),
+                      Text(when, style: const TextStyle(fontSize: 11.5, color: LookUpColors.grey)),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    scene.title,
+                    title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: LookUpColors.white),
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    scene.body,
+                    body,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13.5, height: 1.3, color: LookUpColors.white),
@@ -329,7 +337,7 @@ class _ScenePainter extends CustomPainter {
           ).createShader(bounds),
       );
     }
-      // Rays: the curtain's vertical folds.
+    // Rays: the curtain's vertical folds.
     final rays = Paint()
       ..strokeWidth = 2.6
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
@@ -340,7 +348,10 @@ class _ScenePainter extends CustomPainter {
       rays.shader = LinearGradient(
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
-        colors: [LookUpColors.good.withValues(alpha: 0.6 * glow * flicker), LookUpColors.good.withValues(alpha: 0)],
+        colors: [
+          LookUpColors.good.withValues(alpha: 0.6 * glow * flicker),
+          LookUpColors.good.withValues(alpha: 0),
+        ],
       ).createShader(Rect.fromLTRB(0, top, w, horizon));
       canvas.drawLine(Offset(w * x, horizon), Offset(w * x, top), rays);
     }

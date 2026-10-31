@@ -23,7 +23,7 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 
 ## Screens
 
-Rendered from the real widgets with sample data (`flutter test --update-goldens --run-skipped --tags screenshots test/screenshots`):
+Rendered from the real widgets with sample data (`TZ=America/Chicago flutter test --update-goldens --run-skipped --tags screenshots test/screenshots`):
 
 | Onboarding | Tonight | Quiet week | Sky | Look sheet | Sky finder | Preview | Log | Share cards | Settings | Paywall |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -33,7 +33,7 @@ Rendered from the real widgets with sample data (`flutter test --update-goldens 
 |---|---|---|---|---|---|---|---|
 | ![](test/screenshots/goldens/16-sky.png) | ![](test/screenshots/goldens/17-object.png) | ![](test/screenshots/goldens/11-transit.png) | ![](test/screenshots/goldens/12-satellites.png) | ![](test/screenshots/goldens/13-places.png) | ![](test/screenshots/goldens/14-year-card.png) | ![](test/screenshots/goldens/15-camera-overlay.png) | ![](test/screenshots/goldens/24-caught-it.png) | ![](test/screenshots/goldens/25-starter-sky.png) |
 
-Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/goldens/appstore/`; listing copy in [`docs/app-store-listing.md`](docs/app-store-listing.md).
+Ten captioned App Store screenshots (6.9", 1320 × 2868), led by the alert on a lock screen, are in `test/screenshots/goldens/appstore/` (render with `TZ=America/Chicago`); listing copy in [`docs/app-store-listing.md`](docs/app-store-listing.md).
 
 ## Design
 

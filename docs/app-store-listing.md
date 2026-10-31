@@ -81,22 +81,28 @@ indexes those anyway.)
 
 ## Screenshots
 
-`test/screenshots/goldens/appstore/` holds eight captioned 1320 × 2868
-images (6.9" iPhone, which App Store Connect scales for smaller phones):
+`test/screenshots/goldens/appstore/` holds ten captioned 1320 × 2868
+images (6.9" iPhone, which App Store Connect scales for smaller phones), in
+listing order. The first is the one most people see without swiping, so it
+shows the product's moment, the tap itself, rather than a screen of the app:
 
-0. Everything in your sky. *(Sky map)*
-1. Step outside right now. *(Now)*
-2. Know exactly where to look. *(Look sheet)*
+1. It taps you before it flies over. *(lock screen with the real alert over the station's pass)*
+2. Step outside right now. *(Tonight)*
 3. See its path over your sky. *(camera view)*
-4. Catch the station crossing the Moon. *(transit)*
-5. Hubble and friends, tonight. *(satellites)*
-6. Every good night in one list. *(Upcoming)*
-7. Remember what you saw. *(Log)*
+4. Every sighting, celebrated. *(You caught it)*
+5. Three sights to start with. *(Your first three)*
+6. Everything in your sky. *(Sky map)*
+7. Know exactly where to look. *(Look sheet)*
+8. Catch the station crossing the Moon. *(transit)*
+9. Hubble and friends, tonight. *(satellites)*
+10. Every good night in one list. *(Week)*
 
-Regenerate after UI changes:
+Each sits on a night gradient with its own colour glowing behind the phone.
+Regenerate after UI changes, in Nashville's time zone so the times read as
+evening:
 
 ```
-flutter test --update-goldens --run-skipped --tags screenshots test/screenshots
+TZ=America/Chicago flutter test --update-goldens --run-skipped --tags screenshots test/screenshots
 ```
 
 A 15–30 s **app preview video** has to be recorded on a real phone (screen
