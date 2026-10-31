@@ -18,8 +18,8 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 >
 > LookUp watches the sky over you and taps you ten minutes before something
 > worth seeing: the International Space Station gliding overhead, a fresh
-> Starlink train, a chance of aurora, a meteor shower's peak, a lunar
-> eclipse, a rocket launch you can see from home.
+> Starlink train, a chance of aurora, a meteor shower's peak, a solar or
+> lunar eclipse, a rocket launch you can see from home.
 >
 > It only taps you when it's dark enough and clear enough to see it. The rest
 > of the time it stays quiet.
@@ -39,6 +39,8 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 > • Starlink trains in the weeks after a launch
 > • Aurora tonight, and live "aurora now" alerts
 > • Meteor showers, with the Moon taken into account
+> • Solar eclipses, worked out for exactly where you stand: how much of the
+>   Sun is covered, when, and whether you're in the path of totality
 > • Lunar eclipses and Moon–planet pairings
 > • Night and twilight rocket launches visible from where you are
 > • The brightest satellites crossing tonight: Hubble, BlueBirds, big rocket stages
@@ -46,7 +48,7 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 >   far to drive to stand in the path
 >
 > ON YOUR TERMS
-> • Buttons right on the alert: Find it, Remind me in 5 min, Saw it!
+> • Buttons right on the alert: Find it, Tell a friend, Remind me in 5 min
 > • Quiet hours, a nightly limit and "only when it's clear"
 > • Saved places: home, the cabin, next week's trip
 > • Add any event to your calendar
@@ -60,8 +62,14 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 > Orbits are computed on your phone. Your rough location is only used to
 > fetch the cloud forecast. No account, no tracking.
 >
-> LookUp+ adds live aurora alerts, Starlink trains, Tiangong and launch
-> alerts.
+> Free: space station alerts, meteor showers, solar and lunar eclipses,
+> planet pairings, the sky map and your log.
+>
+> LookUp+ is for never missing anything up there: every alert (live aurora
+> with a wake-me option, Starlink trains, Tiangong, rocket launches), where
+> to go tonight for a clear, dark sky, the whole fortnight ahead at any saved
+> place, as many places as you like, and photo planning for the station
+> crossing the Sun or Moon. 7 days free on the yearly plan.
 
 ## Keywords [100]
 
