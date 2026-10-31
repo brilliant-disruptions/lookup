@@ -228,19 +228,23 @@ class Kicker extends StatelessWidget {
   final bool live;
 
   @override
-  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
-        if (live) ...[
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.7), blurRadius: 8)],
-            ),
+  Widget build(BuildContext context) {
+    final label = Text(text, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: color, letterSpacing: -0.1));
+    // Without the dot it's just text, so a long one ("Tomorrow morning · 12:09 AM"
+    // at big text sizes) wraps instead of running off the edge.
+    if (!live) return label;
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.7), blurRadius: 8)],
           ),
-          const SizedBox(width: 7),
-        ],
-        Text(text, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: color, letterSpacing: -0.1)),
+        ),
+        const SizedBox(width: 7),
+        label,
       ]);
+  }
 }
