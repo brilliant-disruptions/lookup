@@ -101,7 +101,10 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
   static const pullLimit = Duration(seconds: 8);
 
   /// Pull-to-refresh: like [refresh], but done waiting after [pullLimit].
-  Future<void> pull() => refresh(force: true).timeout(pullLimit, onTimeout: () {});
+  /// Not forced: a pull re-plans from what's fresh and only fetches what's
+  /// stale, so pulling can't break the feeds' data etiquette (Celestrak once
+  /// a day, Open-Meteo 6 h, SWPC 30 min). Settings has "Refresh everything".
+  Future<void> pull() => refresh().timeout(pullLimit, onTimeout: () {});
 
   /// Fetch + recompute + reschedule, then reload.
   Future<void> refresh({bool force = false}) async {

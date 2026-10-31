@@ -13,8 +13,12 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 class _SlowRefresh extends RefreshService {
   _SlowRefresh() : super(store: LocalStore(), notifications: NotificationService());
   final done = Completer<RefreshReport>();
+  final forced = <bool>[];
   @override
-  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false}) => done.future;
+  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false}) {
+    forced.add(force);
+    return done.future;
+  }
 }
 
 void main() {
@@ -39,5 +43,19 @@ void main() {
     await t.pump();
     expect(c.read(homeProvider).value!.errors, ['clouds: late'],
         reason: 'the refresh keeps going after the spinner stops');
+  });
+
+  // A forced fetch skips every cache: each pull re-downloaded Celestrak
+  // (~4.7 MB of Starlink) against its once-a-day rule, and repeat downloads
+  // within 2 h are refused and retried, which made pulls slow.
+  testWidgets('a pull only fetches what is stale', (t) async {
+    final slow = _SlowRefresh();
+    final c = ProviderContainer(overrides: [refreshServiceProvider.overrideWithValue(slow)]);
+    addTearDown(c.dispose);
+    await c.read(homeProvider.future);
+
+    unawaited(c.read(homeProvider.notifier).pull());
+    await t.pump(HomeNotifier.pullLimit);
+    expect(slow.forced, [false]);
   });
 }
