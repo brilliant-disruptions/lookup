@@ -241,6 +241,8 @@ class Kicker extends StatelessWidget {
           ),
           const SizedBox(width: 7),
         ],
-        Text(text, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: color, letterSpacing: -0.1)),
+        // Flexible: a long kicker (a late date, a big text size) wraps
+        // instead of running off the card.
+        Flexible(child: Text(text, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: color, letterSpacing: -0.1))),
       ]);
 }

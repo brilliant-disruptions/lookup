@@ -135,8 +135,11 @@ abstract final class AlertArt {
       26,
       ui.Paint()..shader = ui.Gradient.radial(peak, 26, [tint.withValues(alpha: 0.5), tint.withValues(alpha: 0)]),
     );
-    // Where it appears: the firefly, the app's "it'll be here" mark.
+    // Where it appears: the firefly, the app's "it'll be here" mark, its
+    // sparks curling in from above on the side away from the labels.
     final rise = pts.first;
+    final fromRight = rise.dx > w * 0.6; // labels go left of it then
+    paintSparkTrail(canvas, fireflyCurl(rise, rise + ui.Offset(fromRight ? 70 : -70, -95), curl: fromRight ? -0.3 : 0.3), scale: 1.5);
     paintFirefly(canvas, rise, blink: 0.8, scale: 1.5);
 
     // Ground and compass words.
