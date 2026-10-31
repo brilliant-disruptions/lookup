@@ -14,12 +14,19 @@ class LookUpApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    final nightVision = settings.value?.nightVision ?? false;
     return MaterialApp(
       title: 'LookUp',
       theme: theme,
       debugShowCheckedModeBanner: false,
-      builder: (context, child) => NightVision(
-        enabled: settings.value?.nightVision ?? false,
+      // Its own Consumer, so a new light reading repaints only the filter.
+      builder: (context, child) => Consumer(
+        builder: (context, ref, child) => NightVision(
+          enabled: nightVision,
+          // Watched only while on; full red until the first reading.
+          strength: nightVision ? ref.watch(nightVisionStrengthProvider).value ?? 1 : 1,
+          child: child!,
+        ),
         // Respect large text, but cap it where the layouts would break.
         child: MediaQuery.withClampedTextScaling(maxScaleFactor: 1.6, child: child ?? const SizedBox()),
       ),
