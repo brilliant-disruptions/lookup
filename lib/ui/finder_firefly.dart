@@ -12,9 +12,10 @@ import 'package:flutter/services.dart';
 import '../domain/finder/firefly.dart';
 import '../domain/finder/pointing.dart';
 import '../domain/sky/direction.dart';
+import 'kit/firefly_mark.dart';
 
-const fireflyWarm = Color(0xFFFFB347);
-const fireflyCore = Color(0xFFFFF3D6);
+export 'kit/firefly_mark.dart' show fireflyWarm, fireflyCore;
+
 
 class FireflyLayer extends StatefulWidget {
   const FireflyLayer({
@@ -163,19 +164,7 @@ class _FireflyPainter extends CustomPainter {
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
     }
     final p = at + wobble;
-    canvas.drawCircle(
-        p,
-        30,
-        Paint()
-          ..color = fireflyWarm.withValues(alpha: 0.18 + 0.32 * blink)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16));
-    canvas.drawCircle(
-        p,
-        10,
-        Paint()
-          ..color = fireflyWarm.withValues(alpha: 0.5 + 0.4 * blink)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
-    canvas.drawCircle(p, 4.5, Paint()..color = fireflyCore.withValues(alpha: 0.75 + 0.25 * blink));
+    paintFirefly(canvas, p, blink: blink);
     if (landed) {
       canvas.drawCircle(
           p,

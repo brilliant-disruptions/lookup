@@ -18,6 +18,7 @@ import '../domain/models/sky_event.dart';
 import '../domain/scheduling/alert_planner.dart';
 import '../domain/sky/alert_chart.dart';
 import '../domain/sky/direction.dart';
+import '../ui/kit/firefly_mark.dart';
 
 abstract final class AlertArt {
   /// Event kinds that cross the sky and get a picture.
@@ -127,20 +128,16 @@ abstract final class AlertArt {
       final i = (f * (pts.length - 1)).round();
       _arrow(canvas, pts[i], pts[math.min(i + 2, pts.length - 1)], tint);
     }
-    // Where it appears: a bright dot. Its best moment: a soft glow.
+    // Its best moment: a soft glow.
     final peak = at(chart.peak);
     canvas.drawCircle(
       peak,
       26,
       ui.Paint()..shader = ui.Gradient.radial(peak, 26, [tint.withValues(alpha: 0.5), tint.withValues(alpha: 0)]),
     );
+    // Where it appears: the firefly, the app's "it'll be here" mark.
     final rise = pts.first;
-    canvas.drawCircle(
-      rise,
-      16,
-      ui.Paint()..shader = ui.Gradient.radial(rise, 16, [_white.withValues(alpha: 0.7), _white.withValues(alpha: 0)]),
-    );
-    canvas.drawCircle(rise, 7, ui.Paint()..color = _white);
+    paintFirefly(canvas, rise, blink: 0.8, scale: 1.5);
 
     // Ground and compass words.
     final ground = ui.Path()
