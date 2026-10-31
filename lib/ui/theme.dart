@@ -223,11 +223,28 @@ const nightVisionMatrix = <double>[
   0.00, 0.00, 0.00, 1, 0,
 ];
 
+/// Part-way from the true colours (0) to [nightVisionMatrix] (1).
+List<double> nightVisionMatrixAt(double strength) {
+  final t = strength.clamp(0.0, 1.0);
+  return [
+    for (var i = 0; i < 20; i++) (i % 6 == 0 ? 1 - t : 0) + t * nightVisionMatrix[i],
+  ];
+}
+
+/// [strength] comes from the light around the phone
+/// (domain/sky/night_vision.dart) and eases between readings.
 class NightVision extends StatelessWidget {
-  const NightVision({super.key, required this.enabled, required this.child});
+  const NightVision({super.key, required this.enabled, this.strength = 1, required this.child});
   final bool enabled;
+  final double strength;
   final Widget child;
   @override
-  Widget build(BuildContext context) =>
-      enabled ? ColorFiltered(colorFilter: const ColorFilter.matrix(nightVisionMatrix), child: child) : child;
+  Widget build(BuildContext context) => enabled
+      ? TweenAnimationBuilder<double>(
+          tween: Tween(end: strength),
+          duration: const Duration(seconds: 2),
+          builder: (_, t, child) => ColorFiltered(colorFilter: ColorFilter.matrix(nightVisionMatrixAt(t)), child: child),
+          child: child,
+        )
+      : child;
 }
