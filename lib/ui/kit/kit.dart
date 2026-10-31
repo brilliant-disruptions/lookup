@@ -3,6 +3,7 @@ library;
 
 export 'controls.dart';
 export 'event_style.dart';
+export 'firefly_mark.dart';
 export 'motion.dart';
 export 'navigation.dart';
 export 'spotlight.dart';

@@ -299,9 +299,9 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
       FireflyStep.ghostRun => 'Here\'s the route it will take.',
       FireflyStep.findLandmark => 'Start from $hopName: it passes $hopHow it at ${fmtTime(hopWhen!)}.',
       FireflyStep.meetingPoint =>
-        'It passes $hopHow ${hop!.name} here at ${fmtTime(hopWhen!)}. Appears in ${fmtCountdown(e.start.difference(nowUtc))}.',
+        'It passes $hopHow ${hop!.name} here at ${fmtTime(hopWhen!)}. ${fmtAppears(e.start.difference(nowUtc))}.',
       FireflyStep.target => before
-          ? 'Appears in ${fmtCountdown(e.start.difference(nowUtc))}. Point where it will rise.'
+          ? '${fmtAppears(e.start.difference(nowUtc))}. Point where it will rise.'
           : !over
               ? (_target!.isLive || e.type == SkyEventType.skyObject ? 'Tracking it live' : 'Happening now')
               : 'That one\'s over',

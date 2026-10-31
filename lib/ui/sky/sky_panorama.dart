@@ -17,7 +17,6 @@ import '../../domain/sky/catalog.dart';
 import '../../domain/sky/direction.dart';
 import '../../domain/sky/wmm.dart';
 import '../../services/orientation.dart';
-import '../finder_firefly.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import 'sky_thing.dart';
@@ -518,20 +517,7 @@ class _PanoramaPainter extends CustomPainter {
     // mid-view at the phone's height, held to the horizon when it's aimed
     // at the ground. Warm, so it never reads as the Moon or a star.
     if (pointingAlt case final alt?) {
-      final o = Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH);
-      canvas.drawCircle(
-          o,
-          30,
-          Paint()
-            ..color = fireflyWarm.withValues(alpha: 0.34)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16));
-      canvas.drawCircle(
-          o,
-          10,
-          Paint()
-            ..color = fireflyWarm.withValues(alpha: 0.7)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
-      canvas.drawCircle(o, 4.5, Paint()..color = fireflyCore);
+      paintFirefly(canvas, Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH));
     }
 
     // The ground: rooftops and trees, then the compass along the horizon.
