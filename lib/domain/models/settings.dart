@@ -69,8 +69,7 @@ class LookUpSettings {
     this.pairingsEnabled = true,
     this.launchesEnabled = true,
     this.transitsEnabled = true,
-    this.nightVision = false,
-    this.nightVisionAuto = true,
+    this.nightVision = true,
     this.plusCardSnoozedUntil,
     this.leadMinutes = 10,
     this.goNowNudge = true,
@@ -104,12 +103,9 @@ class LookUpSettings {
   /// List ISS transits of the Sun and Moon (never pushed).
   final bool transitsEnabled;
 
-  /// Red-on-black UI that keeps eyes dark-adapted outdoors.
+  /// Red-on-black UI from sunset to sunrise, so eyes stay dark-adapted
+  /// outdoors.
   final bool nightVision;
-
-  /// Turn red by itself on the screens used outside (finder, Look up now,
-  /// You caught it, camera view) when it's dark where they are.
-  final bool nightVisionAuto;
 
   /// "Not now" on Tonight's LookUp+ card hides it until then (UTC).
   final DateTime? plusCardSnoozedUntil;
@@ -178,7 +174,6 @@ class LookUpSettings {
     bool? launchesEnabled,
     bool? transitsEnabled,
     bool? nightVision,
-    bool? nightVisionAuto,
     DateTime? plusCardSnoozedUntil,
     int? leadMinutes,
     bool? goNowNudge,
@@ -210,7 +205,6 @@ class LookUpSettings {
         launchesEnabled: launchesEnabled ?? this.launchesEnabled,
         transitsEnabled: transitsEnabled ?? this.transitsEnabled,
         nightVision: nightVision ?? this.nightVision,
-        nightVisionAuto: nightVisionAuto ?? this.nightVisionAuto,
         plusCardSnoozedUntil: plusCardSnoozedUntil ?? this.plusCardSnoozedUntil,
         leadMinutes: leadMinutes ?? this.leadMinutes,
         goNowNudge: goNowNudge ?? this.goNowNudge,
@@ -244,8 +238,7 @@ class LookUpSettings {
         'pairingsEnabled': pairingsEnabled,
         'launchesEnabled': launchesEnabled,
         'transitsEnabled': transitsEnabled,
-        'nightVision': nightVision,
-        'nightVisionAuto': nightVisionAuto,
+        'nightVisionAfterSunset': nightVision,
         if (plusCardSnoozedUntil != null) 'plusCardSnoozedUntil': plusCardSnoozedUntil!.toIso8601String(),
         'leadMinutes': leadMinutes,
         'goNowNudge': goNowNudge,
@@ -280,8 +273,9 @@ class LookUpSettings {
       pairingsEnabled: j['pairingsEnabled'] as bool? ?? d.pairingsEnabled,
       launchesEnabled: j['launchesEnabled'] as bool? ?? d.launchesEnabled,
       transitsEnabled: j['transitsEnabled'] as bool? ?? d.transitsEnabled,
-      nightVision: j['nightVision'] as bool? ?? d.nightVision,
-      nightVisionAuto: j['nightVisionAuto'] as bool? ?? d.nightVisionAuto,
+      // A new key: the old one-tap switch was off unless tapped, which says
+      // nothing about wanting red after dark, so everyone starts with it on.
+      nightVision: j['nightVisionAfterSunset'] as bool? ?? d.nightVision,
       plusCardSnoozedUntil: DateTime.tryParse(j['plusCardSnoozedUntil'] as String? ?? '')?.toUtc(),
       leadMinutes: j['leadMinutes'] as int? ?? d.leadMinutes,
       goNowNudge: j['goNowNudge'] as bool? ?? d.goNowNudge,

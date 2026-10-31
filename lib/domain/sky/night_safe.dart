@@ -1,15 +1,12 @@
-/// Whether the screen should be red right now. Night vision is either on
-/// (the switch), or comes on by itself on the screens used outside once
-/// it's dark there, unless the person has said otherwise on that screen.
-/// Pure.
+/// Whether the screen should be red right now: night vision is on (it is
+/// unless they switch it off in Settings) and the Sun is down where they
+/// are, sunset to sunrise. How deep the red goes is the light around the
+/// phone's call (night_vision.dart). Pure.
 library;
 
-/// Sun this far below the horizon counts as dark: civil twilight's end,
-/// when the first stars and the station show and eyes start adapting.
-const nightSafeSunDeg = -6.0;
+/// The Sun's centre this far down is sunset and sunrise: its top edge on
+/// the horizon, refraction included (the almanac's −50′).
+const sunsetSunDeg = -0.833;
 
-bool nightVisionNow({required bool manual, required bool auto, required bool outside, required double? sunAltitudeDeg, bool? override}) {
-  if (override != null && outside) return override;
-  if (manual) return true;
-  return auto && outside && sunAltitudeDeg != null && sunAltitudeDeg <= nightSafeSunDeg;
-}
+bool nightVisionNow({required bool enabled, required double? sunAltitudeDeg}) =>
+    enabled && sunAltitudeDeg != null && sunAltitudeDeg < sunsetSunDeg;

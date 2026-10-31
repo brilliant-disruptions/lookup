@@ -135,15 +135,7 @@ class SettingsScreen extends ConsumerWidget {
             value: s.nightVision,
             onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
             title: 'Night vision',
-            subtitle: 'Red screen that keeps your eyes dark-adapted, deeper the darker it is',
-          ),
-          _Switch(
-            icon: Icons.nights_stay_rounded,
-            color: LookUpColors.red,
-            value: s.nightVisionAuto,
-            onChanged: (v) => set((s) => s.copyWith(nightVisionAuto: v)),
-            title: 'Red by itself outside',
-            subtitle: 'In the finder, Look up now and the camera view, once it\'s dark',
+            subtitle: 'Red screen from sunset to sunrise that keeps your eyes dark-adapted, deeper the darker it is',
           ),
           if (ref.watch(widgetPinnableProvider).value ?? false)
             _Row(

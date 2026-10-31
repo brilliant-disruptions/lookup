@@ -57,8 +57,8 @@ Run on a device (⌘R) and try:
   buzzes and opens the finder. (Android: the heads-up should tick down on the lock screen.)
 - **Tell a friend:** on a real heads-up, press *Tell a friend*: the app should open on the
   invite poster with "…in 10 minutes" in the text.
-- **Red by itself:** after dark, open the finder: the screen should turn red with a one-line
-  note; the eye switches it off for that visit; back on Tonight it's normal again.
+- **Red after sunset:** open the app after sunset: every screen should be red, with a one-line
+  note; Settings › Night vision off brings the colours back; by day it's never red.
 - **Alert picture:** Settings → *Preview an alert*. Long-press the
   notification (iOS) or expand it (Android): the "where to look" picture should
   show the path and "appears here". If it's missing, the alert text must still

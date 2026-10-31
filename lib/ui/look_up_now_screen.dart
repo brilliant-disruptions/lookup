@@ -14,7 +14,6 @@ import '../services/orientation.dart';
 import '../state/providers.dart';
 import 'finder_screen.dart';
 import 'format.dart';
-import 'night_vision_button.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
 
@@ -108,8 +107,7 @@ class _LookUpNowState extends ConsumerState<LookUpNowScreen> {
     final delta = _facing == null ? null : azimuthDelta(_facing!, e.riseAzimuthDeg);
     final facingIt = delta != null && delta.abs() <= 15;
     final brightness = e.details['brightness'];
-    return OutsideScreen(
-      child: Scaffold(
+    return Scaffold(
         body: SkyBackdrop(
           glow: tint,
           child: SafeArea(
@@ -122,8 +120,6 @@ class _LookUpNowState extends ConsumerState<LookUpNowScreen> {
                     children: [
                       Kicker('Get ready', color: tint, live: true),
                       const Spacer(),
-                      const NightVisionButton(),
-                      const SizedBox(width: 8),
                       CircleButton(icon: Icons.close_rounded, tooltip: 'Close', onPressed: () => Navigator.of(context).maybePop()),
                     ],
                   ),
@@ -180,8 +176,7 @@ class _LookUpNowState extends ConsumerState<LookUpNowScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
