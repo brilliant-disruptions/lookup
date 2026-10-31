@@ -53,9 +53,9 @@ abstract final class AlertArt {
   }
 
   /// The PNG for [e]. [startLabel] is the time it appears ("9:05 PM").
-  static Future<List<int>?> png(SkyEvent e, {required String startLabel}) async {
+  static Future<List<int>?> png(SkyEvent e, {required String startLabel, bool titled = true}) async {
     final recorder = ui.PictureRecorder();
-    paint(ui.Canvas(recorder), e, startLabel: startLabel);
+    paint(ui.Canvas(recorder), e, startLabel: startLabel, titled: titled);
     final image = await recorder.endRecording().toImage(width, height);
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
@@ -69,7 +69,10 @@ abstract final class AlertArt {
 
   static ui.Color _tint(SkyEventType t) => t == SkyEventType.starlinkTrain ? const ui.Color(0xFFA78BFA) : const ui.Color(0xFF5AA2FF);
 
-  static void paint(ui.Canvas canvas, SkyEvent e, {required String startLabel}) {
+  /// [titled] adds "Face …", the LookUp mark and the compass words (the
+  /// alert); the home-screen widget sets its own words over the picture, so
+  /// it leaves them off.
+  static void paint(ui.Canvas canvas, SkyEvent e, {required String startLabel, bool titled = true}) {
     const w = 1024.0, h = 512.0;
     final tint = _tint(e.type);
     final chart = AlertChart.forPass(
@@ -151,16 +154,18 @@ abstract final class AlertArt {
       ground,
       ui.Paint()..shader = ui.Gradient.linear(const ui.Offset(0, horizon), const ui.Offset(0, h), [const ui.Color(0xFF0C1324), _black]),
     );
-    for (final (word, x) in chart.compass) {
-      _text(
-        canvas,
-        word,
-        ui.Offset(left + (right - left) * x, horizon + 22),
-        size: 24,
-        color: _grey,
-        weight: ui.FontWeight.w700,
-        centre: true,
-      );
+    if (titled) {
+      for (final (word, x) in chart.compass) {
+        _text(
+          canvas,
+          word,
+          ui.Offset(left + (right - left) * x, horizon + 22),
+          size: 24,
+          color: _grey,
+          weight: ui.FontWeight.w700,
+          centre: true,
+        );
+      }
     }
 
     // Labels: when and where it appears, and which way to face.
@@ -175,6 +180,7 @@ abstract final class AlertArt {
       alignRight: riseLeft,
     );
     _text(canvas, 'appears here', rise + ui.Offset(riseLeft ? -18 : 18, -16), size: 20, color: _grey, alignRight: riseLeft);
+    if (!titled) return;
     _text(canvas, 'Face ${compassWord(e.riseAzimuthDeg)}', const ui.Offset(40, 30), size: 34, color: _white, weight: ui.FontWeight.w700);
     _text(canvas, 'LookUp', const ui.Offset(w - 40, 34), size: 22, color: _grey, weight: ui.FontWeight.w700, alignRight: true);
   }
