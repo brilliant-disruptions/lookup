@@ -5,6 +5,7 @@ import '../domain/log/sky_log.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
+import '../services/ambient_light.dart';
 import '../services/live_activity.dart';
 import '../services/location_service.dart';
 import '../services/widget_service.dart';
@@ -20,6 +21,12 @@ final locationServiceProvider =
     Provider<LocationService>((_) => const LocationService());
 final widgetServiceProvider = Provider<WidgetService>((_) => const WidgetService());
 final liveActivityProvider = Provider<LiveActivityService>((_) => const LiveActivityService());
+final ambientLightProvider = Provider<AmbientLightService>((_) => const AmbientLightService());
+
+/// Night vision's red strength from the light around the phone. Auto-dispose
+/// so the sensor is only on while night vision is.
+final nightVisionStrengthProvider =
+    StreamProvider.autoDispose<double>((ref) => ref.watch(ambientLightProvider).redStrength());
 
 final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(
       store: ref.watch(storeProvider),
