@@ -89,6 +89,45 @@ void main() {
     expect(refused.shown.single.iOS?.attachments, isNull);
   });
 
+  group('countdown and clean-up', () {
+    test('a pass alert counts down to the moment it appears, shows on the lock screen and clears after', () {
+      final a = _alert(SkyEventType.iss); // fires 10 min before a 4-min pass
+      final android = NotificationService.detailsForAlert(a).android!;
+      expect(android.usesChronometer, isTrue);
+      expect(android.chronometerCountDown, isTrue);
+      expect(android.when, _start.millisecondsSinceEpoch);
+      expect(android.visibility, NotificationVisibility.public);
+      // 10 min to go + 4 min pass + 20 min to press "Saw it!".
+      expect(android.timeoutAfter, const Duration(minutes: 34).inMilliseconds);
+      expect(NotificationService.detailsForAlert(a).iOS?.threadIdentifier, 'iss:1');
+    });
+
+    test('a long event gets no countdown, but still clears and groups', () {
+      final android = NotificationService.detailsForAlert(_alert(SkyEventType.meteorShower)).android!;
+      expect(android.usesChronometer, isFalse);
+      expect(android.when, isNull);
+      expect(android.timeoutAfter, isNotNull);
+    });
+
+    test('no countdown to a moment already past when it fires', () {
+      final late = PlannedAlert(
+        notificationId: 8,
+        event: _ev(SkyEventType.iss),
+        fireAt: _start.add(const Duration(seconds: 30)),
+        kind: AlertKind.goNow,
+        title: 't',
+        body: 'b',
+      );
+      expect(NotificationService.detailsForAlert(late).android!.usesChronometer, isFalse);
+    });
+
+    test('scheduled alerts carry it', () async {
+      final plugin = _FakePlugin();
+      await NotificationService(plugin, (_) async => null).schedule(_alert(SkyEventType.iss));
+      expect(plugin.scheduled.single.android!.usesChronometer, isTrue);
+    });
+  });
+
   test('only pass heads-ups get a picture', () {
     expect(AlertArt.wants(_alert(SkyEventType.iss)), isTrue);
     expect(AlertArt.wants(_alert(SkyEventType.starlinkTrain)), isTrue);

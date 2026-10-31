@@ -20,6 +20,7 @@ import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/caught_it_screen.dart';
 import 'package:lookup/ui/intro_scene.dart';
 import 'package:lookup/ui/look_sheet.dart';
+import 'package:lookup/ui/look_up_now_screen.dart';
 import 'package:lookup/services/alert_art.dart';
 import 'package:lookup/ui/starter_card.dart';
 import 'package:lookup/ui/kit/kit.dart' show SkyBackdrop;
@@ -457,6 +458,16 @@ void main() {
     await t.pumpWidget(CustomPaint(size: const Size(1024, 512), painter: _ArtPainter(_events.first)));
     await expectLater(find.byType(CustomPaint), matchesGoldenFile('goldens/26-alert-art.png'));
   });
+
+  testWidgets('look up now', (t) => shot(
+      t,
+      LookUpNowScreen(
+        event: _ev('iss:soon', SkyEventType.iss, const Duration(minutes: 1, seconds: 47),
+            details: {'brightness': 'brighter than any star'}),
+        // Facing south: it appears west-southwest, to the right.
+        orientationStream: Stream.value(const [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]),
+      ),
+      '27-look-up-now'));
 
   testWidgets('paywall', (t) async {
     final sheet = Scaffold(

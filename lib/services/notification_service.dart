@@ -3,6 +3,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../domain/models/sky_event.dart';
 import '../domain/scheduling/alert_planner.dart';
 import 'alert_art.dart';
 
@@ -44,7 +45,15 @@ class NotificationService {
 
   /// With [imagePath], the alert carries a picture: Android's expanded big
   /// picture (with [body] under it), iOS's attachment.
-  static NotificationDetails detailsFor(AlertKind kind, {String? imagePath, String? title, String? body}) {
+  static NotificationDetails detailsFor(
+    AlertKind kind, {
+    String? imagePath,
+    String? title,
+    String? body,
+    DateTime? countdownTo,
+    int? timeoutAfterMs,
+    String? thread,
+  }) {
     final withSnooze = kind == AlertKind.headsUp;
     return NotificationDetails(
       android: AndroidNotificationDetails(
@@ -56,6 +65,14 @@ class NotificationService {
         category: AndroidNotificationCategory.reminder,
         sound: const RawResourceAndroidNotificationSound(_chime),
         actions: [_findAndroid, if (withSnooze) _snoozeAndroid, _seenAndroid],
+        // Nothing private in a sky alert: show it in full on the lock screen,
+        // even on phones that hide notification text there by default.
+        visibility: NotificationVisibility.public,
+        // A live countdown in the alert itself, ticking to the moment it appears.
+        when: countdownTo?.millisecondsSinceEpoch,
+        usesChronometer: countdownTo != null,
+        chronometerCountDown: countdownTo != null,
+        timeoutAfter: timeoutAfterMs,
         styleInformation: imagePath == null
             ? null
             : BigPictureStyleInformation(
@@ -73,7 +90,39 @@ class NotificationService {
         interruptionLevel: InterruptionLevel.timeSensitive,
         categoryIdentifier: withSnooze ? _headsUpCategory : _goNowCategory,
         attachments: imagePath == null ? null : [DarwinNotificationAttachment(imagePath)],
+        // One event's heads-up, reminder and go-now stack together.
+        threadIdentifier: thread,
       ),
+    );
+  }
+
+  /// Events that happen at a moment worth counting down to.
+  static const countdownTypes = {
+    SkyEventType.iss,
+    SkyEventType.tiangong,
+    SkyEventType.starlinkTrain,
+    SkyEventType.rocketLaunch,
+    SkyEventType.lunarEclipse,
+  };
+
+  /// How long an alert stays after its event ends, for the Saw it! button.
+  static const linger = Duration(minutes: 20);
+
+  /// [detailsFor] with what [a] itself implies: a countdown to the moment
+  /// it appears (when that's still ahead at firing), clearing itself
+  /// [linger] after the event ends, and grouped with its event's other alerts.
+  static NotificationDetails detailsForAlert(PlannedAlert a, {String? imagePath}) {
+    final e = a.event;
+    final countdown = countdownTypes.contains(e.type) && e.start.isAfter(a.fireAt) ? e.start : null;
+    final clearAt = e.end.add(linger).difference(a.fireAt).inMilliseconds;
+    return detailsFor(
+      a.kind,
+      imagePath: imagePath,
+      title: a.title,
+      body: a.body,
+      countdownTo: countdown,
+      timeoutAfterMs: clearAt > 0 ? clearAt : null,
+      thread: e.id,
     );
   }
 
@@ -195,7 +244,7 @@ class NotificationService {
           title: a.title,
           body: a.body,
           scheduledDate: tz.TZDateTime.from(a.fireAt, tz.local),
-          notificationDetails: detailsFor(a.kind, imagePath: img, title: a.title, body: a.body),
+          notificationDetails: detailsForAlert(a, imagePath: img),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           payload: a.event.id,
         );
@@ -219,7 +268,7 @@ class NotificationService {
           id: a.notificationId,
           title: a.title,
           body: a.body,
-          notificationDetails: detailsFor(a.kind, imagePath: img, title: a.title, body: a.body),
+          notificationDetails: detailsForAlert(a, imagePath: img),
           payload: a.event.id,
         );
     if (image == null) return go(null);

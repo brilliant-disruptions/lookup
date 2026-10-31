@@ -17,6 +17,7 @@ import 'finder_screen.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
+import 'look_up_now_screen.dart';
 import 'night_vision_button.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
@@ -156,6 +157,10 @@ class _NextCardState extends ConsumerState<_NextCard> {
       ref.read(liveActivityProvider).markLive();
     }
     _wasLive = live;
+    // The last two minutes, with the app open on Tonight: take over the screen.
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      if (ref.read(homeTabProvider) == 0) maybeOpenLookUpNow(context, event, now);
+    }
     final isPass = event.type == SkyEventType.iss || event.type == SkyEventType.tiangong || event.type == SkyEventType.starlinkTrain;
     final tint = eventStyle(event.type, details: event.details).color;
     return GlassCard(

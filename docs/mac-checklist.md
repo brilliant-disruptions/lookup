@@ -52,6 +52,9 @@ Run on a device (⌘R) and try:
   Allow camera access; the path should sit roughly where the satellite will
   be (compasses are good to 5–10°; wave the phone in a figure-8 if it's off).
 - **Add to calendar, photos, Places search, Directions** on a transit.
+- **Look up now:** open the app on Tonight within two minutes of a real pass. The takeover
+  should open once; turning the phone should swing the arrow and the words; at rise it
+  buzzes and opens the finder. (Android: the heads-up should tick down on the lock screen.)
 - **Alert picture:** Settings → *Preview an alert*. Long-press the
   notification (iOS) or expand it (Android): the "where to look" picture should
   show the path and "appears here". If it's missing, the alert text must still
