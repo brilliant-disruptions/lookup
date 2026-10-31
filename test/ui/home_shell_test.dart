@@ -105,7 +105,7 @@ void main() {
     await t.tap(find.text('Week'));
     await t.pump(const Duration(seconds: 1));
     expect(find.text('The week'), findsOneWidget);
-    expect(find.text('Coming up'), findsOneWidget);
+    expect(find.text('At a glance'), findsOneWidget);
 
     await t.tap(find.text('Sky'));
     await t.pump(const Duration(seconds: 1));
