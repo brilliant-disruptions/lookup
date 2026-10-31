@@ -1,58 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  The next thing worth stepping outside for, in the app's night-glass look:
+  the pass's "where to look" picture behind (when there is one), its colour
+  on the kicker, a live countdown and which way to face.
+  RemoteViews only allows framework layouts and widgets: no plain View.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:orientation="vertical"
-    android:padding="14dp">
+    android:clipToOutline="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:letterSpacing="0.2"
-        android:text="LOOKUP"
-        android:textColor="#3C9DFF"
-        android:textSize="10sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/widget_title"
+    <ImageView
+        android:id="@+id/widget_art"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:fontFamily="serif"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:textColor="#FFFFFF"
-        android:textSize="20sp" />
-
-    <Chronometer
-        android:id="@+id/widget_countdown"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:fontFamily="serif"
-        android:textColor="#9CC3FF"
-        android:textSize="26sp"
-        android:textStyle="italic"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="centerCrop"
         android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/widget_when"
+    <ImageView
+        android:id="@+id/widget_scrim"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:textColor="#A7ACB3"
-        android:textSize="12sp" />
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_scrim"
+        android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/widget_direction"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:maxLines="2"
-        android:ellipsize="end"
-        android:textColor="#A7ACB3"
-        android:textSize="12sp" />
-</LinearLayout>
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/widget_kicker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:textColor="#5AA2FF"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:textColor="#F4F6FA"
+            android:textSize="19sp" />
+
+        <Chronometer
+            android:id="@+id/widget_countdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif"
+            android:textColor="#F4F6FA"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/widget_when"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#A0A8B8"
+            android:textSize="12.5sp" />
+
+        <TextView
+            android:id="@+id/widget_direction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#F4F6FA"
+            android:textSize="12.5sp" />
+    </LinearLayout>
+</FrameLayout>

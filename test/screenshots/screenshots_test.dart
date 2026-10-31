@@ -500,6 +500,55 @@ void main() {
       ),
       '27-look-up-now'));
 
+  // An approximation of the Android widget (res/layout/next_event_widget.xml)
+  // for the README: the same picture, scrim, words and colours.
+  testWidgets('home widget preview', (t) async {
+    t.view.physicalSize = const Size(1080, 1000);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final e = _events.first;
+    Widget widget(double w, double h) => Container(
+          width: w,
+          height: h,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0x17FFFFFF)),
+            gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF0B1328), Color(0xFF04060B)]),
+          ),
+          child: Stack(fit: StackFit.expand, children: [
+            FittedBox(fit: BoxFit.cover, child: SizedBox(width: 1024, height: 512, child: CustomPaint(painter: _ArtPainter(e, titled: false)))),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xE604060B), Color(0x9904060B), Color(0x0004060B)]),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Next up · Tonight', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
+                const SizedBox(height: 2),
+                const Text('ISS flyover', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
+                Text('3:11:58', style: numeric(size: 30, weight: FontWeight.w700)),
+                const Spacer(),
+                const Text('Tonight, 10:17 PM', style: TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
+                const Text('Look west-southwest, high in the sky', style: TextStyle(fontSize: 12.5)),
+              ]),
+            ),
+          ]),
+        );
+    await t.pumpWidget(_app(Scaffold(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF2B3A55), Color(0xFF1A1F2C)]),
+        ),
+        child: Center(child: widget(330, 170)),
+      ),
+    )));
+    await t.pump(const Duration(milliseconds: 300));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/28-home-widget.png'));
+  });
+
   testWidgets('paywall', (t) async {
     final sheet = Scaffold(
       body: Stack(children: [
@@ -891,10 +940,11 @@ class _LockScreen extends StatelessWidget {
 }
 
 class _ArtPainter extends CustomPainter {
-  _ArtPainter(this.e);
+  _ArtPainter(this.e, {this.titled = true});
   final SkyEvent e;
+  final bool titled;
   @override
-  void paint(Canvas canvas, Size size) => AlertArt.paint(canvas, e, startLabel: '9:05 PM');
+  void paint(Canvas canvas, Size size) => AlertArt.paint(canvas, e, startLabel: titled ? '9:05 PM' : '10:17 PM', titled: titled);
   @override
   bool shouldRepaint(_ArtPainter old) => false;
 }

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/log/catch_moment.dart';
 import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
+import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
@@ -141,6 +142,8 @@ class CaughtItScreen extends ConsumerWidget {
                               ),
                             ),
                             if (!demo) _UnderThePassCard(event: event, tint: tint, animate: animate),
+                            // Their first sighting: the moment to keep the next one in view.
+                            if (!demo && m.isFirst && (ref.watch(widgetPinnableProvider).value ?? false)) const _WidgetCard(),
                             if (m.completesStarter) ...[const SizedBox(height: 14), _StarterDone(animate: animate)],
                             for (final (i, b) in m.newBadges.indexed) ...[
                               const SizedBox(height: 14),
@@ -272,6 +275,44 @@ class _UnderThePassCard extends ConsumerWidget {
     );
     return animate ? Rise(index: 3, child: card) : card;
   }
+}
+
+/// "Keep the next one in view": add the home-screen widget (Android).
+class _WidgetCard extends StatelessWidget {
+  const _WidgetCard();
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 14),
+    child: GlassCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              EventGlyph(icon: Icons.widgets_rounded, color: LookUpColors.violet),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Keep the next one in view', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    SizedBox(height: 2),
+                    Text(
+                      'A home-screen widget with the next pass, where to look and a live countdown.',
+                      style: TextStyle(fontSize: 13.5, color: LookUpColors.grey, height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(onPressed: WidgetService.pin, icon: const Icon(Icons.add_rounded), label: const Text('Add to home screen')),
+        ],
+      ),
+    ),
+  );
 }
 
 /// The starter three are all seen: they know their sky now.

@@ -52,11 +52,15 @@ class _FakePlus implements PlusService {
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
-Future<void> _mount(WidgetTester t, {required bool isPlus}) async {
+Future<void> _mount(WidgetTester t, {required bool isPlus, bool pinnable = false, int earlier = 0}) async {
   t.view.physicalSize = const Size(1179, 4000);
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
-  final log = SkyLog.from([Sighting(eventId: _seen.id, seen: true, at: _now, type: SkyEventType.iss)]);
+  final log = SkyLog.from([
+    for (var i = 0; i < earlier; i++)
+      Sighting(eventId: 'iss:old$i', seen: true, at: _now.subtract(Duration(days: i + 1)), type: SkyEventType.iss),
+    Sighting(eventId: _seen.id, seen: true, at: _now, type: SkyEventType.iss),
+  ]);
   await t.pumpWidget(
     ProviderScope(
       overrides: [
@@ -65,6 +69,7 @@ Future<void> _mount(WidgetTester t, {required bool isPlus}) async {
         skyLogProvider.overrideWith((_) async => log),
         alertsEnabledProvider.overrideWith((_) async => true),
         plusServiceProvider.overrideWithValue(_FakePlus()),
+        widgetPinnableProvider.overrideWith((_) async => pinnable),
       ],
       child: MaterialApp(
         theme: buildLookUpTheme(),
@@ -97,5 +102,17 @@ void main() {
     expect(find.text('You caught it.'), findsOneWidget);
     expect(find.text('Get the tap with LookUp+'), findsNothing);
     expect(find.text('Tiangong flyover'), findsOneWidget); // now the "next" card
+  });
+
+  testWidgets('first sighting, where the launcher can pin it: offers the home-screen widget', (t) async {
+    await _mount(t, isPlus: true, pinnable: true);
+    expect(find.text('Keep the next one in view'), findsOneWidget);
+  });
+
+  testWidgets('no widget card after later sightings, or where it can\'t be pinned', (t) async {
+    await _mount(t, isPlus: true, pinnable: true, earlier: 2);
+    expect(find.text('Keep the next one in view'), findsNothing);
+    await _mount(t, isPlus: true, pinnable: false);
+    expect(find.text('Keep the next one in view'), findsNothing);
   });
 }

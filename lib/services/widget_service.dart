@@ -70,6 +70,26 @@ class WidgetService {
     }
   }
 
+  static const _androidWidget = 'com.brilliantdisruptions.lookup.NextEventWidget';
+
+  /// Whether the launcher can add the widget from inside the app (Android 8+
+  /// on launchers that support pinning; never on iOS).
+  static Future<bool> canPin() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await HomeWidget.isRequestPinWidgetSupported() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Ask the launcher to add the widget; it shows its own confirmation.
+  static Future<void> pin() async {
+    try {
+      await HomeWidget.requestPinWidget(qualifiedAndroidName: _androidWidget, androidName: 'NextEventWidget');
+    } catch (_) {}
+  }
+
   Future<void> update(List<SkyEvent> events) async {
     final next = events.where((e) => e.type.pushes && e.details['past'] != true).firstOrNull;
     try {

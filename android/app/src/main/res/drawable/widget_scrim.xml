@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keeps the words readable over the sky picture: dark on the left, clear on the right. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="0"
+        android:centerColor="#9904060B"
+        android:endColor="#0004060B"
+        android:startColor="#E604060B" />
+    <corners android:radius="22dp" />
+</shape>
