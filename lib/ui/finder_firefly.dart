@@ -1,6 +1,7 @@
 /// The firefly over the finder: flies to the target on a spring, waits at
-/// the edge on the side to turn, blinks (and ticks the phone) faster as you
-/// close in, and glows steady when you're on it.
+/// the edge on the side to turn, trailing sparks, blinks (and ticks the
+/// phone) faster as you close in, and when you're on it pulls its trail in,
+/// bursts once, locks a ring on and glows steady.
 library;
 
 import 'dart:math' as math;
@@ -14,7 +15,7 @@ import '../domain/finder/pointing.dart';
 import '../domain/sky/direction.dart';
 import 'kit/firefly_mark.dart';
 
-export 'kit/firefly_mark.dart' show fireflyWarm, fireflyCore;
+export 'kit/firefly_mark.dart' show fireflyGlow, fireflyCore;
 
 
 class FireflyLayer extends StatefulWidget {
@@ -53,6 +54,10 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
   Size _size = Size.zero;
   bool _placed = false;
   bool _still = false;
+  int _ticks = 0;
+
+  /// When it lined up, on [_clock], for the landing; null while searching.
+  double? _landedAt;
 
   @override
   void didChangeDependencies() {
@@ -63,6 +68,13 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
     } else if (!_ticker.isActive) {
       _ticker.start();
     }
+  }
+
+  @override
+  void didUpdateWidget(FireflyLayer old) {
+    super.didUpdateWidget(old);
+    if (widget.onTarget && !old.onTarget) _landedAt = _seconds;
+    if (!widget.onTarget) _landedAt = null;
   }
 
   @override
@@ -89,8 +101,11 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
       _placed = true;
     }
     _motion.step((x: g.x, y: g.y), dt);
-    _trail.add(Offset(_motion.x, _motion.y));
-    if (_trail.length > 14) _trail.removeAt(0);
+    // A spark every other frame: about half a second of trail.
+    if ((_ticks++).isEven) {
+      _trail.add(Offset(_motion.x, _motion.y));
+      if (_trail.length > 14) _trail.removeAt(0);
+    }
     // Blink, and tick the phone at the top of each blink.
     final period = fireflyBlink(widget.distanceDeg);
     if (period == null) {
@@ -123,7 +138,8 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
                   trail: [for (final p in _trail) _size.center(p)],
                   blink: fireflyBlink(widget.distanceDeg) == null ? 1 : 0.55 + 0.45 * math.cos(_phase * 2 * math.pi),
                   wobble: _still || widget.onTarget ? Offset.zero : Offset(math.sin(_seconds * 2.3) * 4, math.cos(_seconds * 3.1) * 3),
-                  landed: widget.onTarget,
+                  // Still (reduced motion): the ring is simply there.
+                  sinceLanded: !widget.onTarget ? null : (_still || _landedAt == null ? 1.0 : _seconds - _landedAt!),
                 ),
               ),
             ),
@@ -146,35 +162,23 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
 }
 
 class _FireflyPainter extends CustomPainter {
-  _FireflyPainter({required this.at, required this.trail, required this.blink, required this.wobble, required this.landed});
+  _FireflyPainter({required this.at, required this.trail, required this.blink, required this.wobble, required this.sinceLanded});
   final Offset at;
   final List<Offset> trail;
   final double blink; // 0…1
   final Offset wobble;
-  final bool landed;
+
+  /// Seconds since it lined up; null while searching.
+  final double? sinceLanded;
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < trail.length; i++) {
-      final f = (i + 1) / (trail.length + 1);
-      canvas.drawCircle(
-          trail[i],
-          1.5 + f * 3,
-          Paint()
-            ..color = fireflyWarm.withValues(alpha: 0.06 + f * 0.22)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
-    }
+    // The trail pulls in over the first 0.3 s of lining up.
+    final landed = sinceLanded;
+    paintSparkTrail(canvas, trail, strength: landed == null ? 1 : (1 - landed / 0.3).clamp(0.0, 1.0));
     final p = at + wobble;
     paintFirefly(canvas, p, blink: blink);
-    if (landed) {
-      canvas.drawCircle(
-          p,
-          18,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2
-            ..color = fireflyWarm.withValues(alpha: 0.85));
-    }
+    if (landed != null) paintFireflyLanding(canvas, p, landed);
   }
 
   @override
@@ -247,7 +251,7 @@ class _RoutePainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.6
           ..strokeCap = StrokeCap.round
-          ..color = fireflyWarm.withValues(alpha: 0.55));
+          ..color = fireflyGlow.withValues(alpha: 0.55));
 
     void label(String s, double cx) {
       final tp = TextPainter(
@@ -289,7 +293,7 @@ class _RoutePainter extends CustomPainter {
           p,
           9,
           Paint()
-            ..color = fireflyWarm.withValues(alpha: 0.6)
+            ..color = fireflyGlow.withValues(alpha: 0.6)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
       canvas.drawCircle(p, 3, Paint()..color = fireflyCore);
     }

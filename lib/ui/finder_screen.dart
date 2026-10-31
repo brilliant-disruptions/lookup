@@ -418,7 +418,7 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
                 (ghosting ? 'Watch the route' : g?.words) ?? (_error != null ? 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}' : 'Hold your phone up toward the sky'),
                 textAlign: TextAlign.center,
                 style: display(28, weight: FontWeight.w700,
-                    color: (g?.onTarget ?? false) ? LookUpColors.blue : LookUpColors.white),
+                    color: (g?.onTarget ?? false) ? fireflyGlow : LookUpColors.white),
               ),
             ),
             Padding(
@@ -478,7 +478,7 @@ class _ReticlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final ring = Paint()
-      ..color = (onTarget ? fireflyWarm : LookUpColors.white).withValues(alpha: onTarget ? 0.9 : 0.35)
+      ..color = (onTarget ? fireflyGlow : LookUpColors.white).withValues(alpha: onTarget ? 0.9 : 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = onTarget ? 2.5 : 1.2;
     canvas.drawCircle(c, 44, ring);

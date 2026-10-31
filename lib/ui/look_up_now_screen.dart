@@ -251,8 +251,22 @@ class _TurnDial extends CustomPainter {
       ..close();
     canvas.drawPath(head, Paint()..color = tint);
     canvas.restore();
-    // Where it'll appear, at the arrow's tip: the firefly.
-    final tip = c + Offset(math.sin(angle), -math.cos(angle)) * (r + 0);
+    // Where it'll appear, at the arrow's tip: the firefly, with its sparks
+    // trailing round the ring from where you face. Facing it, no trail.
+    final tip = c + Offset(math.sin(angle), -math.cos(angle)) * r;
+    if (!facing) {
+      final a = math.atan2(math.sin(angle), math.cos(angle)); // -π…π
+      final sweep = a.sign * math.min(a.abs(), 50 * math.pi / 180);
+      const n = 12;
+      paintSparkTrail(
+        canvas,
+        [
+          for (var i = 0; i < n; i++)
+            c + Offset(math.sin(a - sweep * (1 - i / n)), -math.cos(a - sweep * (1 - i / n))) * r,
+        ],
+        scale: 1.3,
+      );
+    }
     paintFirefly(canvas, tip, blink: 0.8, scale: 1.3);
     if (deltaDeg == null) {
       // Map mode: mark north so the arrow reads as a bearing.
