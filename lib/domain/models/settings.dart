@@ -70,6 +70,7 @@ class LookUpSettings {
     this.launchesEnabled = true,
     this.transitsEnabled = true,
     this.nightVision = false,
+    this.nightVisionAuto = true,
     this.leadMinutes = 10,
     this.goNowNudge = true,
     this.quietHours = QuietHours.defaults,
@@ -104,6 +105,10 @@ class LookUpSettings {
 
   /// Red-on-black UI that keeps eyes dark-adapted outdoors.
   final bool nightVision;
+
+  /// Turn red by itself on the screens used outside (finder, Look up now,
+  /// You caught it, camera view) when it's dark where they are.
+  final bool nightVisionAuto;
   final int leadMinutes;
   final bool goNowNudge;
   final QuietHours quietHours;
@@ -169,6 +174,7 @@ class LookUpSettings {
     bool? launchesEnabled,
     bool? transitsEnabled,
     bool? nightVision,
+    bool? nightVisionAuto,
     int? leadMinutes,
     bool? goNowNudge,
     QuietHours? quietHours,
@@ -199,6 +205,7 @@ class LookUpSettings {
         launchesEnabled: launchesEnabled ?? this.launchesEnabled,
         transitsEnabled: transitsEnabled ?? this.transitsEnabled,
         nightVision: nightVision ?? this.nightVision,
+        nightVisionAuto: nightVisionAuto ?? this.nightVisionAuto,
         leadMinutes: leadMinutes ?? this.leadMinutes,
         goNowNudge: goNowNudge ?? this.goNowNudge,
         quietHours: quietHours ?? this.quietHours,
@@ -232,6 +239,7 @@ class LookUpSettings {
         'launchesEnabled': launchesEnabled,
         'transitsEnabled': transitsEnabled,
         'nightVision': nightVision,
+        'nightVisionAuto': nightVisionAuto,
         'leadMinutes': leadMinutes,
         'goNowNudge': goNowNudge,
         'quietHours': quietHours.toJson(),
@@ -266,6 +274,7 @@ class LookUpSettings {
       launchesEnabled: j['launchesEnabled'] as bool? ?? d.launchesEnabled,
       transitsEnabled: j['transitsEnabled'] as bool? ?? d.transitsEnabled,
       nightVision: j['nightVision'] as bool? ?? d.nightVision,
+      nightVisionAuto: j['nightVisionAuto'] as bool? ?? d.nightVisionAuto,
       leadMinutes: j['leadMinutes'] as int? ?? d.leadMinutes,
       goNowNudge: j['goNowNudge'] as bool? ?? d.goNowNudge,
       quietHours: j['quietHours'] is Map

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'state/night_state.dart';
 import 'state/providers.dart';
 import 'ui/home_shell.dart';
 import 'ui/onboarding_screen.dart';
@@ -19,7 +20,7 @@ class LookUpApp extends ConsumerWidget {
       theme: theme,
       debugShowCheckedModeBanner: false,
       builder: (context, child) => NightVision(
-        enabled: settings.value?.nightVision ?? false,
+        enabled: ref.watch(nightVisionOnProvider),
         // Respect large text, but cap it where the layouts would break.
         child: MediaQuery.withClampedTextScaling(maxScaleFactor: 1.6, child: child ?? const SizedBox()),
       ),

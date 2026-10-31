@@ -327,7 +327,8 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
             ),
           )
         : null;
-    return Scaffold(
+    return OutsideScreen(
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
         if (_cameraOn)
@@ -463,6 +464,7 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
         ),
       ),
       ]),
+    ),
     );
   }
 }

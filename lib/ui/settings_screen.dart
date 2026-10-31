@@ -136,6 +136,14 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Night vision',
             subtitle: 'Red screen that keeps your eyes dark-adapted',
           ),
+          _Switch(
+            icon: Icons.nights_stay_rounded,
+            color: LookUpColors.red,
+            value: s.nightVisionAuto,
+            onChanged: (v) => set((s) => s.copyWith(nightVisionAuto: v)),
+            title: 'Red by itself outside',
+            subtitle: 'In the finder, Look up now and the camera view, once it\'s dark',
+          ),
           _Row(
             icon: Icons.play_arrow_rounded,
             color: LookUpColors.good,

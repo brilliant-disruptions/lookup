@@ -10,6 +10,7 @@ import '../domain/models/sky_event.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
+import 'night_vision_button.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'share_card.dart';
@@ -69,132 +70,136 @@ class CaughtItScreen extends ConsumerWidget {
       m = log == null ? null : CatchMoment.of(log: log, eventId: event.id, upcoming: events, now: DateTime.now(), isPlus: isPlus);
     }
 
-    return Scaffold(
-      backgroundColor: LookUpColors.black,
-      body: SkyBackdrop(
-        glow: tint,
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                child: Row(
-                  children: [
-                    if (demo) const Pill('Preview · nothing logged', icon: Icons.fast_forward_rounded, color: LookUpColors.blue),
-                    const Spacer(),
-                    CircleButton(icon: Icons.close_rounded, tooltip: 'Close', onPressed: () => Navigator.of(context).maybePop()),
-                  ],
+    return OutsideScreen(
+      child: Scaffold(
+        backgroundColor: LookUpColors.black,
+        body: SkyBackdrop(
+          glow: tint,
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: Row(
+                    children: [
+                      if (demo) const Pill('Preview · nothing logged', icon: Icons.fast_forward_rounded, color: LookUpColors.blue),
+                      const Spacer(),
+                      const NightVisionButton(),
+                      const SizedBox(width: 8),
+                      CircleButton(icon: Icons.close_rounded, tooltip: 'Close', onPressed: () => Navigator.of(context).maybePop()),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: ShaderMask(
-                  blendMode: BlendMode.dstIn,
-                  shaderCallback: (r) => const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.white, Colors.white, Colors.transparent],
-                    stops: [0, 0.94, 1],
-                  ).createShader(r),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          height: 170,
-                          child: _Burst(tint: tint, animate: animate, child: EventGlyph.of(event, size: 68)),
-                        ),
-                        Rise(
-                          index: 0,
-                          child: Text(
-                            'You caught it.',
-                            textAlign: TextAlign.center,
-                            style: display(40, weight: FontWeight.w800, height: 1.05),
+                Expanded(
+                  child: ShaderMask(
+                    blendMode: BlendMode.dstIn,
+                    shaderCallback: (r) => const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.white, Colors.white, Colors.transparent],
+                      stops: [0, 0.94, 1],
+                    ).createShader(r),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            height: 170,
+                            child: _Burst(tint: tint, animate: animate, child: EventGlyph.of(event, size: 68)),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Rise(
-                          index: 1,
-                          child: Text(
-                            '${eventTitle(event)} · ${fmtDay(event.start)}, ${fmtTime(event.start)}',
-                            textAlign: TextAlign.center,
-                            style: numeric(size: 15, color: LookUpColors.grey),
-                          ),
-                        ),
-                        if (m != null) ...[
-                          const SizedBox(height: 14),
                           Rise(
-                            index: 2,
-                            child: Center(
-                              child: Pill(
-                                m.nthOfType > 1 && m.nthOfType != m.nth && _kindWord(event.type) != null
-                                    ? '${m.countLine} · ${ordinal(m.nthOfType)} ${_kindWord(event.type)}'
-                                    : m.countLine,
-                                icon: Icons.auto_awesome_rounded,
-                                color: tint,
-                              ),
+                            index: 0,
+                            child: Text(
+                              'You caught it.',
+                              textAlign: TextAlign.center,
+                              style: display(40, weight: FontWeight.w800, height: 1.05),
                             ),
                           ),
-                          if (!demo) _UnderThePassCard(event: event, tint: tint, animate: animate),
-                          if (m.completesStarter) ...[const SizedBox(height: 14), _StarterDone(animate: animate)],
-                          for (final (i, b) in m.newBadges.indexed) ...[
-                            const SizedBox(height: 14),
-                            _BadgeUnlocked(badge: b, index: i, animate: animate),
-                          ],
-                          if (m.next != null) ...[
+                          const SizedBox(height: 8),
+                          Rise(
+                            index: 1,
+                            child: Text(
+                              '${eventTitle(event)} · ${fmtDay(event.start)}, ${fmtTime(event.start)}',
+                              textAlign: TextAlign.center,
+                              style: numeric(size: 15, color: LookUpColors.grey),
+                            ),
+                          ),
+                          if (m != null) ...[
                             const SizedBox(height: 14),
                             Rise(
-                              index: 4,
-                              child: _NextCard(
-                                event: m.next!,
-                                line: alertsOn
-                                    ? 'If it\'s clear, LookUp taps you $lead minutes before.'
-                                    : 'Turn alerts on in Settings and LookUp will tap you before it.',
+                              index: 2,
+                              child: Center(
+                                child: Pill(
+                                  m.nthOfType > 1 && m.nthOfType != m.nth && _kindWord(event.type) != null
+                                      ? '${m.countLine} · ${ordinal(m.nthOfType)} ${_kindWord(event.type)}'
+                                      : m.countLine,
+                                  icon: Icons.auto_awesome_rounded,
+                                  color: tint,
+                                ),
                               ),
                             ),
+                            if (!demo) _UnderThePassCard(event: event, tint: tint, animate: animate),
+                            if (m.completesStarter) ...[const SizedBox(height: 14), _StarterDone(animate: animate)],
+                            for (final (i, b) in m.newBadges.indexed) ...[
+                              const SizedBox(height: 14),
+                              _BadgeUnlocked(badge: b, index: i, animate: animate),
+                            ],
+                            if (m.next != null) ...[
+                              const SizedBox(height: 14),
+                              Rise(
+                                index: 4,
+                                child: _NextCard(
+                                  event: m.next!,
+                                  line: alertsOn
+                                      ? 'If it\'s clear, LookUp taps you $lead minutes before.'
+                                      : 'Turn alerts on in Settings and LookUp will tap you before it.',
+                                ),
+                              ),
+                            ],
+                            if (m.nextPlus != null) ...[const SizedBox(height: 14), Rise(index: 5, child: _PlusCard(event: m.nextPlus!))],
                           ],
-                          if (m.nextPlus != null) ...[const SizedBox(height: 14), Rise(index: 5, child: _PlusCard(event: m.nextPlus!))],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // Pinned, so sharing is one thumb away however long the moment runs.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (!demo)
-                      Row(
-                        children: [
-                          if (onAddPhoto != null) ...[
-                            Tooltip(
-                              message: 'Add your photo',
-                              child: OutlinedButton(
-                                onPressed: onAddPhoto,
-                                style: OutlinedButton.styleFrom(minimumSize: const Size(58, 58), padding: EdgeInsets.zero),
-                                child: const Icon(Icons.add_a_photo_rounded, semanticLabel: 'Add your photo'),
+                // Pinned, so sharing is one thumb away however long the moment runs.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!demo)
+                        Row(
+                          children: [
+                            if (onAddPhoto != null) ...[
+                              Tooltip(
+                                message: 'Add your photo',
+                                child: OutlinedButton(
+                                  onPressed: onAddPhoto,
+                                  style: OutlinedButton.styleFrom(minimumSize: const Size(58, 58), padding: EdgeInsets.zero),
+                                  child: const Icon(Icons.add_a_photo_rounded, semanticLabel: 'Add your photo'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: () => showShareCard(context, event),
+                                icon: const Icon(Icons.ios_share_rounded),
+                                label: const Text('Share it'),
                               ),
                             ),
-                            const SizedBox(width: 12),
                           ],
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () => showShareCard(context, event),
-                              icon: const Icon(Icons.ios_share_rounded),
-                              label: const Text('Share it'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    TextButton(onPressed: () => Navigator.of(context).maybePop(), child: Text(demo ? 'Got it' : 'Done')),
-                  ],
+                        ),
+                      TextButton(onPressed: () => Navigator.of(context).maybePop(), child: Text(demo ? 'Got it' : 'Done')),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -14,6 +14,7 @@ import '../services/orientation.dart';
 import '../state/providers.dart';
 import 'finder_screen.dart';
 import 'format.dart';
+import 'night_vision_button.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
 
@@ -107,67 +108,75 @@ class _LookUpNowState extends ConsumerState<LookUpNowScreen> {
     final delta = _facing == null ? null : azimuthDelta(_facing!, e.riseAzimuthDeg);
     final facingIt = delta != null && delta.abs() <= 15;
     final brightness = e.details['brightness'];
-    return Scaffold(
-      body: SkyBackdrop(
-        glow: tint,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Kicker('Get ready', color: tint, live: true),
-                    const Spacer(),
-                    CircleButton(icon: Icons.close_rounded, tooltip: 'Close', onPressed: () => Navigator.of(context).maybePop()),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  eventTitle(e),
-                  style: display(22, weight: FontWeight.w600, color: LookUpColors.grey),
-                ),
-                Semantics(
-                  liveRegion: true,
-                  label: '${LookUpNow.clock(until)} until it appears',
-                  excludeSemantics: true,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(LookUpNow.clock(until), style: numeric(size: 112, weight: FontWeight.w700)),
+    return OutsideScreen(
+      child: Scaffold(
+        body: SkyBackdrop(
+          glow: tint,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Kicker('Get ready', color: tint, live: true),
+                      const Spacer(),
+                      const NightVisionButton(),
+                      const SizedBox(width: 8),
+                      CircleButton(icon: Icons.close_rounded, tooltip: 'Close', onPressed: () => Navigator.of(context).maybePop()),
+                    ],
                   ),
-                ),
-                const Text('until it appears', style: TextStyle(fontSize: 16, color: LookUpColors.grey)),
-                Expanded(
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: Semantics(
-                        label: delta == null ? 'Face ${compassWord(e.riseAzimuthDeg)}' : LookUpNow.turn(delta),
-                        excludeSemantics: true,
-                        child: CustomPaint(
-                          painter: _TurnDial(deltaDeg: delta, targetAz: e.riseAzimuthDeg, tint: tint),
+                  const SizedBox(height: 6),
+                  Text(
+                    eventTitle(e),
+                    style: display(22, weight: FontWeight.w600, color: LookUpColors.grey),
+                  ),
+                  Semantics(
+                    liveRegion: true,
+                    label: '${LookUpNow.clock(until)} until it appears',
+                    excludeSemantics: true,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(LookUpNow.clock(until), style: numeric(size: 112, weight: FontWeight.w700)),
+                    ),
+                  ),
+                  const Text('until it appears', style: TextStyle(fontSize: 16, color: LookUpColors.grey)),
+                  Expanded(
+                    child: Center(
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: Semantics(
+                          label: delta == null ? 'Face ${compassWord(e.riseAzimuthDeg)}' : LookUpNow.turn(delta),
+                          excludeSemantics: true,
+                          child: CustomPaint(
+                            painter: _TurnDial(deltaDeg: delta, targetAz: e.riseAzimuthDeg, tint: tint),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                Text(
-                  delta == null ? 'Face ${compassWord(e.riseAzimuthDeg)}' : LookUpNow.turn(delta),
-                  textAlign: TextAlign.center,
-                  style: display(30, weight: FontWeight.w700, color: facingIt ? tint : LookUpColors.white),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'It appears in the ${compassWord(e.riseAzimuthDeg)} and climbs ${elevationWord(e.peakElevationDeg)}.'
-                  '${brightness is String ? ' A steady moving light, $brightness.' : ''}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 15.5, color: LookUpColors.grey, height: 1.4),
-                ),
-                const SizedBox(height: 18),
-                FilledButton.icon(onPressed: _toFinder, icon: const Icon(Icons.explore_rounded), label: const Text('Open the sky finder')),
-              ],
+                  Text(
+                    delta == null ? 'Face ${compassWord(e.riseAzimuthDeg)}' : LookUpNow.turn(delta),
+                    textAlign: TextAlign.center,
+                    style: display(30, weight: FontWeight.w700, color: facingIt ? tint : LookUpColors.white),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'It appears in the ${compassWord(e.riseAzimuthDeg)} and climbs ${elevationWord(e.peakElevationDeg)}.'
+                    '${brightness is String ? ' A steady moving light, $brightness.' : ''}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15.5, color: LookUpColors.grey, height: 1.4),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: _toFinder,
+                    icon: const Icon(Icons.explore_rounded),
+                    label: const Text('Open the sky finder'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

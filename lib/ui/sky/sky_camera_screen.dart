@@ -120,7 +120,8 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
             : widget.tracks.isNotEmpty
                 ? 'Next: ${widget.tracks.first.label}'
                 : 'Stars, planets and the Moon, live';
-    return Scaffold(
+    return OutsideScreen(
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
         if (_cameraOn)
@@ -204,6 +205,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
           ]),
         ),
       ]),
+    ),
     );
   }
 }
