@@ -6,6 +6,7 @@ import '../../domain/sky/direction.dart';
 import '../../domain/sky/visibility.dart';
 import '../../state/providers.dart';
 import '../../state/sky_state.dart';
+import '../caught_it_screen.dart';
 import '../finder_screen.dart';
 import '../format.dart';
 import '../kit/kit.dart';
@@ -47,7 +48,9 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
     final e = t.asEvent(DateTime.now(), s!.latitude!, s.longitude!);
     await ref.read(storeProvider).addFeedback(SeenFeedback.forEvent(e, seen: true, place: s.placeName));
     ref.invalidate(skyLogProvider);
-    if (mounted) setState(() => _logged = true);
+    if (!mounted) return;
+    setState(() => _logged = true);
+    await showCaughtIt(context, e);
   }
 
   @override

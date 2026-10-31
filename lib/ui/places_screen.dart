@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/plus/free_plan.dart';
+import 'paywall_sheet.dart';
+
 import '../data/geocoding_client.dart';
 import '../domain/models/settings.dart';
 import '../domain/sky/skyglow.dart';
@@ -101,6 +104,10 @@ class PlacesScreen extends ConsumerWidget {
             title: 'Search for a place',
             subtitle: 'A town, a dark-sky park, where you\'re headed',
             onTap: () async {
+              if (!FreePlan.canAddPlace(s.places.length, isPlus: s.isPlus)) {
+                await showPaywall(context, feature: PlusFeature.places);
+                return;
+              }
               final p = await showDialog<SavedPlace>(context: context, builder: (_) => const _SearchDialog());
               if (p == null) return;
               final q = await _withSky(ref, p);
@@ -110,13 +117,20 @@ class PlacesScreen extends ConsumerWidget {
           ListRow(
             leading: const EventGlyph(icon: Icons.add_location_alt_rounded, color: LookUpColors.grey, size: 32),
             title: 'Save where I am now',
-            onTap: () => _saveHere(context, ref, set),
+            onTap: () => FreePlan.canAddPlace(s.places.length, isPlus: s.isPlus)
+                ? _saveHere(context, ref, set)
+                : showPaywall(context, feature: PlusFeature.places),
           ),
         ]),
         if (s.places.isNotEmpty)
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
             child: Text('Tap the sky icon to say how dark a place is. Swipe a place left to remove it.', style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5)),
+          ),
+        if (!s.isPlus)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text('One saved place on free. LookUp+ keeps as many as you like.', style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5)),
           ),
       ],
     );

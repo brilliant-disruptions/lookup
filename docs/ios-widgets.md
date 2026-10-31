@@ -28,3 +28,13 @@ of its start.
 **Keep the two `LookUpActivityAttributes` structs identical** (the one in
 `AppDelegate.swift` and the one in the extension). If they drift, the Live
 Activity starts but shows nothing.
+
+## The pass picture (later)
+
+Android's widget shows the next pass's "where to look" picture behind the
+text (`next_art`, a PNG path written by `lib/services/widget_service.dart`).
+The iOS extension can't read the app's own Application Support folder, only
+the shared app-group container, so once the App Group above exists:
+write the PNG into `FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:)`
+from the app (a small method-channel call) and load it in `LookUpWidgets.swift`
+with `UIImage(contentsOfFile:)`. Until then iOS shows the text widget.

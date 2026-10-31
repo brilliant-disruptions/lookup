@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/plus/free_plan.dart';
+import 'paywall_sheet.dart';
+
 import '../domain/models/settings.dart';
 import '../domain/plan/where_to_go.dart';
 import '../domain/sky/direction.dart';
@@ -19,8 +22,11 @@ import 'sky/night_strip.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
 
-Future<void> openWhereToGo(BuildContext context) =>
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WhereToGoScreen()));
+/// LookUp+: free users see what it does on the paywall instead.
+Future<void> openWhereToGo(BuildContext context) {
+  if (!FreePlan.canUse(PlusFeature.whereToGo, isPlus: hasPlus(context))) return showPaywall(context, feature: PlusFeature.whereToGo);
+  return Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WhereToGoScreen()));
+}
 
 /// "240 km east", or "40 km northeast"; null for here.
 String? howFar(PlaceNight p) {

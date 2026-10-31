@@ -14,6 +14,7 @@ import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'plan_screen.dart';
 import 'satellites_screen.dart';
+import 'paywall_sheet.dart';
 import 'theme.dart';
 import 'where_to_go_screen.dart';
 
@@ -153,7 +154,7 @@ class GlancePage extends StatelessWidget {
           ]),
           const SizedBox(height: 14),
           if (pick case final e?)
-            _PickCard(e, locked: !isPlus && e.plusOnly && e.type.pushes)
+            _PickCard(e, locked: lockedOnFree(e, isPlus: isPlus))
           else
             const GlassCard(
               child: Text('Nothing worth stepping out for this week. We\'ll tap you when there is.',
@@ -494,7 +495,7 @@ class CalendarPage extends StatelessWidget {
                   title: eventTitle(e),
                   padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                   trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (!isPlus && e.plusOnly) ...[
+                    if (lockedOnFree(e, isPlus: isPlus)) ...[
                       const Text('LookUp+', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
                       const SizedBox(width: 10),
                     ],

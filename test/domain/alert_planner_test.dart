@@ -237,4 +237,37 @@ void main() {
       expect(AlertPlanner.snooze(e, now), isNull);
     });
   });
+
+  group('solar eclipses', () {
+    final eclipse = ev('solar:2026-10-22', SkyEventType.solarEclipse, now.add(const Duration(hours: 5)), el: 50, clouds: 10, details: {
+      'kind': 'total',
+      'obscuration': 1.0,
+      'centralStart': now.add(const Duration(hours: 5, minutes: 1)).toIso8601String(),
+      'centralEnd': now.add(const Duration(hours: 5, minutes: 3, seconds: 41)).toIso8601String(),
+    });
+
+    test('free users get them, and every eclipse alert says how to look safely', () {
+      final plan = planner.plan(events: [eclipse], settings: const LookUpSettings(), now: now, utcOffsetMinutes: cdt);
+      final heads = plan.firstWhere((a) => a.kind == AlertKind.headsUp);
+      expect(heads.title, 'Total solar eclipse in 10 min');
+      expect(heads.body, contains('Total eclipse here: 2 min 41 s of darkness'));
+      expect(heads.body, contains('Eclipse glasses only: never look at the Sun without them.'));
+      expect(heads.body, contains('glasses off only while the Sun is fully covered'));
+      final go = plan.firstWhere((a) => a.kind == AlertKind.goNow);
+      expect(go.body, startsWith('Eclipse glasses on'));
+    });
+
+    test('a partial eclipse never mentions taking glasses off', () {
+      final partial = ev('solar:p', SkyEventType.solarEclipse, now.add(const Duration(hours: 5)), el: 50, clouds: 10, details: {'kind': 'partial', 'obscuration': 0.62});
+      final body = planner.plan(events: [partial], settings: const LookUpSettings(), now: now, utcOffsetMinutes: cdt).first.body;
+      expect(body, startsWith('62% of the Sun covered'));
+      expect(body, isNot(contains('glasses off')));
+    });
+
+    test('the eclipses switch turns them off, and cloud gating still applies', () {
+      expect(planner.plan(events: [eclipse], settings: const LookUpSettings(eclipsesEnabled: false), now: now, utcOffsetMinutes: cdt), isEmpty);
+      final cloudy = ev('solar:c', SkyEventType.solarEclipse, now.add(const Duration(hours: 5)), el: 50, clouds: 95, details: {'kind': 'partial', 'obscuration': 0.5});
+      expect(planner.plan(events: [cloudy], settings: const LookUpSettings(), now: now, utcOffsetMinutes: cdt), isEmpty);
+    });
+  });
 }

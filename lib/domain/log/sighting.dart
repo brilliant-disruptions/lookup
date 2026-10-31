@@ -40,6 +40,7 @@ class Sighting {
     if (id.startsWith('aurora')) return SkyEventType.auroraNow;
     if (id.startsWith('meteor-')) return SkyEventType.meteorShower;
     if (id.startsWith('eclipse:')) return SkyEventType.lunarEclipse;
+    if (id.startsWith('solar:')) return SkyEventType.solarEclipse;
     if (id.startsWith('pair:')) return SkyEventType.planetPairing;
     if (id.startsWith('launch:')) return SkyEventType.rocketLaunch;
     if (id.startsWith('transit-')) return SkyEventType.issTransit;

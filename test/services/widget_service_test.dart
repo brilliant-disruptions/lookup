@@ -21,5 +21,9 @@ void main() {
     expect(p['next_title'], 'ISS flyover');
     expect(p['next_direction'], 'Look west-southwest, high in the sky');
     expect(p['next_start_ms'], start.millisecondsSinceEpoch);
+    expect(p['next_tint'], 0xFF5AA2FF); // the station's blue
+    expect(p['next_art'], '');
+    expect(WidgetService.payloadFor(e, artPath: '/x/widget.png')['next_art'], '/x/widget.png');
+    expect(p['next_kicker'], startsWith('Next up · '));
   });
 }

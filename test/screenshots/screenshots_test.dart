@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/app.dart';
 import 'package:lookup/data/local_store.dart';
@@ -17,12 +18,21 @@ import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/home_shell.dart';
+import 'package:lookup/ui/caught_it_screen.dart';
+import 'package:lookup/ui/intro_scene.dart';
 import 'package:lookup/ui/look_sheet.dart';
+import 'package:lookup/ui/plus_card.dart';
+import 'package:lookup/ui/look_up_now_screen.dart';
+import 'package:lookup/services/alert_art.dart';
+import 'package:lookup/ui/starter_card.dart';
+import 'package:lookup/ui/kit/kit.dart' show SkyBackdrop;
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
 import 'package:lookup/ui/demo.dart';
 import 'dart:math' as math;
 import 'package:lookup/domain/log/sighting.dart';
+import 'package:lookup/domain/orbit/omm.dart';
+import 'package:lookup/domain/passes/pass_predictor.dart';
 import 'package:lookup/domain/log/sky_log.dart';
 import 'package:lookup/ui/finder_screen.dart';
 import 'package:lookup/ui/log_screen.dart';
@@ -107,6 +117,76 @@ final _events = [
       details: {'shower': 'Leonids', 'perHour': 9, 'moonIllumination': 0.42, 'moonUp': false}),
 ];
 
+/// A real pass from the fixture's elements (London, 21 Oct 2026), under the
+/// id the sample log has as its 5th station sighting, so "You caught it"
+/// shows the badge and who else was under it.
+SkyEvent _londonPass() {
+  final e = PassPredictor(latitude: 51.5, longitude: -0.12)
+      .predict(
+        record: OmmRecord.fromJson(_issOmm),
+        type: SkyEventType.iss,
+        from: DateTime.utc(2026, 10, 20, 16),
+        to: DateTime.utc(2026, 10, 22),
+        minPeakElevationDeg: 10,
+      )
+      .first;
+  return SkyEvent(
+    id: 'iss:4',
+    type: e.type,
+    start: e.start,
+    peak: e.peak,
+    end: e.end,
+    peakElevationDeg: e.peakElevationDeg,
+    riseAzimuthDeg: e.riseAzimuthDeg,
+    peakAzimuthDeg: e.peakAzimuthDeg,
+    setAzimuthDeg: e.setAzimuthDeg,
+    details: {...e.details, 'past': true},
+  );
+}
+
+const _london = LookUpSettings(latitude: 51.5, longitude: -0.12, placeName: 'London', onboarded: true, toured: true);
+
+/// A good evening for the verdict: a clear pass an hour out going right by
+/// Saturn, clear until late, the Moon setting before midnight. Times follow
+/// the clock it's rendered at, so render it in an evening time zone (e.g.
+/// TZ=Asia/Kolkata in the UTC afternoon).
+({NightPlan plan, List<SkyEvent> events}) _evening() {
+  final now = DateTime.now().toUtc();
+  final start = now.subtract(const Duration(minutes: 30));
+  final end = start.add(const Duration(hours: 10));
+  final hour = DateTime.utc(start.year, start.month, start.day, start.hour);
+  final weather = CloudForecast(
+    latitude: 36.17,
+    longitude: -86.78,
+    fetchedAt: now,
+    hourly: [for (var i = -1; i <= 11; i++) CloudSample(time: hour.add(Duration(hours: i)), coverPercent: i < 6 ? 6 : 82)],
+  );
+  return (
+    plan: NightPlan(
+      window: (start: start, end: end),
+      outlook: NightOutlook.from(start: start, end: end, weather: weather),
+      planets: [
+        PlanetTonight(
+          planet: Planet.saturn,
+          magnitude: 0.6,
+          elongationDeg: 120,
+          evening: true,
+          sighting: SkySighting(best: now.add(const Duration(minutes: 25)), altDeg: 38, azDeg: 140, verdict: Seeability.great),
+        ),
+      ],
+      moon: MoonTonight(phase: MoonPhase.waxingCrescent, illumination: 0.38, waxing: true, set: now.add(const Duration(hours: 2, minutes: 20))),
+      constellations: const [],
+      showpieces: const [],
+      darkness: SkyDarkness.suburbs,
+    ),
+    events: [
+      _ev('iss:v', SkyEventType.iss, const Duration(hours: 1, minutes: 5), clouds: 6,
+          details: {'brightness': 'brighter than any star', 'landmarks': 'passing right by Saturn'}),
+      ..._events.skip(1),
+    ],
+  );
+}
+
 class _FakeSettings extends SettingsNotifier {
   _FakeSettings(this.s);
   final LookUpSettings s;
@@ -179,7 +259,7 @@ Future<void> _loadFonts() async {
 
 Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
   latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true, toured: true,
-  favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus'])}) {
+  favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus']), List<Override> extra = const []}) {
   final base = LookUpApp.theme;
   final theme = base.copyWith(
     textTheme: base.textTheme.apply(fontFamilyFallback: const ['Noto Color Emoji']),
@@ -217,6 +297,7 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
               planNight(catalog: _catalog, at: _now.toUtc().add(Duration(days: i)), lat: 36.17, lon: -86.78,
                   darkness: SkyDarkness.suburbs, weather: _clearThenCloudy),
           ]),
+      ...extra,
     ],
     child: MaterialApp(theme: theme, debugShowCheckedModeBanner: false, home: home),
   );
@@ -291,19 +372,19 @@ List<double> _pose(double az, double el) {
 void main() {
   setUpAll(_loadFonts);
 
-  Future<void> mount(WidgetTester tester, Widget w, {LookUpSettings? settings}) async {
+  Future<void> mount(WidgetTester tester, Widget w, {LookUpSettings? settings, List<Override> extra = const []}) async {
     tester.view.physicalSize = const Size(1179, 2556); // iPhone 15 Pro
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(settings == null ? _app(w) : _app(w, settings: settings));
+    await tester.pumpWidget(settings == null ? _app(w, extra: extra) : _app(w, settings: settings, extra: extra));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 900)); // let staggered rises settle
     await tester.pump(const Duration(seconds: 1)); // and ones mounted after async data
   }
 
-  Future<void> shot(WidgetTester tester, Widget w, String name, {LookUpSettings? settings}) async {
-    await mount(tester, w, settings: settings);
+  Future<void> shot(WidgetTester tester, Widget w, String name, {LookUpSettings? settings, List<Override> extra = const []}) async {
+    await mount(tester, w, settings: settings, extra: extra);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
     // Flush staggered-entrance and provider retry timers before teardown.
     await tester.pumpWidget(const SizedBox());
@@ -422,6 +503,118 @@ void main() {
     );
     await shot(t, sheet, '4-look-sheet');
   });
+
+  testWidgets('caught it', (t) => shot(
+      t,
+      CaughtItScreen(
+        event: _londonPass(),
+        animate: false,
+        onAddPhoto: () async {},
+      ),
+      '24-caught-it',
+      settings: _london));
+
+  testWidgets('starter sky', (t) => shot(
+      t,
+      const Scaffold(
+        body: SkyBackdrop(
+          child: SafeArea(
+            child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Column(children: [StarterSkyCard()])),
+          ),
+        ),
+      ),
+      '25-starter-sky',
+      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
+
+  testWidgets('alert art', (t) async {
+    t.view.physicalSize = const Size(1024, 512);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(CustomPaint(size: const Size(1024, 512), painter: _ArtPainter(_events.first)));
+    await expectLater(find.byType(CustomPaint), matchesGoldenFile('goldens/26-alert-art.png'));
+  });
+
+  testWidgets('look up now', (t) => shot(
+      t,
+      LookUpNowScreen(
+        event: _ev('iss:soon', SkyEventType.iss, const Duration(minutes: 1, seconds: 47),
+            details: {'brightness': 'brighter than any star'}),
+        // Facing south: it appears west-southwest, to the right.
+        orientationStream: Stream.value(const [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]),
+      ),
+      '27-look-up-now'));
+
+  // An approximation of the Android widget (res/layout/next_event_widget.xml)
+  // for the README: the same picture, scrim, words and colours.
+  testWidgets('home widget preview', (t) async {
+    t.view.physicalSize = const Size(1080, 1000);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final e = _events.first;
+    Widget widget(double w, double h) => Container(
+          width: w,
+          height: h,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0x17FFFFFF)),
+            gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF0B1328), Color(0xFF04060B)]),
+          ),
+          child: Stack(fit: StackFit.expand, children: [
+            FittedBox(fit: BoxFit.cover, child: SizedBox(width: 1024, height: 512, child: CustomPaint(painter: _ArtPainter(e, titled: false)))),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xE604060B), Color(0x9904060B), Color(0x0004060B)]),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Next up · Tonight', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
+                const SizedBox(height: 2),
+                const Text('ISS flyover', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
+                Text('3:11:58', style: numeric(size: 30, weight: FontWeight.w700)),
+                const Spacer(),
+                const Text('Tonight, 10:17 PM', style: TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
+                const Text('Look west-southwest, high in the sky', style: TextStyle(fontSize: 12.5)),
+              ]),
+            ),
+          ]),
+        );
+    await t.pumpWidget(_app(Scaffold(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF2B3A55), Color(0xFF1A1F2C)]),
+        ),
+        child: Center(child: widget(330, 170)),
+      ),
+    )));
+    await t.pump(const Duration(milliseconds: 300));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/28-home-widget.png'));
+  });
+
+  // The verdict on a good evening: a clear pass an hour out, Saturn up, clear
+  // until late. Times follow the clock it's rendered at (render it in the
+  // evening's time zone, e.g. TZ=Asia/Kolkata in the afternoon UTC).
+  testWidgets('verdict', (t) async {
+    final e = _evening();
+    final saved = _homeEvents;
+    _homeEvents = e.events;
+    addTearDown(() => _homeEvents = saved);
+    await shot(t, const HomeShell(), '29-verdict', extra: [tonightSkyProvider.overrideWith((_) async => e.plan)]);
+  });
+
+  testWidgets('plus card', (t) => shot(
+      t,
+      const Scaffold(
+        body: SkyBackdrop(
+          child: SafeArea(
+            child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Column(children: [PlusNearYouCard()])),
+          ),
+        ),
+      ),
+      '30-plus-card',
+      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
 
   testWidgets('paywall', (t) async {
     final sheet = Scaffold(
@@ -557,10 +750,29 @@ void main() {
   });
 
   // App Store set: 6.9" (1320×2868), caption above a framed screen.
-  Widget framed(String title, String sub, Widget screen) => Scaffold(
+  Widget framed(String title, String sub, Widget screen, {Color tint = LookUpColors.blue}) => Scaffold(
         backgroundColor: Colors.black,
         body: Builder(
-          builder: (context) => Column(children: [
+          builder: (context) => DecoratedBox(
+            // Night, not flat black, with the shot's colour glowing behind the phone.
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(0, 0.15),
+                radius: 0.95,
+                colors: [tint.withValues(alpha: 0.30), tint.withValues(alpha: 0.06), Colors.transparent],
+                stops: const [0, 0.55, 1],
+              ),
+            ),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xCC0B1328), Color(0x0004060B)],
+                  stops: [0, 0.45],
+                ),
+              ),
+              child: Column(children: [
             const SizedBox(height: 70),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -602,29 +814,47 @@ void main() {
               ),
             ),
           ]),
+            ),
+          ),
         ),
       );
 
-  Future<void> storeShot(WidgetTester tester, String name, String title, String sub, Widget screen) async {
+  Future<void> storeShot(WidgetTester tester, String name, String title, String sub, Widget screen,
+      {Color tint = LookUpColors.blue, LookUpSettings? settings, Future<void> Function(WidgetTester)? act, List<Override> extra = const []}) async {
     tester.view.physicalSize = const Size(1320, 2868);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(_app(framed(title, sub, screen)));
+    final framedScreen = framed(title, sub, screen, tint: tint);
+    await tester.pumpWidget(settings == null ? _app(framedScreen, extra: extra) : _app(framedScreen, settings: settings, extra: extra));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 900));
+    if (act != null) {
+      await act(tester);
+      await tester.pump(const Duration(seconds: 1));
+    }
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/appstore/$name.png'));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(minutes: 5));
   }
 
-  testWidgets('appstore 1 now', (t) => storeShot(t, '1-now', 'Step outside\nright now.',
-      'A tap ten minutes before the space station flies over you.', const HomeShell()));
+  // The App Store set, in listing order. The first is the one most people
+  // see without swiping, so it's the product's moment: the tap itself.
+  testWidgets('appstore 01 alert', (t) => storeShot(t, '01-alert', 'It taps you\nbefore it flies over.',
+      'Ten minutes\' warning and which way to face. Quiet when it\'s cloudy.', const _LockScreen()));
 
-  testWidgets('appstore 2 look', (t) => storeShot(t, '2-look', 'Know exactly\nwhere to look.',
-      'Plain directions, a live countdown and who\'s aboard.', sheetOver(LookSheet(event: _events.first))));
+  // Rendered with the evening scene, so render it in an evening time zone
+  // (TZ=Asia/Kolkata in the UTC afternoon), like the verdict preview.
+  testWidgets('appstore 02 now', (t) async {
+    final e = _evening();
+    final saved = _homeEvents;
+    _homeEvents = e.events;
+    addTearDown(() => _homeEvents = saved);
+    await storeShot(t, '02-now', 'Step outside\nright now.', 'One answer: is tonight worth it, and when to look.', const HomeShell(),
+        extra: [tonightSkyProvider.overrideWith((_) async => e.plan)]);
+  });
 
-  testWidgets('appstore 3 camera', (t) async {
+  testWidgets('appstore 03 camera', (t) async {
     final path = [
       for (var i = 0; i <= 25; i++)
         (t: _now.toUtc().add(Duration(seconds: i * 10)),
@@ -632,7 +862,7 @@ void main() {
     ];
     await storeShot(
       t,
-      '3-camera',
+      '03-camera',
       'See its path\nover your sky.',
       'Hold up your phone: the pass is drawn on the real sky.',
       Stack(children: [
@@ -666,21 +896,40 @@ void main() {
           ),
         ),
       ]),
+      tint: LookUpColors.cyan,
     );
   });
 
-  testWidgets('appstore 4 transit', (t) => storeShot(t, '4-transit', 'Catch the station\ncrossing the Moon.',
+  testWidgets('appstore 04 caught', (t) => storeShot(t, '04-caught', 'Every sighting,\ncelebrated.',
+      'Badges, a card to share, and how many millions were under the same pass.',
+      CaughtItScreen(event: _londonPass(), animate: false, onAddPhoto: () async {}),
+      settings: _london));
+
+  testWidgets('appstore 05 starter', (t) => storeShot(t, '05-starter', 'Three sights\nto start with.',
+      'A pass, a planet and a star pattern, picked from your own sky.', const HomeShell(),
+      tint: LookUpColors.gold,
+      act: (t) async {
+        await t.drag(find.byType(ListView).first, const Offset(0, -370));
+        await t.pump(const Duration(milliseconds: 600));
+      }));
+
+  testWidgets('appstore 06 sky', (t) => storeShot(t, '06-sky', 'Everything\nin your sky.',
+      'Planets, constellations and the Moon, with whether you\'ll see them tonight.', const SkyScreen(),
+      tint: LookUpColors.violet));
+
+  testWidgets('appstore 07 look', (t) => storeShot(t, '07-look', 'Know exactly\nwhere to look.',
+      'Plain directions, a live countdown and who\'s aboard.', sheetOver(LookSheet(event: _events.first))));
+
+  testWidgets('appstore 08 transit', (t) => storeShot(t, '08-transit', 'Catch the station\ncrossing the Moon.',
       'Under a second long. LookUp tells you where to stand.',
-      sheetOver(LookSheet(event: _events.firstWhere((e) => e.type == SkyEventType.issTransit)))));
+      sheetOver(LookSheet(event: _events.firstWhere((e) => e.type == SkyEventType.issTransit))),
+      tint: LookUpColors.cyan));
 
-  testWidgets('appstore 5 satellites', (t) => storeShot(t, '5-satellites', 'Hubble and friends,\ntonight.',
-      'The brightest satellites crossing your sky.', const SatellitesTonightScreen()));
+  testWidgets('appstore 09 satellites', (t) => storeShot(t, '09-satellites', 'Hubble and friends,\ntonight.',
+      'The brightest satellites crossing your sky.', const SatellitesTonightScreen(), tint: LookUpColors.cyan));
 
-  testWidgets('appstore 6 upcoming', (t) => storeShot(t, '6-upcoming', 'Every good night\nin one list.',
-      'Starlink trains, meteor showers, eclipses, launches, aurora.', const UpcomingScreen()));
-
-  testWidgets('appstore 7 log', (t) => storeShot(t, '7-log', 'Remember\nwhat you saw.',
-      'A sky log with badges, photos and your year in review.', const LogScreen()));
+  testWidgets('appstore 10 upcoming', (t) => storeShot(t, '10-upcoming', 'Every good night\nin one list.',
+      'Starlink trains, meteor showers, eclipses, launches, aurora.', const UpcomingScreen(), tint: LookUpColors.violet));
 
   testWidgets('sky tab', (t) => shot(t, const SkyScreen(), '16-sky'));
 
@@ -690,6 +939,87 @@ void main() {
     await shot(t, sheetOver(ObjectSheet(thing: saturn)), '17-object');
   });
 
-  testWidgets('appstore 0 sky', (t) => storeShot(t, '0-sky', 'Everything\nin your sky.',
-      'Planets, constellations and the Moon, with whether you\'ll see them tonight.', const SkyScreen()));
+}
+
+/// A phone's lock screen at dusk: the clock, the station crossing the sky,
+/// and LookUp's alert, worded as the real one is. Store art only.
+class _LockScreen extends StatelessWidget {
+  const _LockScreen();
+  @override
+  Widget build(BuildContext context) => Stack(fit: StackFit.expand, children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF03060E), Color(0xFF0A1630), Color(0xFF1B2D52), Color(0xFF3A3550)],
+              stops: [0, 0.5, 0.85, 1],
+            ),
+          ),
+        ),
+        const Starfield(density: 0.0011, maxOpacity: 0.9),
+        const Positioned(
+          left: 16,
+          right: 16,
+          bottom: 70,
+          height: 430,
+          child: IntroScene(animate: false, chrome: false),
+        ),
+        Positioned(
+          top: 82,
+          left: 0,
+          right: 0,
+          child: Column(children: [
+            const Text('Thursday, November 5',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xDDF4F6FA))),
+            Text('9:55', style: display(96, weight: FontWeight.w700, height: 1.05, color: const Color(0xF2F4F6FA))),
+          ]),
+        ),
+        const Positioned(
+          top: 268,
+          left: 12,
+          right: 12,
+          child: AlertBanner(
+            type: SkyEventType.iss,
+            title: 'ISS flyover in 10 min',
+            body: 'Brighter than any star, rising in the west-southwest, high in the sky at its best, 4 min.',
+          ),
+        ),
+        Positioned(
+          left: 44,
+          right: 44,
+          bottom: 40,
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            for (final icon in [Icons.flashlight_on_rounded, Icons.photo_camera_rounded])
+              Container(
+                width: 50,
+                height: 50,
+                decoration: const BoxDecoration(color: Color(0x33FFFFFF), shape: BoxShape.circle),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+          ]),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 10,
+          child: Center(
+            child: Container(
+              width: 134,
+              height: 5,
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(3)),
+            ),
+          ),
+        ),
+      ]);
+}
+
+class _ArtPainter extends CustomPainter {
+  _ArtPainter(this.e, {this.titled = true});
+  final SkyEvent e;
+  final bool titled;
+  @override
+  void paint(Canvas canvas, Size size) => AlertArt.paint(canvas, e, startLabel: titled ? '9:05 PM' : '10:17 PM', titled: titled);
+  @override
+  bool shouldRepaint(_ArtPainter old) => false;
 }

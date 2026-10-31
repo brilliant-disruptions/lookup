@@ -52,6 +52,17 @@ Run on a device (⌘R) and try:
   Allow camera access; the path should sit roughly where the satellite will
   be (compasses are good to 5–10°; wave the phone in a figure-8 if it's off).
 - **Add to calendar, photos, Places search, Directions** on a transit.
+- **Look up now:** open the app on Tonight within two minutes of a real pass. The takeover
+  should open once; turning the phone should swing the arrow and the words; at rise it
+  buzzes and opens the finder. (Android: the heads-up should tick down on the lock screen.)
+- **Tell a friend:** on a real heads-up, press *Tell a friend*: the app should open on the
+  invite poster with "…in 10 minutes" in the text.
+- **Red by itself:** after dark, open the finder: the screen should turn red with a one-line
+  note; the eye switches it off for that visit; back on Tonight it's normal again.
+- **Alert picture:** Settings → *Preview an alert*. Long-press the
+  notification (iOS) or expand it (Android): the "where to look" picture should
+  show the path and "appears here". If it's missing, the alert text must still
+  arrive (that fallback is tested, the picture itself only on a device).
 
 ## 5. Commit and push
 

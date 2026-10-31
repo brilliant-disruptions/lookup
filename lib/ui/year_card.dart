@@ -29,6 +29,7 @@ String typePlural(SkyEventType t, int n) {
     SkyEventType.auroraNow || SkyEventType.auroraOutlook => one ? 'aurora' : 'auroras',
     SkyEventType.meteorShower => one ? 'meteor shower' : 'meteor showers',
     SkyEventType.lunarEclipse => one ? 'lunar eclipse' : 'lunar eclipses',
+    SkyEventType.solarEclipse => one ? 'solar eclipse' : 'solar eclipses',
     SkyEventType.planetPairing => one ? 'planet pairing' : 'planet pairings',
     SkyEventType.rocketLaunch => one ? 'rocket launch' : 'rocket launches',
     SkyEventType.issTransit => one ? 'station transit' : 'station transits',

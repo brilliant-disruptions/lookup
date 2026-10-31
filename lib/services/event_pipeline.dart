@@ -4,6 +4,7 @@ library;
 import '../data/local_store.dart';
 import '../domain/aurora/aurora_rules.dart';
 import '../domain/events/eclipses.dart';
+import '../domain/events/solar_eclipses.dart';
 import '../domain/events/launches.dart';
 import '../domain/events/meteors.dart';
 import '../domain/events/pairings.dart';
@@ -184,6 +185,7 @@ class EventPipeline {
     }
     if (s.eclipsesEnabled) {
       out.addAll(lunarEclipseEvents(now: now, latDeg: lat, lonDeg: lon).map(withClouds));
+      out.addAll(solarEclipseEvents(now: now, latDeg: lat, lonDeg: lon).map(withClouds));
     }
     if (s.pairingsEnabled) {
       out.addAll(pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));

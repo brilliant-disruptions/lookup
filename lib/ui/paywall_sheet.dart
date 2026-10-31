@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../domain/models/sky_event.dart';
+import '../domain/plus/free_plan.dart';
 import '../domain/scheduling/alert_planner.dart';
 import '../services/plus_service.dart';
 import '../state/providers.dart';
@@ -12,20 +13,33 @@ import 'theme.dart';
 
 /// The paywall appears only when a Plus-only event is actually coming for
 /// this user (spec §7), or from Settings.
-Future<void> showPaywall(BuildContext context, {SkyEvent? reason}) => showModalBottomSheet<void>(
+Future<void> showPaywall(BuildContext context, {SkyEvent? reason, PlusFeature? feature}) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => PaywallSheet(reason: reason),
+      builder: (_) => PaywallSheet(reason: reason, feature: feature),
     );
+
+/// Whether this person has LookUp+, read without listening (for taps).
+bool hasPlus(BuildContext context) =>
+    ProviderScope.containerOf(context, listen: false).read(settingsProvider).value?.isPlus ?? false;
+
+/// What's locked on free, as list rows show it: Plus-only alerts and the
+/// photo-planning transits.
+bool lockedOnFree(SkyEvent e, {required bool isPlus}) =>
+    !isPlus && ((e.plusOnly && e.type.pushes) || e.type == SkyEventType.issTransit);
 
 /// Sells the tap, not a feature list: the top of the sheet is the exact
 /// notification LookUp+ would send for something really coming over this
 /// user, then what else is coming in the next fortnight, then one plan
 /// picker and one button, with the trial spelled out.
 class PaywallSheet extends ConsumerStatefulWidget {
-  const PaywallSheet({super.key, this.reason});
+  const PaywallSheet({super.key, this.reason, this.feature});
   final SkyEvent? reason;
+
+  /// What they tapped that's LookUp+ (Where to go, a later night…), so the
+  /// sheet opens on that rather than on alerts.
+  final PlusFeature? feature;
   @override
   ConsumerState<PaywallSheet> createState() => _PaywallState();
 }
@@ -82,9 +96,13 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
               ]),
               const SizedBox(height: 6),
               Text(
-                preview == null
-                    ? 'Every reason to step outside, not just the space station.'
-                    : 'Don\'t find out tomorrow that it went over.',
+                switch (widget.feature) {
+                  PlusFeature.whereToGo => 'Find the clear, dark sky near you tonight, and go.',
+                  PlusFeature.planAhead => 'Plan any of the next 14 nights, here or at any saved place.',
+                  PlusFeature.places => 'Save the cabin, the coast and next month\'s trip, as many as you like.',
+                  PlusFeature.transits => 'Catch the station crossing the Sun or Moon, with where to stand.',
+                  _ => preview == null ? 'Never miss anything up there.' : 'Don\'t find out tomorrow that it went over.',
+                },
                 style: t.bodyLarge?.copyWith(color: LookUpColors.grey, fontSize: 17),
               ),
               const SizedBox(height: 18),
@@ -281,22 +299,28 @@ class _AheadRow extends StatelessWidget {
       );
 }
 
+/// What LookUp+ adds, as five lines: every alert, then the planning tools
+/// that make it "never miss anything up there".
 class _Perks extends StatelessWidget {
   const _Perks();
   @override
   Widget build(BuildContext context) => Column(children: [
-        for (final (type, line) in const [
-          (SkyEventType.auroraNow, 'Aurora the moment it starts, with a wake-me option'),
-          (SkyEventType.starlinkTrain, 'Starlink trains for two weeks after every launch'),
-          (SkyEventType.tiangong, 'Tiangong, China\'s space station, as well as the ISS'),
-          (null, 'A one-minute "go outside now" nudge'),
+        for (final (glyph, line) in const [
+          (EventGlyph(icon: Icons.notifications_active_rounded, color: LookUpColors.good, size: 26),
+              'Every alert: live aurora with a wake-me option, Starlink trains, Tiangong and rocket launches'),
+          (EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.violet, size: 26),
+              'Where to go tonight: clearer, darker skies within a drive'),
+          (EventGlyph(icon: Icons.calendar_month_rounded, color: LookUpColors.blue, size: 26),
+              'Plan any of the next 14 nights, not just three'),
+          (EventGlyph(icon: Icons.place_rounded, color: LookUpColors.gold, size: 26),
+              'As many saved places as you like: home, the cabin, the trip'),
+          (EventGlyph(icon: Icons.photo_camera_rounded, color: LookUpColors.cyan, size: 26),
+              'Photo planning: the station crossing the Sun or Moon, and where to stand'),
         ])
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 5),
             child: Row(children: [
-              type == null
-                  ? const EventGlyph(icon: Icons.directions_walk_rounded, color: LookUpColors.blue, size: 26)
-                  : EventGlyph.forType(type, size: 26),
+              glyph,
               const SizedBox(width: 12),
               Expanded(child: Text(line, style: const TextStyle(fontSize: 14.5, height: 1.3))),
             ]),

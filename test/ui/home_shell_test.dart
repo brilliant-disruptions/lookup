@@ -10,6 +10,7 @@ import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/sky/catalog.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/home_shell.dart';
+import 'package:lookup/ui/kit/navigation.dart';
 import 'package:lookup/state/sky_state.dart';
 import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/year_card.dart';
@@ -96,8 +97,9 @@ void main() {
 
   testWidgets('four tabs; settings live behind the gear', (t) async {
     await pump(t);
+    Finder tab(String label) => find.descendant(of: find.byType(FloatingTabBar), matching: find.text(label));
     for (final label in ['Tonight', 'Sky', 'Week', 'Log']) {
-      expect(find.text(label), findsOneWidget);
+      expect(tab(label), findsOneWidget);
     }
     expect(find.text('Settings'), findsNothing);
     expect(find.text('Nashville'), findsWidgets);
@@ -116,7 +118,7 @@ void main() {
     expect(find.text('Planets'), findsOneWidget);
     expect(find.text('Saturn'), findsOneWidget);
 
-    await t.tap(find.text('Tonight'));
+    await t.tap(tab('Tonight'));
     await t.pump(const Duration(seconds: 1));
     await t.tap(find.byTooltip('Settings'));
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));

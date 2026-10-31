@@ -6,14 +6,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/local_store.dart';
+import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
+import '../domain/plus/free_plan.dart';
 import '../domain/sky/direction.dart';
 import '../domain/sky/landmarks.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'calendar.dart';
+import 'caught_it_screen.dart';
 import 'finder_screen.dart';
+import 'paywall_sheet.dart';
 import 'photo_tips.dart';
 import 'share_card.dart';
 import 'sky/sky_track.dart';
@@ -26,13 +30,18 @@ import 'widgets/countdown_ring.dart';
 import 'widgets/station_facts.dart';
 import 'widgets/pass_timeline.dart';
 
-Future<void> showLookSheet(BuildContext context, SkyEvent event) =>
-    showModalBottomSheet<void>(
+Future<void> showLookSheet(BuildContext context, SkyEvent event) {
+  // Transits are LookUp+ photo planning.
+  if (event.type == SkyEventType.issTransit && !FreePlan.canUse(PlusFeature.transits, isPlus: hasPlus(context))) {
+    return showPaywall(context, feature: PlusFeature.transits);
+  }
+  return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => LookSheet(event: event),
     );
+}
 
 /// What the notification opens: countdown, where to look, timeline, share.
 /// After the event: "Did you see it?" (spec §3.3), stored on-device.
@@ -83,6 +92,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
         _seen = seen;
         _askingWhy = !seen && reason == null;
       });
+      if (seen) await showCaughtIt(context, event, demo: true);
       return;
     }
     await ref.read(storeProvider).addFeedback(SeenFeedback.forEvent(event,
@@ -93,6 +103,8 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       _seen = seen;
       _askingWhy = !seen && reason == null;
     });
+    // A yes is the best moment the app has: give it the whole screen.
+    if (seen) await showCaughtIt(context, event, onAddPhoto: _photoAdded ? null : _addPhoto);
   }
 
   @override
@@ -367,6 +379,9 @@ String lookLine(SkyEvent e) => switch (e.type) {
         'Lie back and look up, anywhere. Meteors seem to come from the ${compassWord(e.peakAzimuthDeg)}, but they streak across the whole sky. Give your eyes 20 minutes in the dark.',
       SkyEventType.lunarEclipse =>
         'Look ${compassWord(e.peakAzimuthDeg)} at the Moon, ${elevationWord(e.peakElevationDeg)}. It darkens and turns copper-red at its deepest.',
+      SkyEventType.solarEclipse =>
+        'Never look at the Sun without certified eclipse glasses (ISO 12312-2), not even when it\'s mostly covered. Face ${compassWord(e.peakAzimuthDeg)}, ${elevationWord(e.peakElevationDeg)}. ${solarEclipseHeadline(e)}.'
+        '${e.details['kind'] == 'total' ? ' Glasses off only while the Sun is completely covered; back on at the first flash of light.' : e.details['kind'] == 'nearPath' ? ' You\'re at the edge of the path of totality: a short drive toward the centre line could make it total. Check an official eclipse map.' : ''}',
       SkyEventType.planetPairing =>
         '${e.details['label']}: two bright points ${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Hold your thumb out at arm\'s length: they fit behind it.',
       SkyEventType.rocketLaunch =>
@@ -391,6 +406,13 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
           ('Starts', fmtTime(e.start)),
           ('Deepest', fmtTime(e.peak)),
           ('Ends', fmtTime(e.end)),
+        ],
+      SkyEventType.solarEclipse => [
+          ('Starts', fmtTime(e.start)),
+          ('Deepest', fmtTime(e.peak)),
+          e.details['centralStart'] is String && e.details['centralEnd'] is String
+              ? ('Totality', '${DateTime.parse(e.details['centralEnd'] as String).difference(DateTime.parse(e.details['centralStart'] as String)).inSeconds ~/ 60}m ${DateTime.parse(e.details['centralEnd'] as String).difference(DateTime.parse(e.details['centralStart'] as String)).inSeconds % 60}s')
+              : ('Covered', '${(((e.details['obscuration'] as num?) ?? 0) * 100).floor()}%'),
         ],
       SkyEventType.planetPairing => [
           ('Apart', '${e.details['separation']}°'),
