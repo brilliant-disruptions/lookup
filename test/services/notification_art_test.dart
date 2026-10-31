@@ -128,6 +128,14 @@ void main() {
     });
   });
 
+  test('the heads-up offers Find it, Tell a friend and a reminder; go-now offers Saw it!', () {
+    final heads = NotificationService.detailsFor(AlertKind.headsUp).android!.actions!;
+    expect([for (final a in heads) a.id], [AlertAction.find, AlertAction.invite, AlertAction.snooze]);
+    expect(heads[1].showsUserInterface, isTrue); // opens the app, straight to the invite
+    final go = NotificationService.detailsFor(AlertKind.goNow).android!.actions!;
+    expect([for (final a in go) a.id], [AlertAction.find, AlertAction.seen]);
+  });
+
   test('only pass heads-ups get a picture', () {
     expect(AlertArt.wants(_alert(SkyEventType.iss)), isTrue);
     expect(AlertArt.wants(_alert(SkyEventType.starlinkTrain)), isTrue);

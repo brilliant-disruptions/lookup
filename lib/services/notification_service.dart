@@ -16,6 +16,9 @@ abstract final class AlertAction {
   static const find = 'find';
   static const snooze = 'snooze';
   static const seen = 'seen';
+
+  /// "Tell a friend": opens the app straight to the invite.
+  static const invite = 'invite';
 }
 
 class NotificationService {
@@ -42,6 +45,7 @@ class NotificationService {
       AndroidNotificationAction(AlertAction.find, 'Find it', showsUserInterface: true);
   static const _snoozeAndroid = AndroidNotificationAction(AlertAction.snooze, 'In 5 min');
   static const _seenAndroid = AndroidNotificationAction(AlertAction.seen, 'Saw it!');
+  static const _inviteAndroid = AndroidNotificationAction(AlertAction.invite, 'Tell a friend', showsUserInterface: true);
 
   /// With [imagePath], the alert carries a picture: Android's expanded big
   /// picture (with [body] under it), iOS's attachment.
@@ -64,7 +68,9 @@ class NotificationService {
         priority: Priority.high,
         category: AndroidNotificationCategory.reminder,
         sound: const RawResourceAndroidNotificationSound(_chime),
-        actions: [_findAndroid, if (withSnooze) _snoozeAndroid, _seenAndroid],
+        // Ten minutes out is the moment to bring someone along; "Saw it!"
+        // belongs to the go-now tap (tapping the heads-up later asks too).
+        actions: withSnooze ? [_findAndroid, _inviteAndroid, _snoozeAndroid] : [_findAndroid, _seenAndroid],
         // Nothing private in a sky alert: show it in full on the lock screen,
         // even on phones that hide notification text there by default.
         visibility: NotificationVisibility.public,
@@ -105,7 +111,8 @@ class NotificationService {
     SkyEventType.lunarEclipse,
   };
 
-  /// How long an alert stays after its event ends, for the Saw it! button.
+  /// How long an alert stays after its event ends, so a tap still opens
+  /// "Did you see it?" (and go-now's Saw it! still works).
   static const linger = Duration(minutes: 20);
 
   /// [detailsFor] with what [a] itself implies: a countdown to the moment
@@ -131,8 +138,12 @@ class NotificationService {
       DarwinNotificationCategory(id, actions: [
         DarwinNotificationAction.plain(AlertAction.find, 'Find it',
             options: {DarwinNotificationActionOption.foreground}),
-        if (snooze) DarwinNotificationAction.plain(AlertAction.snooze, 'Remind me in 5 min'),
-        DarwinNotificationAction.plain(AlertAction.seen, 'Saw it!'),
+        if (snooze) ...[
+          DarwinNotificationAction.plain(AlertAction.invite, 'Tell a friend',
+              options: {DarwinNotificationActionOption.foreground}),
+          DarwinNotificationAction.plain(AlertAction.snooze, 'Remind me in 5 min'),
+        ] else
+          DarwinNotificationAction.plain(AlertAction.seen, 'Saw it!'),
       ]),
   ];
 

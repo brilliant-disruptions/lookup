@@ -101,9 +101,18 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
   }
 }
 
-String inviteText(SkyEvent e, String? place) =>
-    'Look up with me: ${eventTitle(e)} ${fmtDay(e.start).toLowerCase()} at ${fmtTime(e.start)}'
-    '${place == null ? '' : ' over $place'}. Face ${compassWord(e.riseAzimuthDeg)}. (LookUp)';
+String inviteText(SkyEvent e, String? place, {DateTime? now}) {
+  final until = e.start.difference((now ?? DateTime.now()).toUtc());
+  final where = place == null ? '' : ' over $place';
+  // From the heads-up it's minutes away: say so, so they actually step out.
+  if (until > Duration.zero && until <= const Duration(minutes: 30)) {
+    final m = until.inMinutes < 1 ? 'under a minute' : '${until.inMinutes} minute${until.inMinutes == 1 ? '' : 's'}';
+    return 'Step outside with me: ${eventTitle(e)}$where in $m (${fmtTime(e.start)}). '
+        'Face ${compassWord(e.riseAzimuthDeg)} and look up. (LookUp)';
+  }
+  return 'Look up with me: ${eventTitle(e)} ${fmtDay(e.start).toLowerCase()} at ${fmtTime(e.start)}'
+      '$where. Face ${compassWord(e.riseAzimuthDeg)}. (LookUp)';
+}
 
 /// 4:5 poster. Fixed logical size so it renders identically everywhere.
 /// With a location and the star catalogue, the middle is a true snapshot of

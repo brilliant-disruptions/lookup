@@ -11,6 +11,7 @@ import 'kit/navigation.dart';
 import 'log_screen.dart';
 import 'look_sheet.dart';
 import 'now_screen.dart';
+import 'share_card.dart';
 import 'sky/sky_screen.dart';
 import 'tour.dart';
 import 'upcoming_screen.dart';
@@ -94,6 +95,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     if (event == null || !mounted) return;
     if (t.action == AlertAction.find) {
       await openFinder(context, event);
+    } else if (t.action == AlertAction.invite) {
+      // "Tell a friend" from the heads-up: straight to the invite.
+      await showShareCard(context, event, mode: ShareMode.invite);
     } else {
       await showLookSheet(context, event);
     }
