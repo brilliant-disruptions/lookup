@@ -175,7 +175,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
               _EventRow(e,
                   past: past,
                   now: !past && !now.isBefore(e.start) && now.isBefore(e.end),
-                  locked: !isPlus && e.plusOnly && e.type.pushes),
+                  locked: lockedOnFree(e, isPlus: isPlus)),
           ]),
         ]),
     ];

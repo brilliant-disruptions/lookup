@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/local_store.dart';
 import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
+import '../domain/plus/free_plan.dart';
 import '../domain/sky/direction.dart';
 import '../domain/sky/landmarks.dart';
 import '../services/photo_store.dart';
@@ -16,6 +17,7 @@ import '../state/sky_state.dart';
 import 'calendar.dart';
 import 'caught_it_screen.dart';
 import 'finder_screen.dart';
+import 'paywall_sheet.dart';
 import 'photo_tips.dart';
 import 'share_card.dart';
 import 'sky/sky_track.dart';
@@ -28,13 +30,18 @@ import 'widgets/countdown_ring.dart';
 import 'widgets/station_facts.dart';
 import 'widgets/pass_timeline.dart';
 
-Future<void> showLookSheet(BuildContext context, SkyEvent event) =>
-    showModalBottomSheet<void>(
+Future<void> showLookSheet(BuildContext context, SkyEvent event) {
+  // Transits are LookUp+ photo planning.
+  if (event.type == SkyEventType.issTransit && !FreePlan.canUse(PlusFeature.transits, isPlus: hasPlus(context))) {
+    return showPaywall(context, feature: PlusFeature.transits);
+  }
+  return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => LookSheet(event: event),
     );
+}
 
 /// What the notification opens: countdown, where to look, timeline, share.
 /// After the event: "Did you see it?" (spec §3.3), stored on-device.
