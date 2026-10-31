@@ -52,6 +52,10 @@ String fmtCountdown(Duration d) {
   return '${s}s';
 }
 
+/// "Appears in 4m 10s", or "Appearing now" in the last few seconds and
+/// after, never "Appears in 0s".
+String fmtAppears(Duration d) => d.inSeconds < 5 ? 'Appearing now' : 'Appears in ${fmtCountdown(d)}';
+
 String eventTitle(SkyEvent e) => switch (e.type) {
       SkyEventType.starlinkTrain => (e.details['label'] as String?) ?? e.type.label,
       SkyEventType.auroraOutlook => (e.details['headline'] as String?) ?? e.type.label,

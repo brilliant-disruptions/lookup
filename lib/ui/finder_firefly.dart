@@ -12,9 +12,10 @@ import 'package:flutter/services.dart';
 import '../domain/finder/firefly.dart';
 import '../domain/finder/pointing.dart';
 import '../domain/sky/direction.dart';
+import 'kit/firefly_mark.dart';
 
-const fireflyWarm = Color(0xFFFFB347);
-const _core = Color(0xFFFFF3D6);
+export 'kit/firefly_mark.dart' show fireflyWarm, fireflyCore;
+
 
 class FireflyLayer extends StatefulWidget {
   const FireflyLayer({
@@ -129,13 +130,14 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
           ),
           if (label != null)
             Positioned(
-              left: at.dx - 90,
+              // Under the firefly, but kept on screen near the edges.
+              left: (at.dx - 90).clamp(8.0, math.max(8.0, _size.width - 188)),
               width: 180,
               top: at.dy + 24,
               child: Text(label,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                      color: _core, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(blurRadius: 6, color: Colors.black)])),
+                      color: fireflyCore, fontSize: 13, fontWeight: FontWeight.w600, shadows: [Shadow(blurRadius: 6, color: Colors.black)])),
             ),
         ]);
       });
@@ -163,19 +165,7 @@ class _FireflyPainter extends CustomPainter {
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
     }
     final p = at + wobble;
-    canvas.drawCircle(
-        p,
-        30,
-        Paint()
-          ..color = fireflyWarm.withValues(alpha: 0.18 + 0.32 * blink)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16));
-    canvas.drawCircle(
-        p,
-        10,
-        Paint()
-          ..color = fireflyWarm.withValues(alpha: 0.5 + 0.4 * blink)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
-    canvas.drawCircle(p, 4.5, Paint()..color = _core.withValues(alpha: 0.75 + 0.25 * blink));
+    paintFirefly(canvas, p, blink: blink);
     if (landed) {
       canvas.drawCircle(
           p,
@@ -301,7 +291,7 @@ class _RoutePainter extends CustomPainter {
           Paint()
             ..color = fireflyWarm.withValues(alpha: 0.6)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
-      canvas.drawCircle(p, 3, Paint()..color = _core);
+      canvas.drawCircle(p, 3, Paint()..color = fireflyCore);
     }
   }
 

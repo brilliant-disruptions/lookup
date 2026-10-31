@@ -251,16 +251,9 @@ class _TurnDial extends CustomPainter {
       ..close();
     canvas.drawPath(head, Paint()..color = tint);
     canvas.restore();
-    // Where it'll appear, at the arrow's tip: a glowing dot.
+    // Where it'll appear, at the arrow's tip: the firefly.
     final tip = c + Offset(math.sin(angle), -math.cos(angle)) * (r + 0);
-    canvas.drawCircle(tip, 9, Paint()..color = Colors.white);
-    canvas.drawCircle(
-      tip,
-      20,
-      Paint()
-        ..shader = RadialGradient(colors: [Colors.white.withValues(alpha: 0.5), Colors.white.withValues(alpha: 0)])
-            .createShader(Rect.fromCircle(center: tip, radius: 20)),
-    );
+    paintFirefly(canvas, tip, blink: 0.8, scale: 1.3);
     if (deltaDeg == null) {
       // Map mode: mark north so the arrow reads as a bearing.
       final tp = TextPainter(

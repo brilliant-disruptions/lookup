@@ -35,6 +35,10 @@ import ActivityKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpLiveActivity") {
       LookUpLiveActivityChannel.register(messenger: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpAmbientLight") {
+      FlutterEventChannel(name: "lookup/ambient_light", binaryMessenger: registrar.messenger())
+        .setStreamHandler(AmbientLightHandler())
+    }
   }
 }
 
@@ -125,4 +129,29 @@ enum LookUpLiveActivityChannel {
     }
   }
   #endif
+}
+
+// MARK: - Ambient light for night vision (lib/services/ambient_light.dart)
+//
+// iOS has no public light-sensor API. Screen brightness follows ambient
+// light under Auto-Brightness, so it stands in: sent once on listen and
+// again whenever it changes.
+
+final class AmbientLightHandler: NSObject, FlutterStreamHandler {
+  private var observer: NSObjectProtocol?
+
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    let send = { events(["screen": Double(UIScreen.main.brightness)]) }
+    send()
+    observer = NotificationCenter.default.addObserver(
+      forName: UIScreen.brightnessDidChangeNotification, object: nil, queue: .main
+    ) { _ in send() }
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    if let observer { NotificationCenter.default.removeObserver(observer) }
+    observer = nil
+    return nil
+  }
 }

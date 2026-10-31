@@ -135,7 +135,7 @@ class SettingsScreen extends ConsumerWidget {
             value: s.nightVision,
             onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
             title: 'Night vision',
-            subtitle: 'Red screen that keeps your eyes dark-adapted',
+            subtitle: 'Red screen that keeps your eyes dark-adapted, deeper the darker it is',
           ),
           _Switch(
             icon: Icons.nights_stay_rounded,
