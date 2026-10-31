@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/sky_event.dart';
 import '../domain/plan/where_to_go.dart';
-import '../domain/sky/astro.dart' show PlanetInfo;
 import '../domain/sky/skyglow.dart';
 import '../domain/sky/visibility.dart';
 import '../services/location_service.dart';
@@ -13,23 +11,19 @@ import '../state/plan_state.dart';
 import '../state/sky_state.dart';
 import 'demo.dart';
 import 'favourites_screen.dart';
-import 'finder_screen.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
-import 'look_up_now_screen.dart';
 import 'night_vision_button.dart';
-import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'settings_screen.dart';
-import 'sky/night_strip.dart';
 import 'sky/sky_thing.dart';
 import 'starter_card.dart';
 import 'theme.dart';
 import 'tonight_story.dart';
 import 'tour.dart';
+import 'verdict_card.dart';
 import 'where_to_go_screen.dart';
-import 'widgets/pass_arc.dart';
 
 class NowScreen extends ConsumerWidget {
   const NowScreen({super.key});
@@ -76,7 +70,7 @@ class NowScreen extends ConsumerWidget {
                           ? _OfflineCard(onRetry: () => ref.read(homeProvider.notifier).refresh(force: true))
                           : (d.next == null || d.next!.details['lookahead'] == true)
                               ? _QuietCard(nextBeyond: d.next)
-                              : _NextCard(event: d.next!),
+                              : VerdictCard(home: d),
                   ),
                 ),
                 // New users: three things to find, so there's something to do tonight.
@@ -85,7 +79,6 @@ class NowScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
                 ],
-                if (!d.needsLocation) const Padding(padding: EdgeInsets.only(top: 12), child: Rise(index: 2, child: _TonightSkyCard())),
                 if (!d.needsLocation) const _MoreTonight(),
                 if (d.next?.details['lookahead'] != true) ..._later(context, ref, d),
                 if (d.errors.isNotEmpty && !d.needsLocation)
@@ -130,123 +123,6 @@ class _Wordmark extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text.rich(TextSpan(text: 'LookUp', children: [TextSpan(text: '.', style: TextStyle(color: LookUpColors.blue))]));
-}
-
-class _NextCard extends ConsumerStatefulWidget {
-  const _NextCard({required this.event});
-  final SkyEvent event;
-  @override
-  ConsumerState<_NextCard> createState() => _NextCardState();
-}
-
-class _NextCardState extends ConsumerState<_NextCard> {
-  bool? _wasLive;
-
-  SkyEvent get event => widget.event;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = ref.watch(clockProvider).value ?? DateTime.now();
-    final t = Theme.of(context).textTheme;
-    final live = !now.toUtc().isBefore(event.start);
-    final until = event.start.difference(now.toUtc());
-    // Go-now moment while the app is open: a firm buzz and a chime.
-    if (_wasLive == false && live) {
-      HapticFeedback.heavyImpact();
-      SystemSound.play(SystemSoundType.alert);
-      ref.read(liveActivityProvider).markLive();
-    }
-    _wasLive = live;
-    // The last two minutes, with the app open on Tonight: take over the screen.
-    if (ModalRoute.of(context)?.isCurrent ?? false) {
-      if (ref.read(homeTabProvider) == 0) maybeOpenLookUpNow(context, event, now);
-    }
-    final isPass = event.type == SkyEventType.iss || event.type == SkyEventType.tiangong || event.type == SkyEventType.starlinkTrain;
-    final tint = eventStyle(event.type, details: event.details).color;
-    return GlassCard(
-      tint: tint,
-      onTap: () => showLookSheet(context, event),
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(children: [
-            EventGlyph.of(event, size: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Kicker(live ? 'Happening now' : 'Next up', color: live ? tint : LookUpColors.grey, live: live),
-                const SizedBox(height: 2),
-                Text('${fmtDay(event.start)} · ${fmtTime(event.start)}', style: numeric(size: 13.5, color: LookUpColors.grey)),
-              ]),
-            ),
-            CloudPill(event.cloudCoverPercent),
-          ]),
-          const SizedBox(height: 20),
-          Text(eventTitle(event), style: display(26, weight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Semantics(
-            liveRegion: true,
-            label: live ? 'Happening now. Go outside.' : 'Starts in ${fmtCountdown(until)}',
-            excludeSemantics: true,
-            child: live
-                ? Text('Go outside now', style: display(40, weight: FontWeight.w700, color: tint))
-                : CountdownText(fmtCountdown(until), size: 64),
-          ),
-          if (isPass) ...[
-            const SizedBox(height: 18),
-            LivePassArc(event: event, now: now),
-          ],
-          const SizedBox(height: 14),
-          Text(eventSubtitle(event), style: t.bodyMedium?.copyWith(color: LookUpColors.grey)),
-          if (event.details['landmarks'] case final String near) ...[
-            const SizedBox(height: 10),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 2),
-                child: Icon(Icons.auto_awesome_rounded, size: 16, color: LookUpColors.gold),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: Text('Look for it $near', style: t.bodyMedium?.copyWith(color: LookUpColors.white))),
-            ]),
-          ],
-          if (live || until < const Duration(minutes: 30)) ...[
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: () => openFinder(context, event),
-              icon: const Icon(Icons.explore_rounded),
-              label: const Text('Find it in the sky'),
-            ),
-          ],
-          if (event.isEstimate)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Row(children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: LookUpColors.warn),
-                SizedBox(width: 6),
-                Expanded(
-                  child: Text('Estimate: orbit data is a few days old', style: TextStyle(color: LookUpColors.warn, fontSize: 13)),
-                ),
-              ]),
-            ),
-          if (event.plusOnly && !(ref.watch(settingsProvider).value?.isPlus ?? false))
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: GestureDetector(
-                onTap: () => showPaywall(context, reason: event),
-                behavior: HitTestBehavior.opaque,
-                child: const Row(children: [
-                  Pill('LookUp+', color: LookUpColors.blue),
-                  SizedBox(width: 10),
-                  Expanded(child: Text('Get a tap 10 minutes before', style: TextStyle(fontSize: 14, color: LookUpColors.white))),
-                  Icon(Icons.arrow_forward_rounded, size: 18, color: LookUpColors.blue),
-                ]),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _OutlookCard extends StatelessWidget {
@@ -418,50 +294,6 @@ class _AlertsOffCard extends ConsumerWidget {
 }
 
 /// Tonight's clouds and what's up at a glance. Opens the Sky tab.
-class _TonightSkyCard extends ConsumerWidget {
-  const _TonightSkyCard();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(tonightSkyProvider).value;
-    if (t == null) return const SizedBox.shrink();
-    final planets = t.visiblePlanets;
-    final moonUp = t.moon.sighting?.verdict.yes ?? false;
-    return GlassCard(
-      onTap: () => ref.read(homeTabProvider.notifier).set(1),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Row(children: [
-          Kicker('Tonight\'s sky'),
-          Spacer(),
-          Text('Explore', style: TextStyle(color: LookUpColors.blue, fontSize: 14, fontWeight: FontWeight.w500)),
-          Icon(Icons.chevron_right_rounded, size: 18, color: LookUpColors.blue),
-        ]),
-        if (t.outlook != null) ...[
-          const SizedBox(height: 8),
-          Text(outlookWords(t.outlook!), style: display(22, weight: FontWeight.w600)),
-          if (t.outlook!.hasForecast) ...[
-            const SizedBox(height: 14),
-            NightStrip(outlook: t.outlook!, compact: true),
-          ],
-        ],
-        const SizedBox(height: 16),
-        if (planets.isEmpty && !moonUp)
-          const Text('No bright planets up tonight.', style: TextStyle(color: LookUpColors.grey))
-        else
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final p in planets) Pill(p.planet.label, dot: true, color: LookUpColors.gold),
-            if (moonUp) Pill('Moon ${(t.moon.illumination * 100).round()}%', icon: Icons.nightlight_round, color: LookUpColors.white),
-          ]),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: () => showTonightStory(context),
-          icon: const Icon(Icons.play_arrow_rounded),
-          label: const Text('Tonight in 20 seconds'),
-        ),
-      ]),
-    );
-  }
-}
-
 /// Everything else worth a look tonight, one row each, so the screen stays
 /// about the next thing to see.
 class _MoreTonight extends ConsumerWidget {
@@ -473,6 +305,13 @@ class _MoreTonight extends ConsumerWidget {
         Rise(
           index: 3,
           child: GroupedList(indent: 64, children: [
+            ListRow(
+              leading: const EventGlyph(icon: Icons.play_arrow_rounded, color: LookUpColors.blue),
+              title: 'Tonight in 20 seconds',
+              subtitle: 'The whole night as a short story',
+              subtitleLines: 1,
+              onTap: () => showTonightStory(context),
+            ),
             ListRow(
               leading: const EventGlyph(icon: Icons.favorite_rounded, color: LookUpColors.red),
               title: 'Your favourites',

@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/app.dart';
 import 'package:lookup/data/local_store.dart';
@@ -144,6 +145,47 @@ SkyEvent _londonPass() {
 
 const _london = LookUpSettings(latitude: 51.5, longitude: -0.12, placeName: 'London', onboarded: true, toured: true);
 
+/// A good evening for the verdict: a clear pass an hour out going right by
+/// Saturn, clear until late, the Moon setting before midnight. Times follow
+/// the clock it's rendered at, so render it in an evening time zone (e.g.
+/// TZ=Asia/Kolkata in the UTC afternoon).
+({NightPlan plan, List<SkyEvent> events}) _evening() {
+  final now = DateTime.now().toUtc();
+  final start = now.subtract(const Duration(minutes: 30));
+  final end = start.add(const Duration(hours: 10));
+  final hour = DateTime.utc(start.year, start.month, start.day, start.hour);
+  final weather = CloudForecast(
+    latitude: 36.17,
+    longitude: -86.78,
+    fetchedAt: now,
+    hourly: [for (var i = -1; i <= 11; i++) CloudSample(time: hour.add(Duration(hours: i)), coverPercent: i < 6 ? 6 : 82)],
+  );
+  return (
+    plan: NightPlan(
+      window: (start: start, end: end),
+      outlook: NightOutlook.from(start: start, end: end, weather: weather),
+      planets: [
+        PlanetTonight(
+          planet: Planet.saturn,
+          magnitude: 0.6,
+          elongationDeg: 120,
+          evening: true,
+          sighting: SkySighting(best: now.add(const Duration(minutes: 25)), altDeg: 38, azDeg: 140, verdict: Seeability.great),
+        ),
+      ],
+      moon: MoonTonight(phase: MoonPhase.waxingCrescent, illumination: 0.38, waxing: true, set: now.add(const Duration(hours: 2, minutes: 20))),
+      constellations: const [],
+      showpieces: const [],
+      darkness: SkyDarkness.suburbs,
+    ),
+    events: [
+      _ev('iss:v', SkyEventType.iss, const Duration(hours: 1, minutes: 5), clouds: 6,
+          details: {'brightness': 'brighter than any star', 'landmarks': 'passing right by Saturn'}),
+      ..._events.skip(1),
+    ],
+  );
+}
+
 class _FakeSettings extends SettingsNotifier {
   _FakeSettings(this.s);
   final LookUpSettings s;
@@ -216,7 +258,7 @@ Future<void> _loadFonts() async {
 
 Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
   latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true, toured: true,
-  favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus'])}) {
+  favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus']), List<Override> extra = const []}) {
   final base = LookUpApp.theme;
   final theme = base.copyWith(
     textTheme: base.textTheme.apply(fontFamilyFallback: const ['Noto Color Emoji']),
@@ -254,6 +296,7 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
               planNight(catalog: _catalog, at: _now.toUtc().add(Duration(days: i)), lat: 36.17, lon: -86.78,
                   darkness: SkyDarkness.suburbs, weather: _clearThenCloudy),
           ]),
+      ...extra,
     ],
     child: MaterialApp(theme: theme, debugShowCheckedModeBanner: false, home: home),
   );
@@ -328,19 +371,19 @@ List<double> _pose(double az, double el) {
 void main() {
   setUpAll(_loadFonts);
 
-  Future<void> mount(WidgetTester tester, Widget w, {LookUpSettings? settings}) async {
+  Future<void> mount(WidgetTester tester, Widget w, {LookUpSettings? settings, List<Override> extra = const []}) async {
     tester.view.physicalSize = const Size(1179, 2556); // iPhone 15 Pro
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(settings == null ? _app(w) : _app(w, settings: settings));
+    await tester.pumpWidget(settings == null ? _app(w, extra: extra) : _app(w, settings: settings, extra: extra));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 900)); // let staggered rises settle
     await tester.pump(const Duration(seconds: 1)); // and ones mounted after async data
   }
 
-  Future<void> shot(WidgetTester tester, Widget w, String name, {LookUpSettings? settings}) async {
-    await mount(tester, w, settings: settings);
+  Future<void> shot(WidgetTester tester, Widget w, String name, {LookUpSettings? settings, List<Override> extra = const []}) async {
+    await mount(tester, w, settings: settings, extra: extra);
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
     // Flush staggered-entrance and provider retry timers before teardown.
     await tester.pumpWidget(const SizedBox());
@@ -549,6 +592,17 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/28-home-widget.png'));
   });
 
+  // The verdict on a good evening: a clear pass an hour out, Saturn up, clear
+  // until late. Times follow the clock it's rendered at (render it in the
+  // evening's time zone, e.g. TZ=Asia/Kolkata in the afternoon UTC).
+  testWidgets('verdict', (t) async {
+    final e = _evening();
+    final saved = _homeEvents;
+    _homeEvents = e.events;
+    addTearDown(() => _homeEvents = saved);
+    await shot(t, const HomeShell(), '29-verdict', extra: [tonightSkyProvider.overrideWith((_) async => e.plan)]);
+  });
+
   testWidgets('paywall', (t) async {
     final sheet = Scaffold(
       body: Stack(children: [
@@ -753,12 +807,12 @@ void main() {
       );
 
   Future<void> storeShot(WidgetTester tester, String name, String title, String sub, Widget screen,
-      {Color tint = LookUpColors.blue, LookUpSettings? settings, Future<void> Function(WidgetTester)? act}) async {
+      {Color tint = LookUpColors.blue, LookUpSettings? settings, Future<void> Function(WidgetTester)? act, List<Override> extra = const []}) async {
     tester.view.physicalSize = const Size(1320, 2868);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final framedScreen = framed(title, sub, screen, tint: tint);
-    await tester.pumpWidget(settings == null ? _app(framedScreen) : _app(framedScreen, settings: settings));
+    await tester.pumpWidget(settings == null ? _app(framedScreen, extra: extra) : _app(framedScreen, settings: settings, extra: extra));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 900));
@@ -776,8 +830,16 @@ void main() {
   testWidgets('appstore 01 alert', (t) => storeShot(t, '01-alert', 'It taps you\nbefore it flies over.',
       'Ten minutes\' warning and which way to face. Quiet when it\'s cloudy.', const _LockScreen()));
 
-  testWidgets('appstore 02 now', (t) => storeShot(t, '02-now', 'Step outside\nright now.',
-      'The next thing over you, drawn across your sky.', const HomeShell()));
+  // Rendered with the evening scene, so render it in an evening time zone
+  // (TZ=Asia/Kolkata in the UTC afternoon), like the verdict preview.
+  testWidgets('appstore 02 now', (t) async {
+    final e = _evening();
+    final saved = _homeEvents;
+    _homeEvents = e.events;
+    addTearDown(() => _homeEvents = saved);
+    await storeShot(t, '02-now', 'Step outside\nright now.', 'One answer: is tonight worth it, and when to look.', const HomeShell(),
+        extra: [tonightSkyProvider.overrideWith((_) async => e.plan)]);
+  });
 
   testWidgets('appstore 03 camera', (t) async {
     final path = [

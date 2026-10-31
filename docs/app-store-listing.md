@@ -87,7 +87,7 @@ listing order. The first is the one most people see without swiping, so it
 shows the product's moment, the tap itself, rather than a screen of the app:
 
 1. It taps you before it flies over. *(lock screen with the real alert over the station's pass)*
-2. Step outside right now. *(Tonight)*
+2. Step outside right now. *(Tonight's verdict: "Go out at 10:18 PM.")*
 3. See its path over your sky. *(camera view)*
 4. Every sighting, celebrated. *(You caught it, with how many millions were under the same pass)*
 5. Three sights to start with. *(Your first three)*
@@ -98,6 +98,9 @@ shows the product's moment, the tap itself, rather than a screen of the app:
 10. Every good night in one list. *(Week)*
 
 Each sits on a night gradient with its own colour glowing behind the phone.
+Shot 2 uses an evening scene whose times follow the clock it's rendered at:
+render it with `TZ=Asia/Kolkata` during the UTC afternoon (or any time zone
+where it's then evening) so it reads "Go out at 10:18 PM".
 Regenerate after UI changes, in Nashville's time zone so the times read as
 evening:
 
