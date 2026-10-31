@@ -52,7 +52,7 @@ class NowScreen extends ConsumerWidget {
         glow: next == null ? LookUpColors.blue : eventStyle(next.type, details: next.details).color,
         child: RefreshIndicator(
           edgeOffset: top,
-          onRefresh: () => ref.read(homeProvider.notifier).refresh(force: true),
+          onRefresh: () => ref.read(homeProvider.notifier).pull(),
           child: home.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => ListView(children: [Padding(padding: const EdgeInsets.all(24), child: Text('$e'))]),

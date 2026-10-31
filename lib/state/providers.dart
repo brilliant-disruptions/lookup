@@ -94,6 +94,15 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
     );
   }
 
+  /// How long a pull-to-refresh holds the spinner. A full refresh can run for
+  /// minutes on a slow or throttled connection (every source retries with
+  /// 30–60 s timeouts); past this the spinner stops and the refresh carries
+  /// on, updating the screen when it lands.
+  static const pullLimit = Duration(seconds: 8);
+
+  /// Pull-to-refresh: like [refresh], but done waiting after [pullLimit].
+  Future<void> pull() => refresh(force: true).timeout(pullLimit, onTimeout: () {});
+
   /// Fetch + recompute + reschedule, then reload.
   Future<void> refresh({bool force = false}) async {
     final report = await ref
