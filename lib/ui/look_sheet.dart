@@ -13,6 +13,7 @@ import '../services/photo_store.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'calendar.dart';
+import 'caught_it_screen.dart';
 import 'finder_screen.dart';
 import 'photo_tips.dart';
 import 'share_card.dart';
@@ -83,6 +84,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
         _seen = seen;
         _askingWhy = !seen && reason == null;
       });
+      if (seen) await showCaughtIt(context, event, demo: true);
       return;
     }
     await ref.read(storeProvider).addFeedback(SeenFeedback.forEvent(event,
@@ -93,6 +95,8 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       _seen = seen;
       _askingWhy = !seen && reason == null;
     });
+    // A yes is the best moment the app has: give it the whole screen.
+    if (seen) await showCaughtIt(context, event, onAddPhoto: _photoAdded ? null : _addPhoto);
   }
 
   @override

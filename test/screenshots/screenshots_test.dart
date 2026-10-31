@@ -17,6 +17,7 @@ import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/home_shell.dart';
+import 'package:lookup/ui/caught_it_screen.dart';
 import 'package:lookup/ui/look_sheet.dart';
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
@@ -422,6 +423,16 @@ void main() {
     );
     await shot(t, sheet, '4-look-sheet');
   });
+
+  testWidgets('caught it', (t) => shot(
+      t,
+      CaughtItScreen(
+        event: _past('iss:4', SkyEventType.iss, const Duration(days: 20), details: {'brightness': 'brighter than any star'}),
+        animate: false,
+        onAddPhoto: () async {},
+      ),
+      '24-caught-it',
+      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
 
   testWidgets('paywall', (t) async {
     final sheet = Scaffold(
