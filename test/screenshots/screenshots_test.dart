@@ -21,6 +21,7 @@ import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/caught_it_screen.dart';
 import 'package:lookup/ui/intro_scene.dart';
 import 'package:lookup/ui/look_sheet.dart';
+import 'package:lookup/ui/plus_card.dart';
 import 'package:lookup/ui/look_up_now_screen.dart';
 import 'package:lookup/services/alert_art.dart';
 import 'package:lookup/ui/starter_card.dart';
@@ -602,6 +603,18 @@ void main() {
     addTearDown(() => _homeEvents = saved);
     await shot(t, const HomeShell(), '29-verdict', extra: [tonightSkyProvider.overrideWith((_) async => e.plan)]);
   });
+
+  testWidgets('plus card', (t) => shot(
+      t,
+      const Scaffold(
+        body: SkyBackdrop(
+          child: SafeArea(
+            child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Column(children: [PlusNearYouCard()])),
+          ),
+        ),
+      ),
+      '30-plus-card',
+      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
 
   testWidgets('paywall', (t) async {
     final sheet = Scaffold(

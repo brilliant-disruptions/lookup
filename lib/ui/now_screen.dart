@@ -16,6 +16,7 @@ import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'night_vision_button.dart';
 import 'places_screen.dart';
+import 'plus_card.dart';
 import 'settings_screen.dart';
 import 'sky/sky_thing.dart';
 import 'starter_card.dart';
@@ -75,6 +76,8 @@ class NowScreen extends ConsumerWidget {
                 ),
                 // New users: three things to find, so there's something to do tonight.
                 if (!d.needsLocation) const Rise(index: 1, child: StarterSkyCard()),
+                // Free users: what LookUp+ would add here, quietly, in the list.
+                if (!d.needsLocation) const Rise(index: 1, child: PlusNearYouCard()),
                 if (d.auroraOutlook != null) ...[
                   const SizedBox(height: 12),
                   Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
