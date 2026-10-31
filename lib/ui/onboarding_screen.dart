@@ -5,12 +5,14 @@ import '../state/providers.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/scheduling/alert_planner.dart';
 import 'format.dart';
+import 'intro_scene.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
 
-/// Value before the ask. Location first ("show me what's over me"), then
+/// Value before the ask. The intro shows the product working ([IntroScene]):
+/// a pass over a horizon and the tap it brings. Then location first ("show me what's over me"), then
 /// the user's own next sights, and only then the notification prompt, with
 /// the tap it buys spelled out. A denied location offers a town instead of
 /// a dead end.
@@ -116,41 +118,33 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Spacer(flex: 3),
+                  // The product working, before a word about it.
+                  SizedBox(
+                    height: (MediaQuery.sizeOf(context).height * 0.4).clamp(250.0, 380.0),
+                    child: const Rise(index: 0, child: IntroScene()),
+                  ),
+                  const Spacer(),
                   Rise(
-                    index: 0,
+                    index: 1,
                     child: Row(children: [
-                      Text('LookUp', style: display(48, weight: FontWeight.w800)),
-                      Text('.', style: display(48, weight: FontWeight.w800, color: LookUpColors.blue)),
+                      Text('LookUp', style: display(30, weight: FontWeight.w800)),
+                      Text('.', style: display(30, weight: FontWeight.w800, color: LookUpColors.blue)),
                     ]),
                   ),
-                  const Rise(
-                    index: 1,
-                    child: Text('Step outside right now', style: TextStyle(fontSize: 17, color: LookUpColors.grey)),
-                  ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 10),
                   Rise(
                     index: 2,
                     child: Text('It taps you when something is about to fly over.',
                         style: display(30, weight: FontWeight.w700, height: 1.15)),
                   ),
-                  const SizedBox(height: 26),
-                  for (final (i, (glyph, line)) in [
-                    (EventGlyph.forType(SkyEventType.iss), 'The space station, a fresh Starlink train, an aurora'),
-                    (const EventGlyph(icon: Icons.explore_rounded, color: LookUpColors.violet), 'A few minutes before, with which way to face'),
-                    (const EventGlyph(icon: Icons.cloud_off_rounded, color: LookUpColors.cyan), 'Quiet when it\'s cloudy. No account, no setup'),
-                  ].indexed)
-                    Rise(
-                      index: 3 + i,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: Row(children: [
-                          glyph,
-                          const SizedBox(width: 14),
-                          Expanded(child: Text(line, style: t.bodyLarge?.copyWith(height: 1.35))),
-                        ]),
-                      ),
+                  const SizedBox(height: 12),
+                  Rise(
+                    index: 3,
+                    child: Text(
+                      'The space station, Starlink trains, auroras. Only when it\'s dark and clear enough to see. No account, no setup.',
+                      style: t.bodyLarge?.copyWith(color: LookUpColors.grey, height: 1.4),
                     ),
+                  ),
                   const Spacer(flex: 2),
                   if (_step == _Step.noLocation) ...[
                     const Text(

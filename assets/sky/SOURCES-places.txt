@@ -1,0 +1,10 @@
+assets/sky/places.json — towns and cities of 50,000+ people, used only to
+estimate how many people were under the same satellite pass.
+
+Source: Natural Earth, 1:10m Cultural Vectors, Populated Places (simple),
+https://www.naturalearthdata.com/ — public domain. Fetched from
+https://github.com/nvkelso/natural-earth-vector (geojson/ne_10m_populated_places_simple.geojson).
+
+Built with tool/population/build.py: pop_max (metro population, in
+thousands), places within 25 km of a bigger one dropped so metros aren't
+counted twice. Rows are [name, latitude, longitude, thousands of people].

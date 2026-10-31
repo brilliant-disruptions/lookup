@@ -47,12 +47,15 @@ Future<void> showDemo(BuildContext context, WidgetRef ref) async {
   final event = demoEvent(realStart);
   // The actual tap people get, so the preview includes the notification.
   try {
-    await ref.read(notificationServiceProvider).showNow(
-          id: 7,
+    // With its "where to look" picture, as the real heads-up has.
+    await ref.read(notificationServiceProvider).showAlertNow(PlannedAlert(
+          notificationId: 7,
+          event: event,
+          fireAt: realStart.toUtc(),
+          kind: AlertKind.headsUp,
           title: AlertPlanner.headsUpTitle(event, 10),
           body: AlertPlanner.headsUpBody(event),
-          payload: event.id,
-        );
+        ));
   } catch (_) {
     // Notifications not permitted: the sheet still demonstrates the rest.
   }

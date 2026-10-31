@@ -2,12 +2,15 @@
 /// Sky tab and the Tonight card show. All computed on the phone.
 library;
 
+import 'dart:convert';
 import 'dart:io' show gzip;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/models/sky_event.dart';
 import '../domain/plan/night_plan.dart';
+import '../domain/satellites/under_the_pass.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/skyglow.dart';
 import '../domain/weather/cloud_forecast.dart';
@@ -29,6 +32,23 @@ final darkSpotsProvider = FutureProvider<({Sqm? here, List<DarkSpot> spots})?>((
   if (at.lat == null || at.lon == null) return null;
   final map = await ref.watch(skyGlowProvider.future);
   return (here: map.sqmNear(at.lat!, at.lon!), spots: map.darkerSpots(at.lat!, at.lon!));
+});
+
+/// Towns of 50,000+ (~110 KB, see assets/sky/SOURCES-places.txt).
+final placesProvider = FutureProvider<List<Place>>((ref) async {
+  final data = await rootBundle.load('assets/sky/places.json');
+  return Place.fromJson(jsonDecode(utf8.decode(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes))) as List<Object?>);
+});
+
+/// Who else was under [event] in a dark sky at the same moments (passes
+/// that carry their elements); null when we can't tell or nobody was.
+final underThePassProvider = FutureProvider.family<UnderThePass?, SkyEvent>((ref, event) async {
+  final at = await ref.watch(settingsProvider.selectAsync((s) => (lat: s.latitude, lon: s.longitude)));
+  if (at.lat == null || at.lon == null) return null;
+  final track = UnderThePass.trackOf(event);
+  if (track.isEmpty) return null;
+  final places = await ref.watch(placesProvider.future);
+  return UnderThePass.estimate(track: track, places: places, hereLat: at.lat!, hereLon: at.lon!);
 });
 
 /// Stars and constellations, from the bundled assets (~80 KB).

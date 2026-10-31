@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/alert_actions.dart';
 import '../services/notification_service.dart';
 import '../state/providers.dart';
+import 'caught_it_screen.dart';
 import 'demo.dart';
 import 'finder_screen.dart';
 import 'kit/navigation.dart';
 import 'log_screen.dart';
 import 'look_sheet.dart';
 import 'now_screen.dart';
+import 'share_card.dart';
 import 'sky/sky_screen.dart';
 import 'tour.dart';
 import 'upcoming_screen.dart';
@@ -74,6 +76,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           actionId: t.action, eventId: t.eventId, store: store, notifications: ref.read(notificationServiceProvider));
       if (result == AlertActionResult.logged) ref.invalidate(skyLogProvider);
       if (!mounted || result == AlertActionResult.nothing) return;
+      // "Saw it!" from the alert with the app open: celebrate it properly.
+      if (result == AlertActionResult.logged) {
+        final event = await findStoredEvent(store, t.eventId);
+        if (!mounted) return;
+        if (event != null) {
+          await showCaughtIt(context, event);
+          return;
+        }
+      }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(result == AlertActionResult.logged ? 'Logged. Nice one.' : 'We\'ll remind you in 5 minutes.')));
       return;
@@ -84,6 +95,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     if (event == null || !mounted) return;
     if (t.action == AlertAction.find) {
       await openFinder(context, event);
+    } else if (t.action == AlertAction.invite) {
+      // "Tell a friend" from the heads-up: straight to the invite.
+      await showShareCard(context, event, mode: ShareMode.invite);
     } else {
       await showLookSheet(context, event);
     }

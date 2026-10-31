@@ -188,3 +188,6 @@ class PlayIntro extends Notifier<bool> {
 }
 
 final playIntroProvider = NotifierProvider<PlayIntro, bool>(PlayIntro.new);
+
+/// Whether the app can offer "Add to home screen" for the widget.
+final widgetPinnableProvider = FutureProvider<bool>((_) => WidgetService.canPin());

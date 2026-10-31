@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'state/night_state.dart';
 import 'state/providers.dart';
 import 'ui/home_shell.dart';
 import 'ui/onboarding_screen.dart';
@@ -14,19 +15,21 @@ class LookUpApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
-    final nightVision = settings.value?.nightVision ?? false;
     return MaterialApp(
       title: 'LookUp',
       theme: theme,
       debugShowCheckedModeBanner: false,
       // Its own Consumer, so a new light reading repaints only the filter.
       builder: (context, child) => Consumer(
-        builder: (context, ref, child) => NightVision(
-          enabled: nightVision,
-          // Watched only while on; full red until the first reading.
-          strength: nightVision ? ref.watch(nightVisionStrengthProvider).value ?? 1 : 1,
-          child: child!,
-        ),
+        builder: (context, ref, child) {
+          final on = ref.watch(nightVisionOnProvider);
+          return NightVision(
+            enabled: on,
+            // Watched only while on; full red until the first reading.
+            strength: on ? ref.watch(nightVisionStrengthProvider).value ?? 1 : 1,
+            child: child!,
+          );
+        },
         // Respect large text, but cap it where the layouts would break.
         child: MediaQuery.withClampedTextScaling(maxScaleFactor: 1.6, child: child ?? const SizedBox()),
       ),

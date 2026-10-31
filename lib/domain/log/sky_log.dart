@@ -39,6 +39,7 @@ class SkyLog {
     Badge('aurora-chaser', 'Aurora chaser', 'Saw an aurora.'),
     Badge('meteor-watcher', 'Meteor watcher', 'Watched a meteor shower peak.'),
     Badge('eclipse', 'Blood moon', 'Watched a lunar eclipse.'),
+    Badge('shadow', 'In the shadow', 'Watched a solar eclipse.'),
     Badge('liftoff', 'Liftoff', 'Watched a rocket launch.'),
     Badge('both-stations', 'Both stations', 'Saw the ISS and Tiangong.'),
     Badge('night-owl', 'Night owl', 'Saw something between midnight and 4 AM.'),
@@ -74,6 +75,7 @@ class SkyLog {
       give('aurora-chaser', t == SkyEventType.auroraNow || t == SkyEventType.auroraOutlook);
       give('meteor-watcher', t == SkyEventType.meteorShower);
       give('eclipse', t == SkyEventType.lunarEclipse);
+      give('shadow', t == SkyEventType.solarEclipse);
       give('liftoff', t == SkyEventType.rocketLaunch);
       give('both-stations', (running[SkyEventType.iss] ?? 0) > 0 && (running[SkyEventType.tiangong] ?? 0) > 0);
       give('night-owl', local.hour < 4);

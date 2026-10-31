@@ -6,6 +6,7 @@
 library;
 
 import '../models/settings.dart';
+import '../events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../models/sky_event.dart';
 import '../sky/direction.dart';
 import 'alert_tuning.dart';
@@ -131,7 +132,7 @@ class AlertPlanner {
         SkyEventType.auroraNow => s.auroraEnabled,
         SkyEventType.auroraOutlook => false, // outlook is never pushed
         SkyEventType.meteorShower => s.meteorsEnabled,
-        SkyEventType.lunarEclipse => s.eclipsesEnabled,
+        SkyEventType.lunarEclipse || SkyEventType.solarEclipse => s.eclipsesEnabled,
         SkyEventType.planetPairing || SkyEventType.planetHighlight => s.pairingsEnabled,
         SkyEventType.rocketLaunch => s.launchesEnabled,
         // Listed for planning, never pushed.
@@ -189,6 +190,7 @@ class AlertPlanner {
       SkyEventType.auroraOutlook => 'Aurora tonight',
       SkyEventType.meteorShower => '${e.details['shower'] ?? 'Meteor shower'} tonight',
       SkyEventType.lunarEclipse => (e.details['label'] as String?) ?? 'Lunar eclipse',
+      SkyEventType.solarEclipse => e.details['kind'] == 'total' ? 'Total solar eclipse' : 'Solar eclipse',
       SkyEventType.planetPairing => (e.details['label'] as String?) ?? 'Planet pairing',
       SkyEventType.rocketLaunch => 'Rocket launch',
       SkyEventType.issTransit => 'ISS crosses the ${e.details['body'] ?? 'Sun'}',
@@ -213,6 +215,15 @@ class AlertPlanner {
         return 'Up to ~$rate an hour from a dark spot, best around ${_hm(e.peak)}. Look up anywhere, away from lights.$moonNote ${_cloudNote(e)}'.trim();
       case SkyEventType.lunarEclipse:
         return 'Look ${compassWord(e.peakAzimuthDeg)} at the Moon, ${elevationWord(e.peakElevationDeg)}. Deepest at ${_hm(e.peak)}. ${_cloudNote(e)}'.trim();
+      case SkyEventType.solarEclipse:
+        // Safety in every eclipse alert: the one sky event that can hurt.
+        final cs = e.details['centralStart'];
+        final totality = e.details['kind'] == 'total' && cs is String
+            ? ' Totality at ${_hm(DateTime.parse(cs))}: glasses off only while the Sun is fully covered.'
+            : '';
+        return '${solarEclipseHeadline(e)}, deepest at ${_hm(e.peak)}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. '
+                'Eclipse glasses only: never look at the Sun without them.$totality ${_cloudNote(e)}'
+            .trim();
       case SkyEventType.planetPairing:
         final sep = e.details['separation'];
         return '$sep° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Two bright points side by side. ${_cloudNote(e)}'.trim();
@@ -242,8 +253,9 @@ class AlertPlanner {
     return '$lead$bright$arc$hedge.$near ${_cloudNote(e)}'.trim();
   }
 
-  static String goNowBody(SkyEvent e) =>
-      'Look ${compassWord(e.riseAzimuthDeg)}. ${_cap(elevationWord(e.peakElevationDeg))} at its best.';
+  static String goNowBody(SkyEvent e) => e.type == SkyEventType.solarEclipse
+      ? 'Eclipse glasses on, then look ${compassWord(e.peakAzimuthDeg)} at the Sun.'
+      : 'Look ${compassWord(e.riseAzimuthDeg)}. ${_cap(elevationWord(e.peakElevationDeg))} at its best.';
 
   /// Device-local clock time, e.g. "2:40 AM". Domain stays timezone-free by
   /// using the event's own offset-free UTC→local conversion.

@@ -15,6 +15,7 @@ import '../theme.dart';
       SkyEventType.auroraNow || SkyEventType.auroraOutlook => (icon: Icons.waves_rounded, color: LookUpColors.good),
       SkyEventType.meteorShower => (icon: Icons.auto_awesome_rounded, color: LookUpColors.orange),
       SkyEventType.lunarEclipse => (icon: Icons.dark_mode_rounded, color: LookUpColors.red),
+      SkyEventType.solarEclipse => (icon: Icons.brightness_3_rounded, color: LookUpColors.orange),
       SkyEventType.planetPairing => (icon: Icons.workspaces_rounded, color: LookUpColors.gold),
       SkyEventType.planetHighlight => (icon: null, color: LookUpColors.gold),
       SkyEventType.skyObject => (icon: Icons.star_rounded, color: LookUpColors.gold),

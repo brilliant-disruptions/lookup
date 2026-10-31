@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/settings.dart';
 import '../domain/sky/skyglow.dart';
 import '../domain/sky/visibility.dart';
+import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'demo.dart';
@@ -136,6 +137,22 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Night vision',
             subtitle: 'Red screen that keeps your eyes dark-adapted, deeper the darker it is',
           ),
+          _Switch(
+            icon: Icons.nights_stay_rounded,
+            color: LookUpColors.red,
+            value: s.nightVisionAuto,
+            onChanged: (v) => set((s) => s.copyWith(nightVisionAuto: v)),
+            title: 'Red by itself outside',
+            subtitle: 'In the finder, Look up now and the camera view, once it\'s dark',
+          ),
+          if (ref.watch(widgetPinnableProvider).value ?? false)
+            _Row(
+              icon: Icons.widgets_rounded,
+              color: LookUpColors.violet,
+              title: 'Add to your home screen',
+              subtitle: 'The next pass, where to look and a live countdown',
+              onTap: WidgetService.pin,
+            ),
           _Row(
             icon: Icons.play_arrow_rounded,
             color: LookUpColors.good,

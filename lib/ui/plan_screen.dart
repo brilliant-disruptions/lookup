@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../domain/plus/free_plan.dart';
+import 'paywall_sheet.dart';
 import 'package:intl/intl.dart';
 
 import '../domain/models/settings.dart';
@@ -18,8 +21,12 @@ import 'sky/object_sheet.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
 
-Future<void> openPlan(BuildContext context, {int night = 0, int spot = 0}) => Navigator.of(context)
-    .push(MaterialPageRoute(builder: (_) => PlanScreen(initialNight: night, initialSpot: spot)));
+/// Tonight and the next two nights are free; the rest of the fortnight is
+/// LookUp+ ([FreePlan]).
+Future<void> openPlan(BuildContext context, {int night = 0, int spot = 0}) {
+  if (!FreePlan.canPlanNight(night, isPlus: hasPlus(context))) return showPaywall(context, feature: PlusFeature.planAhead);
+  return Navigator.of(context).push(MaterialPageRoute(builder: (_) => PlanScreen(initialNight: night, initialSpot: spot)));
+}
 
 /// Pick a night in the next fortnight and a place, and see what it's like:
 /// when it's dark, the Moon, the clouds (once the forecast reaches), what's
@@ -70,8 +77,16 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
         ChipRow(
           labels: [for (var i = 0; i < nightsAhead; i++) nightLabel(i)],
           index: _night,
-          onSelect: (i) => setState(() => _night = i),
+          onSelect: (i) => FreePlan.canPlanNight(i, isPlus: s?.isPlus ?? false)
+              ? setState(() => _night = i)
+              : showPaywall(context, feature: PlusFeature.planAhead),
         ),
+        if (!(s?.isPlus ?? false))
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text('Tonight and the next two nights on free. LookUp+ plans the whole fortnight.',
+                style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim)),
+          ),
         const SizedBox(height: 16),
         ...plan.when(
           loading: () => const [Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))],
