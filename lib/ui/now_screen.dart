@@ -17,6 +17,7 @@ import 'look_sheet.dart';
 import 'places_screen.dart';
 import 'plus_card.dart';
 import 'settings_screen.dart';
+import 'sky/sky_camera_screen.dart';
 import 'sky/sky_thing.dart';
 import 'starter_card.dart';
 import 'theme.dart';
@@ -43,6 +44,11 @@ class NowScreen extends ConsumerWidget {
         placeKey: TourKeys.place,
         onPlaceTap: () => openPlaces(context),
         actions: [
+          CircleButton(
+            tooltip: 'Sky through your camera',
+            icon: Icons.photo_camera_rounded,
+            onPressed: () => openLiveSkyCamera(context, ref),
+          ),
           KeyedSubtree(
             key: TourKeys.settings,
             child: CircleButton(tooltip: 'Settings', icon: Icons.settings_outlined, onPressed: () => openSettings(context)),
