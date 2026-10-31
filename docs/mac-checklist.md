@@ -52,6 +52,10 @@ Run on a device (⌘R) and try:
   Allow camera access; the path should sit roughly where the satellite will
   be (compasses are good to 5–10°; wave the phone in a figure-8 if it's off).
 - **Add to calendar, photos, Places search, Directions** on a transit.
+- **Alert picture:** Settings → *Preview an alert*. Long-press the
+  notification (iOS) or expand it (Android): the "where to look" picture should
+  show the path and "appears here". If it's missing, the alert text must still
+  arrive (that fallback is tested, the picture itself only on a device).
 
 ## 5. Commit and push
 

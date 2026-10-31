@@ -4,6 +4,10 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/scheduling/alert_planner.dart';
+import 'alert_art.dart';
+
+/// Makes the picture for an alert, or null for none.
+typedef AlertArtMaker = Future<String?> Function(PlannedAlert alert);
 
 /// Buttons on an alert. "Find it" opens the app; the others run in the
 /// background without opening it.
@@ -14,10 +18,14 @@ abstract final class AlertAction {
 }
 
 class NotificationService {
-  NotificationService([FlutterLocalNotificationsPlugin? plugin])
-      : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  NotificationService([FlutterLocalNotificationsPlugin? plugin, AlertArtMaker? art])
+      : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+        _art = art ?? AlertArt.fileFor;
 
   final FlutterLocalNotificationsPlugin _plugin;
+
+  /// The "where to look" picture on pass heads-ups ([AlertArt]).
+  final AlertArtMaker _art;
   static bool _tzReady = false;
 
   /// Android fixes a channel's sound when it's created, so the chime got a
@@ -34,7 +42,9 @@ class NotificationService {
   static const _snoozeAndroid = AndroidNotificationAction(AlertAction.snooze, 'In 5 min');
   static const _seenAndroid = AndroidNotificationAction(AlertAction.seen, 'Saw it!');
 
-  static NotificationDetails detailsFor(AlertKind kind) {
+  /// With [imagePath], the alert carries a picture: Android's expanded big
+  /// picture (with [body] under it), iOS's attachment.
+  static NotificationDetails detailsFor(AlertKind kind, {String? imagePath, String? title, String? body}) {
     final withSnooze = kind == AlertKind.headsUp;
     return NotificationDetails(
       android: AndroidNotificationDetails(
@@ -46,6 +56,14 @@ class NotificationService {
         category: AndroidNotificationCategory.reminder,
         sound: const RawResourceAndroidNotificationSound(_chime),
         actions: [_findAndroid, if (withSnooze) _snoozeAndroid, _seenAndroid],
+        styleInformation: imagePath == null
+            ? null
+            : BigPictureStyleInformation(
+                FilePathAndroidBitmap(imagePath),
+                contentTitle: title,
+                summaryText: body,
+                hideExpandedLargeIcon: true,
+              ),
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: true,
@@ -54,6 +72,7 @@ class NotificationService {
         sound: '$_chime.wav',
         interruptionLevel: InterruptionLevel.timeSensitive,
         categoryIdentifier: withSnooze ? _headsUpCategory : _goNowCategory,
+        attachments: imagePath == null ? null : [DarwinNotificationAttachment(imagePath)],
       ),
     );
   }
@@ -166,15 +185,49 @@ class NotificationService {
 
   Future<void> schedule(PlannedAlert a) async {
     await ensureTimeZone();
-    await _plugin.zonedSchedule(
-      id: a.notificationId,
-      title: a.title,
-      body: a.body,
-      scheduledDate: tz.TZDateTime.from(a.fireAt, tz.local),
-      notificationDetails: detailsFor(a.kind),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      payload: a.event.id,
-    );
+    // The picture is a nice-to-have: any trouble and the alert goes as text.
+    String? image;
+    try {
+      image = await _art(a);
+    } catch (_) {}
+    Future<void> go(String? img) => _plugin.zonedSchedule(
+          id: a.notificationId,
+          title: a.title,
+          body: a.body,
+          scheduledDate: tz.TZDateTime.from(a.fireAt, tz.local),
+          notificationDetails: detailsFor(a.kind, imagePath: img, title: a.title, body: a.body),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          payload: a.event.id,
+        );
+    if (image == null) return go(null);
+    try {
+      await go(image);
+    } catch (_) {
+      // A picture the platform won't take must never cost the alert itself.
+      await go(null);
+    }
+  }
+
+  /// [a], shown right away (the "Preview an alert" tap), with its picture
+  /// when it has one, and as text if the picture is any trouble.
+  Future<void> showAlertNow(PlannedAlert a) async {
+    String? image;
+    try {
+      image = await _art(a);
+    } catch (_) {}
+    Future<void> go(String? img) => _plugin.show(
+          id: a.notificationId,
+          title: a.title,
+          body: a.body,
+          notificationDetails: detailsFor(a.kind, imagePath: img, title: a.title, body: a.body),
+          payload: a.event.id,
+        );
+    if (image == null) return go(null);
+    try {
+      await go(image);
+    } catch (_) {
+      await go(null);
+    }
   }
 
   Future<void> showNow({

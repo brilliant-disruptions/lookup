@@ -20,6 +20,7 @@ import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/caught_it_screen.dart';
 import 'package:lookup/ui/intro_scene.dart';
 import 'package:lookup/ui/look_sheet.dart';
+import 'package:lookup/services/alert_art.dart';
 import 'package:lookup/ui/starter_card.dart';
 import 'package:lookup/ui/kit/kit.dart' show SkyBackdrop;
 import 'package:lookup/ui/onboarding_screen.dart';
@@ -449,6 +450,14 @@ void main() {
       '25-starter-sky',
       settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
 
+  testWidgets('alert art', (t) async {
+    t.view.physicalSize = const Size(1024, 512);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(CustomPaint(size: const Size(1024, 512), painter: _ArtPainter(_events.first)));
+    await expectLater(find.byType(CustomPaint), matchesGoldenFile('goldens/26-alert-art.png'));
+  });
+
   testWidgets('paywall', (t) async {
     final sheet = Scaffold(
       body: Stack(children: [
@@ -840,4 +849,13 @@ class _LockScreen extends StatelessWidget {
           ),
         ),
       ]);
+}
+
+class _ArtPainter extends CustomPainter {
+  _ArtPainter(this.e);
+  final SkyEvent e;
+  @override
+  void paint(Canvas canvas, Size size) => AlertArt.paint(canvas, e, startLabel: '9:05 PM');
+  @override
+  bool shouldRepaint(_ArtPainter old) => false;
 }
