@@ -112,7 +112,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
   late _SkyCache _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon);
 
   /// Following the phone, whenever it has a compass: the view turns as you
-  /// do, and the firefly marks where the back of the phone points.
+  /// do, and the crosshair marks where the back of the phone points.
   StreamSubscription<List<double>>? _sensor;
   double? _pointingAlt;
   double? _phoneAz;
@@ -252,7 +252,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
           label: label,
           tracks: widget.tracks,
           trackTime: (widget.trackTime ?? widget.time).toUtc(),
-          // The firefly sits mid-view, so it's only true while following.
+          // The crosshair sits mid-view, so it's only true while following.
           pointingAlt: _peeking ? null : _pointingAlt,
         );
         return Semantics(
@@ -513,11 +513,10 @@ class _PanoramaPainter extends CustomPainter {
       tp.paint(canvas, r.topLeft + const Offset(6, 2));
     }
 
-    // Where the phone points: the finder's firefly, resting (no blink),
-    // mid-view at the phone's height, held to the horizon when it's aimed
-    // at the ground. Warm, so it never reads as the Moon or a star.
+    // Where the phone points: the blue crosshair, mid-view at the phone's
+    // height, held to the horizon when it's aimed at the ground.
     if (pointingAlt case final alt?) {
-      paintFirefly(canvas, Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH));
+      paintPointingMark(canvas, Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH));
     }
 
     // The ground: rooftops and trees, then the compass along the horizon.

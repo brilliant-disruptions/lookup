@@ -1,7 +1,7 @@
-/// The firefly: LookUp's one mark for "it appears here" and "you're
-/// pointing here". A warm amber glow round a cream core, so it never reads
-/// as the Moon, a planet or a star. The finder flies it; everywhere else
-/// it rests.
+/// The firefly: LookUp's one mark for "it appears here". A warm amber glow
+/// round a cream core. The finder flies it; everywhere else it rests.
+/// "You're pointing here" is the blue crosshair (`pointing_mark.dart`): on
+/// the Sky panorama a resting glow read as the Sun.
 ///
 /// Only `dart:ui`, so the alert art can paint it in the background isolate.
 library;

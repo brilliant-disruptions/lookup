@@ -6,6 +6,7 @@ export 'event_style.dart';
 export 'firefly_mark.dart';
 export 'motion.dart';
 export 'navigation.dart';
+export 'pointing_mark.dart';
 export 'spotlight.dart';
 export 'starfield.dart';
 export 'surfaces.dart';
