@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
 import '../domain/sky/calendar.dart';
 import '../domain/sky/direction.dart';
@@ -79,6 +80,8 @@ String eventSubtitle(SkyEvent e) {
       return 'Up to ~${e.details['perHour']} an hour, best around ${fmtTime(e.peak)} · Moon ${moon.round()}% lit';
     case SkyEventType.lunarEclipse:
       return 'The Moon, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Deepest at ${fmtTime(e.peak)}';
+    case SkyEventType.solarEclipse:
+      return '${solarEclipseHeadline(e)}, deepest at ${fmtTime(e.peak)}. Eclipse glasses only';
     case SkyEventType.planetPairing:
       return '${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)} (${e.details['when']})';
     case SkyEventType.rocketLaunch:
@@ -117,6 +120,7 @@ String eventEmoji(SkyEvent e) => switch (e.type) {
       SkyEventType.auroraOutlook => '🌌',
       SkyEventType.meteorShower => '☄️',
       SkyEventType.lunarEclipse => '🌕',
+      SkyEventType.solarEclipse => '🌑',
       SkyEventType.planetPairing => '🪐',
       SkyEventType.rocketLaunch => '🚀',
       SkyEventType.issTransit => e.details['body'] == 'Moon' ? '🌕' : '☀️',
@@ -134,6 +138,9 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora$where tonight 🌌 LookUp said to go look north.',
     SkyEventType.meteorShower => 'Caught the ${e.details['shower'] ?? 'meteor shower'}$where ☄️ LookUp told me when.',
     SkyEventType.lunarEclipse => 'Watched the lunar eclipse$where 🌕 LookUp tapped me in time.',
+    SkyEventType.solarEclipse => e.details['kind'] == 'total'
+        ? 'Stood in the Moon\'s shadow$where 🌑 Totality, with LookUp.'
+        : 'Watched the solar eclipse$where 🌑 (through eclipse glasses) with LookUp.',
     SkyEventType.planetPairing => '${e.details['label']} side by side$where 🪐 Spotted with LookUp.',
     SkyEventType.rocketLaunch => 'Just watched a rocket launch$where 🚀 LookUp told me where to look.',
     SkyEventType.issTransit => 'Caught the space station crossing the ${e.details['body'] ?? 'Sun'}$where. It took ${fmtSeconds(transitCrossing(e))}.',

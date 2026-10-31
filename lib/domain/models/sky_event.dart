@@ -11,6 +11,9 @@ enum SkyEventType {
   auroraOutlook('Aurora possible tonight', plusOnly: false, pushes: false),
   meteorShower('Meteor shower', plusOnly: false),
   lunarEclipse('Lunar eclipse', plusOnly: false),
+
+  /// Free on purpose: the sky event most people will ever go out for.
+  solarEclipse('Solar eclipse', plusOnly: false),
   planetPairing('Planet pairing', plusOnly: false),
   rocketLaunch('Rocket launch', plusOnly: true),
   issTransit('ISS transit', plusOnly: false, pushes: false),
