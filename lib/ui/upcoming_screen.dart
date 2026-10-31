@@ -295,7 +295,14 @@ class _MissedCard extends StatelessWidget {
               Expanded(
                 child: Text(pastTitle(e), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
-              Text('${fmtDay(e.start)}, ${fmtTime(e.start)}', style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text('${fmtDay(e.start)}, ${fmtTime(e.start)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
+              ),
             ]),
           ),
         const SizedBox(height: 2),
