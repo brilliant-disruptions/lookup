@@ -112,7 +112,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
   late _SkyCache _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon);
 
   /// Following the phone, whenever it has a compass: the view turns as you
-  /// do, and a ring marks where the back of the phone points.
+  /// do, and a glowing dot marks where the back of the phone points.
   StreamSubscription<List<double>>? _sensor;
   double? _pointingAlt;
   double? _phoneAz;
@@ -252,7 +252,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
           label: label,
           tracks: widget.tracks,
           trackTime: (widget.trackTime ?? widget.time).toUtc(),
-          // The ring sits mid-view, so it's only true while following.
+          // The dot sits mid-view, so it's only true while following.
           pointingAlt: _peeking ? null : _pointingAlt,
         );
         return Semantics(
@@ -513,18 +513,19 @@ class _PanoramaPainter extends CustomPainter {
       tp.paint(canvas, r.topLeft + const Offset(6, 2));
     }
 
-    // Where the phone points: a ring mid-view at its height, held to the
-    // horizon when it's aimed at the ground.
+    // Where the phone points: the same glowing dot as "appears here" on the
+    // alert art and the Look up now dial, mid-view at the phone's height,
+    // held to the horizon when it's aimed at the ground.
     if (pointingAlt case final alt?) {
       final o = Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH);
-      final ring = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = LookUpColors.blue.withValues(alpha: 0.9);
-      canvas.drawCircle(o, 22, ring);
-      for (final d in const [Offset(1, 0), Offset(-1, 0), Offset(0, 1), Offset(0, -1)]) {
-        canvas.drawLine(o + d * 26, o + d * 34, ring);
-      }
+      canvas.drawCircle(
+        o,
+        20,
+        Paint()
+          ..shader = RadialGradient(colors: [Colors.white.withValues(alpha: 0.5), Colors.white.withValues(alpha: 0)])
+              .createShader(Rect.fromCircle(center: o, radius: 20)),
+      );
+      canvas.drawCircle(o, 9, Paint()..color = Colors.white);
     }
 
     // The ground: rooftops and trees, then the compass along the horizon.
