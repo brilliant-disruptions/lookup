@@ -17,6 +17,7 @@ import '../../domain/sky/catalog.dart';
 import '../../domain/sky/direction.dart';
 import '../../domain/sky/wmm.dart';
 import '../../services/orientation.dart';
+import '../finder_firefly.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import 'sky_thing.dart';
@@ -112,7 +113,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
   late _SkyCache _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon);
 
   /// Following the phone, whenever it has a compass: the view turns as you
-  /// do, and a glowing dot marks where the back of the phone points.
+  /// do, and the firefly marks where the back of the phone points.
   StreamSubscription<List<double>>? _sensor;
   double? _pointingAlt;
   double? _phoneAz;
@@ -252,7 +253,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
           label: label,
           tracks: widget.tracks,
           trackTime: (widget.trackTime ?? widget.time).toUtc(),
-          // The dot sits mid-view, so it's only true while following.
+          // The firefly sits mid-view, so it's only true while following.
           pointingAlt: _peeking ? null : _pointingAlt,
         );
         return Semantics(
@@ -513,19 +514,24 @@ class _PanoramaPainter extends CustomPainter {
       tp.paint(canvas, r.topLeft + const Offset(6, 2));
     }
 
-    // Where the phone points: the same glowing dot as "appears here" on the
-    // alert art and the Look up now dial, mid-view at the phone's height,
-    // held to the horizon when it's aimed at the ground.
+    // Where the phone points: the finder's firefly, resting (no blink),
+    // mid-view at the phone's height, held to the horizon when it's aimed
+    // at the ground. Warm, so it never reads as the Moon or a star.
     if (pointingAlt case final alt?) {
       final o = Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH);
       canvas.drawCircle(
-        o,
-        20,
-        Paint()
-          ..shader = RadialGradient(colors: [Colors.white.withValues(alpha: 0.5), Colors.white.withValues(alpha: 0)])
-              .createShader(Rect.fromCircle(center: o, radius: 20)),
-      );
-      canvas.drawCircle(o, 9, Paint()..color = Colors.white);
+          o,
+          30,
+          Paint()
+            ..color = fireflyWarm.withValues(alpha: 0.34)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16));
+      canvas.drawCircle(
+          o,
+          10,
+          Paint()
+            ..color = fireflyWarm.withValues(alpha: 0.7)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+      canvas.drawCircle(o, 4.5, Paint()..color = fireflyCore);
     }
 
     // The ground: rooftops and trees, then the compass along the horizon.
