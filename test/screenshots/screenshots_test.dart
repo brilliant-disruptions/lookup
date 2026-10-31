@@ -19,6 +19,8 @@ import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/caught_it_screen.dart';
 import 'package:lookup/ui/look_sheet.dart';
+import 'package:lookup/ui/starter_card.dart';
+import 'package:lookup/ui/kit/kit.dart' show SkyBackdrop;
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
 import 'package:lookup/ui/demo.dart';
@@ -432,6 +434,18 @@ void main() {
         onAddPhoto: () async {},
       ),
       '24-caught-it',
+      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
+
+  testWidgets('starter sky', (t) => shot(
+      t,
+      const Scaffold(
+        body: SkyBackdrop(
+          child: SafeArea(
+            child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Column(children: [StarterSkyCard()])),
+          ),
+        ),
+      ),
+      '25-starter-sky',
       settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
 
   testWidgets('paywall', (t) async {

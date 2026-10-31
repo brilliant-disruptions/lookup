@@ -8,9 +8,17 @@ library;
 import '../models/sky_event.dart';
 import '../scheduling/alert_planner.dart';
 import 'sky_log.dart';
+import 'starter_sky.dart';
 
 class CatchMoment {
-  const CatchMoment({required this.nth, required this.nthOfType, required this.newBadges, this.next, this.nextPlus});
+  const CatchMoment({
+    required this.nth,
+    required this.nthOfType,
+    required this.newBadges,
+    this.next,
+    this.nextPlus,
+    this.completesStarter = false,
+  });
 
   /// This sighting's place among everything they've seen (1 = their first).
   final int nth;
@@ -27,6 +35,9 @@ class CatchMoment {
   /// For someone on free: the next thing only LookUp+ would tap them for.
   /// Always null for Plus. Never a not-pushed event (transits, outlooks).
   final SkyEvent? nextPlus;
+
+  /// This sighting ticked the last of the starter three ([StarterSky]).
+  final bool completesStarter;
 
   bool get isFirst => nth == 1;
 
@@ -60,7 +71,14 @@ class CatchMoment {
     final next = ahead.where((e) => isPlus || !e.plusOnly).firstOrNull;
     final nextPlus = isPlus ? null : AlertPlanner.plusOnlyAhead(ahead, u, max: 1).where((e) => e.id != eventId).firstOrNull;
 
-    return CatchMoment(nth: i + 1, nthOfType: nthOfType, newBadges: newBadges, next: next, nextPlus: nextPlus);
+    return CatchMoment(
+      nth: i + 1,
+      nthOfType: nthOfType,
+      newBadges: newBadges,
+      next: next,
+      nextPlus: nextPlus,
+      completesStarter: StarterSky.completedBy(log, eventId),
+    );
   }
 }
 

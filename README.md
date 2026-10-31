@@ -26,12 +26,12 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 Rendered from the real widgets with sample data (`flutter test --update-goldens --run-skipped --tags screenshots test/screenshots`):
 
 | Onboarding | Tonight | Quiet week | Sky | Look sheet | Sky finder | Preview | Log | Share cards | Settings | Paywall |
-|---|---|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|---|---|---|
 | ![](test/screenshots/goldens/1-onboarding.png) | ![](test/screenshots/goldens/2-now.png) | ![](test/screenshots/goldens/2b-quiet-week.png) | ![](test/screenshots/goldens/3-upcoming.png) | ![](test/screenshots/goldens/4-look-sheet.png) | ![](test/screenshots/goldens/8-finder.png) | ![](test/screenshots/goldens/7-demo.png) | ![](test/screenshots/goldens/9-log.png) | ![](test/screenshots/goldens/10-share-cards.png) | ![](test/screenshots/goldens/5-settings.png) | ![](test/screenshots/goldens/6-paywall.png) |
 
-| Sky | Planet sheet | Transit | Satellites tonight | Places | Your sky year | Camera view | You caught it |
+| Sky | Planet sheet | Transit | Satellites tonight | Places | Your sky year | Camera view | You caught it | Your first three |
 |---|---|---|---|---|---|---|---|
-| ![](test/screenshots/goldens/16-sky.png) | ![](test/screenshots/goldens/17-object.png) | ![](test/screenshots/goldens/11-transit.png) | ![](test/screenshots/goldens/12-satellites.png) | ![](test/screenshots/goldens/13-places.png) | ![](test/screenshots/goldens/14-year-card.png) | ![](test/screenshots/goldens/15-camera-overlay.png) | ![](test/screenshots/goldens/24-caught-it.png) |
+| ![](test/screenshots/goldens/16-sky.png) | ![](test/screenshots/goldens/17-object.png) | ![](test/screenshots/goldens/11-transit.png) | ![](test/screenshots/goldens/12-satellites.png) | ![](test/screenshots/goldens/13-places.png) | ![](test/screenshots/goldens/14-year-card.png) | ![](test/screenshots/goldens/15-camera-overlay.png) | ![](test/screenshots/goldens/24-caught-it.png) | ![](test/screenshots/goldens/25-starter-sky.png) |
 
 Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/goldens/appstore/`; listing copy in [`docs/app-store-listing.md`](docs/app-store-listing.md).
 
@@ -63,6 +63,7 @@ Captioned App Store screenshots (6.9", 1320 × 2868) are in `test/screenshots/go
 | Darker skies nearby | `domain/sky/skyglow.dart` reads a bundled night-sky brightness map (~350 KB, built by `tool/skyglow/` from NASA's Black Marble night lights + Natural Earth land) and finds clearly darker land within 150 km. Shown on Where to go tonight (tonight's clouds, Directions, Save) and as a Tonight nudge before any place is saved; also pre-fills a new saved place's sky and suggests one in Settings |
 | `Spotlight` (`ui/kit/spotlight.dart`), `ui/tour.dart` | A five-stop first-run tour: dims the screen and lights up the Next-up card, Sky, Week, the red-light eye and the place chip, one at a time with a caption. Tap anywhere or Next; Skip ends it. Shown once (also to existing installs), replay from Settings → Show me around. Stops whose target isn't on screen are left out |
 | `IntroScene` | The onboarding's first screen shows the product working instead of listing it: over a horizon with compass words, the station glides across, then a Starlink train, then an aurora rises in the north, and each time the alert LookUp sends drops in at the top. About 16 s a loop; holds the station mid-pass with reduced motion |
+| `StarterSkyCard` | "Your first three" on Tonight, under the hero, for new users: a pass, a planet and a star pattern from their own sky, each on its first easy night (great or good verdict only, so never into cloud), with a 1/3 ring. Rows open the Look sheet, the object sheet or Plan a night. Ticks come from the log; the card goes once all three are seen or for anyone with 10+ sightings. Finishing it gets its own card on You caught it. Logic in `domain/log/starter_sky.dart` |
 | `CaughtItScreen` | "You caught it": a yes to *Did you see it?* (Look sheet, or the alert's Saw it! button with the app open) gets the whole screen. A burst in the event's tint, which sighting this is, any badge it just earned, what's next over you, and Share as the pinned main button. On free, if a Plus-only sight is really coming in the next fortnight, one card offers the tap for that dated thing. The preview pass shows it too, labelled, with nothing logged. Words from `domain/log/catch_moment.dart` |
 | More tonight | Tonight keeps to the next thing to see and tonight's sky; favourites (own screen) and where to go are one row each underneath |
 

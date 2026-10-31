@@ -127,7 +127,7 @@ class CaughtItScreen extends ConsumerWidget {
                             index: 2,
                             child: Center(
                               child: Pill(
-                                m.nthOfType > 1 && m.nthOfType != m.nth
+                                m.nthOfType > 1 && m.nthOfType != m.nth && _kindWord(event.type) != null
                                     ? '${m.countLine} · ${ordinal(m.nthOfType)} ${_kindWord(event.type)}'
                                     : m.countLine,
                                 icon: Icons.auto_awesome_rounded,
@@ -135,6 +135,7 @@ class CaughtItScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
+                          if (m.completesStarter) ...[const SizedBox(height: 14), _StarterDone(animate: animate)],
                           for (final (i, b) in m.newBadges.indexed) ...[
                             const SizedBox(height: 14),
                             _BadgeUnlocked(badge: b, index: i, animate: animate),
@@ -198,15 +199,48 @@ class CaughtItScreen extends ConsumerWidget {
     );
   }
 
-  static String _kindWord(SkyEventType t) => switch (t) {
+  static String? _kindWord(SkyEventType t) => switch (t) {
     SkyEventType.iss => 'ISS pass',
     SkyEventType.tiangong => 'Tiangong pass',
     SkyEventType.starlinkTrain => 'Starlink train',
     SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'aurora',
     SkyEventType.meteorShower => 'meteor shower',
     SkyEventType.rocketLaunch => 'launch',
-    _ => 'of these',
+    _ => null,
   };
+}
+
+/// The starter three are all seen: they know their sky now.
+class _StarterDone extends StatelessWidget {
+  const _StarterDone({required this.animate});
+  final bool animate;
+  @override
+  Widget build(BuildContext context) {
+    final card = GlassCard(
+      tint: LookUpColors.gold,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_rounded, color: LookUpColors.gold, size: 34),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Your first three: done', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                const Text(
+                  'A pass, a planet and a star pattern, all with your own eyes. You know your way round your sky now.',
+                  style: TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    return animate ? Rise(index: 3, child: card) : card;
+  }
 }
 
 /// "Badge unlocked": pops in after the headline with a little overshoot.

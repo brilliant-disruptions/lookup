@@ -23,6 +23,7 @@ import 'places_screen.dart';
 import 'settings_screen.dart';
 import 'sky/night_strip.dart';
 import 'sky/sky_thing.dart';
+import 'starter_card.dart';
 import 'theme.dart';
 import 'tonight_story.dart';
 import 'tour.dart';
@@ -77,6 +78,8 @@ class NowScreen extends ConsumerWidget {
                               : _NextCard(event: d.next!),
                   ),
                 ),
+                // New users: three things to find, so there's something to do tonight.
+                if (!d.needsLocation) const Rise(index: 1, child: StarterSkyCard()),
                 if (d.auroraOutlook != null) ...[
                   const SizedBox(height: 12),
                   Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
