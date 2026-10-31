@@ -369,8 +369,25 @@ List<double> _pose(double az, double el) {
   return [x[0], y[0], z[0], x[1], y[1], z[1], x[2], y[2], z[2]];
 }
 
+/// The phone's motion sensors have no implementation under `flutter test`.
+/// Screens that follow the phone (the Sky panorama, Look up now) would throw
+/// MissingPluginException; answer its settings calls and give it a sensor
+/// that never reports, so they hold the view each screenshot was composed at.
+void _silentRotationSensor() {
+  final m = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  m.setMockMethodCallHandler(const MethodChannel('rotation_sensor/method'), (_) async => null);
+  m.setMockStreamHandler(const EventChannel('rotation_sensor/orientation'), MockStreamHandler.inline(onListen: (_, _) {}));
+  // The rotation sensor watches screen orientation through this one.
+  m.setMockMethodCallHandler(const MethodChannel('native_device_orientation'), (_) async => null);
+  m.setMockStreamHandler(const EventChannel('native_device_orientation_events'), MockStreamHandler.inline(onListen: (_, _) {}));
+}
+
 void main() {
-  setUpAll(_loadFonts);
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    _silentRotationSensor();
+    await _loadFonts();
+  });
 
   Future<void> mount(WidgetTester tester, Widget w, {LookUpSettings? settings, List<Override> extra = const []}) async {
     tester.view.physicalSize = const Size(1179, 2556); // iPhone 15 Pro

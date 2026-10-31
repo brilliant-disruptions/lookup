@@ -130,7 +130,8 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
           ),
           if (label != null)
             Positioned(
-              left: at.dx - 90,
+              // Under the firefly, but kept on screen near the edges.
+              left: (at.dx - 90).clamp(8.0, math.max(8.0, _size.width - 188)),
               width: 180,
               top: at.dy + 24,
               child: Text(label,
