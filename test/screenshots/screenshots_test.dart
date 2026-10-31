@@ -29,6 +29,8 @@ import 'package:lookup/ui/paywall_sheet.dart';
 import 'package:lookup/ui/demo.dart';
 import 'dart:math' as math;
 import 'package:lookup/domain/log/sighting.dart';
+import 'package:lookup/domain/orbit/omm.dart';
+import 'package:lookup/domain/passes/pass_predictor.dart';
 import 'package:lookup/domain/log/sky_log.dart';
 import 'package:lookup/ui/finder_screen.dart';
 import 'package:lookup/ui/log_screen.dart';
@@ -112,6 +114,35 @@ final _events = [
       len: const Duration(hours: 7),
       details: {'shower': 'Leonids', 'perHour': 9, 'moonIllumination': 0.42, 'moonUp': false}),
 ];
+
+/// A real pass from the fixture's elements (London, 21 Oct 2026), under the
+/// id the sample log has as its 5th station sighting, so "You caught it"
+/// shows the badge and who else was under it.
+SkyEvent _londonPass() {
+  final e = PassPredictor(latitude: 51.5, longitude: -0.12)
+      .predict(
+        record: OmmRecord.fromJson(_issOmm),
+        type: SkyEventType.iss,
+        from: DateTime.utc(2026, 10, 20, 16),
+        to: DateTime.utc(2026, 10, 22),
+        minPeakElevationDeg: 10,
+      )
+      .first;
+  return SkyEvent(
+    id: 'iss:4',
+    type: e.type,
+    start: e.start,
+    peak: e.peak,
+    end: e.end,
+    peakElevationDeg: e.peakElevationDeg,
+    riseAzimuthDeg: e.riseAzimuthDeg,
+    peakAzimuthDeg: e.peakAzimuthDeg,
+    setAzimuthDeg: e.setAzimuthDeg,
+    details: {...e.details, 'past': true},
+  );
+}
+
+const _london = LookUpSettings(latitude: 51.5, longitude: -0.12, placeName: 'London', onboarded: true, toured: true);
 
 class _FakeSettings extends SettingsNotifier {
   _FakeSettings(this.s);
@@ -432,12 +463,12 @@ void main() {
   testWidgets('caught it', (t) => shot(
       t,
       CaughtItScreen(
-        event: _past('iss:4', SkyEventType.iss, const Duration(days: 20), details: {'brightness': 'brighter than any star'}),
+        event: _londonPass(),
         animate: false,
         onAddPhoto: () async {},
       ),
       '24-caught-it',
-      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
+      settings: _london));
 
   testWidgets('starter sky', (t) => shot(
       t,
@@ -746,12 +777,9 @@ void main() {
   });
 
   testWidgets('appstore 04 caught', (t) => storeShot(t, '04-caught', 'Every sighting,\ncelebrated.',
-      'Badges as you earn them, what\'s next over you, and a card to share.',
-      CaughtItScreen(
-        event: _past('iss:4', SkyEventType.iss, const Duration(days: 20), details: {'brightness': 'brighter than any star'}),
-        animate: false,
-        onAddPhoto: () async {},
-      )));
+      'Badges, a card to share, and how many millions were under the same pass.',
+      CaughtItScreen(event: _londonPass(), animate: false, onAddPhoto: () async {}),
+      settings: _london));
 
   testWidgets('appstore 05 starter', (t) => storeShot(t, '05-starter', 'Three sights\nto start with.',
       'A pass, a planet and a star pattern, picked from your own sky.', const HomeShell(),

@@ -60,8 +60,12 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
     setState(() => _busy = true);
     try {
       final place = ref.read(settingsProvider).value?.placeName;
-      await sharePoster(_key,
-          widget.mode == ShareMode.invite ? inviteText(widget.event, place) : shareText(widget.event, place));
+      final under = widget.mode == ShareMode.sawIt ? ref.read(underThePassProvider(widget.event)).value : null;
+      await sharePoster(
+          _key,
+          widget.mode == ShareMode.invite
+              ? inviteText(widget.event, place)
+              : '${shareText(widget.event, place)}${under == null ? '' : ' Along with about ${under.peopleWords} others under the same pass.'}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -69,6 +73,8 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // Start working out who else was under it, for the share text.
+    if (widget.mode == ShareMode.sawIt) ref.watch(underThePassProvider(widget.event));
     final place = ref.watch(settingsProvider).value?.placeName;
     return SafeArea(
       child: Padding(

@@ -89,7 +89,7 @@ shows the product's moment, the tap itself, rather than a screen of the app:
 1. It taps you before it flies over. *(lock screen with the real alert over the station's pass)*
 2. Step outside right now. *(Tonight)*
 3. See its path over your sky. *(camera view)*
-4. Every sighting, celebrated. *(You caught it)*
+4. Every sighting, celebrated. *(You caught it, with how many millions were under the same pass)*
 5. Three sights to start with. *(Your first three)*
 6. Everything in your sky. *(Sky map)*
 7. Know exactly where to look. *(Look sheet)*

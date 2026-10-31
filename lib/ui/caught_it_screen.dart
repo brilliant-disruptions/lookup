@@ -8,6 +8,7 @@ import '../domain/log/catch_moment.dart';
 import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
 import '../state/providers.dart';
+import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
@@ -135,6 +136,7 @@ class CaughtItScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
+                          if (!demo) _UnderThePassCard(event: event, tint: tint, animate: animate),
                           if (m.completesStarter) ...[const SizedBox(height: 14), _StarterDone(animate: animate)],
                           for (final (i, b) in m.newBadges.indexed) ...[
                             const SizedBox(height: 14),
@@ -208,6 +210,63 @@ class CaughtItScreen extends ConsumerWidget {
     SkyEventType.rocketLaunch => 'launch',
     _ => null,
   };
+}
+
+/// "You weren't alone": who else had the same pass in a dark sky at the
+/// same moments. Passes only; nothing at all when we can't tell.
+class _UnderThePassCard extends ConsumerWidget {
+  const _UnderThePassCard({required this.event, required this.tint, required this.animate});
+  final SkyEvent event;
+  final Color tint;
+  final bool animate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final u = ref.watch(underThePassProvider(event)).value;
+    if (u == null) return const SizedBox.shrink();
+    final card = Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: GlassCard(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: tint.withValues(alpha: 0.16), shape: BoxShape.circle),
+              child: Icon(Icons.groups_rounded, color: tint, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'You weren\'t alone',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: tint),
+                  ),
+                  const SizedBox(height: 2),
+                  Text('${u.peopleWords} people', style: display(22, weight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'had it crossing a dark sky at the same moments as you, in ${u.placesWords}.',
+                    style: const TextStyle(fontSize: 13.5, color: LookUpColors.grey, height: 1.35),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Towns of 50,000+ where it was well up after dark. Clouds not counted.',
+                    style: TextStyle(fontSize: 11.5, color: LookUpColors.greyDim, height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    return animate ? Rise(index: 3, child: card) : card;
+  }
 }
 
 /// The starter three are all seen: they know their sky now.
