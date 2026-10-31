@@ -208,13 +208,17 @@ class _LastWeekPill extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.history_rounded, size: 16, color: color),
             const SizedBox(width: 6),
-            Text(
-              hot
-                  ? 'Last 7 nights · You missed ${missed.length}'
-                  : recent.isEmpty
-                      ? 'Last 7 nights'
-                      : 'Last 7 nights · ${recent.length}',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+            Flexible(
+              child: Text(
+                hot
+                    ? 'Last 7 nights · You missed ${missed.length}'
+                    : recent.isEmpty
+                        ? 'Last 7 nights'
+                        : 'Last 7 nights · ${recent.length}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+              ),
             ),
             const SizedBox(width: 2),
             Icon(Icons.chevron_right_rounded, size: 17, color: color),

@@ -212,6 +212,7 @@ class _NightBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
+        container: true,
         label: '${fmtDay(DateTime(n.date.year, n.date.month, n.date.day, 20).toUtc())}: '
             '${n.events.isEmpty ? 'nothing' : '${n.events.length} ${n.events.length == 1 ? 'sight' : 'sights'}'}'
             '${n.cloudy ? ', cloudy' : ''}',
@@ -261,6 +262,7 @@ class _Marker extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = eventStyle(e.type, details: e.details);
     return Semantics(
+      container: true,
       button: true,
       selected: selected,
       label: '${eventTitle(e)}, ${fmtDay(e.start)}, ${fmtTime(e.start)}',
@@ -545,6 +547,7 @@ class _DayCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final dots = [for (final e in d.alerts.take(4)) eventStyle(e.type, details: e.details).color];
     return Semantics(
+      container: true,
       button: !d.past,
       selected: selected,
       label: '${DateFormat.MMMEd().format(d.date)}: '
