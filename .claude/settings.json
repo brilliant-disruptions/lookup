@@ -1,0 +1,15 @@
+{
+  "extraKnownMarketplaces": {
+    "bd-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "brilliant-disruptions/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "pr-workflow@bd-plugins": true,
+    "flutter-team@bd-plugins": true,
+    "flutter-app-shipping@bd-plugins": true
+  }
+}
