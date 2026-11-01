@@ -153,7 +153,8 @@ void main() {
     expect(find.text('Plan ahead'), findsOneWidget);
     await t.tap(find.text('Next'));
     await settle(t);
-    expect(find.text('Red light for outside'), findsOneWidget);
+    expect(find.text('Red light after dark'), findsOneWidget);
+    expect(find.byIcon(Icons.remove_red_eye_rounded), findsNothing, reason: 'Settings has the switch now, not an eye');
     await t.tap(find.text('Next'));
     await settle(t);
     expect(find.text('5 of 5'), findsOneWidget);

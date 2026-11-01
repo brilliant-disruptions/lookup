@@ -14,7 +14,6 @@ import 'favourites_screen.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
-import 'night_vision_button.dart';
 import 'places_screen.dart';
 import 'plus_card.dart';
 import 'settings_screen.dart';
@@ -44,8 +43,10 @@ class NowScreen extends ConsumerWidget {
         placeKey: TourKeys.place,
         onPlaceTap: () => openPlaces(context),
         actions: [
-          KeyedSubtree(key: TourKeys.nightVision, child: const NightVisionButton()),
-          CircleButton(tooltip: 'Settings', icon: Icons.settings_outlined, onPressed: () => openSettings(context)),
+          KeyedSubtree(
+            key: TourKeys.settings,
+            child: CircleButton(tooltip: 'Settings', icon: Icons.settings_outlined, onPressed: () => openSettings(context)),
+          ),
         ],
       ),
       body: SkyBackdrop(

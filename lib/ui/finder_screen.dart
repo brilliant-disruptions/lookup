@@ -26,7 +26,6 @@ import 'finder_camera.dart';
 import 'finder_firefly.dart';
 import 'format.dart';
 import 'kit/kit.dart';
-import 'night_vision_button.dart';
 import 'theme.dart';
 
 Future<void> openFinder(BuildContext context, SkyEvent event) =>
@@ -327,8 +326,7 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
             ),
           )
         : null;
-    return OutsideScreen(
-      child: Scaffold(
+    return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
         if (_cameraOn)
@@ -357,8 +355,6 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
                 const Spacer(),
                 const Text('Sky finder', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
                 const Spacer(),
-                const NightVisionButton(),
-                const SizedBox(width: 8),
                 CircleButton(
                   tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
                   icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
@@ -464,7 +460,6 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
         ),
       ),
       ]),
-    ),
     );
   }
 }

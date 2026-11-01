@@ -11,6 +11,7 @@ class LookUpApp extends ConsumerWidget {
   const LookUpApp({super.key});
 
   static final theme = buildLookUpTheme();
+  static bool _hinted = false;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,6 +23,18 @@ class LookUpApp extends ConsumerWidget {
       // Its own Consumer, so a new light reading repaints only the filter.
       builder: (context, child) => Consumer(
         builder: (context, ref, child) {
+          // The first time it turns red by itself this session, say why.
+          ref.listen(nightVisionOnProvider, (was, on) {
+            if (!on || _hinted) return;
+            _hinted = true;
+            ScaffoldMessenger.maybeOf(context)
+              ?..hideCurrentSnackBar()
+              ..showSnackBar(const SnackBar(
+                content: Text('The Sun\'s down, so the screen went red to keep your eyes used to the dark. '
+                    'Settings › Night vision switches it off.'),
+                duration: Duration(seconds: 4),
+              ));
+          });
           final on = ref.watch(nightVisionOnProvider);
           return NightVision(
             enabled: on,
