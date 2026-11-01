@@ -11,7 +11,11 @@ import 'package:lookup/domain/sky/catalog.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/kit/navigation.dart';
+import 'package:lookup/ui/kit/surfaces.dart' show ListRow;
 import 'package:lookup/state/sky_state.dart';
+import 'package:lookup/state/night_state.dart';
+import 'package:lookup/ui/night_vision_controls.dart';
+import 'package:lookup/ui/settings_screen.dart';
 import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/year_card.dart';
 
@@ -123,6 +127,61 @@ void main() {
     await t.tap(find.byTooltip('Settings'));
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
     expect(find.text('What to tell me about'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 1));
+  });
+
+  // Settings stays Settings: a tap opens all of it. Press and hold is only a
+  // shortcut to night vision.
+  testWidgets('press and hold Settings for just night vision; a tap is still all of Settings', (t) async {
+    await pump(t);
+    await t.longPress(find.byTooltip('Settings'));
+    await settle(t);
+    expect(find.byType(NightVisionCard), findsOneWidget);
+    expect(find.text('How red'), findsOneWidget);
+    expect(find.text('What to tell me about'), findsNothing, reason: 'not the whole of Settings');
+
+    // Dragging How red down nudges Auto down (no light sensor in tests: Auto says full red).
+    await t.drag(find.descendant(of: find.byType(NightVisionCard), matching: find.byType(Slider)), const Offset(-120, 0));
+    await settle(t);
+    final s = container.read(settingsProvider).value!;
+    expect(s.nightVisionFollowsLight, isTrue, reason: 'a tweak never switches Auto off');
+    expect(s.nightVisionNudge, lessThan(0));
+    expect(container.read(nightVisionDragProvider), isNull, reason: 'the preview ends with the drag');
+
+    // The card links to the Night vision section of Settings.
+    await t.tap(find.text('All night vision settings ›'));
+    await settle(t);
+    expect(find.byType(NightVisionCard), findsNothing);
+    expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(find.text('Auto'), findsOneWidget);
+    expect(find.text('How red'), findsOneWidget);
+    await t.pageBack();
+    await settle(t);
+
+    // A plain tap: all of Settings, no card.
+    await t.tap(find.byTooltip('Settings'));
+    await settle(t);
+    expect(find.byType(NightVisionCard), findsNothing);
+    expect(find.text('What to tell me about'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 1));
+  });
+
+  testWidgets('Settings: Auto and How red only while night vision is on', (t) async {
+    await pump(t);
+    await t.tap(find.byTooltip('Settings'));
+    await settle(t);
+    final list = find.descendant(of: find.byType(SettingsScreen), matching: find.byType(Scrollable)).first;
+    final row = find.ancestor(of: find.text('Night vision'), matching: find.byType(ListRow));
+    await t.scrollUntilVisible(row, 200, scrollable: list);
+    await t.drag(list, const Offset(0, 300)); // down into the middle, clear of the header
+    await settle(t);
+    expect(find.text('How red'), findsOneWidget);
+    await t.tap(find.descendant(of: row, matching: find.byType(Switch)));
+    await settle(t);
+    expect(container.read(settingsProvider).value!.nightVision, isFalse);
+    expect(find.text('How red'), findsNothing);
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
   });

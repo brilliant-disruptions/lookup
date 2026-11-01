@@ -38,7 +38,13 @@ Future<void> mount(WidgetTester t, DateTime at, {bool on = true, double? lat = 3
   await t.pumpAndSettle();
 }
 
-bool red(WidgetTester t) => find.byType(ColorFiltered).evaluate().isNotEmpty;
+/// Red when a colour filter is on and it cuts green (entry 6 of the matrix).
+bool red(WidgetTester t) {
+  final f = find.byType(ColorFiltered);
+  if (f.evaluate().isEmpty) return false;
+  final m = t.widget<ColorFiltered>(f).colorFilter.toString().split(RegExp(r'[\[\]]'))[1].split(', ').map(double.parse).toList();
+  return m[6] < 0.99;
+}
 
 void main() {
   testWidgets('after sunset the whole app is red, on every screen, with no button to press', (t) async {

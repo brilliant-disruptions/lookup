@@ -16,6 +16,7 @@ import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'places_screen.dart';
 import 'plus_card.dart';
+import 'night_vision_controls.dart';
 import 'settings_screen.dart';
 import 'sky/sky_thing.dart';
 import 'starter_card.dart';
@@ -45,7 +46,14 @@ class NowScreen extends ConsumerWidget {
         actions: [
           KeyedSubtree(
             key: TourKeys.settings,
-            child: CircleButton(tooltip: 'Settings', icon: Icons.settings_outlined, onPressed: () => openSettings(context)),
+            child: CircleButton(
+              tooltip: 'Settings',
+              icon: Icons.settings_outlined,
+              onPressed: () => openSettings(context),
+              // Press and hold: just night vision.
+              onLongPress: () => showNightVisionCard(context),
+              longPressHint: 'Night vision',
+            ),
           ),
         ],
       ),

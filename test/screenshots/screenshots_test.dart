@@ -663,6 +663,31 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/5-settings.png'));
   });
 
+  // Press and hold Settings: just night vision, in a dim room (60% red).
+  testWidgets('night vision card', (t) async {
+    await mount(t, const NightVision(enabled: true, strength: 0.6, child: HomeShell()));
+    await t.longPress(find.byTooltip('Settings'));
+    await t.pump(const Duration(milliseconds: 400));
+    await t.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/31-night-vision-card.png'));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 5));
+  });
+
+  // The card's link: Settings, opened at the Night vision section.
+  testWidgets('night vision settings', (t) async {
+    await mount(t, const HomeShell());
+    await t.longPress(find.byTooltip('Settings'));
+    await t.pump(const Duration(milliseconds: 400));
+    await t.tap(find.text('All night vision settings ›'));
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/32-night-vision-settings.png'));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 5));
+  });
+
   testWidgets('finder', (t) async {
     final target = _events.firstWhere((e) => e.type == SkyEventType.rocketLaunch); // WNW, low
     await mount(t, FinderScreen(event: target, orientationStream: Stream.value(_pose(275, 10))));

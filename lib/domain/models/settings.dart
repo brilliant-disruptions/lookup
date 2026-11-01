@@ -70,6 +70,9 @@ class LookUpSettings {
     this.launchesEnabled = true,
     this.transitsEnabled = true,
     this.nightVision = true,
+    this.nightVisionFollowsLight = true,
+    this.nightVisionNudge = 0,
+    this.nightVisionLevel = 1,
     this.plusCardSnoozedUntil,
     this.leadMinutes = 10,
     this.goNowNudge = true,
@@ -106,6 +109,17 @@ class LookUpSettings {
   /// Red-on-black UI from sunset to sunrise, so eyes stay dark-adapted
   /// outdoors.
   final bool nightVision;
+
+  /// Auto: the red follows the light around the phone, like Auto-Brightness
+  /// (true colours in a lit room, full red outside in the dark).
+  final bool nightVisionFollowsLight;
+
+  /// How far "How red" moved Auto up or down (−1…1); Auto carries on
+  /// following the light from there.
+  final double nightVisionNudge;
+
+  /// The fixed red (0–1) when Auto is off.
+  final double nightVisionLevel;
 
   /// "Not now" on Tonight's LookUp+ card hides it until then (UTC).
   final DateTime? plusCardSnoozedUntil;
@@ -174,6 +188,9 @@ class LookUpSettings {
     bool? launchesEnabled,
     bool? transitsEnabled,
     bool? nightVision,
+    bool? nightVisionFollowsLight,
+    double? nightVisionNudge,
+    double? nightVisionLevel,
     DateTime? plusCardSnoozedUntil,
     int? leadMinutes,
     bool? goNowNudge,
@@ -205,6 +222,9 @@ class LookUpSettings {
         launchesEnabled: launchesEnabled ?? this.launchesEnabled,
         transitsEnabled: transitsEnabled ?? this.transitsEnabled,
         nightVision: nightVision ?? this.nightVision,
+        nightVisionFollowsLight: nightVisionFollowsLight ?? this.nightVisionFollowsLight,
+        nightVisionNudge: nightVisionNudge ?? this.nightVisionNudge,
+        nightVisionLevel: nightVisionLevel ?? this.nightVisionLevel,
         plusCardSnoozedUntil: plusCardSnoozedUntil ?? this.plusCardSnoozedUntil,
         leadMinutes: leadMinutes ?? this.leadMinutes,
         goNowNudge: goNowNudge ?? this.goNowNudge,
@@ -239,6 +259,10 @@ class LookUpSettings {
         'launchesEnabled': launchesEnabled,
         'transitsEnabled': transitsEnabled,
         'nightVisionAfterSunset': nightVision,
+        // New keys: the old 'nightVisionAuto' meant "red by itself outside".
+        'redFollowsLight': nightVisionFollowsLight,
+        'redNudge': nightVisionNudge,
+        'redLevel': nightVisionLevel,
         if (plusCardSnoozedUntil != null) 'plusCardSnoozedUntil': plusCardSnoozedUntil!.toIso8601String(),
         'leadMinutes': leadMinutes,
         'goNowNudge': goNowNudge,
@@ -276,6 +300,9 @@ class LookUpSettings {
       // A new key: the old one-tap switch was off unless tapped, which says
       // nothing about wanting red after dark, so everyone starts with it on.
       nightVision: j['nightVisionAfterSunset'] as bool? ?? d.nightVision,
+      nightVisionFollowsLight: j['redFollowsLight'] as bool? ?? d.nightVisionFollowsLight,
+      nightVisionNudge: (j['redNudge'] as num?)?.toDouble().clamp(-1.0, 1.0) ?? d.nightVisionNudge,
+      nightVisionLevel: (j['redLevel'] as num?)?.toDouble().clamp(0.0, 1.0) ?? d.nightVisionLevel,
       plusCardSnoozedUntil: DateTime.tryParse(j['plusCardSnoozedUntil'] as String? ?? '')?.toUtc(),
       leadMinutes: j['leadMinutes'] as int? ?? d.leadMinutes,
       goNowNudge: j['goNowNudge'] as bool? ?? d.goNowNudge,

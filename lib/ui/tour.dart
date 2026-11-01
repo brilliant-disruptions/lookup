@@ -39,8 +39,8 @@ final tourSteps = [
     target: TourKeys.settings,
     radius: 30,
     title: 'Red light after dark',
-    body: 'From sunset to sunrise the screen turns red, so your eyes stay used to the dark. '
-        'Switch it off in Settings › Night vision.',
+    body: 'After sunset the screen turns red when it\'s dark around you, so your eyes stay used to the dark. '
+        'Press and hold Settings to change how red.',
   ),
   SpotlightStep(
     target: TourKeys.place,
