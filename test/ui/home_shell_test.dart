@@ -16,6 +16,7 @@ import 'package:lookup/state/sky_state.dart';
 import 'package:lookup/state/night_state.dart';
 import 'package:lookup/ui/night_vision_controls.dart';
 import 'package:lookup/ui/settings_screen.dart';
+import 'package:lookup/ui/sky/sky_camera_screen.dart';
 import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/year_card.dart';
 
@@ -182,6 +183,21 @@ void main() {
     await settle(t);
     expect(container.read(settingsProvider).value!.nightVision, isFalse);
     expect(find.text('How red'), findsNothing);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 1));
+  });
+
+  testWidgets('the camera on Tonight opens the live sky through the camera, from Tonight', (t) async {
+    await pump(t);
+    expect(find.byType(SkyCameraScreen), findsNothing);
+    // Where the eye used to be: one tap from the home screen to the camera view.
+    await t.tap(find.descendant(of: find.byType(AppHeader), matching: find.byTooltip('Sky through your camera')).first);
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    final camera = t.widget<SkyCameraScreen>(find.byType(SkyCameraScreen));
+    expect(camera.time, isNull, reason: 'from Tonight it follows the clock');
+    expect(camera.things, isNotEmpty, reason: 'the Moon and planets the live Sky map shows');
+    expect(container.read(homeTabProvider), 0, reason: 'closing it goes back to Tonight');
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
   });

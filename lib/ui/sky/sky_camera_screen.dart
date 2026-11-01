@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/finder/pointing.dart';
+import '../../domain/models/sky_event.dart';
 import '../../domain/sky/direction.dart';
 import '../../domain/sky/wmm.dart';
 import '../../services/orientation.dart';
@@ -27,6 +28,29 @@ Future<void> openSkyCamera(BuildContext context,
     Navigator.of(context).push(MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => SkyCameraScreen(things: things, tracks: tracks, time: time, lat: lat, lon: lon)));
+
+/// The camera view of the sky as it is now, from outside the Sky tab (Tonight's
+/// header): the Moon, planets, showpieces and passes the live map shows.
+Future<void> openLiveSkyCamera(BuildContext context, WidgetRef ref) async {
+  final s = ref.read(settingsProvider).value;
+  final lat = s?.latitude, lon = s?.longitude;
+  final t = await ref.read(tonightSkyProvider.future);
+  if (!context.mounted) return;
+  if (t == null || lat == null || lon == null) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set a location to see your sky.')));
+    return;
+  }
+  final events = ref.read(homeProvider).value?.events ?? const <SkyEvent>[];
+  return openSkyCamera(context,
+      things: [
+        SkyThing.moon(t.moon, lat, lon),
+        for (final p in t.planets) SkyThing.planet(p, lat, lon),
+        for (final x in t.showpieces) SkyThing.showpiece(x, lat, lon),
+      ],
+      tracks: [for (final e in upcomingPasses(events, DateTime.now().toUtc())) passTrack(e, lat, lon)],
+      lat: lat,
+      lon: lon);
+}
 
 class SkyCameraScreen extends ConsumerStatefulWidget {
   const SkyCameraScreen(
@@ -158,10 +182,14 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(children: [
                 CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: () => Navigator.of(context).pop()),
-                const Spacer(),
-                const Text('Sky through your camera',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
-                const Spacer(),
+                // Between the buttons, trimmed rather than overflowing on a small phone with big text.
+                const Expanded(
+                  child: Text('Sky through your camera',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
+                ),
                 CircleButton(
                   tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
                   icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
