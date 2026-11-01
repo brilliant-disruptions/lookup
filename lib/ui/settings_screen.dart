@@ -8,6 +8,7 @@ import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'demo.dart';
+import 'night_vision_controls.dart';
 import '../domain/models/sky_event.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
@@ -15,8 +16,10 @@ import 'places_screen.dart';
 import 'theme.dart';
 import 'tour.dart';
 
-Future<void> openSettings(BuildContext context) =>
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+/// [nightVision]: open scrolled to the Night vision section (from the card
+/// that pressing and holding Settings shows).
+Future<void> openSettings(BuildContext context, {bool nightVision = false}) =>
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => SettingsScreen(focusNightVision: nightVision)));
 
 typedef _Set = Future<void> Function(LookUpSettings Function(LookUpSettings));
 
@@ -28,7 +31,8 @@ _Set _setter(WidgetRef ref) => (f) async {
 
 /// The short list: where, what, when. Everything else is one level down.
 class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.focusNightVision = false});
+  final bool focusNightVision;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -129,22 +133,40 @@ class SettingsScreen extends ConsumerWidget {
                 ),
             ]),
           ),
-          _Switch(
-            icon: Icons.visibility_rounded,
-            color: LookUpColors.red,
-            value: s.nightVision,
-            onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
-            title: 'Night vision',
-            subtitle: 'Red screen that keeps your eyes dark-adapted, deeper the darker it is',
+          _ScrollHere(
+            when: focusNightVision,
+            child: _Switch(
+              icon: Icons.visibility_rounded,
+              color: LookUpColors.red,
+              value: s.nightVision,
+              onChanged: (v) => set((s) => s.copyWith(nightVision: v)),
+              title: 'Night vision',
+              subtitle: 'Red after sunset, to keep your eyes used to the dark',
+            ),
           ),
-          _Switch(
-            icon: Icons.nights_stay_rounded,
-            color: LookUpColors.red,
-            value: s.nightVisionAuto,
-            onChanged: (v) => set((s) => s.copyWith(nightVisionAuto: v)),
-            title: 'Red by itself outside',
-            subtitle: 'In the finder, Look up now and the camera view, once it\'s dark',
-          ),
+          if (s.nightVision) ...[
+            _Switch(
+              leading: const SizedBox(width: 36),
+              value: s.nightVisionFollowsLight,
+              onChanged: (v) => setAuto(ref, v),
+              title: 'Auto',
+              subtitle: 'True colours in a lit room, red as it gets dark',
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(60, 12, 8, 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('How red', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                const HowRedSlider(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 4, 8, 0),
+                  child: Text(
+                    '${nightVisionStatus(ref)} Tip: press and hold Settings on Tonight to get here fast.',
+                    style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey, height: 1.35),
+                  ),
+                ),
+              ]),
+            ),
+          ],
           if (ref.watch(widgetPinnableProvider).value ?? false)
             _Row(
               icon: Icons.widgets_rounded,
@@ -375,4 +397,28 @@ class _Header extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => SectionHeader(text, small: true);
+}
+
+/// Scrolls itself into view once, when Settings opens on it.
+class _ScrollHere extends StatefulWidget {
+  const _ScrollHere({required this.when, required this.child});
+  final bool when;
+  final Widget child;
+  @override
+  State<_ScrollHere> createState() => _ScrollHereState();
+}
+
+class _ScrollHereState extends State<_ScrollHere> {
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.when) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Scrollable.ensureVisible(context, alignment: 0.25, duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

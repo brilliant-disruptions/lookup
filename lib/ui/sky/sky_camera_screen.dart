@@ -18,7 +18,6 @@ import '../../state/sky_state.dart';
 import '../finder_camera.dart';
 import '../format.dart';
 import '../kit/kit.dart';
-import '../night_vision_button.dart';
 import '../theme.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
@@ -120,8 +119,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
             : widget.tracks.isNotEmpty
                 ? 'Next: ${widget.tracks.first.label}'
                 : 'Stars, planets and the Moon, live';
-    return OutsideScreen(
-      child: Scaffold(
+    return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
         if (_cameraOn)
@@ -164,8 +162,6 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
                 const Text('Sky through your camera',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
                 const Spacer(),
-                const NightVisionButton(),
-                const SizedBox(width: 8),
                 CircleButton(
                   tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
                   icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
@@ -205,7 +201,6 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> {
           ]),
         ),
       ]),
-    ),
     );
   }
 }

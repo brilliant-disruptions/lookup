@@ -11,7 +11,6 @@ import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
-import 'night_vision_button.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'share_card.dart';
@@ -71,8 +70,7 @@ class CaughtItScreen extends ConsumerWidget {
       m = log == null ? null : CatchMoment.of(log: log, eventId: event.id, upcoming: events, now: DateTime.now(), isPlus: isPlus);
     }
 
-    return OutsideScreen(
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: LookUpColors.black,
         body: SkyBackdrop(
           glow: tint,
@@ -86,8 +84,6 @@ class CaughtItScreen extends ConsumerWidget {
                     children: [
                       if (demo) const Pill('Preview · nothing logged', icon: Icons.fast_forward_rounded, color: LookUpColors.blue),
                       const Spacer(),
-                      const NightVisionButton(),
-                      const SizedBox(width: 8),
                       CircleButton(icon: Icons.close_rounded, tooltip: 'Close', onPressed: () => Navigator.of(context).maybePop()),
                     ],
                   ),
@@ -205,8 +201,7 @@ class CaughtItScreen extends ConsumerWidget {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   static String? _kindWord(SkyEventType t) => switch (t) {

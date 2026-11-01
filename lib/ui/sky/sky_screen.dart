@@ -11,7 +11,6 @@ import '../../state/providers.dart';
 import '../../state/sky_state.dart';
 import '../format.dart';
 import '../look_sheet.dart';
-import '../night_vision_button.dart';
 import '../kit/kit.dart';
 import '../places_screen.dart';
 import '../theme.dart';
@@ -115,7 +114,6 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
         place: _night?.place ?? place,
         onPlaceTap: () => openPlaces(context),
         actions: [
-          const NightVisionButton(),
           CircleButton(
             tooltip: 'Sky through your camera',
             icon: Icons.photo_camera_rounded,

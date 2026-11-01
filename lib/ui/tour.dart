@@ -9,7 +9,7 @@ abstract final class TourKeys {
   static final next = GlobalKey(debugLabel: 'tour:next');
   static final skyTab = GlobalKey(debugLabel: 'tour:sky');
   static final weekTab = GlobalKey(debugLabel: 'tour:week');
-  static final nightVision = GlobalKey(debugLabel: 'tour:night-vision');
+  static final settings = GlobalKey(debugLabel: 'tour:settings');
   static final place = GlobalKey(debugLabel: 'tour:place');
 }
 
@@ -36,10 +36,11 @@ final tourSteps = [
     body: 'What\'s coming this week, any night in the next two, and where it\'s clearer or darker tonight.',
   ),
   SpotlightStep(
-    target: TourKeys.nightVision,
+    target: TourKeys.settings,
     radius: 30,
-    title: 'Red light for outside',
-    body: 'One tap turns the screen red, so your eyes stay used to the dark.',
+    title: 'Red light after dark',
+    body: 'After sunset the screen turns red when it\'s dark around you, so your eyes stay used to the dark. '
+        'Press and hold Settings to change how red.',
   ),
   SpotlightStep(
     target: TourKeys.place,

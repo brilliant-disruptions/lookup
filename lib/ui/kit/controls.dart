@@ -140,9 +140,17 @@ class CircleButton extends StatelessWidget {
     this.size = 38,
     this.color = LookUpColors.white,
     this.active,
+    this.onLongPress,
+    this.longPressHint,
   });
   final IconData icon;
   final VoidCallback? onPressed;
+
+  /// A second action on press and hold (Settings: the night-vision card).
+  final VoidCallback? onLongPress;
+
+  /// What press and hold does, for screen readers.
+  final String? longPressHint;
   final String? tooltip;
   final double size;
   final Color color;
@@ -159,6 +167,7 @@ class CircleButton extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onPressed,
+        onLongPress: onLongPress,
         child: SizedBox(width: size, height: size, child: Icon(icon, size: size * 0.5, color: color)),
       ),
     );
@@ -169,8 +178,13 @@ class CircleButton extends StatelessWidget {
       // The label replaces the icon's semantics, so the tap has to be
       // offered here or screen readers can't press it.
       onTap: onPressed,
+      onLongPress: onLongPress,
+      onLongPressHint: longPressHint,
       excludeSemantics: tooltip != null,
-      child: tooltip == null ? button : Tooltip(message: tooltip!, child: button),
+      // Press and hold is the button's own; the tooltip mustn't take it.
+      child: tooltip == null
+          ? button
+          : Tooltip(message: tooltip!, triggerMode: onLongPress == null ? null : TooltipTriggerMode.manual, child: button),
     );
   }
 }

@@ -23,9 +23,9 @@ final widgetServiceProvider = Provider<WidgetService>((_) => const WidgetService
 final liveActivityProvider = Provider<LiveActivityService>((_) => const LiveActivityService());
 final ambientLightProvider = Provider<AmbientLightService>((_) => const AmbientLightService());
 
-/// Night vision's red strength from the light around the phone. Auto-dispose
-/// so the sensor is only on while night vision is.
-final nightVisionStrengthProvider =
+/// Auto's red (0–1) from the light around the phone; nothing without a
+/// sensor. Auto-dispose so the sensor is only on while night vision is.
+final ambientRedProvider =
     StreamProvider.autoDispose<double>((ref) => ref.watch(ambientLightProvider).redStrength());
 
 final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(

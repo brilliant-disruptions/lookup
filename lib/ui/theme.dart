@@ -231,20 +231,35 @@ List<double> nightVisionMatrixAt(double strength) {
   ];
 }
 
-/// [strength] comes from the light around the phone
-/// (domain/sky/night_vision.dart) and eases between readings.
-class NightVision extends StatelessWidget {
-  const NightVision({super.key, required this.enabled, this.strength = 1, required this.child});
+/// [strength] comes from the light around the phone and "How red"
+/// (domain/sky/night_vision.dart) and eases between readings; [quick]
+/// follows a finger on the slider instead.
+///
+/// Turning red on or off never rebuilds the app underneath: the child keeps
+/// its place through a [GlobalKey], so whoever is mid-screen at sunset (or
+/// flips the switch) stays where they are.
+class NightVision extends StatefulWidget {
+  const NightVision({super.key, required this.enabled, this.strength = 1, this.quick = false, required this.child});
   final bool enabled;
   final double strength;
+  final bool quick;
   final Widget child;
+
   @override
-  Widget build(BuildContext context) => enabled
-      ? TweenAnimationBuilder<double>(
-          tween: Tween(end: strength),
-          duration: const Duration(seconds: 2),
-          builder: (_, t, child) => ColorFiltered(colorFilter: ColorFilter.matrix(nightVisionMatrixAt(t)), child: child),
-          child: child,
-        )
-      : child;
+  State<NightVision> createState() => _NightVisionState();
+}
+
+class _NightVisionState extends State<NightVision> {
+  final _keep = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final child = KeyedSubtree(key: _keep, child: widget.child);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: widget.enabled ? widget.strength.clamp(0.0, 1.0) : 0.0),
+      duration: widget.quick ? const Duration(milliseconds: 80) : const Duration(seconds: 2),
+      builder: (_, t, child) => t < 0.005 ? child! : ColorFiltered(colorFilter: ColorFilter.matrix(nightVisionMatrixAt(t)), child: child),
+      child: child,
+    );
+  }
 }

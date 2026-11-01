@@ -1,53 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lookup/domain/models/settings.dart';
-import 'package:lookup/domain/sky/night_vision.dart';
-import 'package:lookup/state/providers.dart';
-import 'package:lookup/ui/night_vision_button.dart';
 import 'package:lookup/ui/theme.dart';
 
-class _Settings extends SettingsNotifier {
-  @override
-  Future<LookUpSettings> build() async => const LookUpSettings();
-
-  @override
-  Future<void> edit(LookUpSettings Function(LookUpSettings) f) async => state = AsyncData(f(state.value!));
-}
+/// A light tint, as in a dim room with How red nudged down.
+const _tint = 0.3;
 
 void main() {
-  testWidgets('one tap turns night vision on and off', (t) async {
-    final container = ProviderContainer(overrides: [settingsProvider.overrideWith(_Settings.new)]);
-    addTearDown(container.dispose);
-    await t.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(
-        theme: buildLookUpTheme(),
-        home: const Scaffold(body: Center(child: NightVisionButton())),
-      ),
-    ));
-    await t.pump();
-    bool on() => container.read(settingsProvider).value!.nightVision;
-    expect(on(), isFalse);
-    expect(t.getSemantics(find.byType(NightVisionButton)), matchesSemantics(
-      label: 'Night vision on',
-      isButton: true,
-      hasToggledState: true,
-      isToggled: false,
-      hasTapAction: true,
-    ));
-
-    await t.tap(find.byType(NightVisionButton));
-    await t.pump();
-    expect(on(), isTrue);
-    expect(find.textContaining('red light keeps your eyes'), findsOneWidget);
-    expect(find.byTooltip('Night vision off'), findsOneWidget);
-
-    await t.tap(find.byType(NightVisionButton));
-    await t.pump();
-    expect(on(), isFalse);
-  });
-
   test('darkest setting is exactly the deep-red filter: no green or blue light at all', () {
     expect(nightVisionMatrixAt(1), nightVisionMatrix);
     for (final i in [5, 6, 7, 8, 10, 11, 12, 13]) {
@@ -55,8 +13,8 @@ void main() {
     }
   });
 
-  test('in a lit room it still shifts toward red, it does not just switch off', () {
-    final m = nightVisionMatrixAt(minRedStrength);
+  test('a light tint shifts toward red but keeps colours recognisable', () {
+    final m = nightVisionMatrixAt(_tint);
     // Green and blue are cut...
     expect(m[6], lessThan(1));
     expect(m[12], lessThan(1));
@@ -78,10 +36,38 @@ void main() {
             .toList();
     await t.pumpWidget(at(1));
     expect(matrix()[6], 0);
-    await t.pumpWidget(at(minRedStrength));
+    await t.pumpWidget(at(_tint));
     await t.pump(const Duration(seconds: 1));
-    expect(matrix()[6], inExclusiveRange(0, 1 - minRedStrength));
+    expect(matrix()[6], inExclusiveRange(0, 1 - _tint));
     await t.pump(const Duration(seconds: 2));
-    expect(matrix()[6], closeTo(1 - minRedStrength, 1e-9));
+    expect(matrix()[6], closeTo(1 - _tint, 1e-9));
   });
+
+  testWidgets('turning red on or off keeps the app where it is', (t) async {
+    Widget at(bool on) => MaterialApp(home: NightVision(enabled: on, strength: 1, child: const _Counter()));
+    await t.pumpWidget(at(false));
+    await t.tap(find.byType(_Counter));
+    await t.pump();
+    expect(find.text('1'), findsOneWidget);
+    await t.pumpWidget(at(true)); // sunset
+    await t.pump(const Duration(seconds: 3));
+    expect(find.byType(ColorFiltered), findsOneWidget);
+    expect(find.text('1'), findsOneWidget, reason: 'not rebuilt from scratch');
+    await t.pumpWidget(at(false)); // switched off
+    await t.pump(const Duration(seconds: 3));
+    expect(find.byType(ColorFiltered), findsNothing);
+    expect(find.text('1'), findsOneWidget);
+  });
+}
+
+class _Counter extends StatefulWidget {
+  const _Counter();
+  @override
+  State<_Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<_Counter> {
+  var n = 0;
+  @override
+  Widget build(BuildContext context) => GestureDetector(onTap: () => setState(() => n++), child: Text('$n', textDirection: TextDirection.ltr));
 }
