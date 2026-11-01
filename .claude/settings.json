@@ -10,6 +10,7 @@
   "enabledPlugins": {
     "pr-workflow@bd-plugins": true,
     "flutter-team@bd-plugins": true,
-    "flutter-app-shipping@bd-plugins": true
+    "flutter-app-shipping@bd-plugins": true,
+    "superpowers@claude-plugins-official": true
   }
 }
