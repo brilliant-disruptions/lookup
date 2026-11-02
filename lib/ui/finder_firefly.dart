@@ -137,7 +137,8 @@ class _FireflyLayerState extends State<FireflyLayer> with SingleTickerProviderSt
                   at: at,
                   trail: [for (final p in _trail) _size.center(p)],
                   blink: fireflyBlink(widget.distanceDeg) == null ? 1 : 0.55 + 0.45 * math.cos(_phase * 2 * math.pi),
-                  wobble: _still || widget.onTarget ? Offset.zero : Offset(math.sin(_seconds * 2.3) * 4, math.cos(_seconds * 3.1) * 3),
+                  // Never still over the sky: a gentler hover once lined up.
+                  wobble: _still ? Offset.zero : fireflyHover(_seconds, landed: widget.onTarget),
                   // Still (reduced motion): the ring is simply there.
                   sinceLanded: !widget.onTarget ? null : (_still || _landedAt == null ? 1.0 : _seconds - _landedAt!),
                 ),

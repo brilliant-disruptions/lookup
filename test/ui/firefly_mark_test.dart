@@ -49,4 +49,34 @@ void main() {
     expect((h - hue(const Color(0xFFFFB347))).abs(), greaterThan(40)); // the old amber
     expect((hue(const Color(0xFF3DD68C)) - h).abs(), greaterThan(40)); // LookUpColors.good
   });
+
+  group('fireflyHover', () {
+    List<Offset> over(bool landed) => [for (var i = 0; i < 300; i++) fireflyHover(i / 30, landed: landed)];
+    double spread(List<Offset> ps) {
+      final xs = ps.map((p) => p.dx), ys = ps.map((p) => p.dy);
+      return (xs.reduce((a, b) => a > b ? a : b) - xs.reduce((a, b) => a < b ? a : b)) +
+          (ys.reduce((a, b) => a > b ? a : b) - ys.reduce((a, b) => a < b ? a : b));
+    }
+
+    test('it keeps moving, so it never reads as something in the sky', () {
+      final searching = over(false);
+      expect(spread(searching), greaterThan(12));
+      // No two moments a second apart land in the same spot.
+      for (var i = 0; i + 30 < searching.length; i += 7) {
+        expect((searching[i] - searching[i + 30]).distance, greaterThan(0.2), reason: 'frame $i');
+      }
+    });
+
+    test('lined up it hovers more gently, but still hovers', () {
+      final landed = over(true);
+      expect(spread(landed), greaterThan(5), reason: 'never still over the sky');
+      expect(spread(landed), lessThan(spread(over(false))));
+    });
+
+    test('small: a few pixels, never off its spot', () {
+      for (final p in [...over(false), ...over(true)]) {
+        expect(p.distance, lessThanOrEqualTo(6.5));
+      }
+    });
+  });
 }

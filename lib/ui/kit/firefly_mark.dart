@@ -17,6 +17,16 @@ import 'dart:ui';
 const fireflyGlow = Color(0xFFC4F55E);
 const fireflyCore = Color(0xFFF4FFD9);
 
+/// The firefly's hover: a small loop that never quite repeats, so it can't
+/// be taken for a star, a planet or the satellite itself (nothing real up
+/// there bobs about). Smaller once you're lined up, but it never stops
+/// while it's drawn over the sky. Only Reduce Motion holds it still: then
+/// its colour and the ring have to say "this is LookUp's".
+Offset fireflyHover(double seconds, {bool landed = false}) {
+  final (ax, ay) = landed ? (2.5, 2.0) : (5.0, 4.0);
+  return Offset(math.sin(seconds * 2.3) * ax, math.cos(seconds * 3.1) * ay);
+}
+
 /// Paints the firefly at [at]. [blink] 0…1 is how bright it is right now
 /// (the finder pulses it; at rest it's 0.5). [scale] sizes it for bigger
 /// canvases such as the alert picture.
