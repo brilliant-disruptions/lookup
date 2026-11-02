@@ -118,4 +118,25 @@ void main() {
     final back = AuroraReport.fromJson(r.toJson());
     expect((back.cellLat, back.cellLon, back.at, back.how, back.reporter), (r.cellLat, r.cellLon, r.at, r.how, r.reporter));
   });
+
+  test('offered where the aurora shows by Kp 6, not where it almost never does', () {
+    for (final (name, lat, lon) in const [
+      ('Edinburgh', 55.95, -3.19),
+      ('Tromsø', 69.65, 18.96),
+      ('Minneapolis', 44.98, -93.27),
+      ('Anchorage', 61.22, -149.9),
+      ('Dublin', 53.35, -6.26),
+    ]) {
+      expect(seenNearbyOffered(lat, lon), isTrue, reason: name);
+    }
+    for (final (name, lat, lon) in const [
+      ('Madrid', 40.42, -3.70),
+      ('Miami', 25.76, -80.19),
+      ('Singapore', 1.35, 103.82),
+      // The far south needs about Kp 6.7: not yet.
+      ('Dunedin', -45.87, 170.5),
+    ]) {
+      expect(seenNearbyOffered(lat, lon), isFalse, reason: name);
+    }
+  });
 }

@@ -1,7 +1,8 @@
 /// LookUp's own camera channel ("lookup/capture"): manual shutter and ISO,
 /// focus at infinity, frames as YUV. Android: LookUpCapture.kt. iOS:
-/// LookUpCapture.swift, once it's in the Runner target (until then this
-/// throws [CaptureUnavailable] and the camera plugin takes over).
+/// LookUpCapture.swift. Where the channel is missing or the camera won't
+/// allow manual exposure this throws [CaptureUnavailable] and the camera
+/// plugin takes over.
 library;
 
 import 'dart:async';

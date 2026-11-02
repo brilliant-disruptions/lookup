@@ -39,6 +39,10 @@ import ActivityKit
       FlutterEventChannel(name: "lookup/ambient_light", binaryMessenger: registrar.messenger())
         .setStreamHandler(AmbientLightHandler())
     }
+    // Catch it: manual long exposures (ios/Runner/LookUpCapture.swift).
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpCapture") {
+      LookUpCapture.register(with: registrar)
+    }
   }
 }
 

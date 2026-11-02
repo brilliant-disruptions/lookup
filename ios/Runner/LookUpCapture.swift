@@ -2,18 +2,8 @@
 // lib/domain/photo/exposure.dart), focus at infinity, white balance locked,
 // streamed to Dart as YUV frames for stacking (lib/domain/photo/streak_stacker.dart).
 // Same channel protocol as android/.../LookUpCapture.kt; Dart side in
-// lib/services/capture/native_capture.dart.
-//
-// NOT YET IN THE RUNNER TARGET: written on Linux, checked with `swiftc -parse`
-// only. On a Mac, add it to Runner and register it in AppDelegate's
-// didInitializeImplicitFlutterEngine (docs/mac-checklist.md):
-//
-//   if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpCapture") {
-//     LookUpCapture.register(with: registrar)
-//   }
-//
-// Until then Dart gets MissingPluginException and falls back to the camera
-// plugin's auto-exposure frames.
+// lib/services/capture/native_capture.dart. Registered in AppDelegate's
+// didInitializeImplicitFlutterEngine.
 
 import AVFoundation
 import Flutter
@@ -112,6 +102,14 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
     return (long, short)
   }
 
+  /// The longest frame (and so exposure) the active format allows:
+  /// asking AVFoundation for more raises an exception.
+  private func longestFrameS(_ d: AVCaptureDevice) -> Double {
+    let f = d.activeFormat
+    let frame = f.videoSupportedFrameRateRanges.map { CMTimeGetSeconds($0.maxFrameDuration) }.max() ?? (1.0 / 30)
+    return min(frame, CMTimeGetSeconds(f.maxExposureDuration))
+  }
+
   private func capabilities() -> [String: Any] {
     let cams = backCameras()
     let lenses: [[String: Any]] = cams.map { d in
@@ -125,7 +123,7 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
     return [
       "manual": main.isExposureModeSupported(.custom),
       "minShutterS": CMTimeGetSeconds(f.minExposureDuration),
-      "maxShutterS": CMTimeGetSeconds(f.maxExposureDuration),
+      "maxShutterS": longestFrameS(main),
       "minIso": Int(f.minISO),
       "maxIso": Int(f.maxISO),
       "lenses": lenses,
@@ -196,7 +194,7 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
       do {
         try d.lockForConfiguration()
         let f = d.activeFormat
-        let seconds = min(max(shutterS, CMTimeGetSeconds(f.minExposureDuration)), CMTimeGetSeconds(f.maxExposureDuration))
+        let seconds = min(max(shutterS, CMTimeGetSeconds(f.minExposureDuration)), longestFrameS(d))
         let duration = CMTime(seconds: seconds, preferredTimescale: 1_000_000)
         // Frames as long as the exposure, back to back.
         d.activeVideoMaxFrameDuration = duration
