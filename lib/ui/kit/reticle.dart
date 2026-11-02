@@ -1,7 +1,8 @@
-/// The ring: LookUp's one mark for "you", meaning where your phone points.
-/// Its partner is the firefly (firefly_mark.dart), the one mark for the
-/// thing you're looking for. Bring the firefly into the ring; the ring
-/// glows firefly green once it's there. Never swap them.
+/// The ring: where your phone points while you're finding something (the
+/// finder, Catch it). Its partner there is the firefly
+/// (firefly_mark.dart), the thing you're looking for: bring the firefly
+/// into the ring, and the ring glows firefly green once it's there. (On the
+/// Sky tab, with nothing to find, the firefly itself marks where you point.)
 ///
 /// Only `dart:ui`, like the firefly.
 library;
