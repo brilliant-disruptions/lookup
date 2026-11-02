@@ -2,17 +2,21 @@
 /// Every source failure is tolerated: the previous cache stands.
 library;
 
+import '../data/aurora_reports_client.dart';
 import '../data/celestrak_client.dart';
 import '../data/launch_library_client.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../data/local_store.dart';
 import '../data/open_meteo_client.dart';
 import '../data/swpc_client.dart';
+import '../domain/aurora/aurora_rules.dart';
+import '../domain/aurora/seen_nearby.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
 import '../domain/scheduling/alert_planner.dart';
 import '../domain/sky/catalog.dart';
+import '../domain/sky/sun.dart';
 import 'event_pipeline.dart';
 import 'location_service.dart';
 import 'notification_service.dart';
@@ -36,6 +40,7 @@ class RefreshService {
     OpenMeteoClient? meteo,
     LaunchLibraryClient? launchLibrary,
     LocationService? location,
+    AuroraReportsClient? auroraReports,
     this.onRefreshed,
     this.pipeline = const EventPipeline(),
     this.planner = const AlertPlanner(),
@@ -44,7 +49,8 @@ class RefreshService {
         swpc = swpc ?? SwpcClient(),
         meteo = meteo ?? OpenMeteoClient(),
         launchLibrary = launchLibrary ?? LaunchLibraryClient(),
-        location = location ?? const LocationService();
+        location = location ?? const LocationService(),
+        auroraReports = auroraReports ?? (relayConfigured ? AuroraReportsClient() : null);
 
   final LocalStore store;
   final NotificationService notifications;
@@ -53,6 +59,9 @@ class RefreshService {
   final OpenMeteoClient meteo;
   final LaunchLibraryClient launchLibrary;
   final LocationService location;
+
+  /// Seen near you; null when this build has no relay.
+  final AuroraReportsClient? auroraReports;
 
   /// Called after each successful refresh (home-screen widgets). Errors
   /// there never fail the refresh.
@@ -169,11 +178,31 @@ class RefreshService {
     final tuning = AlertTuning.from([for (final f in await store.loadFeedback()) f.toSighting()], now: now);
     final tuned = tuning.apply(settings);
 
+    // Seen near you: ask the relay only when it could matter: switched on,
+    // offered here, dark, and the aurora within reach of the model.
+    var reports = const <AuroraReport>[];
+    final relay = auroraReports;
+    final kpNow = aurora?.kpNow;
+    if (relay != null &&
+        settings.seenNearby &&
+        settings.auroraEnabled &&
+        kpNow != null &&
+        seenNearbyOffered(fix.lat, fix.lon) &&
+        kpNow >= kpNeededAt(fix.lat, fix.lon) - const CrowdRules().kpSlack &&
+        isDark(now, fix.lat, fix.lon)) {
+      try {
+        reports = await relay.nearby(fix.lat, fix.lon);
+      } catch (e) {
+        errors.add('seen-near-you: $e');
+      }
+    }
+
     SkyCatalog? sky;
     try {
       sky = await catalog();
     } catch (_) {} // no landmarks this time; everything else stands
     final events = pipeline.build(PipelineInputs(
+      auroraReports: reports,
       catalog: sky,
       launches: launches,
       settings: tuned,
@@ -234,7 +263,7 @@ class RefreshService {
       if (already.contains(id)) continue;
       await notifications.showNow(
         id: id,
-        title: 'Aurora now',
+        title: AlertPlanner.auroraNowTitle(e),
         body: AlertPlanner.headsUpBody(e),
         payload: e.id,
         kind: AlertKind.goNow, // already happening: no "remind me later"

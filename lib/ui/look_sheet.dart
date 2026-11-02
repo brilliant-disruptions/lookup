@@ -31,6 +31,7 @@ import 'widgets/compass_arrow.dart';
 import 'widgets/countdown_ring.dart';
 import 'widgets/station_facts.dart';
 import 'widgets/pass_timeline.dart';
+import 'widgets/seen_it_row.dart';
 
 Future<void> showLookSheet(BuildContext context, SkyEvent event) {
   // Transits are LookUp+ photo planning.
@@ -209,6 +210,13 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                   label: const Text('Find it in the sky'),
                 ),
               ),
+            // Seen near you: "Can you see it?" while an aurora could be out.
+            if (!widget.demo &&
+                showSeenItRow(event,
+                    lat: ref.watch(settingsProvider).value?.latitude,
+                    lon: ref.watch(settingsProvider).value?.longitude,
+                    now: now))
+              const SeenItRow(),
             // Catch it: the phone photographs the pass by itself.
             if (isPass && canCatch(event.type) && !over && event.details['past'] != true && !widget.demo)
               Padding(

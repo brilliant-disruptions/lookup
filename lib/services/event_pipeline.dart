@@ -3,6 +3,7 @@ library;
 
 import '../data/local_store.dart';
 import '../domain/aurora/aurora_rules.dart';
+import '../domain/aurora/seen_nearby.dart';
 import '../domain/events/eclipses.dart';
 import '../domain/events/solar_eclipses.dart';
 import '../domain/events/launches.dart';
@@ -31,6 +32,7 @@ class PipelineInputs {
     this.aurora,
     this.launches = const [],
     this.catalog,
+    this.auroraReports = const [],
   });
 
   final LookUpSettings settings;
@@ -45,6 +47,10 @@ class PipelineInputs {
   /// The fixed sky, for naming the bright things a pass goes near. Without
   /// it passes just don't carry landmarks.
   final SkyCatalog? catalog;
+
+  /// Seen near you: what people nearby reported in the last few minutes
+  /// (empty when the feature is off or the relay couldn't be reached).
+  final List<AuroraReport> auroraReports;
 }
 
 class EventPipeline {
@@ -155,7 +161,21 @@ class EventPipeline {
           ovationProbability: a.ovationProbability,
           cloudCoverPercent: i.clouds?.coverAt(now),
         );
-        if (d.alert) {
+        // Seen near you: people nearby can confirm what the model calls a
+        // little short; never on their own (crowdConfirms checks the model,
+        // the dark and the cloud itself).
+        final crowd = s.seenNearby && i.auroraReports.isNotEmpty
+            ? crowdConfirms(
+                reports: i.auroraReports,
+                now: now,
+                latDeg: lat,
+                lonDeg: lon,
+                estimatedKp: kpNow,
+                cloudCoverPercent: i.clouds?.coverAt(now),
+              )
+            : null;
+        final seen = crowd != null && crowd.confirmed;
+        if (d.alert || seen) {
           // Bucketed to 3 h so repeated refreshes don't re-fire.
           final bucket = DateTime.utc(now.year, now.month, now.day, now.hour ~/ 3 * 3);
           out.add(SkyEvent(
@@ -172,6 +192,12 @@ class EventPipeline {
             details: {
               'kp': kpNow,
               'ovation': a.ovationProbability,
+              if (seen) ...{
+                'crowd': true,
+                'people': crowd.people,
+                'headline': crowd.headline,
+                'body': crowd.body(const CrowdRules().window),
+              },
             },
           ));
         }

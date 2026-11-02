@@ -1,8 +1,12 @@
 # Seen near you: live aurora confirmed by other LookUp users
 
-Status: **spec + on-phone rules done** (`lib/domain/aurora/seen_nearby.dart`,
-`test/domain/seen_nearby_test.dart`); **decisions made** (bottom).
-**Relay, reporting UI and alert not built yet.**
+Status:
+- **Done:** the on-phone rules (`lib/domain/aurora/seen_nearby.dart`), the
+  relay (`relay/`, a Cloudflare Worker, not deployed yet), reporting from
+  the aurora's Look sheet, and the crowd-confirmed aurora-now alert
+  whenever the app refreshes.
+- **Not yet:** push wake-ups on the phone (see Build order) and the line on
+  Tonight. Hidden in builds without `LOOKUP_RELAY_URL`.
 
 ## Why
 
@@ -123,12 +127,39 @@ Also before launch:
 
 ## Build order
 
-1. Relay: the two endpoints, attestation, a 1-hour lifetime, rate limits.
-2. `data/aurora_reports_client.dart`, and an *I can see it* row on
-   Tonight's aurora card.
-3. Push wake-up, then `crowdConfirms()`, then an `auroraNow` alert through
-   `AlertPlanner` with its own stable id. A test shows it respects quiet
-   hours' aurora override and the nightly cap.
-4. A "Seen near you" line on Tonight.
-5. Measure before widening: alerts sent per storm, and how many people
+1. ✅ **Relay** (`relay/`):
+   - the report, read and subscribe endpoints;
+   - daily-salted hashes instead of tokens and IP addresses;
+   - rate limits, a 1-hour lifetime and the 10-minute sweep;
+   - the wake-up rule;
+   - APNs and FCM senders.
+
+   Tested with vitest on the real SQL. App Attest and Play Integrity
+   checks are still to come; until then the rate limits are the guard.
+2. ✅ **App, reporting:** `data/aurora_reports_client.dart`, and *Can you
+   see it?* (by eye / on my camera) on the aurora's Look sheet. It asks
+   before the first send, and there's a switch in Settings › Tell me about.
+3. ✅ **App, alert:** when the app refreshes at night with the aurora within
+   reach, it reads nearby reports. `crowdConfirms()` can then raise the
+   usual 3-hourly aurora-now alert, worded "Aurora being seen 60 km north
+   of you". It's LookUp+, follows quiet hours (with the aurora wake-me
+   override) and keeps the same id, so it fires once. Tested.
+4. **Deploy the relay** (`relay/README.md`, about 10 minutes, needs a
+   Cloudflare account). Then build the app with
+   `--dart-define=LOOKUP_RELAY_URL=…`.
+5. **Push wake-ups on the phone.** Until this is done, crowd alerts only
+   come when the app refreshes on its own: on open, on pull-to-refresh, and
+   in the 6-hourly background refresh.
+   - **Android:** the `firebase-messaging` library added in Gradle
+     (Kotlin, not the Flutter plugin, so iOS's Swift packages and Xcode
+     Cloud are untouched). Firebase is started from build-time options, so
+     no `google-services.json` is needed. A data message runs the
+     background refresh, and the app subscribes its cells.
+   - **iPhone:** the Push Notifications capability and `aps-environment`
+     entitlement (Mac), then `registerForRemoteNotifications` and a
+     background-fetch handler in Swift that runs the same refresh.
+   - Needs from the owner: a Firebase project with the Android app added,
+     and an APNs key (`relay/README.md`).
+6. A "Seen near you" line on Tonight while it lasts.
+7. Measure before widening: alerts sent per storm, and how many people
    answered *Did you see it?* with yes.
