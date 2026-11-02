@@ -203,8 +203,14 @@ class AlertPlanner {
     return '$what in $leadMinutes min';
   }
 
+  /// The title "Aurora now" fires with: where it's being seen, when
+  /// people nearby confirmed it (Seen near you).
+  static String auroraNowTitle(SkyEvent e) =>
+      e.details['crowd'] == true ? (e.details['headline'] as String?) ?? 'Aurora being seen near you' : 'Aurora now';
+
   static String headsUpBody(SkyEvent e) {
     if (e.type == SkyEventType.auroraNow) {
+      if (e.details['crowd'] == true && e.details['body'] is String) return e.details['body'] as String;
       return 'Find a dark spot and look north. ${_cloudNote(e)}'.trim();
     }
     switch (e.type) {

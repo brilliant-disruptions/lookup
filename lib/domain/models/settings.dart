@@ -63,6 +63,7 @@ class LookUpSettings {
     this.issEnabled = true,
     this.starlinkEnabled = true,
     this.auroraEnabled = true,
+    this.seenNearby = false,
     this.tiangongEnabled = false,
     this.meteorsEnabled = true,
     this.eclipsesEnabled = true,
@@ -97,6 +98,10 @@ class LookUpSettings {
   final bool issEnabled;
   final bool starlinkEnabled;
   final bool auroraEnabled;
+
+  /// Seen near you: send anonymous "I can see it" reports and hear when
+  /// people nearby see the aurora (docs/seen-near-you.md). Off until asked.
+  final bool seenNearby;
   final bool tiangongEnabled;
   final bool meteorsEnabled;
   final bool eclipsesEnabled;
@@ -181,6 +186,7 @@ class LookUpSettings {
     bool? issEnabled,
     bool? starlinkEnabled,
     bool? auroraEnabled,
+    bool? seenNearby,
     bool? tiangongEnabled,
     bool? meteorsEnabled,
     bool? eclipsesEnabled,
@@ -215,6 +221,7 @@ class LookUpSettings {
         issEnabled: issEnabled ?? this.issEnabled,
         starlinkEnabled: starlinkEnabled ?? this.starlinkEnabled,
         auroraEnabled: auroraEnabled ?? this.auroraEnabled,
+        seenNearby: seenNearby ?? this.seenNearby,
         tiangongEnabled: tiangongEnabled ?? this.tiangongEnabled,
         meteorsEnabled: meteorsEnabled ?? this.meteorsEnabled,
         eclipsesEnabled: eclipsesEnabled ?? this.eclipsesEnabled,
@@ -252,6 +259,7 @@ class LookUpSettings {
         'issEnabled': issEnabled,
         'starlinkEnabled': starlinkEnabled,
         'auroraEnabled': auroraEnabled,
+        'seenNearby': seenNearby,
         'tiangongEnabled': tiangongEnabled,
         'meteorsEnabled': meteorsEnabled,
         'eclipsesEnabled': eclipsesEnabled,
@@ -291,6 +299,7 @@ class LookUpSettings {
       issEnabled: j['issEnabled'] as bool? ?? d.issEnabled,
       starlinkEnabled: j['starlinkEnabled'] as bool? ?? d.starlinkEnabled,
       auroraEnabled: j['auroraEnabled'] as bool? ?? d.auroraEnabled,
+      seenNearby: j['seenNearby'] as bool? ?? d.seenNearby,
       tiangongEnabled: j['tiangongEnabled'] as bool? ?? d.tiangongEnabled,
       meteorsEnabled: j['meteorsEnabled'] as bool? ?? d.meteorsEnabled,
       eclipsesEnabled: j['eclipsesEnabled'] as bool? ?? d.eclipsesEnabled,

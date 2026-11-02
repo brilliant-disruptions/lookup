@@ -1,0 +1,20 @@
+{
+  "name": "lookup-relay",
+  "private": true,
+  "description": "Seen near you: the tiny relay for anonymous aurora reports (docs/seen-near-you.md).",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute lookup-relay --remote --file=schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20251014.0",
+    "@types/node": "22.18.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4",
+    "wrangler": "4.45.0"
+  }
+}

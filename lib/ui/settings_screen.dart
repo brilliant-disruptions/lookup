@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../data/aurora_reports_client.dart' show relayConfigured;
+import '../domain/aurora/seen_nearby.dart' show seenNearbyOffered;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/settings.dart';
@@ -273,6 +276,9 @@ class _AlertTypesScreen extends ConsumerWidget {
         toggle(SkyEventType.iss, s.issEnabled, (s, v) => s.copyWith(issEnabled: v), 'Space station', 'Bright, 3–6 minutes, a few times a month'),
         toggle(SkyEventType.starlinkTrain, s.starlinkEnabled, (s, v) => s.copyWith(starlinkEnabled: v), 'Starlink trains', 'A line of lights after each launch · LookUp+'),
         toggle(SkyEventType.auroraNow, s.auroraEnabled, (s, v) => s.copyWith(auroraEnabled: v), 'Aurora', 'Tonight\'s outlook free; "aurora now" is LookUp+'),
+        if (relayConfigured && s.auroraEnabled && s.latitude != null && seenNearbyOffered(s.latitude!, s.longitude!))
+          toggle(SkyEventType.auroraNow, s.seenNearby, (s, v) => s.copyWith(seenNearby: v), 'Seen near you',
+              'Share anonymous "I can see it" reports and hear when people near you see the aurora'),
         toggle(SkyEventType.meteorShower, s.meteorsEnabled, (s, v) => s.copyWith(meteorsEnabled: v), 'Meteor showers', 'Peak nights, Moon factored in'),
         toggle(SkyEventType.lunarEclipse, s.eclipsesEnabled, (s, v) => s.copyWith(eclipsesEnabled: v), 'Lunar eclipses', 'When the Moon is up for you'),
         toggle(SkyEventType.planetPairing, s.pairingsEnabled, (s, v) => s.copyWith(pairingsEnabled: v), 'Planet pairings', 'The Moon and bright planets side by side'),

@@ -2,6 +2,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:math' show Random;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -73,6 +74,7 @@ class LocalStore {
   static const _kLastRefresh = 'last_refresh';
   static const _kFeedback = 'feedback';
   static const _kCrew = 'crew';
+  static const _kReporter = 'aurora_reporter';
   static String _kElements(String key) => 'elements_$key';
 
   Future<LookUpSettings> loadSettings() async {
@@ -157,6 +159,19 @@ class LocalStore {
 
   Future<void> saveAurora(AuroraSnapshot a) =>
       _prefs.setString(_kAurora, jsonEncode(a.toJson()));
+
+  /// Seen near you: a random token that counts this install once among
+  /// aurora reports. A new one every day (UTC), so reports can't be tied
+  /// together across nights; the relay salts and hashes it as well.
+  Future<String> auroraReporter(DateTime now) async {
+    final day = now.toUtc().toIso8601String().substring(0, 10);
+    final raw = await _prefs.getString(_kReporter);
+    if (raw != null && raw.startsWith('$day:')) return raw.substring(day.length + 1);
+    final rnd = Random.secure();
+    final token = [for (var i = 0; i < 24; i++) rnd.nextInt(256).toRadixString(16).padLeft(2, '0')].join();
+    await _prefs.setString(_kReporter, '$day:$token');
+    return token;
+  }
 
   Future<List<SkyEvent>> loadEvents() async {
     final raw = await _prefs.getString(_kEvents);

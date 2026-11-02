@@ -270,4 +270,31 @@ void main() {
       expect(planner.plan(events: [cloudy], settings: const LookUpSettings(), now: now, utcOffsetMinutes: cdt), isEmpty);
     });
   });
+
+  group('Seen near you', () {
+    final crowd = ev('aurora-now:x', SkyEventType.auroraNow, now, details: {
+      'crowd': true,
+      'headline': 'Aurora being seen 60 km north of you',
+      'body': '5 people in the last 20 minutes, 3 by eye. Get away from lights and face north, low in the sky.',
+    });
+    final model = ev('aurora-now:y', SkyEventType.auroraNow, now);
+
+    test('a crowd-confirmed aurora says where it is being seen', () {
+      expect(AlertPlanner.auroraNowTitle(crowd), 'Aurora being seen 60 km north of you');
+      expect(AlertPlanner.headsUpBody(crowd), startsWith('5 people'));
+      expect(AlertPlanner.headsUpBody(crowd), isNot(contains('°')));
+    });
+
+    test('the forecast-only aurora alert reads as before', () {
+      expect(AlertPlanner.auroraNowTitle(model), 'Aurora now');
+      expect(AlertPlanner.headsUpBody(model), 'Find a dark spot and look north.');
+    });
+
+    test('a crowd-confirmed aurora obeys the same quiet hours as any aurora-now', () {
+      final late = ev('aurora-now:z', SkyEventType.auroraNow, now.add(const Duration(hours: 12, minutes: 30)),
+          details: {'crowd': true, 'headline': 'Aurora being seen right around you', 'body': 'x'});
+      expect(AlertPlanner.passesQuietHours(late, plus, cdt), isFalse);
+      expect(AlertPlanner.passesQuietHours(late, plus.copyWith(auroraWakeMe: true), cdt), isTrue);
+    });
+  });
 }

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/data/local_store.dart';
 import 'package:lookup/data/open_meteo_client.dart';
 import 'package:lookup/domain/aurora/aurora_rules.dart';
+import 'package:lookup/domain/aurora/seen_nearby.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/orbit/omm.dart';
@@ -91,6 +92,44 @@ void main() {
       aurora: AuroraSnapshot(fetchedAt: now, kpNow: 3, forecast: const [], ovationProbability: 80),
     ));
     expect(low.where((e) => e.type == SkyEventType.auroraNow), isEmpty);
+  });
+
+  group('Seen near you', () {
+    // Edinburgh at night; Kp 3.5: a little short of the 4 needed there, and
+    // Ovation says no, so the model alone stays quiet.
+    const edinburgh = LookUpSettings(latitude: 55.95, longitude: -3.19, isPlus: true, seenNearby: true);
+    final night = DateTime.utc(2026, 11, 2, 22);
+    final snap = AuroraSnapshot(fetchedAt: night, kpNow: 3.5, forecast: const [], ovationProbability: 5);
+    AuroraReport r(String who, double lat, double lon) {
+      final c = reportCell(lat, lon);
+      return AuroraReport(cellLat: c.lat, cellLon: c.lon, at: night.subtract(const Duration(minutes: 3)), how: SeenHow.eye, reporter: who);
+    }
+
+    final crowd = [r('a', 55.86, -4.25), r('b', 56.40, -3.43), r('c', 55.60, -2.73), r('d', 56.12, -3.16)];
+    List<SkyEvent> build(LookUpSettings s, List<AuroraReport> reports) => const EventPipeline()
+        .build(PipelineInputs(settings: s, now: night, aurora: snap, auroraReports: reports))
+        .where((e) => e.type == SkyEventType.auroraNow)
+        .toList();
+
+    test('people nearby confirm what the model calls a little short', () {
+      expect(build(edinburgh, const []), isEmpty);
+      final e = build(edinburgh, crowd).single;
+      expect(e.details['crowd'], isTrue);
+      expect(e.details['people'], 4);
+      expect(e.details['headline'], startsWith('Aurora being seen'));
+      expect(e.id, startsWith('aurora-now:'), reason: 'same 3-hour id: one aurora-now alert, whoever confirmed it');
+    });
+
+    test('nothing without the switch, the aurora toggle, or the model\'s agreement', () {
+      expect(build(edinburgh.copyWith(seenNearby: false), crowd), isEmpty);
+      expect(build(edinburgh.copyWith(auroraEnabled: false), crowd), isEmpty);
+      final quiet = const EventPipeline().build(PipelineInputs(
+          settings: edinburgh,
+          now: night,
+          aurora: AuroraSnapshot(fetchedAt: night, kpNow: 1, forecast: const [], ovationProbability: 0),
+          auroraReports: crowd));
+      expect(quiet.where((e) => e.type == SkyEventType.auroraNow), isEmpty);
+    });
   });
 
   test('Open-Meteo payload parses to a forecast with nearest-hour lookup', () {
