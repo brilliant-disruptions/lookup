@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/alert_actions.dart';
 import '../services/notification_service.dart';
 import '../state/providers.dart';
+import 'catch_it_screen.dart';
 import 'caught_it_screen.dart';
 import 'demo.dart';
 import 'finder_screen.dart';
@@ -95,6 +96,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     if (event == null || !mounted) return;
     if (t.action == AlertAction.find) {
       await openFinder(context, event);
+    } else if (t.action == AlertAction.photo) {
+      // "Photograph it" from the heads-up: straight to Catch it.
+      await openCatchIt(context, event);
     } else if (t.action == AlertAction.invite) {
       // "Tell a friend" from the heads-up: straight to the invite.
       await showShareCard(context, event, mode: ShareMode.invite);

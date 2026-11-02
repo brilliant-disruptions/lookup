@@ -81,3 +81,24 @@ Xcode Cloud picks it up and the next TestFlight build has all of it.
   (Your rough coordinates go to Open-Meteo for the cloud forecast; nothing
   else leaves the phone.) Everything else: *Data Not Collected*.
 - **Listing copy and screenshots:** see [`app-store-listing.md`](app-store-listing.md).
+
+## Catch it: manual long exposures on iPhone
+
+Until this is done, Catch it on iPhone uses the camera plugin's quick
+auto-exposure frames (fainter streaks). Android already sets shutter and ISO.
+
+1. Drag `ios/Runner/LookUpCapture.swift` into the **Runner** group; tick
+   **Runner** under *Target Membership* (don't copy).
+2. In `ios/Runner/AppDelegate.swift`, at the end of
+   `didInitializeImplicitFlutterEngine`, add:
+
+   ```swift
+   if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpCapture") {
+     LookUpCapture.register(with: registrar)
+   }
+   ```
+3. Build (⌘B) and try *Photograph it* → *Try a practice run first*, then a
+   real pass from a dark spot. Check: the detail line under the plan shows a
+   shutter (e.g. "1 s · ISO 1600"), not "Auto exposure"; frames arrive about
+   once per shutter; the picture is upright when the phone was upright and
+   when it was on its side.
