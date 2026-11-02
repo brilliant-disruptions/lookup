@@ -14,6 +14,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -84,7 +86,11 @@ class CatchItScreen extends ConsumerStatefulWidget {
   ConsumerState<CatchItScreen> createState() => _CatchItState();
 }
 
-class _CatchItState extends ConsumerState<CatchItScreen> {
+class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProviderStateMixin {
+  /// Seconds for the firefly's hover while aiming; repaints only the overlay.
+  final _hoverClock = ValueNotifier<double>(0);
+  late final Ticker _hoverTicker = createTicker((e) => _hoverClock.value = e.inMicroseconds / 1e6);
+
   CaptureBackend? _backend;
   CameraCaps? _caps;
   CapturePlan? _plan;
@@ -139,6 +145,8 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
 
   @override
   void dispose() {
+    _hoverTicker.dispose();
+    _hoverClock.dispose();
     _tick?.cancel();
     _rot?.cancel();
     _frames?.cancel();
@@ -517,8 +525,17 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
   /// The live camera fills a box fixed to the phone (it turns with it).
   bool get _deviceMode => !_practice && (_phase == CatchPhase.opening || _phase == CatchPhase.aim);
 
+  /// The firefly hovers while you aim (never still over the sky), unless
+  /// the phone asks for reduced motion.
+  bool get _hovering => _phase == CatchPhase.aim && !MediaQuery.disableAnimationsOf(context);
+
   @override
   Widget build(BuildContext context) {
+    if (_hovering && !_hoverTicker.isActive) {
+      _hoverTicker.start();
+    } else if (!_hovering && _hoverTicker.isActive) {
+      _hoverTicker.stop();
+    }
     final turns = _contentTurns;
     return Scaffold(
       backgroundColor: Colors.black,
@@ -600,6 +617,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
       onTarget: on,
       labelTurns: turns,
       appears: e.start,
+      hover: _hovering ? _hoverClock : null,
     );
   }
 
@@ -641,6 +659,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
             labelTurns: 0,
             appears: e.start,
             aheadOnly: _phase != CatchPhase.aim,
+            hover: _hovering ? _hoverClock : null,
           );
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
@@ -832,7 +851,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
     final r = _r;
     if (r == null) return (plan.aimWords, false);
     final g = guide(cameraDirection(r, declinationDeg: _decl), plan.framing.center, toleranceDeg: 4);
-    if (!g.onTarget) return ('${g.words}: bring the ring to the cross', false);
+    if (!g.onTarget) return ('${g.words}: bring the firefly into the ring', false);
     final level = levelWords(tiltDeg(r, quarterTurns: _contentTurns));
     if (level != null) return (level, false);
     if (!isSteady(_recent)) return ('Hold it still', false);
@@ -841,7 +860,8 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
 }
 
 /// The pass drawn over a picture: dashed where it will go, "Appears here",
-/// the spot to aim at (a ring) and the middle of the picture (a cross).
+/// the spot to aim at (the firefly) and the middle of the picture (the
+/// ring).
 /// [at] maps the sky to offsets from the box's centre.
 class _PathPainter extends CustomPainter {
   _PathPainter({
@@ -853,7 +873,8 @@ class _PathPainter extends CustomPainter {
     required this.labelTurns,
     required this.appears,
     this.aheadOnly = false,
-  });
+    this.hover,
+  }) : super(repaint: hover);
 
   final Offset? Function(SkyDir) at;
   final List<PathPoint> path;
@@ -863,6 +884,9 @@ class _PathPainter extends CustomPainter {
   final int labelTurns;
   final DateTime appears;
   final bool aheadOnly;
+
+  /// Seconds for the firefly's hover; null holds it still (reduced motion).
+  final ValueListenable<double>? hover;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -914,18 +938,14 @@ class _PathPainter extends CustomPainter {
       canvas.drawCircle(first, 5, Paint()..color = Colors.white);
       _label(canvas, 'Appears here · ${fmtTime(appears)}', first, size);
     }
+    // The spot to aim at is the firefly (the thing); the middle of the
+    // picture is the ring (you). Bring the firefly into the ring, as in the
+    // finder; the ring lights up once it's there.
     final t = target == null ? null : p(target!);
     if (t != null) {
-      final ring = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = onTarget ? 3 : 2
-        ..color = onTarget ? LookUpColors.good : Colors.white;
-      canvas.drawCircle(t, 22, ring);
-      final cross = Paint()
-        ..color = Colors.white.withValues(alpha: 0.7)
-        ..strokeWidth = 1.4;
-      canvas.drawLine(c - const Offset(12, 0), c + const Offset(12, 0), cross);
-      canvas.drawLine(c - const Offset(0, 12), c + const Offset(0, 12), cross);
+      paintReticle(canvas, c, radius: 26, onTarget: onTarget);
+      final h = hover;
+      paintFirefly(canvas, h == null ? t : t + fireflyHover(h.value, landed: onTarget), blink: onTarget ? 1 : 0.7, scale: 0.8);
     }
   }
 

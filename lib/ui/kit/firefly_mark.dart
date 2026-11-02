@@ -1,5 +1,6 @@
-/// The firefly: LookUp's one mark for "it appears here" and "you're
-/// pointing here". Firefly yellow-green round a pale core, with a curl of
+/// The firefly: LookUp's one mark for the thing you're looking for: "it
+/// appears here", "it's here now". Never for where your phone points;
+/// that's the ring (reticle.dart). Firefly yellow-green round a pale core, with a curl of
 /// sparks behind it while it's on its way. Nothing in the night sky is that
 /// colour, so it never reads as the Sun, the Moon, a planet or a star.
 /// The finder flies it; everywhere else it rests. Once you're lined up the
@@ -15,6 +16,16 @@ import 'dart:ui';
 /// doesn't read as a status light.
 const fireflyGlow = Color(0xFFC4F55E);
 const fireflyCore = Color(0xFFF4FFD9);
+
+/// The firefly's hover: a small loop that never quite repeats, so it can't
+/// be taken for a star, a planet or the satellite itself (nothing real up
+/// there bobs about). Smaller once you're lined up, but it never stops
+/// while it's drawn over the sky. Only Reduce Motion holds it still: then
+/// its colour and the ring have to say "this is LookUp's".
+Offset fireflyHover(double seconds, {bool landed = false}) {
+  final (ax, ay) = landed ? (2.5, 2.0) : (5.0, 4.0);
+  return Offset(math.sin(seconds * 2.3) * ax, math.cos(seconds * 3.1) * ay);
+}
 
 /// Paints the firefly at [at]. [blink] 0…1 is how bright it is right now
 /// (the finder pulses it; at rest it's 0.5). [scale] sizes it for bigger

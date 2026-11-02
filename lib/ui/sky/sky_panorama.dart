@@ -513,11 +513,11 @@ class _PanoramaPainter extends CustomPainter {
       tp.paint(canvas, r.topLeft + const Offset(6, 2));
     }
 
-    // Where the phone points: the finder's firefly, resting (no blink),
-    // mid-view at the phone's height, held to the horizon when it's aimed
-    // at the ground. Warm, so it never reads as the Moon or a star.
+    // Where the phone points: the ring (you), mid-view at the phone's
+    // height, held to the horizon when it's aimed at the ground. The
+    // firefly is kept for the thing you're looking for.
     if (pointingAlt case final alt?) {
-      paintFirefly(canvas, Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH));
+      paintReticle(canvas, Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH), radius: 22);
     }
 
     // The ground: rooftops and trees, then the compass along the horizon.

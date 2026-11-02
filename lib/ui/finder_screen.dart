@@ -464,26 +464,14 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
   }
 }
 
-/// The ring in the middle: bring the firefly into it.
+/// The ring in the middle (you): bring the firefly (the thing) into it.
 class _ReticlePainter extends CustomPainter {
   _ReticlePainter({required this.onTarget});
   final bool onTarget;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final ring = Paint()
-      ..color = (onTarget ? fireflyGlow : LookUpColors.white).withValues(alpha: onTarget ? 0.9 : 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = onTarget ? 2.5 : 1.2;
-    canvas.drawCircle(c, 44, ring);
-    final tick = Paint()
-      ..color = LookUpColors.grey.withValues(alpha: 0.4)
-      ..strokeWidth = 1.2;
-    for (final d in const [Offset(1, 0), Offset(-1, 0), Offset(0, 1), Offset(0, -1)]) {
-      canvas.drawLine(c + d * 52, c + d * 64, tick);
-    }
-  }
+  void paint(Canvas canvas, Size size) =>
+      paintReticle(canvas, size.center(Offset.zero), onTarget: onTarget, strength: onTarget ? 1 : 0.65);
 
   @override
   bool shouldRepaint(_ReticlePainter o) => o.onTarget != onTarget;
