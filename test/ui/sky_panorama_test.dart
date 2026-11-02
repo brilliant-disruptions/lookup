@@ -106,6 +106,22 @@ void main() {
       expect(find.text('Facing east'), findsOneWidget);
     });
 
+    testWidgets('the firefly marks where the phone points, only while following', (t) async {
+      final sensor = StreamController<List<double>>.broadcast();
+      addTearDown(sensor.close);
+      await pump(t, [fixed('moon', 'The Moon', 'Full Moon', 180, 25)], orientation: sensor.stream);
+      expect(find.byKey(SkyPanorama.youKey), findsNothing, reason: 'no reading yet');
+      await point(t, sensor, east);
+      expect(find.byKey(SkyPanorama.youKey), findsOneWidget);
+      // A drag takes the view off the phone: the firefly would be in the wrong place.
+      final g = await t.startGesture(t.getCenter(find.byKey(SkyPanorama.canvasKey)));
+      await g.moveBy(const Offset(-40, 0));
+      await t.pump();
+      expect(find.byKey(SkyPanorama.youKey), findsNothing);
+      await g.up();
+      await t.pump(const Duration(seconds: 10));
+    });
+
     // Looking round must not cost you the phone: a drag holds the view while
     // your finger is down and a little after, then the sky comes back to
     // where the phone points, so it never stays wrong about what's in front.
@@ -133,7 +149,10 @@ void main() {
       await point(t, sensor, east);
       expect(find.textContaining('south'), findsOneWidget);
       await t.pump(const Duration(seconds: 1));
-      await t.pumpAndSettle();
+      // The swing back (the firefly hovers on, so nothing ever "settles").
+      for (var i = 0; i < 30; i++) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
       expect(find.text('Facing east'), findsOneWidget);
 
       // And keeps following after.

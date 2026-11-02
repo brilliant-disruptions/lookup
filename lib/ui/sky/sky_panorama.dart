@@ -8,7 +8,9 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/physics.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../domain/finder/pointing.dart';
 import '../../domain/models/sky_event.dart';
@@ -95,11 +97,18 @@ class SkyPanorama extends StatefulWidget {
   /// The sky itself, for tests that drag or tap it.
   static const canvasKey = ValueKey('sky-panorama');
 
+  /// The firefly marking where the phone points (tests).
+  static const youKey = ValueKey('sky-panorama-you');
+
   @override
   State<SkyPanorama> createState() => _SkyPanoramaState();
 }
 
-class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStateMixin {
+class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin {
+  /// Seconds for the firefly's hover; only its own layer repaints.
+  final _hoverClock = ValueNotifier<double>(0);
+  late final Ticker _hoverTicker = createTicker((e) => _hoverClock.value = e.inMicroseconds / 1e6);
+
   // Something passing over right now beats everything else.
   late double _facing = widget.initialFacing ??
       widget.tracks
@@ -141,6 +150,8 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
     _peekTimer?.cancel();
     _sensor?.cancel();
     _spin.dispose();
+    _hoverTicker.dispose();
+    _hoverClock.dispose();
     super.dispose();
   }
 
@@ -252,9 +263,16 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
           label: label,
           tracks: widget.tracks,
           trackTime: (widget.trackTime ?? widget.time).toUtc(),
-          // The firefly sits mid-view, so it's only true while following.
-          pointingAlt: _peeking ? null : _pointingAlt,
         );
+        // Where the phone points: the firefly (you), on its own layer so its
+        // hover doesn't repaint the sky. Mid-view, so only while following.
+        final pointing = _peeking ? null : _pointingAlt;
+        final hover = pointing != null && !MediaQuery.disableAnimationsOf(context);
+        if (hover && !_hoverTicker.isActive) {
+          _hoverTicker.start();
+        } else if (!hover && _hoverTicker.isActive) {
+          _hoverTicker.stop();
+        }
         return Semantics(
           label: 'Sky facing ${compassWord(_facing)}. '
               '${ahead.isEmpty ? 'Nothing bright that way.' : 'That way: ${ahead.join(', ')}.'}',
@@ -275,6 +293,12 @@ class _SkyPanoramaState extends State<SkyPanorama> with SingleTickerProviderStat
               },
               child: CustomPaint(key: SkyPanorama.canvasKey, size: size, painter: painter),
             ),
+            if (pointing != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(key: SkyPanorama.youKey, painter: _YouAreHere(altDeg: pointing, hover: hover ? _hoverClock : null)),
+                ),
+              ),
             Positioned(
               top: 10,
               left: 0,
@@ -344,7 +368,6 @@ class _PanoramaPainter extends CustomPainter {
     required this.label,
     required this.tracks,
     required this.trackTime,
-    this.pointingAlt,
   });
 
   final _SkyCache cache;
@@ -355,9 +378,6 @@ class _PanoramaPainter extends CustomPainter {
   final TextStyle label;
   final List<SkyTrack> tracks;
   final DateTime trackTime;
-
-  /// How high the phone points, when following it; it faces mid-view.
-  final double? pointingAlt;
 
   static const _groundH = 64.0;
   static const _ground = Color(0xFF05080F);
@@ -513,13 +533,6 @@ class _PanoramaPainter extends CustomPainter {
       tp.paint(canvas, r.topLeft + const Offset(6, 2));
     }
 
-    // Where the phone points: the ring (you), mid-view at the phone's
-    // height, held to the horizon when it's aimed at the ground. The
-    // firefly is kept for the thing you're looking for.
-    if (pointingAlt case final alt?) {
-      paintReticle(canvas, Offset(s.width / 2, horizon - alt.clamp(0.0, 90.0) / 90 * skyH), radius: 22);
-    }
-
     // The ground: rooftops and trees, then the compass along the horizon.
     canvas.drawPath(_skyline(s.width, horizon), Paint()..color = _ground);
     canvas.drawRect(Rect.fromLTWH(0, horizon + 2, s.width, _groundH), Paint()..color = _ground);
@@ -609,6 +622,28 @@ class _PanoramaPainter extends CustomPainter {
       o.things != things ||
       o.utc != utc ||
       o.tracks != tracks ||
-      o.trackTime != trackTime ||
-      o.pointingAlt != pointingAlt;
+      o.trackTime != trackTime;
+}
+
+/// Where the phone points on the Sky tab: the firefly, hovering. Here
+/// there's nothing to find, so the firefly is you; mid-view at the phone's
+/// height, held to the horizon when it's aimed at the ground.
+class _YouAreHere extends CustomPainter {
+  _YouAreHere({required this.altDeg, this.hover}) : super(repaint: hover);
+  final double altDeg;
+
+  /// Seconds for the hover; null holds it still (reduced motion).
+  final ValueListenable<double>? hover;
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final horizon = s.height - _PanoramaPainter._groundH;
+    final skyH = horizon - 18;
+    final at = Offset(s.width / 2, horizon - altDeg.clamp(0.0, 90.0) / 90 * skyH);
+    final h = hover;
+    paintFirefly(canvas, h == null ? at : at + fireflyHover(h.value));
+  }
+
+  @override
+  bool shouldRepaint(_YouAreHere o) => o.altDeg != altDeg || o.hover != hover;
 }
