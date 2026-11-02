@@ -136,6 +136,19 @@ void main() {
     expect([for (final a in go) a.id], [AlertAction.find, AlertAction.seen]);
   });
 
+  test('a pass heads-up offers Photograph it; Android keeps to three buttons', () {
+    final pass = NotificationService.detailsForAlert(_alert(SkyEventType.iss));
+    final ids = [for (final a in pass.android!.actions!) a.id];
+    expect(ids, [AlertAction.find, AlertAction.photo, AlertAction.invite]);
+    expect(pass.android!.actions![1].showsUserInterface, isTrue);
+    expect(pass.iOS!.categoryIdentifier, 'lookup_heads_up_pass');
+    // Not for things a phone can't photograph as a streak, nor at go-now.
+    final shower = NotificationService.detailsForAlert(_alert(SkyEventType.meteorShower));
+    expect([for (final a in shower.android!.actions!) a.id], isNot(contains(AlertAction.photo)));
+    final go = NotificationService.detailsForAlert(_alert(SkyEventType.iss, kind: AlertKind.goNow));
+    expect([for (final a in go.android!.actions!) a.id], [AlertAction.find, AlertAction.seen]);
+  });
+
   test('only pass heads-ups get a picture', () {
     expect(AlertArt.wants(_alert(SkyEventType.iss)), isTrue);
     expect(AlertArt.wants(_alert(SkyEventType.starlinkTrain)), isTrue);

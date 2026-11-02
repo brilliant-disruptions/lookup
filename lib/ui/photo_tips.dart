@@ -8,7 +8,7 @@ import 'theme.dart';
 /// real camera.
 List<(String, String)> photoTips(SkyEventType t) => switch (t) {
       SkyEventType.iss || SkyEventType.tiangong || SkyEventType.satellitePass || SkyEventType.starlinkTrain => const [
-          ('Phone', 'Prop it against something steady and use Night mode on its longest setting. Start just before it rises: you\'ll get a bright streak across the stars.'),
+          ('Phone', 'Let LookUp do it: Photograph it on this sheet. Prop the phone up where it says and it takes the long exposures itself, starting just before it rises, and stacks them into one streak.'),
           ('Camera', 'Tripod, widest lens, manual focus on a bright star. ISO 800, f/2.8–f/4, 15–30 s exposures back to back; stack them later for one long streak.'),
           ('Framing', 'Put a tree, roofline or friend in the bottom third. The streak means more with something on the ground.'),
         ],

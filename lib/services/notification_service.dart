@@ -4,6 +4,7 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/models/sky_event.dart';
+import '../domain/photo/capture_plan.dart' show canCatch;
 import '../domain/scheduling/alert_planner.dart';
 import 'alert_art.dart';
 
@@ -19,6 +20,9 @@ abstract final class AlertAction {
 
   /// "Tell a friend": opens the app straight to the invite.
   static const invite = 'invite';
+
+  /// "Photograph it": opens Catch it, ready to prop the phone up.
+  static const photo = 'photo';
 }
 
 class NotificationService {
@@ -41,11 +45,15 @@ class NotificationService {
   static const _headsUpCategory = 'lookup_heads_up';
   static const _goNowCategory = 'lookup_go_now';
 
+  /// Pass heads-ups: the same buttons plus Photograph it.
+  static const _passHeadsUpCategory = 'lookup_heads_up_pass';
+
   static const _findAndroid =
       AndroidNotificationAction(AlertAction.find, 'Find it', showsUserInterface: true);
   static const _snoozeAndroid = AndroidNotificationAction(AlertAction.snooze, 'In 5 min');
   static const _seenAndroid = AndroidNotificationAction(AlertAction.seen, 'Saw it!');
   static const _inviteAndroid = AndroidNotificationAction(AlertAction.invite, 'Tell a friend', showsUserInterface: true);
+  static const _photoAndroid = AndroidNotificationAction(AlertAction.photo, 'Photograph it', showsUserInterface: true);
 
   /// With [imagePath], the alert carries a picture: Android's expanded big
   /// picture (with [body] under it), iOS's attachment.
@@ -57,8 +65,13 @@ class NotificationService {
     DateTime? countdownTo,
     int? timeoutAfterMs,
     String? thread,
+    bool photographable = false,
   }) {
     final withSnooze = kind == AlertKind.headsUp;
+    // Ten minutes is just enough to prop the phone up. Android shows three
+    // buttons at most, so on a pass Photograph it takes the reminder's place
+    // (the go-now tap still comes); iOS has room for all four.
+    final photo = withSnooze && photographable;
     return NotificationDetails(
       android: AndroidNotificationDetails(
         channelId,
@@ -70,7 +83,11 @@ class NotificationService {
         sound: const RawResourceAndroidNotificationSound(_chime),
         // Ten minutes out is the moment to bring someone along; "Saw it!"
         // belongs to the go-now tap (tapping the heads-up later asks too).
-        actions: withSnooze ? [_findAndroid, _inviteAndroid, _snoozeAndroid] : [_findAndroid, _seenAndroid],
+        actions: photo
+            ? [_findAndroid, _photoAndroid, _inviteAndroid]
+            : withSnooze
+                ? [_findAndroid, _inviteAndroid, _snoozeAndroid]
+                : [_findAndroid, _seenAndroid],
         // Nothing private in a sky alert: show it in full on the lock screen,
         // even on phones that hide notification text there by default.
         visibility: NotificationVisibility.public,
@@ -94,7 +111,7 @@ class NotificationService {
         presentBanner: true,
         sound: '$_chime.wav',
         interruptionLevel: InterruptionLevel.timeSensitive,
-        categoryIdentifier: withSnooze ? _headsUpCategory : _goNowCategory,
+        categoryIdentifier: photo ? _passHeadsUpCategory : (withSnooze ? _headsUpCategory : _goNowCategory),
         attachments: imagePath == null ? null : [DarwinNotificationAttachment(imagePath)],
         // One event's heads-up, reminder and go-now stack together.
         threadIdentifier: thread,
@@ -130,14 +147,22 @@ class NotificationService {
       countdownTo: countdown,
       timeoutAfterMs: clearAt > 0 ? clearAt : null,
       thread: e.id,
+      photographable: canCatch(e.type),
     );
   }
 
   static final _categories = [
-    for (final (id, snooze) in const [(_headsUpCategory, true), (_goNowCategory, false)])
+    for (final (id, snooze, photo) in const [
+      (_headsUpCategory, true, false),
+      (_passHeadsUpCategory, true, true),
+      (_goNowCategory, false, false),
+    ])
       DarwinNotificationCategory(id, actions: [
         DarwinNotificationAction.plain(AlertAction.find, 'Find it',
             options: {DarwinNotificationActionOption.foreground}),
+        if (photo)
+          DarwinNotificationAction.plain(AlertAction.photo, 'Photograph it',
+              options: {DarwinNotificationActionOption.foreground}),
         if (snooze) ...[
           DarwinNotificationAction.plain(AlertAction.invite, 'Tell a friend',
               options: {DarwinNotificationActionOption.foreground}),
