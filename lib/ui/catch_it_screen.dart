@@ -832,7 +832,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
     final r = _r;
     if (r == null) return (plan.aimWords, false);
     final g = guide(cameraDirection(r, declinationDeg: _decl), plan.framing.center, toleranceDeg: 4);
-    if (!g.onTarget) return ('${g.words}: bring the ring to the cross', false);
+    if (!g.onTarget) return ('${g.words}: bring the firefly into the ring', false);
     final level = levelWords(tiltDeg(r, quarterTurns: _contentTurns));
     if (level != null) return (level, false);
     if (!isSteady(_recent)) return ('Hold it still', false);
@@ -841,7 +841,8 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
 }
 
 /// The pass drawn over a picture: dashed where it will go, "Appears here",
-/// the spot to aim at (a ring) and the middle of the picture (a cross).
+/// the spot to aim at (the firefly) and the middle of the picture (the
+/// ring).
 /// [at] maps the sky to offsets from the box's centre.
 class _PathPainter extends CustomPainter {
   _PathPainter({
@@ -914,18 +915,13 @@ class _PathPainter extends CustomPainter {
       canvas.drawCircle(first, 5, Paint()..color = Colors.white);
       _label(canvas, 'Appears here · ${fmtTime(appears)}', first, size);
     }
+    // The spot to aim at is the firefly (the thing); the middle of the
+    // picture is the ring (you). Bring the firefly into the ring, as in the
+    // finder; the ring lights up once it's there.
     final t = target == null ? null : p(target!);
     if (t != null) {
-      final ring = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = onTarget ? 3 : 2
-        ..color = onTarget ? LookUpColors.good : Colors.white;
-      canvas.drawCircle(t, 22, ring);
-      final cross = Paint()
-        ..color = Colors.white.withValues(alpha: 0.7)
-        ..strokeWidth = 1.4;
-      canvas.drawLine(c - const Offset(12, 0), c + const Offset(12, 0), cross);
-      canvas.drawLine(c - const Offset(0, 12), c + const Offset(0, 12), cross);
+      paintReticle(canvas, c, radius: 26, onTarget: onTarget);
+      paintFirefly(canvas, t, blink: onTarget ? 1 : 0.7, scale: 0.8);
     }
   }
 

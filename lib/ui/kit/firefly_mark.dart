@@ -1,5 +1,6 @@
-/// The firefly: LookUp's one mark for "it appears here" and "you're
-/// pointing here". Firefly yellow-green round a pale core, with a curl of
+/// The firefly: LookUp's one mark for the thing you're looking for: "it
+/// appears here", "it's here now". Never for where your phone points;
+/// that's the ring (reticle.dart). Firefly yellow-green round a pale core, with a curl of
 /// sparks behind it while it's on its way. Nothing in the night sky is that
 /// colour, so it never reads as the Sun, the Moon, a planet or a star.
 /// The finder flies it; everywhere else it rests. Once you're lined up the
