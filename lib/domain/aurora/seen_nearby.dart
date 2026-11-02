@@ -221,3 +221,8 @@ List<({double lat, double lon})> cellsNear(double latDeg, double lonDeg, {double
   }
   return out.toList();
 }
+
+/// Where Seen near you is offered at all: places where the aurora shows by
+/// Kp 6 (about 52° geomagnetic), so enough people will be looking. Elsewhere
+/// the forecast-only aurora alert carries on unchanged.
+bool seenNearbyOffered(double latDeg, double lonDeg) => kpNeededAt(latDeg, lonDeg) <= 6;

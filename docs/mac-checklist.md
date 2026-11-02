@@ -84,21 +84,19 @@ Xcode Cloud picks it up and the next TestFlight build has all of it.
 
 ## Catch it: manual long exposures on iPhone
 
-Until this is done, Catch it on iPhone uses the camera plugin's quick
-auto-exposure frames (fainter streaks). Android already sets shutter and ISO.
+`ios/Runner/LookUpCapture.swift` is **in the Runner target** and registered
+in `AppDelegate.swift`. It was added from Linux: checked line by line against
+the AVFoundation and Flutter APIs and with `swiftc -parse`, but never
+compiled against the iOS SDK. If Xcode Cloud fails on it, the fix is usually
+a one-liner. To back it out instead, revert the commit that added it; Catch
+it then falls back to the camera plugin.
 
-1. Drag `ios/Runner/LookUpCapture.swift` into the **Runner** group; tick
-   **Runner** under *Target Membership* (don't copy).
-2. In `ios/Runner/AppDelegate.swift`, at the end of
-   `didInitializeImplicitFlutterEngine`, add:
+On the first Mac or TestFlight build:
 
-   ```swift
-   if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpCapture") {
-     LookUpCapture.register(with: registrar)
-   }
-   ```
-3. Build (⌘B) and try *Photograph it* → *Try a practice run first*, then a
-   real pass from a dark spot. Check: the detail line under the plan shows a
-   shutter (e.g. "1 s · ISO 1600"), not "Auto exposure"; frames arrive about
-   once per shutter; the picture is upright when the phone was upright and
-   when it was on its side.
+1. Build (⌘B) and check there are no warnings in `LookUpCapture.swift`.
+2. Try *Photograph it* → *Try a practice run first*, then a real pass from
+   a dark spot. Check:
+   - the detail line under the plan shows a shutter (e.g. "1 s · ISO 1600"),
+     not "Auto exposure";
+   - frames arrive about once per shutter;
+   - the picture is upright, both with the phone upright and on its side.

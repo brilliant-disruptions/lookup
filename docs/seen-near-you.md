@@ -1,8 +1,8 @@
 # Seen near you: live aurora confirmed by other LookUp users
 
 Status: **spec + on-phone rules done** (`lib/domain/aurora/seen_nearby.dart`,
-`test/domain/seen_nearby_test.dart`). **Relay, reporting UI and alert not
-built.** They wait on the decisions at the bottom.
+`test/domain/seen_nearby_test.dart`); **decisions made** (bottom).
+**Relay, reporting UI and alert not built yet.**
 
 ## Why
 
@@ -77,27 +77,51 @@ Small on purpose. Two endpoints, memory measured in megabytes.
 Hosting options: a Cloudflare Worker with Durable Objects, or a tiny Cloud
 Run service. Either is a few dollars a month at launch scale.
 
-## Decisions needed (yours)
+## Decisions (made 2 Nov 2026)
 
-1. **Break "no backend"?** CLAUDE.md says everything runs on the phone.
-   This needs the relay that the README already plans for live aurora.
-   Recommended: yes, for this one feature, with the data rules above.
-2. **How the alert reaches a closed phone.**
-   - **(a) Push via Firebase Cloud Messaging.** Instant, but it's a
-     third-party SDK, which breaks the second CLAUDE.md rule.
-   - **(b) APNs directly from the relay (iOS) plus FCM over plain HTTP
-     with no SDK (Android).** Doable, more work.
-   - **(c) No push: the background refresh checks the relay.** iOS refresh
-     timing is unreliable, so too slow for aurora.
+1. **A server, for this one feature only.** The relay above, holding
+   nothing but anonymous half-degree reports for an hour. Everything else
+   stays on the phone. CLAUDE.md's "no backend" rule gets this one written
+   exception (still to be added to CLAUDE.md).
 
-   Recommended: (b). The lighter option is (a) for Android only.
-3. **Free or LookUp+?** *Reporting* should be free: more reporters, better
-   alerts. *The alert* stays LookUp+ like aurora-now today.
-4. **Where to switch it on first.** Only where enough people will be
-   looking: Scotland, Scandinavia, Canada, the northern US. Elsewhere the
-   forecast-only alert carries on unchanged.
+2. **Waking a closed phone: each platform's own push.**
+   - **iPhone:** the relay talks to Apple's push service (APNs) directly,
+     over HTTP/2 with a token key. iOS needs no SDK for this.
+   - **Android:** Firebase Cloud Messaging, data messages only, with
+     Firebase Analytics left out and auto-init off until someone turns the
+     feature on. This is the one third-party SDK; it also needs a CLAUDE.md
+     exception.
 
-## Build order once decided
+   Why not "FCM with no SDK" as first suggested: an Android phone can't
+   *receive* pushes without the FCM client library. Why not polling: at
+   night an idle Android phone sits in Doze and defers background work for
+   up to an hour, too late for an aurora.
+
+   The push only *wakes* the phone. The phone runs `crowdConfirms()` with
+   its own Kp and cloud data, so the server never decides who gets alerted.
+
+3. **Reporting is free; the alert is LookUp+.** Anyone can tap *I can see
+   it*, since more reporters make better alerts. The "being seen near you"
+   alert is LookUp+, like aurora-now today.
+
+4. **Switched on by geomagnetic latitude, not by country:** wherever the
+   aurora is plausible at Kp 6 or less (`kpNeededAt() ≤ 6`, about 52°
+   geomagnetic). That covers the UK and Ireland, Scandinavia, Iceland,
+   Canada, Alaska and the northern US states. Tasmania and New Zealand's
+   South Island need about Kp 6.7, so they come with the first widening.
+   Elsewhere the *I can
+   see it* row doesn't show and the forecast-only alert carries on
+   unchanged. Widen it once the numbers below say it works.
+
+Also before launch:
+
+- **Privacy labels:** "Coarse location, not linked to you" on both stores.
+- **Privacy policy:** a paragraph on the reports and the push token.
+- **Opt-in:** it's off until people turn on *Seen near you*, at the first
+  aurora outlook or in Settings. Turning it on asks for push and explains
+  what's shared.
+
+## Build order
 
 1. Relay: the two endpoints, attestation, a 1-hour lifetime, rate limits.
 2. `data/aurora_reports_client.dart`, and an *I can see it* row on
