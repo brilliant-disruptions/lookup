@@ -1,6 +1,7 @@
 package com.brilliantdisruptions.lookup
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -10,11 +11,22 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 
 class MainActivity : FlutterActivity() {
+  private var capture: LookUpCapture? = null
+
   override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
     // Ambient light for night vision's red strength (lib/services/ambient_light.dart).
     EventChannel(flutterEngine.dartExecutor.binaryMessenger, "lookup/ambient_light")
       .setStreamHandler(AmbientLightHandler(getSystemService(Context.SENSOR_SERVICE) as SensorManager))
+    // Catch it: manual long exposures (lib/services/capture/native_capture.dart).
+    capture = LookUpCapture(this, flutterEngine.dartExecutor.binaryMessenger, flutterEngine.renderer)
+  }
+
+  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode == LookUpCapture.PERMISSION_REQUEST) {
+      capture?.onPermissionResult(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+    }
   }
 }
 

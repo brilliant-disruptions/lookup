@@ -35,6 +35,10 @@ import 'package:lookup/domain/orbit/omm.dart';
 import 'package:lookup/domain/passes/pass_predictor.dart';
 import 'package:lookup/domain/log/sky_log.dart';
 import 'package:lookup/ui/finder_screen.dart';
+import 'package:lookup/ui/catch_it_screen.dart';
+import 'package:lookup/domain/photo/capture_plan.dart';
+import 'package:lookup/domain/photo/framing.dart';
+import 'package:lookup/services/capture/practice_capture.dart';
 import 'package:lookup/ui/log_screen.dart';
 import 'package:lookup/ui/share_card.dart';
 import 'package:lookup/services/plus_service.dart';
@@ -981,6 +985,106 @@ void main() {
     await shot(t, sheetOver(ObjectSheet(thing: saturn)), '17-object');
   });
 
+  // Catch it, over a real pass (London, 23 Oct 2026, nearly overhead).
+  // Render with TZ=Europe/London so the times are London's.
+  group('catch it', () {
+    final pass = PassPredictor(latitude: 51.5, longitude: -0.12)
+        .predict(
+          record: OmmRecord.fromJson(_issOmm),
+          type: SkyEventType.iss,
+          from: DateTime.utc(2026, 10, 23, 4),
+          to: DateTime.utc(2026, 10, 23, 6),
+          minPeakElevationDeg: 10,
+        )
+        .first;
+    final path = passPath(pass, 51.5, -0.12);
+    final plan = planCapture(path: path, magnitude: typicalMagnitude(pass), caps: practiceCaps, siteSqm: 19.8,
+        sunAltDeg: sunHorizontal(pass.peak, 51.5, -0.12).altitudeDeg)!;
+    _ShotCamera camera() => _ShotCamera(path: path, magnitude: typicalMagnitude(pass), latDeg: 51.5, lonDeg: -0.12, catalog: _catalog);
+
+    Future<void> catchShot(WidgetTester t, Widget w, String name, {Future<void> Function(WidgetTester)? act}) async {
+      t.view.physicalSize = const Size(1179, 2556);
+      t.view.devicePixelRatio = 3;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(_app(w, settings: _london));
+      // Stacking runs on the test clock; decoding pictures needs real time.
+      for (var i = 0; i < 60; i++) {
+        await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await t.pump(const Duration(milliseconds: 50));
+      }
+      if (act != null) {
+        await act(t);
+        for (var i = 0; i < 10; i++) {
+          await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+          await t.pump(const Duration(milliseconds: 100));
+        }
+      }
+      await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/$name.png'));
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(minutes: 5));
+    }
+
+    // Aiming: a little right of the spot, so it says which way to turn.
+    final c = plan.framing.center;
+    final aimPose = levelPose(SkyDir(c.azimuthDeg + 11, c.elevationDeg - 3));
+
+    testWidgets('aim', (t) => catchShot(
+        t,
+        CatchItScreen(
+          event: pass,
+          backend: camera(),
+          orientationStream: Stream.value(aimPose),
+          clock: () => pass.start.subtract(const Duration(minutes: 3, seconds: 20)),
+        ),
+        '30-catch-aim'));
+
+    testWidgets('capturing', (t) => catchShot(
+        t,
+        CatchItScreen(
+          event: pass,
+          backend: camera(),
+          clock: () => plan.startAt.add(plan.length * 0.55),
+          debug: const CatchItDebug(phase: CatchPhase.capturing, progress: 0.55),
+        ),
+        '31-catch-capturing'));
+
+    testWidgets('caught', (t) => catchShot(
+        t,
+        CatchItScreen(
+          event: pass,
+          backend: camera(),
+          clock: () => plan.stopAt,
+          debug: const CatchItDebug(phase: CatchPhase.done, progress: 1),
+        ),
+        '32-catch-done'));
+
+    testWidgets('camera settings', (t) => catchShot(
+        t,
+        CatchItScreen(
+          event: pass,
+          backend: camera(),
+          orientationStream: Stream.value(levelPose(c)),
+          clock: () => pass.start.subtract(const Duration(minutes: 3, seconds: 20)),
+        ),
+        '33-catch-settings',
+        act: (t) async {
+          await t.tap(find.byTooltip('Camera settings'));
+        }));
+
+    testWidgets('practice', (t) => catchShot(
+        t,
+        CatchItScreen(event: pass, practice: true),
+        '34-catch-practice'));
+  });
+}
+
+/// The practice sky standing in for the camera: the real plan's view with
+/// the real stars, so screenshots show what the phone would.
+class _ShotCamera extends PracticeCapture {
+  _ShotCamera({required super.path, required super.magnitude, required super.latDeg, required super.lonDeg, super.catalog})
+      : super(width: 720);
+  @override
+  bool get isPractice => false;
 }
 
 /// A phone's lock screen at dusk: the clock, the station crossing the sky,

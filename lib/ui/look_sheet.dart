@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/local_store.dart';
 import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
+import '../domain/photo/capture_plan.dart' show canCatch;
 import '../domain/plus/free_plan.dart';
 import '../domain/sky/direction.dart';
 import '../domain/sky/landmarks.dart';
@@ -15,6 +16,7 @@ import '../services/photo_store.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'calendar.dart';
+import 'catch_it_screen.dart';
 import 'caught_it_screen.dart';
 import 'finder_screen.dart';
 import 'paywall_sheet.dart';
@@ -205,6 +207,16 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                   onPressed: () => openFinder(context, event),
                   icon: const Icon(Icons.explore_rounded),
                   label: const Text('Find it in the sky'),
+                ),
+              ),
+            // Catch it: the phone photographs the pass by itself.
+            if (isPass && canCatch(event.type) && !over && event.details['past'] != true && !widget.demo)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: OutlinedButton.icon(
+                  onPressed: () => openCatchIt(context, event),
+                  icon: const Icon(Icons.camera_rounded),
+                  label: const Text('Photograph it'),
                 ),
               ),
             if (widget.demo && over)

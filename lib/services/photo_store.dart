@@ -27,6 +27,14 @@ class PhotoStore {
     return name;
   }
 
+  /// Stores a picture LookUp made (Catch it); returns its file name.
+  Future<String> saveBytes(String eventId, List<int> bytes, {String ext = '.png'}) async {
+    final safe = eventId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    final name = '$safe-${DateTime.now().millisecondsSinceEpoch}$ext';
+    await File('${(await _dir()).path}/$name').writeAsBytes(bytes);
+    return name;
+  }
+
   Future<File?> fileFor(String? name) async {
     if (name == null) return null;
     final f = File('${(await _dir()).path}/$name');
