@@ -11,6 +11,7 @@
 
 import { cellKey, cellsNear, distanceKm, isCell, type Cell } from './cells';
 import type { Pusher } from './push';
+import { createInvite, serveInvite, type InviteDeps } from './invite';
 import type { How, Platform, Store, StoredReport } from './store';
 
 export const RULES = {
@@ -31,6 +32,9 @@ export const RULES = {
   /** The app asks for every cell within 250 km: up to ~170 that far north. */
   maxCells: 240,
   maxBody: 16384,
+  /** An invite carries its card picture. */
+  maxInviteBody: 1_100_000,
+  inviteLimit: { n: 30, ms: 60 * 60 * 1000 },
   subsDays: 30,
 };
 
@@ -42,6 +46,8 @@ export type Deps = {
   now: () => number;
   /** Background work after the response (ctx.waitUntil on Workers). */
   later: (p: Promise<unknown>) => void;
+  /** "Look up with me" links; absent, the routes 404. */
+  invites?: Omit<InviteDeps, 'store' | 'now'>;
 };
 
 const json = (status: number, body: unknown) =>
@@ -58,9 +64,9 @@ export async function dailyHash(secret: string, value: string, now: number): Pro
   return [...sig.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function body(req: Request): Promise<Record<string, unknown> | null> {
+async function body(req: Request, max: number = RULES.maxBody): Promise<Record<string, unknown> | null> {
   const text = await req.text();
-  if (text.length > RULES.maxBody) return null;
+  if (text.length > max) return null;
   try {
     const v = JSON.parse(text);
     return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -98,6 +104,19 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const net = `ip:${await dailyHash(deps.secret, ip, now)}`;
 
   if (url.pathname === '/v1/health') return json(200, { ok: true });
+
+  // "Look up with me" links.
+  if (deps.invites) {
+    const inv = { ...deps.invites, store: deps.store, now: deps.now };
+    const base = deps.invites.site ?? url.origin;
+    if (url.pathname.startsWith('/n/') && req.method === 'GET') return serveInvite(url.pathname, base, inv);
+    if (url.pathname === '/v1/invites' && req.method === 'POST') {
+      if ((await deps.store.hit(`invite:${net}`, now, RULES.inviteLimit.ms)) > RULES.inviteLimit.n) return json(429, { error: 'slow down' });
+      const b = await body(req, RULES.maxInviteBody);
+      if (!b) return json(400, { error: 'invite' });
+      return createInvite(b, base, inv);
+    }
+  }
 
   if (url.pathname === '/v1/reports' && req.method === 'GET') {
     if ((await deps.store.hit(`read:${net}`, now, RULES.readLimit.ms)) > RULES.readLimit.n) return json(429, { error: 'slow down' });
@@ -179,4 +198,4 @@ export async function wakeNear(cell: Cell, deps: Deps): Promise<number> {
 }
 
 /** Every ten minutes: forget old reports, limits and lapsed subscriptions. */
-export const sweep = (store: Store, now: number) => store.sweep(now - RULES.keepMs, now - RULES.subsDays * 24 * 3600 * 1000);
+export const sweep = (store: Store, now: number) => store.sweep(now - RULES.keepMs, now - RULES.subsDays * 24 * 3600 * 1000, now);

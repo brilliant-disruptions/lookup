@@ -26,4 +26,12 @@ void main() {
   test('days ahead, it\'s a plan', () {
     expect(inviteText(e, null, now: start.subtract(const Duration(days: 2))), startsWith('Look up with me: ISS flyover'));
   });
+
+  test('with a link, it ends with the link (Messages makes it the card)', () {
+    final link = Uri.parse('https://lookup.app/n/abcdefghij');
+    final s = inviteText(e, 'Nashville', now: start.subtract(const Duration(days: 2)), link: link);
+    expect(s, endsWith(' https://lookup.app/n/abcdefghij'));
+    expect(s, isNot(contains('(LookUp)')));
+    expect(inviteText(e, null, now: start.subtract(const Duration(minutes: 10)), link: link), contains('look up. https://lookup.app/n/'));
+  });
 }
