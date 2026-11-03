@@ -89,6 +89,7 @@ class LookUpSettings {
     this.skyDarkness = SkyDarkness.suburbs,
     this.favourites = const [],
     this.toured = false,
+    this.skyFigures = true,
   });
 
   final double? latitude;
@@ -153,6 +154,9 @@ class LookUpSettings {
   /// Seen the spotlight tour (or skipped it).
   final bool toured;
 
+  /// Draw each constellation's picture behind its lines on the Sky tab.
+  final bool skyFigures;
+
   bool isFavourite(String id) => favourites.contains(id);
 
   LookUpSettings toggleFavourite(String id) =>
@@ -212,6 +216,7 @@ class LookUpSettings {
     SkyDarkness? skyDarkness,
     List<String>? favourites,
     bool? toured,
+    bool? skyFigures,
   }) =>
       LookUpSettings(
         latitude: latitude ?? this.latitude,
@@ -249,6 +254,7 @@ class LookUpSettings {
         skyDarkness: skyDarkness ?? this.skyDarkness,
         favourites: favourites ?? this.favourites,
         toured: toured ?? this.toured,
+        skyFigures: skyFigures ?? this.skyFigures,
       );
 
   Map<String, Object?> toJson() => {
@@ -286,6 +292,7 @@ class LookUpSettings {
         'skyDarkness': skyDarkness.name,
         'favourites': favourites,
         'toured': toured,
+        'skyFigures': skyFigures,
       };
 
   factory LookUpSettings.fromJson(Map<String, Object?> j) {
@@ -335,6 +342,7 @@ class LookUpSettings {
       skyDarkness: SkyDarkness.values.where((d) => d.name == j['skyDarkness']).firstOrNull ?? d.skyDarkness,
       favourites: [for (final f in (j['favourites'] as List? ?? const [])) if (f is String) f],
       toured: j['toured'] as bool? ?? d.toured,
+      skyFigures: j['skyFigures'] as bool? ?? d.skyFigures,
     );
   }
 }

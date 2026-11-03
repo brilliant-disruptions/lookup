@@ -204,6 +204,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                         tracks: tracks,
                         trackTime: trackTime,
                         onTrackTap: openPass,
+                        showFigures: settings?.skyFigures ?? true,
                       ),
               ),
               Center(

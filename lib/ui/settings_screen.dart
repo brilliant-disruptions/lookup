@@ -136,6 +136,14 @@ class SettingsScreen extends ConsumerWidget {
                 ),
             ]),
           ),
+          _Switch(
+            icon: Icons.auto_awesome_rounded,
+            color: LookUpColors.blue,
+            value: s.skyFigures,
+            onChanged: (v) => set((s) => s.copyWith(skyFigures: v)),
+            title: 'Constellation pictures',
+            subtitle: 'The old star-map figures, faint behind the lines on Sky',
+          ),
           _ScrollHere(
             when: focusNightVision,
             child: _Switch(

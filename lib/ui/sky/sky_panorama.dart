@@ -80,6 +80,7 @@ class SkyPanorama extends StatefulWidget {
     this.height = 532,
     this.orientationStream,
     this.initialFacing,
+    this.showFigures = true,
   });
 
   final DateTime time;
@@ -102,6 +103,9 @@ class SkyPanorama extends StatefulWidget {
   /// The way to face first; otherwise a pass going over, else [bestFacing].
   /// Given one, it doesn't follow the phone.
   final double? initialFacing;
+
+  /// Draw each constellation's picture behind its lines (a setting).
+  final bool showFigures;
 
   /// The sky itself, for tests that drag or tap it.
   static const canvasKey = ValueKey('sky-panorama');
@@ -132,6 +136,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
   /// Constellation pictures: how far each is through brightening (0 to 1),
   /// easing toward 1 for the one in the middle and back to 0 for the rest.
   FigureArt? _art;
+  FigureArt? get _shownArt => widget.showFigures ? _art : null;
   String? _focusId;
   final _glow = ValueNotifier<Map<String, double>>(const {});
   late final Ticker _glowTicker = createTicker(_stepGlow);
@@ -156,7 +161,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
       if (!mounted) return;
       setState(() {
         _art = art;
-        _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon, art);
+        _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon, _shownArt);
       });
     }, onError: (_) {});
   }
@@ -164,8 +169,9 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
   @override
   void didUpdateWidget(SkyPanorama old) {
     super.didUpdateWidget(old);
-    if (old.time != widget.time || old.lat != widget.lat || old.lon != widget.lon || old.catalog != widget.catalog) {
-      _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon, _art);
+    if (old.time != widget.time || old.lat != widget.lat || old.lon != widget.lon || old.catalog != widget.catalog ||
+        old.showFigures != widget.showFigures) {
+      _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon, _shownArt);
     }
   }
 
@@ -318,7 +324,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
           label: label,
           tracks: widget.tracks,
           trackTime: (widget.trackTime ?? widget.time).toUtc(),
-          art: _art,
+          art: _shownArt,
           glow: _glow,
         );
         // Where the phone points: the firefly (you), on its own layer so its
