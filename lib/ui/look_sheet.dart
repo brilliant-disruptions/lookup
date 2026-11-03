@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/local_store.dart';
 import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
-import '../domain/photo/capture_plan.dart' show canCatch;
+import '../domain/photo/capture_plan.dart' show offerCatchIt;
 import '../domain/plus/free_plan.dart';
 import '../domain/sky/direction.dart';
 import '../domain/sky/landmarks.dart';
@@ -218,7 +218,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                     now: now))
               const SeenItRow(),
             // Catch it: the phone photographs the pass by itself.
-            if (isPass && canCatch(event.type) && !over && event.details['past'] != true && !widget.demo)
+            if (isPass && offerCatchIt(event.type) && !over && event.details['past'] != true && !widget.demo)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: OutlinedButton.icon(
