@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lookup/domain/photo/capture_plan.dart' show catchItEnabled;
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/scheduling/alert_planner.dart';
 import 'package:lookup/services/alert_art.dart';
@@ -136,17 +137,23 @@ void main() {
     expect([for (final a in go) a.id], [AlertAction.find, AlertAction.seen]);
   });
 
-  test('a pass heads-up offers Photograph it; Android keeps to three buttons', () {
-    final pass = NotificationService.detailsForAlert(_alert(SkyEventType.iss));
+  test('Photograph it fits a pass heads-up in three Android buttons, when Catch it is on', () {
+    final pass = NotificationService.detailsFor(AlertKind.headsUp, photographable: true);
     final ids = [for (final a in pass.android!.actions!) a.id];
     expect(ids, [AlertAction.find, AlertAction.photo, AlertAction.invite]);
     expect(pass.android!.actions![1].showsUserInterface, isTrue);
     expect(pass.iOS!.categoryIdentifier, 'lookup_heads_up_pass');
-    // Not for things a phone can't photograph as a streak, nor at go-now.
-    final shower = NotificationService.detailsForAlert(_alert(SkyEventType.meteorShower));
-    expect([for (final a in shower.android!.actions!) a.id], isNot(contains(AlertAction.photo)));
-    final go = NotificationService.detailsForAlert(_alert(SkyEventType.iss, kind: AlertKind.goNow));
+    final go = NotificationService.detailsFor(AlertKind.goNow, photographable: true);
     expect([for (final a in go.android!.actions!) a.id], [AlertAction.find, AlertAction.seen]);
+  });
+
+  test('while Catch it is switched off, alerts never offer Photograph it', () {
+    expect(catchItEnabled, isFalse, reason: 'switched off until it\'s reworked');
+    for (final type in [SkyEventType.iss, SkyEventType.starlinkTrain, SkyEventType.meteorShower]) {
+      final d = NotificationService.detailsForAlert(_alert(type));
+      expect([for (final a in d.android!.actions!) a.id], isNot(contains(AlertAction.photo)), reason: type.name);
+      expect(d.iOS!.categoryIdentifier, isNot('lookup_heads_up_pass'));
+    }
   });
 
   test('only pass heads-ups get a picture', () {

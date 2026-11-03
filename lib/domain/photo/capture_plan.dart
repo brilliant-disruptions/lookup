@@ -73,6 +73,15 @@ List<PathPoint> arcPath(SkyEvent e, {Duration step = const Duration(seconds: 5)}
 /// sharp share and a phone screen; small enough to stack live.
 const captureLongPx = 1920;
 
+/// Catch it is switched off while it's reworked (aiming and capture need
+/// another pass): no "Photograph it" on the Look sheet or the pass alert.
+/// The screen, the camera code and the tests stay. Turn it back on here,
+/// or for a test build with `--dart-define=LOOKUP_CATCH_IT=true`.
+const catchItEnabled = bool.fromEnvironment('LOOKUP_CATCH_IT');
+
+/// Whether to offer Catch it for [t] in this build.
+bool offerCatchIt(SkyEventType t) => catchItEnabled && canCatch(t);
+
 /// Kinds of event that cross the sky as a moving light.
 bool canCatch(SkyEventType t) =>
     t == SkyEventType.iss || t == SkyEventType.tiangong || t == SkyEventType.starlinkTrain || t == SkyEventType.satellitePass;
