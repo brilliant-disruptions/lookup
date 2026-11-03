@@ -248,13 +248,16 @@ class LookUpCapture(
     }, h)
   }
 
-  /** Preview only: auto exposure so you can see to aim, focus at infinity. */
+  /**
+   * Preview only: auto exposure and ordinary autofocus, so you can see to
+   * aim (indoors too). Focus goes to infinity when the capture starts.
+   */
   private fun preview() {
     val d = device ?: return
     val s = session ?: return
     val b = d.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
     b.addTarget(previewSurface!!)
-    focusAtInfinity(b)
+    b.set(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
     s.setRepeatingRequest(b.build(), null, handler)
   }
 

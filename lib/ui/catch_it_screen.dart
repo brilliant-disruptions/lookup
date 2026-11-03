@@ -50,6 +50,11 @@ Future<void> openCatchIt(BuildContext context, SkyEvent event, {bool practice = 
 
 enum CatchPhase { opening, aim, capturing, finishing, done, failed }
 
+/// For tests.
+abstract final class CatchItScreenTesting {
+  static const skyShotLength = _CatchItState.skyShotLength;
+}
+
 /// For screenshots: open straight into a phase of the practice run, with
 /// [progress] (0–1) of the pass already stacked.
 class CatchItDebug {
@@ -114,6 +119,13 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
   bool _previewing = false;
   Timer? _tick;
   bool _saved = false;
+
+  /// A long exposure of the sky right now (the shutter, hours before the
+  /// pass): a look at what the camera sees with tonight's settings. Not
+  /// the pass, so it's never logged as a sighting.
+  bool _skyShot = false;
+  DateTime? _skyShotUntil;
+  static const skyShotLength = Duration(minutes: 2);
 
   SkyEvent get e => widget.event;
   bool get _practice => _backend?.isPractice ?? widget.practice;
@@ -290,11 +302,41 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
     if (plan != null && widget.debug == null) {
       if (_phase == CatchPhase.aim && !_practice && !now.isBefore(plan.startAt) && now.isBefore(plan.stopAt)) {
         unawaited(_start());
-      } else if (_phase == CatchPhase.capturing && !_practice && !now.isBefore(plan.stopAt)) {
+      } else if (_phase == CatchPhase.capturing && !_practice && !now.isBefore(_skyShot ? _skyShotUntil! : plan.stopAt)) {
         unawaited(_finish());
       }
     }
     setState(() {});
+  }
+
+  /// The pass is on or about to be: the shutter catches it.
+  bool get _passIsOn {
+    final plan = _plan;
+    if (plan == null) return false;
+    final now = _now;
+    return plan.startAt.difference(now) < const Duration(minutes: 2) && now.isBefore(plan.stopAt);
+  }
+
+  /// The shutter: the pass when it's on, otherwise the sky as it is now.
+  Future<void> _shutter() async {
+    if (_practice || _passIsOn) return _start();
+    _skyShot = true;
+    _skyShotUntil = _now.add(skyShotLength);
+    await _start();
+  }
+
+  /// After a sky shot: back to aiming, still waiting for the pass.
+  void _backToAim() {
+    _runner?.dispose();
+    setState(() {
+      _runner = null;
+      _live = null;
+      _result = null;
+      _startPose = null;
+      _skyShot = false;
+      _skyShotUntil = null;
+      _phase = CatchPhase.aim;
+    });
   }
 
   Future<void> _start() async {
@@ -374,7 +416,9 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
 
   // MARK: Keeping it
 
-  String get _caption => '${eventTitle(e)} · ${fmtTime(e.start)}${_place == null ? '' : ' · $_place'}';
+  String get _photoTitle => _skyShot ? 'The sky tonight' : eventTitle(e);
+  DateTime get _photoTime => _skyShot ? (_skyShotUntil ?? _now).subtract(skyShotLength) : e.start;
+  String get _caption => '$_photoTitle · ${fmtTime(_photoTime)}${_place == null ? '' : ' · $_place'}';
 
   /// The picture with its caption along the bottom, as a PNG.
   Future<List<int>?> _png() async {
@@ -398,8 +442,8 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
       tp.paint(c, right ? at - Offset(tp.width, 0) : at);
     }
 
-    text(eventTitle(e), Offset(unit, h - unit * 3.4), unit * 1.15, FontWeight.w700, Colors.white);
-    text('${fmtDay(e.start)} · ${fmtTime(e.start)}${_place == null ? '' : ' · $_place'}', Offset(unit, h - unit * 1.9),
+    text(_photoTitle, Offset(unit, h - unit * 3.4), unit * 1.15, FontWeight.w700, Colors.white);
+    text('${fmtDay(_photoTime)} · ${fmtTime(_photoTime)}${_place == null ? '' : ' · $_place'}', Offset(unit, h - unit * 1.9),
         unit * 0.8, FontWeight.w500, const Color(0xCCFFFFFF));
     text('LookUp', Offset(w - unit, h - unit * 1.9), unit * 0.8, FontWeight.w700, const Color(0xCCFFFFFF), right: true);
     final out = await rec.endRecording().toImage(img.width, img.height);
@@ -544,7 +588,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
           // The camera's box in the phone's own frame: as wide as the
           // screen, at most 60% of its height.
           final aspect = _backend?.portraitAspect ?? 3 / 4;
-          final bw = math.min(area.maxWidth, area.maxHeight * 0.6 * aspect);
+          final bw = math.min(area.maxWidth, area.maxHeight * 0.5 * aspect);
           final device = Size(bw, bw / aspect);
           return Stack(children: [
             if (_deviceMode)
@@ -591,7 +635,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
         : (_plan == null ? 3 / 4 : (_plan!.framing.widthFovDeg / _plan!.framing.heightFovDeg));
     final wide = c.maxWidth > c.maxHeight;
     final maxW = wide ? c.maxWidth * 0.62 : c.maxWidth - 24;
-    final maxH = wide ? c.maxHeight - 24 : c.maxHeight * 0.58;
+    final maxH = wide ? c.maxHeight - 24 : c.maxHeight * 0.5;
     var w = maxW, h = w / aspect;
     if (h > maxH) {
       h = maxH;
@@ -626,17 +670,71 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
     final top = _topPanel(context);
     final bottom = _bottomPanel(context);
     final holeChild = SizedBox.fromSize(size: hole, child: _deviceMode ? null : _picture(hole));
+    // The shutter sits in its own row, never scrolled away.
+    final shutter = _shutterButton();
     if (wide) {
       return Row(children: [
         Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 8), child: SingleChildScrollView(child: top))),
         holeChild,
-        Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 8), child: SingleChildScrollView(child: bottom))),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: Column(children: [
+              Expanded(child: SingleChildScrollView(child: bottom)),
+              ?shutter,
+            ]),
+          ),
+        ),
       ]);
     }
     return Column(children: [
       Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 8), child: Align(alignment: Alignment.bottomCenter, child: SingleChildScrollView(child: top)))),
       holeChild,
-      Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(20, 10, 20, 8), child: SingleChildScrollView(child: bottom))),
+      // Same share of the height as the top, so the box stays centred over
+      // the camera behind it.
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+          child: Column(children: [
+            Expanded(child: SingleChildScrollView(child: bottom)),
+            ?shutter,
+          ]),
+        ),
+      ),
+    ]);
+  }
+
+  /// The shutter, while aiming, with the practice run beside it.
+  Widget? _shutterButton() {
+    if (_phase != CatchPhase.aim || _plan == null) return null;
+    final shutter = _ShutterButton(
+      onPressed: _shutter,
+      label: _practice
+          ? 'Start the practice run'
+          : _passIsOn
+              ? 'Start catching it'
+              : 'Long exposure now',
+    );
+    if (_practice) return shutter;
+    const side = 76.0;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(
+        width: side,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 14),
+          CircleButton(
+            tooltip: 'Practice run',
+            icon: Icons.fast_forward_rounded,
+            size: 46,
+            onPressed: () => Navigator.of(context)
+                .push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => CatchItScreen(event: e, practice: true))),
+          ),
+          const SizedBox(height: 8),
+          const Text('Practice', style: TextStyle(color: LookUpColors.grey, fontSize: 12.5, fontWeight: FontWeight.w600)),
+        ]),
+      ),
+      Expanded(child: shutter),
+      const SizedBox(width: side),
     ]);
   }
 
@@ -700,12 +798,17 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       Row(children: [
         CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: () => Navigator.of(context).pop()),
-        const Spacer(),
-        if (_practice)
-          const Pill('Practice run', icon: Icons.fast_forward_rounded, color: LookUpColors.blue)
-        else
-          const Text('Catch it', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
-        const Spacer(),
+        // Shrinks to fit when the phone is on its side and the panel is narrow.
+        Expanded(
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: _practice
+                  ? const Pill('Practice run', icon: Icons.fast_forward_rounded, color: LookUpColors.blue)
+                  : const Text('Catch it', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
+            ),
+          ),
+        ),
         CircleButton(
           tooltip: 'Camera settings',
           icon: Icons.tune_rounded,
@@ -722,9 +825,9 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
   String get _headline => switch (_phase) {
         CatchPhase.opening => 'Getting the camera ready',
         CatchPhase.aim => _practice ? 'Try it before it\'s real' : eventTitle(e),
-        CatchPhase.capturing => 'Catching it',
+        CatchPhase.capturing => _skyShot ? 'Long exposure' : 'Catching it',
         CatchPhase.finishing => 'Putting it together',
-        CatchPhase.done => _practice ? 'That\'s how it\'ll look' : 'You caught it',
+        CatchPhase.done => _practice ? 'That\'s how it\'ll look' : (_skyShot ? 'Your sky right now' : 'You caught it'),
         CatchPhase.failed => 'No photo this time',
       };
 
@@ -734,10 +837,16 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
       CatchPhase.opening => 'One moment.',
       CatchPhase.aim when plan != null => _practice
           ? 'The real plan for ${fmtTime(e.start)}, in fast-forward over a made-up sky.'
-          : '${plan.holdWords}. ${plan.aimWords}.',
-      CatchPhase.capturing => 'Leave the phone where it is. The streak grows as it crosses.',
+          : '${plan.holdWords}. ${plan.aimWords}. ${plan.outlookWords}',
+      CatchPhase.capturing => _skyShot
+          ? 'Leave the phone where it is. The stars build up as it goes.'
+          : 'Leave the phone where it is. The streak grows as it crosses.',
       CatchPhase.finishing => 'Stacking ${_runner?.frames ?? 0} frames into one.',
-      CatchPhase.done => _practice ? 'A practice run: nothing was saved.' : _caption,
+      CatchPhase.done => _practice
+          ? 'A practice run: nothing was saved.'
+          : _skyShot
+              ? 'Tonight\'s settings, on the sky as it is now. The pass is at ${fmtTime(e.start)}.'
+              : _caption,
       _ => _error ?? '',
     };
   }
@@ -749,47 +858,30 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
     switch (_phase) {
       case CatchPhase.aim when plan != null:
         final over = !now.isBefore(plan.stopAt);
-        final soon = plan.startAt.difference(now) < const Duration(minutes: 2);
         if (!_practice) {
-          final (words, ready) = _guidance(plan);
+          final (words, hint, ready) = _guidance(plan);
           children.add(Text(words,
               textAlign: TextAlign.center,
               style: display(22, weight: FontWeight.w700, color: ready ? LookUpColors.good : LookUpColors.white)));
+          if (hint != null) {
+            children.add(const SizedBox(height: 4));
+            children.add(Text(hint, textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.grey, fontSize: 14)));
+          }
           children.add(const SizedBox(height: 6));
           children.add(Text(
             over
                 ? 'That pass is over.'
                 : now.isBefore(plan.startAt)
-                    ? 'It starts by itself in ${fmtCountdown(plan.startAt.difference(now))}, at ${fmtTime(plan.startAt)}.'
+                    ? 'For the pass, it starts by itself at ${fmtTime(plan.startAt)} (in ${fmtCountdown(plan.startAt.difference(now))}).'
                     : 'Starting…',
             textAlign: TextAlign.center,
-            style: numeric(size: 14, color: LookUpColors.grey),
+            style: numeric(size: 13.5, color: LookUpColors.greyDim),
           ));
         }
-        children.add(const SizedBox(height: 10));
-        children.add(Text('${plan.coverageWords}. ${plan.outlookWords}',
-            textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.greyDim, fontSize: 13, height: 1.35)));
-        children.add(const SizedBox(height: 14));
-        if (_practice) {
-          children.add(FilledButton.icon(
-              onPressed: _start, icon: const Icon(Icons.play_arrow_rounded), label: const Text('Start the practice run')));
-        } else if (over) {
-          children.add(OutlinedButton(
-              onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(
-                  fullscreenDialog: true, builder: (_) => CatchItScreen(event: e, practice: true))),
-              child: const Text('See how it works')));
-        } else if (soon) {
-          children.add(OutlinedButton(onPressed: _start, child: const Text('Start now')));
-        } else {
-          children.add(TextButton(
-              onPressed: () => Navigator.of(context)
-                  .push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => CatchItScreen(event: e, practice: true))),
-              child: const Text('Try a practice run first')));
-        }
-        children.add(_detailLine(plan));
       case CatchPhase.capturing || CatchPhase.finishing:
-        final left = plan == null ? Duration.zero : plan.stopAt.difference(now);
-        children.add(Kicker('Catching it', color: LookUpColors.blue, live: true));
+        final until = _skyShot ? _skyShotUntil : plan?.stopAt;
+        final left = until == null ? Duration.zero : until.difference(now);
+        children.add(Kicker(_skyShot ? 'Long exposure' : 'Catching it', color: LookUpColors.blue, live: true));
         children.add(const SizedBox(height: 6));
         children.add(Center(
             child: CountdownText(_phase == CatchPhase.finishing || left.isNegative ? 'nearly done' : '${fmtCountdown(left)} left', size: 40)));
@@ -808,6 +900,11 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
               style: const TextStyle(color: LookUpColors.grey, height: 1.4)));
           children.add(const SizedBox(height: 14));
           children.add(FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it')));
+        } else if (_skyShot) {
+          children.add(FilledButton.icon(
+              onPressed: _share, icon: const Icon(Icons.ios_share_rounded, size: 18), label: const Text('Share')));
+          children.add(const SizedBox(height: 10));
+          children.add(OutlinedButton(onPressed: _backToAim, child: const Text('Back to waiting for the pass')));
         } else {
           children.add(FilledButton.icon(
               onPressed: _saved ? null : _keep,
@@ -830,33 +927,51 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: children);
   }
 
-  /// "1 s · ISO 800 · 290 frames · Main": the only numbers, behind a tap.
-  Widget _detailLine(CapturePlan plan) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _showPro,
-        child: Semantics(
-          button: true,
-          label: 'Camera settings: ${plan.detail}',
-          excludeSemantics: true,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Text('${plan.detail}  ·  Settings',
-                textAlign: TextAlign.center, style: numeric(size: 12.5, color: LookUpColors.greyDim)),
-          ),
+
+  /// What to do next with the phone (a few words), a smaller hint under
+  /// it, and whether it's all set.
+  (String, String?, bool) _guidance(CapturePlan plan) {
+    final r = _r;
+    if (r == null) return (plan.aimWords, null, false);
+    final g = guide(cameraDirection(r, declinationDeg: _decl), plan.framing.center, toleranceDeg: 4);
+    if (!g.onTarget) return (g.words, 'Bring the firefly into the ring', false);
+    final level = levelWords(tiltDeg(r, quarterTurns: _contentTurns));
+    if (level != null) return (level, null, false);
+    if (!isSteady(_recent)) return ('Hold it still', null, false);
+    return ('All set. Leave it there', null, true);
+  }
+}
+
+/// A camera shutter: a white disc in a ring, with what it'll do under it.
+class _ShutterButton extends StatelessWidget {
+  const _ShutterButton({required this.onPressed, required this.label});
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            onPressed();
+          },
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 74,
+              height: 74,
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: LookUpColors.white, width: 3.5)),
+              child: const DecoratedBox(decoration: BoxDecoration(shape: BoxShape.circle, color: LookUpColors.white)),
+            ),
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(color: LookUpColors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+          ]),
         ),
       );
-
-  /// What to do next with the phone, and whether it's all set.
-  (String, bool) _guidance(CapturePlan plan) {
-    final r = _r;
-    if (r == null) return (plan.aimWords, false);
-    final g = guide(cameraDirection(r, declinationDeg: _decl), plan.framing.center, toleranceDeg: 4);
-    if (!g.onTarget) return ('${g.words}: bring the firefly into the ring', false);
-    final level = levelWords(tiltDeg(r, quarterTurns: _contentTurns));
-    if (level != null) return (level, false);
-    if (!isSteady(_recent)) return ('Hold it still', false);
-    return ('All set. Leave it there', true);
-  }
 }
 
 /// The pass drawn over a picture: dashed where it will go, "Appears here",
