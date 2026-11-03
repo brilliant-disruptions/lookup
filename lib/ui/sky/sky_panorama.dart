@@ -2,10 +2,13 @@
 /// bottom, the horizon across, straight up at the top. It follows the phone
 /// by default; drag (or use the arrows) to look round, and a few seconds
 /// after you let go it swings back to the phone. Tap a planet, the Moon or a
-/// showpiece to open it.
+/// showpiece to open it. Each constellation's picture is drawn faintly
+/// behind its lines, and the one in the middle of the view glows a little
+/// brighter, so turning toward it shows what it was meant to be.
 library;
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -17,10 +20,12 @@ import '../../domain/models/sky_event.dart';
 import '../../domain/sky/astro.dart';
 import '../../domain/sky/catalog.dart';
 import '../../domain/sky/direction.dart';
+import '../../domain/sky/figures.dart';
 import '../../domain/sky/wmm.dart';
 import '../../services/orientation.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
+import 'figure_art.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 
@@ -30,6 +35,10 @@ const panoramaFov = 140.0;
 /// How long a drag holds the view after your finger lifts, before it swings
 /// back to following the phone.
 const panoramaHold = Duration(seconds: 3);
+
+/// How long a constellation's picture takes to brighten or fade as you turn
+/// onto it or away.
+const figureFade = Duration(milliseconds: 450);
 
 /// The way to face first: where the most worth seeing is up right now. The
 /// Moon counts most, then planets, then showpieces you can actually see;
@@ -118,7 +127,15 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
       bestFacing(widget.things, widget.time.toUtc());
   late final AnimationController _spin = AnimationController.unbounded(vsync: this)
     ..addListener(() => setState(() => _facing = _spin.value % 360));
-  late _SkyCache _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon);
+  late _SkyCache _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon, null);
+
+  /// Constellation pictures: how far each is through brightening (0 to 1),
+  /// easing toward 1 for the one in the middle and back to 0 for the rest.
+  FigureArt? _art;
+  String? _focusId;
+  final _glow = ValueNotifier<Map<String, double>>(const {});
+  late final Ticker _glowTicker = createTicker(_stepGlow);
+  Duration _glowLast = Duration.zero;
 
   /// Following the phone, whenever it has a compass: the view turns as you
   /// do, and the firefly marks where the back of the phone points.
@@ -135,13 +152,20 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
   void initState() {
     super.initState();
     if (widget.initialFacing == null) _follow();
+    FigureArt.load().then((art) {
+      if (!mounted) return;
+      setState(() {
+        _art = art;
+        _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon, art);
+      });
+    }, onError: (_) {});
   }
 
   @override
   void didUpdateWidget(SkyPanorama old) {
     super.didUpdateWidget(old);
     if (old.time != widget.time || old.lat != widget.lat || old.lon != widget.lon || old.catalog != widget.catalog) {
-      _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon);
+      _cache = _SkyCache(widget.catalog, widget.time.toUtc(), widget.lat, widget.lon, _art);
     }
   }
 
@@ -152,7 +176,38 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
     _spin.dispose();
     _hoverTicker.dispose();
     _hoverClock.dispose();
+    _glowTicker.dispose();
+    _glow.dispose();
     super.dispose();
+  }
+
+  /// A new constellation in the middle: brighten it, fade the last one.
+  void _focus(String? id, {required bool animate}) {
+    if (id == _focusId) return;
+    _focusId = id;
+    if (!animate) {
+      _glowTicker.stop();
+      _glow.value = {?id: 1.0};
+    } else if (!_glowTicker.isActive) {
+      _glowLast = Duration.zero;
+      _glowTicker.start();
+    }
+  }
+
+  void _stepGlow(Duration elapsed) {
+    final step = (elapsed - _glowLast).inMicroseconds / figureFade.inMicroseconds;
+    _glowLast = elapsed;
+    final next = <String, double>{};
+    var settled = true;
+    for (final id in {..._glow.value.keys, ?_focusId}) {
+      final target = id == _focusId ? 1.0 : 0.0;
+      final v = (_glow.value[id] ?? 0.0) + (target > 0 ? step : -step);
+      final n = v.clamp(0.0, 1.0);
+      if (n > 0) next[id] = n;
+      if (n != target) settled = false;
+    }
+    _glow.value = next;
+    if (settled) _glowTicker.stop();
   }
 
   /// No compass is no news: it just turns by dragging.
@@ -263,11 +318,18 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
           label: label,
           tracks: widget.tracks,
           trackTime: (widget.trackTime ?? widget.time).toUtc(),
+          art: _art,
+          glow: _glow,
         );
         // Where the phone points: the firefly (you), on its own layer so its
         // hover doesn't repaint the sky. Mid-view, so only while following.
         final pointing = _peeking ? null : _pointingAlt;
         final hover = pointing != null && !MediaQuery.disableAnimationsOf(context);
+        // The picture in the middle of the view (at the firefly, when there
+        // is one) is the one that brightens.
+        final figure = painter.figureNear(size, pointing);
+        _focus(figure?.id, animate: !MediaQuery.disableAnimationsOf(context));
+        final shown = figure == null ? null : widget.catalog.constellation(figure.id);
         if (hover && !_hoverTicker.isActive) {
           _hoverTicker.start();
         } else if (!hover && _hoverTicker.isActive) {
@@ -275,7 +337,8 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
         }
         return Semantics(
           label: 'Sky facing ${compassWord(_facing)}. '
-              '${ahead.isEmpty ? 'Nothing bright that way.' : 'That way: ${ahead.join(', ')}.'}',
+              '${ahead.isEmpty ? 'Nothing bright that way.' : 'That way: ${ahead.join(', ')}.'}'
+              '${shown == null ? '' : ' Pictured: ${shown.name}${shown.meaning == null ? '' : ', ${shown.meaning}'}.'}',
           child: Stack(children: [
             GestureDetector(
               onHorizontalDragStart: _dragStart,
@@ -338,7 +401,7 @@ class _SkyPanoramaState extends State<SkyPanorama> with TickerProviderStateMixin
 /// Where every star and constellation line is right now. Recomputed once a
 /// minute, not on every frame of a drag.
 class _SkyCache {
-  _SkyCache(SkyCatalog catalog, DateTime utc, double lat, double lon)
+  _SkyCache(SkyCatalog catalog, DateTime utc, double lat, double lon, FigureArt? art)
       : stars = [
           for (final s in catalog.stars)
             if (s.mag < 4.6) (star: s, h: s.horizontal(utc, lat, lon)),
@@ -351,11 +414,16 @@ class _SkyCache {
         names = [
           for (final con in catalog.constellations.where((c) => c.rank == 1))
             (name: con.name, h: catalogHorizontal(con.centerRaDeg, con.centerDecDeg, utc, lat, lon)),
+        ],
+        figures = [
+          for (final f in art?.figures ?? const <ConstellationFigure>[])
+            (figure: f, anchors: [for (final a in f.anchors) catalog.place(a.raDeg, a.decDeg, utc, lat, lon)]),
         ];
 
   final List<({Star star, Horizontal h})> stars;
   final List<List<Horizontal>> lines;
   final List<({String name, Horizontal h})> names;
+  final List<({ConstellationFigure figure, List<Horizontal> anchors})> figures;
 }
 
 class _PanoramaPainter extends CustomPainter {
@@ -368,7 +436,9 @@ class _PanoramaPainter extends CustomPainter {
     required this.label,
     required this.tracks,
     required this.trackTime,
-  });
+    this.art,
+    required this.glow,
+  }) : super(repaint: Listenable.merge([glow, art]));
 
   final _SkyCache cache;
   final double facing;
@@ -378,6 +448,12 @@ class _PanoramaPainter extends CustomPainter {
   final TextStyle label;
   final List<SkyTrack> tracks;
   final DateTime trackTime;
+  final FigureArt? art;
+  final ValueListenable<Map<String, double>> glow;
+
+  /// Every picture is this faint; the one in the middle rises to [_figureLit].
+  static const _figureDim = 0.10, _figureLit = 0.5;
+  static const _figureTint = Color(0xFFB8CCFF);
 
   static const _groundH = 64.0;
   static const _ground = Color(0xFF05080F);
@@ -390,6 +466,51 @@ class _PanoramaPainter extends CustomPainter {
     final d = _wrap(h.azimuthDeg - facing);
     if (d.abs() > panoramaFov / 2 + 4 || h.altitudeDeg < -2) return null;
     return Offset(s.width / 2 + d / panoramaFov * s.width, _horizon(s) - h.altitudeDeg / 90 * _skyH(s));
+  }
+
+  /// Where a picture goes on screen: the map from its pixels that puts its
+  /// three anchor stars where they are. Null when it's behind you, or so
+  /// close overhead that the panorama would smear it.
+  (Matrix4, Rect)? _figurePlace(Size s, ConstellationFigure f, List<Horizontal> anchors) {
+    final to = [
+      for (final h in anchors)
+        (s.width / 2 + _wrap(h.azimuthDeg - facing) / panoramaFov * s.width, _horizon(s) - h.altitudeDeg / 90 * _skyH(s)),
+    ];
+    final xs = [for (final (x, _) in to) x];
+    if (xs.reduce(max) - xs.reduce(min) > s.width / 2) return null;
+    final m = affineFrom3([for (final a in f.anchors) (a.x, a.y)], to);
+    if (m == null) return null;
+    final (a, b, c, d, e, g) = m;
+    Offset at(double x, double y) => Offset(a * x + c * y + e, b * x + d * y + g);
+    final corners = [at(0, 0), at(f.width, 0), at(0, f.height), at(f.width, f.height)];
+    final box = Rect.fromLTRB(corners.map((o) => o.dx).reduce(min), corners.map((o) => o.dy).reduce(min),
+        corners.map((o) => o.dx).reduce(max), corners.map((o) => o.dy).reduce(max));
+    if (!box.overlaps(Rect.fromLTWH(0, 0, s.width, _horizon(s)))) return null;
+    return (Matrix4(a, b, 0, 0, c, d, 0, 0, 0, 0, 1, 0, e, g, 0, 1), box);
+  }
+
+  /// The picture on the middle of the view: at the height the phone points,
+  /// when it's following, else halfway up the sky. Judged by its anchor
+  /// stars, not its image's centre: a tall rising Leo has its centre well
+  /// below the middle, and little Leo Minor's would win instead.
+  ConstellationFigure? figureNear(Size s, double? altDeg) {
+    final mid = Offset(s.width / 2, _horizon(s) - (altDeg ?? 35).clamp(5.0, 85.0) / 90 * _skyH(s));
+    ConstellationFigure? best;
+    var bestD = s.width * 0.22, bestC = double.infinity;
+    for (final (:figure, :anchors) in cache.figures) {
+      final place = _figurePlace(s, figure, anchors);
+      if (place == null) continue;
+      final tri = [for (final a in figure.anchors) MatrixUtils.transformPoint(place.$1, Offset(a.x, a.y))];
+      final d = distanceToTriangle((mid.dx, mid.dy), [for (final o in tri) (o.dx, o.dy)]);
+      // Where triangles overlap, the one centred nearer wins.
+      final c = ((tri[0] + tri[1] + tri[2]) / 3 - mid).distance;
+      if (d < bestD || (d == bestD && c < bestC)) {
+        bestD = d;
+        bestC = c;
+        best = figure;
+      }
+    }
+    return best;
   }
 
   /// A track projected into view; null where it's out of view or set.
@@ -449,6 +570,29 @@ class _PanoramaPainter extends CustomPainter {
         canvas.drawLine(Offset(x, y), Offset(x + 4, y), guide);
       }
       guides.add((y, words));
+    }
+
+    // Constellation pictures, under their lines. Grey on black, so adding
+    // them to the sky leaves only the drawing.
+    if (art case final art?) {
+      final lit = glow.value;
+      final picture = Paint()
+        ..blendMode = BlendMode.plus
+        ..filterQuality = FilterQuality.medium;
+      for (final (:figure, :anchors) in cache.figures) {
+        final place = _figurePlace(s, figure, anchors);
+        if (place == null) continue;
+        final img = art.image(figure);
+        if (img == null) continue;
+        final t = Curves.easeInOut.transform(lit[figure.id] ?? 0);
+        picture.colorFilter = ColorFilter.mode(
+            _figureTint.withValues(alpha: _figureDim + (_figureLit - _figureDim) * t), BlendMode.modulate);
+        canvas.save();
+        canvas.transform(place.$1.storage);
+        canvas.scale(figure.width / img.width, figure.height / img.height);
+        canvas.drawImage(img, Offset.zero, picture);
+        canvas.restore();
+      }
     }
 
     final line = Paint()
@@ -618,6 +762,7 @@ class _PanoramaPainter extends CustomPainter {
   bool shouldRepaint(_PanoramaPainter o) =>
       o.facing != facing ||
       o.cache != cache ||
+      o.art != art ||
       o.selectedId != selectedId ||
       o.things != things ||
       o.utc != utc ||
