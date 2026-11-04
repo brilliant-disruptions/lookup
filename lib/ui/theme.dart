@@ -37,6 +37,9 @@ abstract final class LookUpColors {
   static const gold = Color(0xFFF5C76B);
   static const red = Color(0xFFFF7A6B);
   static const cyan = Color(0xFF52D1E8);
+
+  /// Tiangong, so it never reads as the ISS at a glance.
+  static const rose = Color(0xFFFF8FC7);
 }
 
 /// Corner radii. Everything is rounded; nothing is boxy.

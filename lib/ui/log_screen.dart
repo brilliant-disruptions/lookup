@@ -9,6 +9,7 @@ import '../services/photo_store.dart';
 import '../state/providers.dart';
 import 'format.dart';
 import 'kit/kit.dart';
+import 'settings_screen.dart';
 import 'theme.dart';
 import 'year_card.dart';
 
@@ -31,7 +32,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
     final top = MediaQuery.paddingOf(context).top + AppHeader.height;
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: const AppHeader(title: Text('Sky log')),
+      appBar: const AppHeader(title: Text('Sky log'), actions: [SettingsButton()]),
       body: SkyBackdrop(
         stars: false,
         glow: LookUpColors.violet,
