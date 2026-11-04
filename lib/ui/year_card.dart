@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../data/local_store.dart';
 import '../domain/log/year_review.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/sky/brightness.dart' show magnitudeWord;
+import '../domain/sky/direction.dart' show elevationWord;
 import '../state/providers.dart';
 import 'format.dart';
 import 'kit/kit.dart';
@@ -95,8 +97,9 @@ class YearCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final lines = <String>[
       for (final (t, n) in r.byType.take(3)) '$n ${typePlural(t, n)}',
-      if (r.brightest?.magnitude != null) 'Brightest: magnitude ${r.brightest!.magnitude!.toStringAsFixed(1)}',
-      if (r.highest?.peakElevationDeg != null) 'Highest pass: ${r.highest!.peakElevationDeg!.round()}° up',
+      // Words, not magnitudes and degrees: this card gets shared.
+      if (r.brightest?.magnitude != null) 'Brightest: ${magnitudeWord(r.brightest!.magnitude!)}',
+      if (r.highest?.peakElevationDeg != null) 'Highest pass: ${elevationWord(r.highest!.peakElevationDeg!)}',
       if (r.lateNights > 0) '${r.lateNights} after midnight',
     ];
     return AspectRatio(
