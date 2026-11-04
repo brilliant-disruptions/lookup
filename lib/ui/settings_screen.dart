@@ -266,7 +266,7 @@ class SettingsScreen extends ConsumerWidget {
 /// "Space station, Starlink, aurora +4".
 String alertTypesSummary(LookUpSettings s) {
   final on = [
-    if (s.issEnabled) 'Space station',
+    if (s.issEnabled) 'ISS',
     if (s.starlinkEnabled) 'Starlink',
     if (s.auroraEnabled) 'aurora',
     if (s.meteorsEnabled) 'meteors',
@@ -296,7 +296,7 @@ class _AlertTypesScreen extends ConsumerWidget {
         );
     return PageScaffold(title: 'Tell me about', children: [
       GroupedList(indent: 60, children: [
-        toggle(SkyEventType.iss, s.issEnabled, (s, v) => s.copyWith(issEnabled: v), 'Space station', 'Bright, 3–6 minutes, a few times a month'),
+        toggle(SkyEventType.iss, s.issEnabled, (s, v) => s.copyWith(issEnabled: v), 'ISS', 'The International Space Station · bright, 3–6 minutes, a few times a month'),
         toggle(SkyEventType.starlinkTrain, s.starlinkEnabled, (s, v) => s.copyWith(starlinkEnabled: v), 'Starlink trains', 'A line of lights after each launch · LookUp+'),
         toggle(SkyEventType.auroraNow, s.auroraEnabled, (s, v) => s.copyWith(auroraEnabled: v), 'Aurora', 'Tonight\'s outlook free; "aurora now" is LookUp+'),
         if (relayConfigured && s.auroraEnabled && s.latitude != null && seenNearbyOffered(s.latitude!, s.longitude!))

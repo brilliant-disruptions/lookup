@@ -23,7 +23,7 @@ final yearReviewProvider = FutureProvider<YearReview?>((ref) async {
 String typePlural(SkyEventType t, int n) {
   final one = n == 1;
   return switch (t) {
-    SkyEventType.iss => one ? 'space station pass' : 'space station passes',
+    SkyEventType.iss => one ? 'ISS pass' : 'ISS passes',
     SkyEventType.tiangong => one ? 'Tiangong pass' : 'Tiangong passes',
     SkyEventType.starlinkTrain => one ? 'Starlink train' : 'Starlink trains',
     SkyEventType.auroraNow || SkyEventType.auroraOutlook => one ? 'aurora' : 'auroras',
