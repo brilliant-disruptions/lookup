@@ -25,6 +25,20 @@ import 'tour.dart';
 Future<void> openSettings(BuildContext context, {bool nightVision = false}) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => SettingsScreen(focusNightVision: nightVision)));
 
+/// The gear in every tab's header: tap for Settings, press and hold for
+/// just night vision.
+class SettingsButton extends StatelessWidget {
+  const SettingsButton({super.key});
+  @override
+  Widget build(BuildContext context) => CircleButton(
+        tooltip: 'Settings',
+        icon: Icons.settings_outlined,
+        onPressed: () => openSettings(context),
+        onLongPress: () => showNightVisionCard(context),
+        longPressHint: 'Night vision',
+      );
+}
+
 typedef _Set = Future<void> Function(LookUpSettings Function(LookUpSettings));
 
 _Set _setter(WidgetRef ref) => (f) async {

@@ -13,6 +13,7 @@ import '../format.dart';
 import '../look_sheet.dart';
 import '../kit/kit.dart';
 import '../places_screen.dart';
+import '../settings_screen.dart';
 import '../theme.dart';
 import 'night_strip.dart';
 import 'object_sheet.dart';
@@ -124,6 +125,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
             icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
             onPressed: () => setState(() => _whole = !_whole),
           ),
+          const SettingsButton(),
         ],
       ),
       body: SkyBackdrop(

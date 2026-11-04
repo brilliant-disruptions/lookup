@@ -5,6 +5,7 @@ import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/plan/week_view.dart';
 import 'package:lookup/state/providers.dart';
+import 'package:lookup/ui/kit/kit.dart' show eventStyle;
 import 'package:lookup/ui/theme.dart';
 import 'package:lookup/ui/upcoming_screen.dart';
 
@@ -44,6 +45,9 @@ class _Home extends HomeNotifier {
           _ev('iss:a', SkyEventType.iss, Duration.zero, const {'brightness': 'brighter than any star'}),
           _ev('transit:a', SkyEventType.issTransit, const Duration(minutes: 30), const {'body': 'Moon'}),
           _ev('starlink:a', SkyEventType.starlinkTrain, const Duration(days: 2), const {'label': 'Starlink train', 'count': 24}),
+          _ev('tiangong:a', SkyEventType.tiangong, const Duration(days: 3)),
+          _ev('pair:a', SkyEventType.planetPairing, const Duration(days: 4),
+              const {'bodies': ['Venus', 'the Moon'], 'label': 'Venus and the Moon'}),
         ],
         aurora: null,
         lastRefresh: _now,
@@ -71,6 +75,16 @@ void main() {
     }
   }
 
+  testWidgets('at a glance, each marker says what it is: which satellite, which planets', (t) async {
+    await pump(t);
+    for (final name in ['ISS', 'ISS × Moon', 'Starlink', 'Tiangong', 'Venus · Moon']) {
+      expect(find.text(name), findsOneWidget, reason: name);
+    }
+    expect(eventStyle(SkyEventType.tiangong).color, isNot(eventStyle(SkyEventType.iss).color));
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('at a glance: the week on one screen, the first sight picked, tap another', (t) async {
     await pump(t);
     expect(find.text('At a glance'), findsOneWidget);
@@ -83,7 +97,7 @@ void main() {
     await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')));
     await t.pump();
     expect(find.text('Starlink train'), findsOneWidget);
-    expect(find.text('LookUp+'), findsOneWidget);
+    expect(find.text('Alert with LookUp+'), findsOneWidget);
     expect(find.textContaining('°'), findsNothing);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
