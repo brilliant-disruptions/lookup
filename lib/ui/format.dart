@@ -4,6 +4,7 @@ import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
 import '../domain/sky/calendar.dart';
 import '../domain/sky/direction.dart';
+import '../domain/units.dart';
 
 String fmtTime(DateTime utc) => DateFormat.jm().format(utc.toLocal());
 
@@ -89,7 +90,7 @@ String eventSubtitle(SkyEvent e) {
     case SkyEventType.planetPairing:
       return '${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)} (${e.details['when']})';
     case SkyEventType.rocketLaunch:
-      return '${e.details['name']} · ${e.details['distanceKm']} km away, low in the ${compassWord(e.peakAzimuthDeg)}';
+      return '${e.details['name']} · ${fmtDistance((e.details['distanceKm'] as num).toDouble())} away, low in the ${compassWord(e.peakAzimuthDeg)}';
     case SkyEventType.issTransit:
       return transitWhere(e);
     case SkyEventType.planetHighlight:
@@ -171,11 +172,18 @@ String pastTitle(SkyEvent e) => switch (e.type) {
 
 Duration transitCrossing(SkyEvent e) => Duration(milliseconds: (e.details['crossingMs'] as num?)?.toInt() ?? 0);
 
+/// Miles or kilometres on screen: kept in step with the setting by the app
+/// root ([LookUpApp]); kilometres until it says otherwise.
+bool displayMiles = false;
+
+/// "45 km" or "30 miles", rounded to a sensible step.
+String fmtDistance(double km) => distanceWords(km, miles: displayMiles);
+
 /// "From right here at 3:14:07 PM" or "Go 12 km north-west · 3:14:07 PM".
 String transitWhere(SkyEvent e) {
   final km = (e.details['travelKm'] as num?)?.toDouble() ?? 0;
   final when = fmtTimeSeconds(e.peak);
   final lasts = fmtSeconds(transitCrossing(e));
   if (km < 0.5) return 'Visible from right here at $when · lasts $lasts';
-  return 'Go ${km.round()} km ${compassWord((e.details['travelBearingDeg'] as num?)?.toDouble() ?? 0)} · $when · lasts $lasts';
+  return 'Go ${fmtDistance(km)} ${compassWord((e.details['travelBearingDeg'] as num?)?.toDouble() ?? 0)} · $when · lasts $lasts';
 }

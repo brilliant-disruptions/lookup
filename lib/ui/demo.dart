@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/scheduling/alert_planner.dart';
 import '../state/providers.dart';
+import 'format.dart' show displayMiles;
 import 'look_sheet.dart';
 
 /// Real seconds of countdown before the pass starts.
@@ -54,7 +55,7 @@ Future<void> showDemo(BuildContext context, WidgetRef ref) async {
           fireAt: realStart.toUtc(),
           kind: AlertKind.headsUp,
           title: AlertPlanner.headsUpTitle(event, 10),
-          body: AlertPlanner.headsUpBody(event),
+          body: AlertPlanner.headsUpBody(event, miles: displayMiles),
         ));
   } catch (_) {
     // Notifications not permitted: the sheet still demonstrates the rest.

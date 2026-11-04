@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
@@ -5,6 +7,7 @@ import '../domain/log/sky_log.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/units.dart';
 import '../services/ambient_light.dart';
 import '../services/live_activity.dart';
 import '../services/location_service.dart';
@@ -40,7 +43,16 @@ final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(
 
 class SettingsNotifier extends AsyncNotifier<LookUpSettings> {
   @override
-  Future<LookUpSettings> build() => ref.watch(storeProvider).loadSettings();
+  Future<LookUpSettings> build() async {
+    final store = ref.watch(storeProvider);
+    final s = await store.loadSettings();
+    if (s.miles != null) return s;
+    // First run: miles or kilometres from the phone's region, saved so the
+    // background refresh writes alerts in the same units.
+    final filled = s.copyWith(miles: countryUsesMiles(PlatformDispatcher.instance.locale.countryCode));
+    await store.saveSettings(filled);
+    return filled;
+  }
 
   Future<void> edit(LookUpSettings Function(LookUpSettings) f) async {
     final current = state.value ?? await future;

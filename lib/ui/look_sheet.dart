@@ -320,7 +320,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(
-                  'Path is ~${((event.details['halfWidthKm'] as num?) ?? 0) * 2 ~/ 1} km wide. Orbits shift a little day to day, so check again the evening before.',
+                  'Path is about ${fmtDistance(((event.details['halfWidthKm'] as num?) ?? 0) * 2.0)} wide. Orbits shift a little day to day, so check again the evening before.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12, height: 1.35),
                 ),
@@ -441,7 +441,7 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
         ],
       SkyEventType.rocketLaunch => [
           ('Liftoff', fmtTime(e.start)),
-          ('Away', '${e.details['distanceKm']} km'),
+          ('Away', fmtDistance((e.details['distanceKm'] as num).toDouble())),
           ('Look', compassAbbrev(e.peakAzimuthDeg)),
         ],
       SkyEventType.planetHighlight || SkyEventType.skyObject => [
@@ -454,7 +454,7 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
           ('Lasts', fmtSeconds(transitCrossing(e))),
           ('Go', ((e.details['travelKm'] as num?) ?? 0) < 0.5
               ? 'Here'
-              : '${(e.details['travelKm'] as num).round()} km ${compassAbbrev(((e.details['travelBearingDeg'] as num?) ?? 0).toDouble())}'),
+              : '${fmtDistance((e.details['travelKm'] as num).toDouble())} ${compassAbbrev(((e.details['travelBearingDeg'] as num?) ?? 0).toDouble())}'),
         ],
       _ => [
           ('From', fmtTime(e.start)),

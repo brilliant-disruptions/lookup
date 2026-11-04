@@ -57,6 +57,20 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: s.places.isEmpty ? 'Save home, a cabin, a trip' : '${s.places.length} saved',
             onTap: () => openPlaces(context),
           ),
+          ListRow(
+            leading: const _Glyph(Icons.straighten_rounded, LookUpColors.violet),
+            title: 'Distances',
+            subtitle: 'How far to a dark sky, a launch',
+            trailing: SegmentedButton<bool>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: false, label: Text('km')),
+                ButtonSegment(value: true, label: Text('Miles')),
+              ],
+              selected: {s.usesMiles},
+              onSelectionChanged: (v) => set((s) => s.copyWith(miles: v.first)),
+            ),
+          ),
         ]),
         const _Header('Alerts'),
         GroupedList(indent: 60, children: [

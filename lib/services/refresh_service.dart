@@ -264,7 +264,7 @@ class RefreshService {
       await notifications.showNow(
         id: id,
         title: AlertPlanner.auroraNowTitle(e),
-        body: AlertPlanner.headsUpBody(e),
+        body: AlertPlanner.headsUpBody(e, miles: settings.usesMiles),
         payload: e.id,
         kind: AlertKind.goNow, // already happening: no "remind me later"
       );

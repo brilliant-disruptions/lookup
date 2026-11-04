@@ -90,6 +90,7 @@ class LookUpSettings {
     this.favourites = const [],
     this.toured = false,
     this.skyFigures = true,
+    this.miles,
   });
 
   final double? latitude;
@@ -157,6 +158,13 @@ class LookUpSettings {
   /// Draw each constellation's picture behind its lines on the Sky tab.
   final bool skyFigures;
 
+  /// Distances in miles rather than kilometres. Null until chosen: the app
+  /// fills it from the phone's region (miles in the US and UK).
+  final bool? miles;
+
+  /// What to write distances in; kilometres when nothing says otherwise.
+  bool get usesMiles => miles ?? false;
+
   bool isFavourite(String id) => favourites.contains(id);
 
   LookUpSettings toggleFavourite(String id) =>
@@ -217,6 +225,7 @@ class LookUpSettings {
     List<String>? favourites,
     bool? toured,
     bool? skyFigures,
+    bool? miles,
   }) =>
       LookUpSettings(
         latitude: latitude ?? this.latitude,
@@ -255,6 +264,7 @@ class LookUpSettings {
         favourites: favourites ?? this.favourites,
         toured: toured ?? this.toured,
         skyFigures: skyFigures ?? this.skyFigures,
+        miles: miles ?? this.miles,
       );
 
   Map<String, Object?> toJson() => {
@@ -293,6 +303,7 @@ class LookUpSettings {
         'favourites': favourites,
         'toured': toured,
         'skyFigures': skyFigures,
+        if (miles != null) 'miles': miles,
       };
 
   factory LookUpSettings.fromJson(Map<String, Object?> j) {
@@ -343,6 +354,7 @@ class LookUpSettings {
       favourites: [for (final f in (j['favourites'] as List? ?? const [])) if (f is String) f],
       toured: j['toured'] as bool? ?? d.toured,
       skyFigures: j['skyFigures'] as bool? ?? d.skyFigures,
+      miles: j['miles'] as bool?,
     );
   }
 }

@@ -20,6 +20,7 @@ import '../plan/where_to_go.dart' show bearingDeg, distanceKm;
 import '../sky/direction.dart';
 import '../sky/geomagnetic.dart';
 import '../sky/sun.dart';
+import '../units.dart' show kmPerMile;
 import 'aurora_rules.dart';
 
 /// Size of the cells reports are snapped to, degrees.
@@ -132,10 +133,15 @@ class CrowdVerdict {
   final double? nearestKm, towardDeg;
 
   /// "Aurora being seen 60 km north of you" — null unless confirmed.
-  String? get headline {
+  String? get headline => headlineIn(miles: false);
+
+  /// [headline] in the reader's units: "… 40 miles north of you".
+  String? headlineIn({required bool miles}) {
     if (!confirmed || nearestKm == null || towardDeg == null) return null;
-    final km = nearestKm! < 30 ? 'right around you' : '${(nearestKm! / 10).round() * 10} km ${compassWord(towardDeg!)} of you';
-    return 'Aurora being seen $km';
+    // To the nearest ten, in the reader's units: a rough area, not a spot.
+    final tens = ((miles ? nearestKm! / kmPerMile : nearestKm!) / 10).round() * 10;
+    final where = nearestKm! < 30 ? 'right around you' : '$tens ${miles ? 'miles' : 'km'} ${compassWord(towardDeg!)} of you';
+    return 'Aurora being seen $where';
   }
 
   /// "5 people in the last 20 minutes, 3 by eye. Face north, low."

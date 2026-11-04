@@ -44,7 +44,7 @@ Future<AlertActionResult> handleAlertAction({
       await store.addFeedback(SeenFeedback.forEvent(event, seen: true, place: place));
       return AlertActionResult.logged;
     case AlertAction.snooze:
-      final reminder = AlertPlanner.snooze(event, now ?? DateTime.now());
+      final reminder = AlertPlanner.snooze(event, now ?? DateTime.now(), miles: (await store.loadSettings()).usesMiles);
       if (reminder == null) return AlertActionResult.nothing;
       await notifications.schedule(reminder);
       return AlertActionResult.reminderSet;

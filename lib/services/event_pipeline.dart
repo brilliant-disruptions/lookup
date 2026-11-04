@@ -195,7 +195,7 @@ class EventPipeline {
               if (seen) ...{
                 'crowd': true,
                 'people': crowd.people,
-                'headline': crowd.headline,
+                'headline': crowd.headlineIn(miles: i.settings.usesMiles),
                 'body': crowd.body(const CrowdRules().window),
               },
             },

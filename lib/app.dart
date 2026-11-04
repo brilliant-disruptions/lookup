@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'state/night_state.dart';
 import 'state/providers.dart';
+import 'ui/format.dart' show displayMiles;
 import 'ui/home_shell.dart';
 import 'ui/onboarding_screen.dart';
 import 'ui/theme.dart';
@@ -16,6 +17,7 @@ class LookUpApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    displayMiles = settings.value?.usesMiles ?? displayMiles;
     return MaterialApp(
       title: 'LookUp',
       theme: theme,
