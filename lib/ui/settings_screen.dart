@@ -186,7 +186,7 @@ class SettingsScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(0, 4, 8, 0),
                   child: Text(
-                    '${nightVisionStatus(ref)} Tip: press and hold Settings on Tonight to get here fast.',
+                    '${nightVisionStatus(ref)} Tip: press and hold the Settings button on any tab to get here fast.',
                     style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey, height: 1.35),
                   ),
                 ),
