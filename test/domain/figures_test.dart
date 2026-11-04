@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/sky/catalog.dart';
 import 'package:lookup/domain/sky/figures.dart';
 
@@ -94,6 +95,22 @@ void main() {
         expect(a.raDeg, inInclusiveRange(70, 95));
         expect(a.decDeg, inInclusiveRange(-12, 23));
       }
+    });
+  });
+
+  group('constellation pictures setting', () {
+    // People who saved settings before the switch existed should still see
+    // the pictures, and someone who turned them off must not get them back
+    // after a restart.
+    test('is on for settings saved before it existed', () {
+      final old = const LookUpSettings().toJson()..remove('skyFigures');
+      expect(LookUpSettings.fromJson(old).skyFigures, isTrue);
+    });
+
+    test('stays off once turned off', () {
+      final off = const LookUpSettings().copyWith(skyFigures: false);
+      final back = LookUpSettings.fromJson(jsonDecode(jsonEncode(off.toJson())) as Map<String, Object?>);
+      expect(back.skyFigures, isFalse);
     });
   });
 }
