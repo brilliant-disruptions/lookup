@@ -77,3 +77,23 @@ describe('FCM', () => {
     expect(await p.send({ token: 'dead', platform: 'fcm', sandbox: false })).toBe('gone');
   });
 });
+
+describe('the default fetch', () => {
+  it('is called on its own, never as a method of the pusher (Workers throws "Illegal invocation")', async () => {
+    const pair = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
+    const p8 = pem((await crypto.subtle.exportKey('pkcs8', pair.privateKey)) as ArrayBuffer, 'PRIVATE KEY');
+    const real = globalThis.fetch;
+    let wrongThis = false;
+    globalThis.fetch = function (this: unknown) {
+      if (this instanceof ApnsPusher) wrongThis = true;
+      return Promise.resolve(new Response(null, { status: 200 }));
+    } as unknown as typeof fetch;
+    try {
+      const p = new ApnsPusher({ keyP8: p8, keyId: 'KEY123', teamId: 'TEAM456', topic: 'com.brilliantdisruptions.lookup' });
+      expect(await p.send({ token: 'abc', platform: 'apns', sandbox: false })).toBe('ok');
+      expect(wrongThis).toBe(false);
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+});

@@ -126,6 +126,16 @@ npm run typecheck
 
 ## Deploy (once)
 
+**Deployed:** `https://lookup-relay.brilliant-disruptions.workers.dev`, on the
+Brilliant Disruptions Cloudflare account (D1 `lookup-relay`; its id is in
+`wrangler.toml`). Xcode Cloud builds point at it (`ios/ci_scripts/ci_post_clone.sh`).
+To redeploy after changing `src/`: `npm test && npm run deploy`. From a Claude
+cloud session, the Cloudflare token comes from the environment's network
+secret for `api.cloudflare.com`; set `CLOUDFLARE_API_TOKEN` to any placeholder
+and `CLOUDFLARE_ACCOUNT_ID` to the account id.
+
+From scratch:
+
 You need a Cloudflare account (the free plan is enough to start).
 
 ```bash
