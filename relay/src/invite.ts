@@ -2,17 +2,20 @@
 // where to look, the town it's near, the forecast and the "where to look"
 // picture) and gets back a short link. The link is the invite:
 //
-//   /n/:code             the page: a countdown, where to look, Add to calendar,
-//                        Add to Apple Wallet, Get LookUp. Its Open Graph tags
-//                        make Messages (and WhatsApp, Slack …) show a big card.
+//   /n/:code             the page: a countdown, where to look, Get reminders,
+//                        Add to Apple Wallet. Its Open Graph tags make Messages
+//                        (and WhatsApp, Slack …) show a big card.
 //   /n/:code/card.png    the card's picture (the app's own "where to look" art)
+//   /n/:code/get         "Get reminders": on to the App Store or Google Play for
+//                        this phone (a "coming soon" page until a store is set up)
 //   /n/:code/invite.ics  the calendar event, with a reminder 10 minutes before
+//                        (no longer linked from the page; old links keep working)
 //   /n/:code/pass.pkpass the Wallet pass (when the pass certificate is set up)
 //
 // Kept until two days after it's over, then swept. No accounts, no
 // positions: the town is whatever name the sender's app shows.
 
-import { cloudWords, googleCalendarUrl, inviteIcs } from './ics';
+import { cloudWords, inviteIcs } from './ics';
 import { buildPass, type PassConfig, type PassImages } from './pass';
 import type { Store } from './store';
 
@@ -36,6 +39,8 @@ export type InviteDeps = {
   /** Public address, e.g. https://lookup.app; otherwise the request's own. */
   site?: string;
   appStoreId?: string;
+  /** Android package name (com.brilliantdisruptions.lookup), once LookUp is live on Google Play. */
+  playPackage?: string;
   pass?: PassConfig;
   defaultCard: Uint8Array;
   passImages: PassImages;
@@ -140,6 +145,22 @@ export function senderWhen(startIso: string, tz: number, now: number): string {
   return `${word} at ${time}`;
 }
 
+/** Where "Get reminders" goes on this phone. null until that store has a listing. */
+export function storeLinks(deps: Pick<InviteDeps, 'appStoreId' | 'playPackage'>) {
+  return {
+    apple: deps.appStoreId ? `https://apps.apple.com/app/id${encodeURIComponent(deps.appStoreId)}` : null,
+    play: deps.playPackage ? `https://play.google.com/store/apps/details?id=${encodeURIComponent(deps.playPackage)}` : null,
+  };
+}
+
+/** The store for the phone that asked: Android → Play, iPhone/iPad → App Store, anything else → whichever exists. */
+export function storeFor(userAgent: string, deps: Pick<InviteDeps, 'appStoreId' | 'playPackage'>): string | null {
+  const { apple, play } = storeLinks(deps);
+  if (/android/i.test(userAgent)) return play ?? apple;
+  if (/iphone|ipad|ipod/i.test(userAgent)) return apple ?? play;
+  return apple ?? play;
+}
+
 const TINT: Record<string, string> = {
   iss: '#5AA2FF', tiangong: '#5AA2FF', satellitePass: '#5AA2FF', starlinkTrain: '#A78BFA', auroraNow: '#3DD68C',
   auroraOutlook: '#3DD68C', meteorShower: '#FF9F5A', lunarEclipse: '#FF7A6B', solarEclipse: '#FF7A6B',
@@ -155,7 +176,6 @@ export function invitePage(code: string, inv: Invite, base: string, deps: Pick<I
   const description = [inv.place ? `Near ${inv.place}.` : '', inv.look, forecast].filter(Boolean).join(' ');
   const over = Date.parse(inv.end) < now;
   const tint = TINT[inv.type] ?? '#5AA2FF';
-  const store = deps.appStoreId ? `https://apps.apple.com/app/id${deps.appStoreId}` : null;
   const data = JSON.stringify({ start: inv.start, end: inv.end }).replace(/</g, '\\u003c');
   return `<!doctype html>
 <html lang="en">
@@ -214,10 +234,8 @@ ${deps.appStoreId ? `<meta name="apple-itunes-app" content="app-id=${esc(deps.ap
     ${forecast ? `<p class="sky">${esc(forecast)}</p>` : ''}
   </div>
   <div class="buttons">
-    ${over ? '' : `<a class="button primary" href="${esc(`${url}/invite.ics`)}">Add to calendar</a>`}
-    ${over ? '' : `<a class="link" href="${esc(googleCalendarUrl(inv, url))}" target="_blank" rel="noopener">Use Google Calendar instead</a>`}
+    <a class="button primary" href="${esc(`${url}/get`)}">Get reminders</a>
     ${over || !deps.pass ? '' : `<a class="button wallet" href="${esc(`${url}/pass.pkpass`)}">Add to Apple Wallet</a>`}
-    ${store ? `<a class="button secondary" href="${esc(store)}">Get LookUp: it taps you when it’s overhead</a>` : ''}
   </div>
   <p class="foot">Sent with <b>LookUp</b>. Times show in your own time zone.</p>
 </main>
@@ -260,9 +278,14 @@ const notFound = (base: string, appStoreId?: string) =>
     { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } },
   );
 
-/** GET /n/:code[/card.png|/invite.ics|/pass.pkpass] */
-export async function serveInvite(path: string, base: string, deps: InviteDeps): Promise<Response> {
-  const m = /^\/n\/([a-z2-9]{10})(?:\/(card\.png|invite\.ics|pass\.pkpass))?\/?$/.exec(path);
+const comingSoon = (back: string) =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>LookUp</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#04060B;color:#F4F6FA;font:16px/1.45 -apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:24px}a{color:#5AA2FF}</style></head>
+<body><div><h1 style="font-size:26px;margin:0 0 8px">LookUp is coming soon</h1><p style="color:#A0A8B8;margin:0 0 14px">Reminders that tap you when it’s overhead are on their way to the App Store and Google Play.</p><a href="${esc(back)}">Back to the invite</a></div></body></html>`;
+
+/** GET /n/:code[/card.png|/invite.ics|/pass.pkpass|/get] */
+export async function serveInvite(path: string, base: string, deps: InviteDeps, userAgent = ''): Promise<Response> {
+  const m = /^\/n\/([a-z2-9]{10})(?:\/(card\.png|invite\.ics|pass\.pkpass|get))?\/?$/.exec(path);
   if (!m) return notFound(base, deps.appStoreId);
   const [, code, part] = m;
   const row = await deps.store.getInvite(code, deps.now());
@@ -271,6 +294,13 @@ export async function serveInvite(path: string, base: string, deps: InviteDeps):
   const url = `${base}/n/${code}`;
   const cache = { 'cache-control': 'public, max-age=300' };
   switch (part) {
+    case 'get': {
+      // Phone-specific, so never cached. Until a store has a listing, a plain "coming soon".
+      const store = storeFor(userAgent, deps);
+      const headers = { 'cache-control': 'no-store' };
+      if (store) return new Response(null, { status: 302, headers: { location: store, ...headers } });
+      return new Response(comingSoon(url), { headers: { 'content-type': 'text/html; charset=utf-8', ...headers } });
+    }
     case 'card.png': {
       const img = (await deps.store.inviteImage(code)) ?? deps.defaultCard;
       return new Response(img, { headers: { 'content-type': 'image/png', ...cache } });

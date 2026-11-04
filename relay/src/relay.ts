@@ -109,7 +109,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (deps.invites) {
     const inv = { ...deps.invites, store: deps.store, now: deps.now };
     const base = deps.invites.site ?? url.origin;
-    if (url.pathname.startsWith('/n/') && req.method === 'GET') return serveInvite(url.pathname, base, inv);
+    if (url.pathname.startsWith('/n/') && req.method === 'GET') return serveInvite(url.pathname, base, inv, req.headers.get('user-agent') ?? '');
     if (url.pathname === '/v1/invites' && req.method === 'POST') {
       if ((await deps.store.hit(`invite:${net}`, now, RULES.inviteLimit.ms)) > RULES.inviteLimit.n) return json(429, { error: 'slow down' });
       const b = await body(req, RULES.maxInviteBody);

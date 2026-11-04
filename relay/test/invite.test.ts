@@ -33,14 +33,14 @@ let now: number;
 let store: SqlStore;
 let deps: Deps;
 
-function make(pass?: PassConfig, appStoreId?: string): Deps {
+function make(pass?: PassConfig, appStoreId?: string, playPackage?: string): Deps {
   return {
     store,
     secret: 's',
     pushers: {},
     now: () => now,
     later: () => {},
-    invites: { site: 'https://lookup.test', appStoreId, pass, defaultCard, passImages },
+    invites: { site: 'https://lookup.test', appStoreId, playPackage, pass, defaultCard, passImages },
   };
 }
 
@@ -104,7 +104,11 @@ describe('the page', () => {
     expect(html).toContain('Clear skies forecast.');
     expect(html).toContain(`og:image" content="https://lookup.test/n/${code}/card.png"`);
     expect(html).toContain('name="robots" content="noindex"');
-    expect(html).toContain(`href="https://lookup.test/n/${code}/invite.ics"`);
+    expect(html).toContain('Get reminders');
+    expect(html).toContain(`href="https://lookup.test/n/${code}/get"`);
+    expect(html).not.toContain('Add to calendar');
+    expect(html).not.toContain('invite.ics');
+    expect(html).not.toContain('calendar.google.com');
     // No Wallet button or App Store banner until they're set up.
     expect(html).not.toContain('pass.pkpass');
     expect(html).not.toContain('apple-itunes-app');
@@ -116,22 +120,28 @@ describe('the page', () => {
     const html = await (await get(`/n/${code}`)).text();
     expect(html).toContain('Add to Apple Wallet');
     expect(html).toContain('<meta name="apple-itunes-app" content="app-id=6739000000');
-    expect(html).toContain('https://apps.apple.com/app/id6739000000');
   });
 
-  it('Add to calendar, with Google Calendar for phones where the file just downloads', async () => {
+  it('Get reminders: App Store on iPhone, Google Play on Android, "coming soon" until a store is set up', async () => {
     const { code } = await create();
-    const html = await (await get(`/n/${code}`)).text();
-    expect(html).toContain(`/n/${code}/invite.ics"`);
-    const m = /href="(https:\/\/calendar\.google\.com\/calendar\/render\?[^"]+)"/.exec(html);
-    expect(m).not.toBeNull();
-    const q = new URL(m![1].replace(/&amp;/g, '&')).searchParams;
-    expect(q.get('action')).toBe('TEMPLATE');
-    expect(q.get('text')).toBe('ISS flyover: look up');
-    const stamp = (iso: string) => iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-    expect(q.get('dates')).toBe(`${stamp(START)}/${stamp(END)}`);
-    expect(q.get('details')).toContain('Face west-southwest');
-    expect(q.get('location')).toBe('Nashville');
+    const ask = (ua: string) => handle(new Request(`https://relay.test/n/${code}/get`, { headers: { 'user-agent': ua } }), deps);
+    const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)';
+    const ANDROID = 'Mozilla/5.0 (Linux; Android 15; Pixel 9)';
+    let res = await ask(IPHONE);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('LookUp is coming soon');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+
+    deps = make(undefined, '6739000000');
+    res = await ask(IPHONE);
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('https://apps.apple.com/app/id6739000000');
+    expect((await ask(ANDROID)).headers.get('location')).toBe('https://apps.apple.com/app/id6739000000'); // only store there is
+
+    deps = make(undefined, '6739000000', 'com.brilliantdisruptions.lookup');
+    expect((await ask(ANDROID)).headers.get('location')).toBe('https://play.google.com/store/apps/details?id=com.brilliantdisruptions.lookup');
+    expect((await ask(IPHONE)).headers.get('location')).toBe('https://apps.apple.com/app/id6739000000');
+    expect((await ask('Mozilla/5.0 (Macintosh)')).headers.get('location')).toBe('https://apps.apple.com/app/id6739000000');
   });
 
   it('after it\'s over: no countdown or buttons; after two days the link has gone', async () => {
@@ -140,7 +150,6 @@ describe('the page', () => {
     const html = await (await get(`/n/${code}`)).text();
     expect(html).toContain('That one’s over');
     expect(html).not.toContain('invite.ics"');
-    expect(html).not.toContain('calendar.google.com');
     now = Date.parse(END) + INVITE_RULES.keepAfterMs + 60e3;
     expect((await get(`/n/${code}`)).status).toBe(404);
     expect((await sweep(store, now)).invites).toBe(1);

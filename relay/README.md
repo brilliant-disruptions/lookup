@@ -5,7 +5,7 @@ The one server LookUp has. It does two things:
 - **Seen near you:** anonymous "I can see the aurora" reports, kept for an
   hour, and wake-up pushes to phones nearby.
 - **"Look up with me" links:** invites that unfurl into a card in Messages,
-  with **Add to calendar** and **Add to Apple Wallet** behind them. See
+  with **Get reminders** (on to the App Store / Google Play) and **Add to Apple Wallet**. See
   [Invite links](#invite-links) below.
 
 For Seen near you: Why and what it may hold:
@@ -63,7 +63,8 @@ friend** / **Send the invite** sends a link instead of a bare picture:
 POST /v1/invites  {type, title, start, end, look, face?, place?, clouds?, tz, image?}  → 201 {url, code}
 GET  /n/:code              the page (Open Graph tags → the card in Messages, WhatsApp, Slack…)
 GET  /n/:code/card.png     the app's "where to look" picture, or the default card
-GET  /n/:code/invite.ics   the event, with a reminder 10 minutes before
+GET  /n/:code/get          Get reminders: redirects to the App Store or Google Play for this phone
+GET  /n/:code/invite.ics   the event, with a reminder 10 minutes before (not linked from the page any more)
 GET  /n/:code/pass.pkpass  an Apple Wallet event pass (only once set up, below)
 ```
 
@@ -81,7 +82,10 @@ Optional settings (`npx wrangler secret put …`, or `[vars]` in `wrangler.toml`
 | Setting | What it does |
 |---|---|
 | `SITE_URL` | The address links use, e.g. `https://lookup.app` (a custom domain on the Worker). Defaults to the Worker's own `workers.dev` address |
-| `APP_STORE_ID` | LookUp's numeric App Store id: shows **Get LookUp** and Safari's app banner |
+| `APP_STORE_ID` | LookUp's numeric App Store id: where **Get reminders** goes on iPhone, and Safari's app banner |
+| `PLAY_PACKAGE` | `com.brilliantdisruptions.lookup`, once the app is live on Google Play: where **Get reminders** goes on Android |
+
+Until a store is set, **Get reminders** opens a short "LookUp is coming soon" page.
 
 ### Apple Wallet (optional)
 

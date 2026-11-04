@@ -22,6 +22,8 @@ export interface Env {
   SITE_URL?: string;
   /** Optional: LookUp's numeric App Store id, for "Get LookUp" and Safari's banner. */
   APP_STORE_ID?: string;
+  /** Optional: LookUp's Android package name, for "Get reminders" on Android once it's on Google Play. */
+  PLAY_PACKAGE?: string;
   /** Optional: Apple Wallet passes for invites (README.md › Wallet). */
   PASS_TYPE_ID?: string;
   PASS_TEAM_ID?: string;
@@ -89,6 +91,7 @@ export default {
       invites: {
         site: env.SITE_URL?.replace(/\/$/, ''),
         appStoreId: env.APP_STORE_ID,
+        playPackage: env.PLAY_PACKAGE,
         pass: passConfig(env),
         defaultCard,
         passImages,
