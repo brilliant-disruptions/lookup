@@ -43,7 +43,7 @@ export class ApnsPusher implements Pusher {
 
   constructor(
     private cfg: ApnsConfig,
-    private fetcher: typeof fetch = fetch,
+    private fetcher: typeof fetch = (input, init) => fetch(input, init), // a bare `fetch` held as a method throws "Illegal invocation" on Workers
     private now: () => number = Date.now,
   ) {}
 
@@ -77,13 +77,14 @@ export class ApnsPusher implements Pusher {
         body: JSON.stringify({ aps: { 'content-available': 1 }, lookup: 'aurora-crowd' }),
       });
       if (res.ok) return 'ok';
+      // Apple's answer, for the Worker's logs (never the token or the key).
+      const reason = ((await res.json().catch(() => ({}))) as { reason?: string }).reason;
+      console.warn(`apns ${res.status} ${reason ?? ''}`.trim());
       if (res.status === 410) return 'gone';
-      if (res.status === 400) {
-        const reason = ((await res.json().catch(() => ({}))) as { reason?: string }).reason;
-        if (reason === 'BadDeviceToken' || reason === 'DeviceTokenNotForTopic') return 'gone';
-      }
+      if (res.status === 400 && (reason === 'BadDeviceToken' || reason === 'DeviceTokenNotForTopic')) return 'gone';
       return 'failed';
-    } catch {
+    } catch (e) {
+      console.warn(`apns error: ${e instanceof Error ? e.message : 'unknown'}`);
       return 'failed';
     }
   }
@@ -98,7 +99,7 @@ export class FcmPusher implements Pusher {
 
   constructor(
     private sa: FcmServiceAccount,
-    private fetcher: typeof fetch = fetch,
+    private fetcher: typeof fetch = (input, init) => fetch(input, init), // a bare `fetch` held as a method throws "Illegal invocation" on Workers
     private now: () => number = Date.now,
   ) {}
 
