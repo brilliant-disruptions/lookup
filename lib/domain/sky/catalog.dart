@@ -74,6 +74,16 @@ class SkyCatalog {
     }
   }
   final List<Star> stars; // brightest first
+
+  /// The star a constellation's corner sits on (within 0.05°, as for proper
+  /// motion), for its brightness and colour; null if it isn't catalogued.
+  Star? starAt(double raDeg, double decDeg) => _corners.putIfAbsent((raDeg, decDeg), () {
+        for (final s in stars) {
+          if ((s.raDeg - raDeg).abs() < 0.05 && (s.decDeg - decDeg).abs() < 0.05) return s;
+        }
+        return null;
+      });
+  final _corners = <(double, double), Star?>{};
   final List<Constellation> constellations;
   final _pm = <(double, double), (double, double)>{};
 
