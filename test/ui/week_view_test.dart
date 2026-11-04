@@ -8,6 +8,7 @@ import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/kit/kit.dart' show eventStyle;
 import 'package:lookup/ui/theme.dart';
 import 'package:lookup/ui/upcoming_screen.dart';
+import 'package:lookup/ui/week_views.dart' show CalendarPage;
 
 class _Settings extends SettingsNotifier {
   @override
@@ -114,6 +115,14 @@ void main() {
     // The Starlink night is picked there too, with its sights listed.
     expect(find.text('Starlink train'), findsOneWidget);
     expect(find.text('Two weeks'), findsOneWidget);
+    // The key names only the dots on the calendar: the ISS and Tiangong
+    // apart, and nothing for meteors when there are none.
+    Finder key(String label) => find.descendant(of: find.byType(CalendarPage), matching: find.text(label));
+    for (final label in ['ISS', 'Starlink', 'Tiangong', 'Planets']) {
+      expect(key(label), findsOneWidget, reason: label);
+    }
+    expect(key('Meteors'), findsNothing);
+    expect(key('Stations'), findsNothing);
     expect(t.takeException(), isNull);
 
     // Back to the ISS's night by tapping its day: the ISS and the

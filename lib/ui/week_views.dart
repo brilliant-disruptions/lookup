@@ -536,13 +536,10 @@ class CalendarPage extends StatelessWidget {
             ]),
           ),
         const SizedBox(height: 6),
-        const Wrap(spacing: 12, runSpacing: 4, children: [
-          _Dot(LookUpColors.blue, 'Stations'),
-          _Dot(LookUpColors.violet, 'Starlink'),
-          _Dot(LookUpColors.gold, 'Planets'),
-          _Dot(LookUpColors.orange, 'Meteors'),
-          _Dot(LookUpColors.red, 'Launches'),
-          _Key(icon: Icons.texture_rounded, label: 'Cloudy'),
+        // Only the dots actually on the calendar, each named.
+        Wrap(spacing: 12, runSpacing: 4, children: [
+          for (final (color, label) in _legend(days)) _Dot(color, label),
+          const _Key(icon: Icons.texture_rounded, label: 'Cloudy'),
         ]),
         if (sel != null) ...[
           Padding(
@@ -591,6 +588,30 @@ class CalendarPage extends StatelessWidget {
       ],
     );
   }
+
+  /// One key per kind of dot on the calendar, in the order they first show.
+  static List<(Color, String)> _legend(List<WeekNight> days) {
+    final seen = <String>{};
+    return [
+      for (final d in days)
+        for (final e in d.alerts.take(4))
+          if (seen.add(_kind(e.type))) (eventStyle(e.type, details: e.details).color, _kind(e.type)),
+    ];
+  }
+
+  static String _kind(SkyEventType t) => switch (t) {
+        SkyEventType.iss => 'ISS',
+        SkyEventType.tiangong => 'Tiangong',
+        SkyEventType.starlinkTrain => 'Starlink',
+        SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora',
+        SkyEventType.meteorShower => 'Meteors',
+        SkyEventType.lunarEclipse || SkyEventType.solarEclipse => 'Eclipses',
+        SkyEventType.planetPairing || SkyEventType.planetHighlight => 'Planets',
+        SkyEventType.rocketLaunch => 'Launches',
+        SkyEventType.issTransit => 'Transits',
+        SkyEventType.satellitePass => 'Satellites',
+        SkyEventType.skyObject => 'Sky',
+      };
 
   /// How the night's clouds look, from the forecast; nothing claimed
   /// without one.
