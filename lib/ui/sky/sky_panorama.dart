@@ -646,6 +646,7 @@ class _PanoramaPainter extends CustomPainter {
     // The lit constellation over its stars: glowing lines, its own stars
     // brought forward, gently twinkling, and its name.
     final names = {for (final (:id, :name, major: _, h: _) in cache.names) id: name};
+    final litNames = <Rect>[];
     for (final (:id, :segs) in cache.lines) {
       final t = shine[id] ?? 0;
       if (t == 0) continue;
@@ -655,19 +656,24 @@ class _PanoramaPainter extends CustomPainter {
             for (final (:h, :ra, :dec, :star) in seg) (at: _xy(s, h), ra: ra, dec: dec, star: star, altDeg: h.altitudeDeg),
           ],
       ];
-      paintLitConstellation(canvas, shape,
+      final at = paintLitConstellation(canvas, shape,
           t: t,
           base: lineColor,
           maxJump: s.width / 3,
           secs: twinkle?.value,
           name: names[id],
-          nameStyle: label.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600, color: litStarColor));
+          nameStyle: label.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600, color: litStarColor),
+          bounds: Rect.fromLTRB(0, 0, s.width, horizon - 6));
+      if (at != null) litNames.add(at);
     }
     for (final (:id, :name, :major, :h) in cache.names) {
       if (!major || shine.containsKey(id)) continue; // a lit one is named beneath its lines
       final o = _xy(s, h);
       if (o != null && o.dy < horizon - 10) {
-        _text(canvas, name, o, label.copyWith(fontSize: 10.5, fontWeight: FontWeight.w500, color: const Color(0x88A0A8B8)));
+        final style = label.copyWith(fontSize: 10.5, fontWeight: FontWeight.w500, color: const Color(0x88A0A8B8));
+        // The lit one's name wins: a plain name that would run into it waits.
+        if (litNames.isNotEmpty && labelClashes(o, _measure(name, style), litNames)) continue;
+        _text(canvas, name, o, style);
       }
     }
 
@@ -789,6 +795,9 @@ class _PanoramaPainter extends CustomPainter {
     p.close();
     return p;
   }
+
+  Size _measure(String s, TextStyle style) =>
+      (TextPainter(text: TextSpan(text: s, style: style), textDirection: TextDirection.ltr)..layout()).size;
 
   void _text(Canvas canvas, String s, Offset at, TextStyle style) {
     final tp = TextPainter(text: TextSpan(text: s, style: style), textDirection: TextDirection.ltr)..layout();

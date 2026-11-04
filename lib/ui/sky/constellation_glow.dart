@@ -73,9 +73,12 @@ void paintFigure(Canvas canvas, Image img, Color tint, double t) {
 /// on each of its stars, sized by brightness and in its own colour. [secs]
 /// is the twinkle clock (null keeps them steady); like real starlight, stars
 /// low in the sky twinkle more than those overhead.
-/// Its [name], in [nameStyle], fades in beneath it, the letters easing apart.
+/// Its [name], in [nameStyle], fades in beneath it, the letters easing apart:
+/// above it instead when there's no room below inside [bounds] (the sky
+/// above the horizon), and always kept inside them. Returns where the name
+/// went, so other labels can keep clear of it.
 /// Lines longer than [maxJump] wrap round the view and are skipped.
-void paintLitConstellation(
+Rect? paintLitConstellation(
   Canvas canvas,
   List<List<ShapePoint>> shape, {
   required double t,
@@ -84,8 +87,9 @@ void paintLitConstellation(
   double? secs,
   String? name,
   TextStyle? nameStyle,
+  Rect? bounds,
 }) {
-  if (t <= 0) return;
+  if (t <= 0) return null;
   final under = Paint()
     ..color = base.withValues(alpha: 0.12 * t)
     ..strokeWidth = 4
@@ -125,7 +129,7 @@ void paintLitConstellation(
   }
 
   final on = [for (final seg in shape) for (final p in seg) ?p.at];
-  if (name == null || nameStyle == null || on.isEmpty) return;
+  if (name == null || nameStyle == null || on.isEmpty) return null;
   final tp = TextPainter(
     text: TextSpan(
       text: name,
@@ -134,7 +138,32 @@ void paintLitConstellation(
     ),
     textDirection: TextDirection.ltr,
   )..layout();
+  final rect = litNameRect(on, Size(tp.width, tp.height), bounds);
+  tp.paint(canvas, rect.topLeft);
+  return rect;
+}
+
+/// Where a lit constellation's name goes, given its stars [on] screen and
+/// the name's [size]: centred beneath the lowest star; above the highest
+/// when that would run past the bottom of [bounds] (behind the ground);
+/// nudged in from the sides and top so it's never cut off.
+Rect litNameRect(List<Offset> on, Size size, Rect? bounds) {
+  const gap = 18.0;
   final x = on.fold(0.0, (a, o) => a + o.dx) / on.length;
-  final y = on.fold(0.0, (a, o) => max(a, o.dy)) + 18;
-  tp.paint(canvas, Offset(x - tp.width / 2, y));
+  final lowest = on.fold(double.negativeInfinity, (a, o) => max(a, o.dy));
+  final highest = on.fold(double.infinity, (a, o) => min(a, o.dy));
+  var top = lowest + gap;
+  if (bounds != null && top + size.height > bounds.bottom) top = highest - gap - size.height;
+  var left = x - size.width / 2;
+  if (bounds != null) {
+    left = left.clamp(bounds.left + 4, max(bounds.left + 4, bounds.right - 4 - size.width));
+    top = top.clamp(bounds.top + 4, max(bounds.top + 4, bounds.bottom - 4 - size.height));
+  }
+  return Offset(left, top) & size;
+}
+
+/// Whether a label of [size] centred at [at] would run into [taken].
+bool labelClashes(Offset at, Size size, Iterable<Rect> taken) {
+  final r = Rect.fromCenter(center: at, width: size.width, height: size.height).inflate(4);
+  return taken.any(r.overlaps);
 }

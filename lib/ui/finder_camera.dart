@@ -255,6 +255,8 @@ class SkyOverlayPainter extends CustomPainter {
       final lines = Paint()
         ..color = lineColor.withValues(alpha: lineColor.a * back)
         ..strokeWidth = 1.2;
+      // Plain constellation names wait until the lit one is placed.
+      final plainNames = <(String, Offset)>[];
       for (final con in cat.constellations) {
         if (shine.containsKey(con.id)) continue; // drawn lit, below
         for (final seg in con.lines) {
@@ -267,7 +269,7 @@ class SkyOverlayPainter extends CustomPainter {
         }
         if (con.rank == 1) {
           final o = eq(con.centerRaDeg, con.centerDecDeg);
-          if (o != null) _label(canvas, con.name, o, Colors.white.withValues(alpha: 0.55), 11);
+          if (o != null) plainNames.add((con.name, o));
         }
       }
       final dot = Paint()..color = Colors.white.withValues(alpha: back);
@@ -281,6 +283,7 @@ class SkyOverlayPainter extends CustomPainter {
 
       // The lit constellation over everything: glowing lines, its stars
       // brought forward, gently twinkling.
+      final litNames = <Rect>[];
       for (final con in cat.constellations) {
         final t = shine[con.id] ?? 0;
         if (t == 0) continue;
@@ -297,14 +300,20 @@ class SkyOverlayPainter extends CustomPainter {
                 ),
             ],
         ];
-        paintLitConstellation(canvas, shape,
+        final at = paintLitConstellation(canvas, shape,
             t: t,
             base: lineColor,
             maxJump: size.width,
             secs: twinkle?.value,
             name: con.name,
             nameStyle: labelStyle.copyWith(
-                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, shadows: const [Shadow(blurRadius: 4, color: Colors.black)]));
+                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, shadows: const [Shadow(blurRadius: 4, color: Colors.black)]),
+            bounds: Offset.zero & size);
+        if (at != null) litNames.add(at);
+      }
+      for (final (name, o) in plainNames) {
+        if (litNames.isNotEmpty && labelClashes(o, _measureLabel(name, 11), litNames)) continue;
+        _label(canvas, name, o, Colors.white.withValues(alpha: 0.55), 11);
       }
     }
 
@@ -413,6 +422,12 @@ class SkyOverlayPainter extends CustomPainter {
       _label(canvas, fmtTime(p.t), o + const Offset(0, -16), Colors.white, 11);
     }
   }
+
+  Size _measureLabel(String text, double size) => (TextPainter(
+        text: TextSpan(text: text, style: labelStyle.copyWith(fontSize: size, fontWeight: FontWeight.w600)),
+        textDirection: TextDirection.ltr,
+      )..layout())
+          .size;
 
   void _label(Canvas canvas, String text, Offset at, Color color, double size) {
     final tp = TextPainter(
