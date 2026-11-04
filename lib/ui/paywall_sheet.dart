@@ -29,6 +29,24 @@ bool hasPlus(BuildContext context) =>
 bool lockedOnFree(SkyEvent e, {required bool isPlus}) =>
     !isPlus && ((e.plusOnly && e.type.pushes) || e.type == SkyEventType.issTransit);
 
+/// On something whose alert needs LookUp+: you can see it, but you won't be
+/// told when it's coming.
+class PlusAlertTag extends StatelessWidget {
+  const PlusAlertTag({super.key, this.size = 11.5});
+  final double size;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'Alert with LookUp+',
+        excludeSemantics: true,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.lock_rounded, size: size + 1, color: LookUpColors.blue),
+          const SizedBox(width: 4),
+          Text('Alert with LookUp+',
+              style: TextStyle(fontSize: size, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
+        ]),
+      );
+}
+
 /// Sells the tap, not a feature list: the top of the sheet is the exact
 /// notification LookUp+ would send for something really coming over this
 /// user, then what else is coming in the next fortnight, then one plan

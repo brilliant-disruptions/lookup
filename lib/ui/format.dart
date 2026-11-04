@@ -70,6 +70,31 @@ String eventTitle(SkyEvent e) => switch (e.type) {
       _ => e.type.label,
     };
 
+/// A word or two for the Week tab's markers: which satellite, which planets,
+/// which shower, so the week reads without tapping.
+String eventShortName(SkyEvent e) => switch (e.type) {
+      SkyEventType.iss => 'ISS',
+      SkyEventType.tiangong => 'Tiangong',
+      SkyEventType.starlinkTrain => 'Starlink',
+      SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora',
+      SkyEventType.meteorShower => (e.details['shower'] as String?) ?? 'Meteors',
+      SkyEventType.lunarEclipse || SkyEventType.solarEclipse => 'Eclipse',
+      SkyEventType.planetPairing => switch (e.details['bodies']) {
+          [final Object a, final Object b] => '${_bare(a)} · ${_bare(b)}',
+          _ => 'Planets',
+        },
+      SkyEventType.rocketLaunch => 'Launch',
+      SkyEventType.issTransit => 'ISS × ${e.details['body'] ?? 'Sun'}',
+      SkyEventType.planetHighlight => (e.details['planet'] as String?) ?? 'Planet',
+      SkyEventType.satellitePass || SkyEventType.skyObject => (e.details['name'] as String?) ?? e.type.label,
+    };
+
+/// "the Moon" → "Moon": markers are names, not sentences.
+String _bare(Object name) {
+  final s = '$name';
+  return s.startsWith('the ') ? '${s[4].toUpperCase()}${s.substring(5)}' : s;
+}
+
 String eventSubtitle(SkyEvent e) {
   switch (e.type) {
     case SkyEventType.auroraOutlook:
