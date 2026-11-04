@@ -36,7 +36,27 @@ Serpens has no picture; Puppis and Vela are part of Carina's Argo Navis.
 
 Reference redraws: the pictures for And, Aur, Boo, Cas, CMa, Cnc, Cep, Cet,
 Col, Com, CrB, CVn, Cyg, Dra, Gem, Gru, Her, Leo, Lep, Lib, Ori, Per, PsA,
-Sco, UMa and Vul are redrawn Hevelius linework from a user-supplied
-reference set ("interior-png"). Their source and licence are not recorded
-here and must be confirmed before release. Each was registered onto the
-cleaned Hevelius figure, so it keeps that figure's three anchor stars.
+Sco, UMa and Vul are redrawn Hevelius linework from NASA's Universe of
+Learning (https://universe-of-learning.org), from its "celestial interior
+view" constellation illustrations (*_celestial_interior_view.png).
+Courtesy of NASA and NASA's Universe of Learning (NASA's UoL). Material
+produced by NASA's UoL is supported by NASA under award number NNX16AC65A
+to the Space Telescope Science Institute, working in partnership with
+Caltech/IPAC, Center for Astrophysics | Harvard & Smithsonian, and Jet
+Propulsion Laboratory. Under NASA's UoL copyright policy
+(https://universe-of-learning.org/copyright, last reviewed 21 October 2025)
+no copyright is claimed and the material may be freely used as in the
+public domain; NASA and NASA's UoL ask to be acknowledged in any use. The
+linework itself follows Johannes Hevelius, Uranographia (1690), public
+domain. Each was registered onto the cleaned Hevelius figure, so it keeps
+that figure's three anchor stars.
+
+The pictures for Aps, Aql, Aqr, Ara, Ari, Cam, Cap, Car, Cen, Cha, CMi, CrA,
+Crt, Cru, Crv, Del, Dor, Equ, Eri, Hya, Hyi, Ind, Lac, LMi, Lup, Lyn, Lyr,
+Mon, Mus, Pav, Peg, Phe, Psc, Sct, Sex, Sgr, Tau, TrA, Tri, Tuc, UMi, Vir
+and Vol (hand_*.png) come from the same NASA's UoL set, with the same
+credit. They are anchored by hand: stick-figure stars were placed on the
+figure's anatomy and a similarity transform (no mirror) was fitted by least
+squares. The anchors are three of those stars, or for Canis Minor its two
+stars plus a sky point square off their midpoint. They replace the Stellarium
+or Hevelius picture listed above for those constellations.
