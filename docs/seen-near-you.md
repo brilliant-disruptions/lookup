@@ -144,10 +144,13 @@ Also before launch:
    usual 3-hourly aurora-now alert, worded "Aurora being seen 60 km north
    of you". It's LookUp+, follows quiet hours (with the aurora wake-me
    override) and keeps the same id, so it fires once. Tested.
-4. **Deploy the relay** (`relay/README.md`, about 10 minutes, needs a
+4. ✅ **Deploy the relay** (`relay/README.md`, about 10 minutes, needs a
    Cloudflare account). Then build the app with
    `--dart-define=LOOKUP_RELAY_URL=…`.
-5. **Push wake-ups on the phone.** Until this is done, crowd alerts only
+5. **Push wake-ups on the phone.** iPhone: built (`lib/services/push_service.dart`,
+   `LookUpPush` in `ios/Runner/AppDelegate.swift`); the APNs key is on the
+   relay; waiting only on the Push Notifications capability (Mac checklist §1).
+   Android: still to do. Until this is done, crowd alerts only
    come when the app refreshes on its own: on open, on pull-to-refresh, and
    in the 6-hourly background refresh.
    - **Android:** the `firebase-messaging` library added in Gradle

@@ -7,6 +7,7 @@ import 'dart:math' show Random;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/aurora/aurora_rules.dart';
+import '../domain/aurora/push_plan.dart' show PushRecord;
 import '../domain/log/sighting.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
@@ -75,6 +76,7 @@ class LocalStore {
   static const _kFeedback = 'feedback';
   static const _kCrew = 'crew';
   static const _kReporter = 'aurora_reporter';
+  static const _kPush = 'aurora_push';
   static String _kElements(String key) => 'elements_$key';
 
   Future<LookUpSettings> loadSettings() async {
@@ -235,6 +237,22 @@ class LocalStore {
       _prefs.setString(_kCrew, jsonEncode({'t': at.toUtc().toIso8601String(), 'd': json}));
 
   /// Notification ids currently scheduled, so a re-plan can cancel strays.
+  /// What the phone last told the relay about wake-ups; null if nothing.
+  Future<PushRecord?> loadPushRecord() async {
+    final raw = await _prefs.getString(_kPush);
+    if (raw == null) return null;
+    try {
+      final j = jsonDecode(raw) as Map<String, Object?>;
+      return (token: j['token']! as String, area: j['area']! as String, at: DateTime.parse(j['at']! as String).toUtc());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> savePushRecord(PushRecord? r) => r == null
+      ? _prefs.remove(_kPush)
+      : _prefs.setString(_kPush, jsonEncode({'token': r.token, 'area': r.area, 'at': r.at.toUtc().toIso8601String()}));
+
   Future<Set<int>> loadPlannedIds() async {
     final raw = await _prefs.getStringList(_kPlan);
     return {for (final s in raw ?? const <String>[]) int.parse(s)};
