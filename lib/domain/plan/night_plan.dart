@@ -78,7 +78,7 @@ abstract final class SkyId {
 ({int night, SkySighting sighting})? firstGoodNight(String id, List<NightPlan> nights) {
   for (final (i, n) in nights.indexed) {
     final s = n.sightings[id];
-    if (s != null && (s.verdict == Seeability.great || s.verdict == Seeability.good)) return (night: i, sighting: s);
+    if (s != null && s.verdict.worthPlanning) return (night: i, sighting: s);
   }
   return null;
 }

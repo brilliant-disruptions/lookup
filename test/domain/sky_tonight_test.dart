@@ -101,9 +101,20 @@ void main() {
         SkyConditions(sunAltDeg: sun, moonAltDeg: moonAlt, moonIllumination: illum, cloudPercent: cloud, visibilityM: vis, precipProbability: rain);
 
     test('basics: below horizon, clear, low', () {
-      expect(canSee(altDeg: -5, mag: -2, c: sky(), darkness: SkyDarkness.city), Seeability.belowHorizon);
-      expect(canSee(altDeg: 50, mag: -2, c: sky(), darkness: SkyDarkness.city), Seeability.great);
-      expect(canSee(altDeg: 7, mag: -2, c: sky(), darkness: SkyDarkness.city), Seeability.low);
+      expect(canSee(altDeg: -5, mag: -2, c: sky(cloud: 5), darkness: SkyDarkness.city), Seeability.belowHorizon);
+      expect(canSee(altDeg: 50, mag: -2, c: sky(cloud: 5), darkness: SkyDarkness.city), Seeability.great);
+      expect(canSee(altDeg: 7, mag: -2, c: sky(cloud: 5), darkness: SkyDarkness.city), Seeability.low);
+    });
+
+    test('no cloud forecast: never "Easy to see", only "If it\'s clear"', () {
+      final v = canSee(altDeg: 50, mag: -2, c: sky(), darkness: SkyDarkness.dark);
+      expect(v, Seeability.ifClear);
+      expect(v.words, isNot(anyOf('Easy to see', 'Visible')));
+      // Still worth planning a night around, and still a yes for the map.
+      expect(v.yes, isTrue);
+      expect(v.worthPlanning, isTrue);
+      // Too faint stays too faint, forecast or not.
+      expect(canSee(altDeg: 50, mag: 9, c: sky(), darkness: SkyDarkness.city), Seeability.tooFaint);
     });
 
     test('weather wins over a bright planet', () {

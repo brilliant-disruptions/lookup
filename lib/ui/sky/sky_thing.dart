@@ -177,7 +177,7 @@ const _planetBlurbs = <Planet, String>{
 
 /// Verdict in colour: blue when yes, amber when "maybe", grey when no.
 Color verdictColor(Seeability v) => switch (v) {
-      Seeability.great || Seeability.good => LookUpColors.blue,
+      Seeability.great || Seeability.good || Seeability.ifClear => LookUpColors.blue,
       Seeability.low || Seeability.patchy => LookUpColors.warn,
       _ => LookUpColors.greyDim,
     };
