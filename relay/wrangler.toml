@@ -10,7 +10,7 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "lookup-relay"
 # `wrangler d1 create lookup-relay` prints this; paste it here.
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "4d1f3163-37ac-48aa-8abc-c5b485e83a79"
 
 [triggers]
 crons = ["*/10 * * * *"]
