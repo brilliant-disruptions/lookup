@@ -185,16 +185,21 @@ abstract final class AlertArt {
     _text(canvas, 'LookUp', const ui.Offset(w - 40, 34), size: 22, color: _grey, weight: ui.FontWeight.w700, alignRight: true);
   }
 
+  /// A long, narrow head pointing the way it moves. (A near-equilateral
+  /// triangle reads as pointing whichever way its flattest side faces, which
+  /// made the arrows look backwards.)
   static void _arrow(ui.Canvas canvas, ui.Offset from, ui.Offset to, ui.Color color) {
     final d = to - from;
     if (d.distance < 1) return;
     final u = d / d.distance;
     final n = ui.Offset(-u.dy, u.dx);
-    final tip = from + u * 14;
+    final tip = from + u * 22;
+    final back = from - u * 14;
     final path = ui.Path()
       ..moveTo(tip.dx, tip.dy)
-      ..lineTo((from - u * 8 + n * 11).dx, (from - u * 8 + n * 11).dy)
-      ..lineTo((from - u * 8 - n * 11).dx, (from - u * 8 - n * 11).dy)
+      ..lineTo((back + n * 11).dx, (back + n * 11).dy)
+      ..lineTo((from - u * 6).dx, (from - u * 6).dy) // a notch, so it reads as an arrowhead
+      ..lineTo((back - n * 11).dx, (back - n * 11).dy)
       ..close();
     canvas.drawPath(path, ui.Paint()..color = color);
   }
