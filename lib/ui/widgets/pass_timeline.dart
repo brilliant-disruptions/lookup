@@ -8,9 +8,13 @@ import '../theme.dart';
 
 /// rise → peak → set over a horizon line, with progress when live.
 class PassTimeline extends StatelessWidget {
-  const PassTimeline({super.key, required this.event, required this.now});
+  const PassTimeline({super.key, required this.event, required this.now, this.degrees = false});
   final SkyEvent event;
   final DateTime now;
+
+  /// The peak's height in degrees. Only behind the Look sheet's Details;
+  /// everywhere else it's a word ("High").
+  final bool degrees;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +45,7 @@ class PassTimeline extends StatelessWidget {
             StatTile(k: 'Rises', v: compassAbbrev(event.riseAzimuthDeg), s: fmtTime(event.start)),
             StatTile(
                 k: 'Peak',
-                v: '${event.peakElevationDeg.round()}°',
+                v: degrees ? '${event.peakElevationDeg.round()}°' : elevationShort(event.peakElevationDeg),
                 s: '${fmtTime(event.peak)} ${compassAbbrev(event.peakAzimuthDeg)}',
                 align: CrossAxisAlignment.center,
                 valueColor: LookUpColors.blue),

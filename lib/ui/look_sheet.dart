@@ -302,7 +302,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                 label: 'Rises ${compassWord(event.riseAzimuthDeg)} at ${fmtTime(event.start)}, '
                     'peaks ${event.peakElevationDeg.round()} degrees at ${fmtTime(event.peak)}, '
                     'sets ${compassWord(event.setAzimuthDeg)} at ${fmtTime(event.end)}',
-                child: PassTimeline(event: event, now: now),
+                child: PassTimeline(event: event, now: now, degrees: true),
               )
             else if (!isPass)
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
