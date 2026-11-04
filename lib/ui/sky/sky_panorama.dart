@@ -647,6 +647,13 @@ class _PanoramaPainter extends CustomPainter {
     // brought forward, gently twinkling, and its name.
     final names = {for (final (:id, :name, major: _, h: _) in cache.names) id: name};
     final litNames = <Rect>[];
+    // The planets and the Moon where they'll be drawn: names keep off them.
+    final bodies = <({String id, Offset o, bool moon})>[
+      for (final t in things)
+        if (t.id == 'moon' || t.kind == 'Planet' || t.id == selectedId)
+          if (_xy(s, t.position(utc)) case final o? when o.dy <= horizon) (id: t.id, o: o, moon: t.id == 'moon'),
+    ];
+    final bodyGlow = [for (final b in bodies) Rect.fromCircle(center: b.o, radius: b.moon ? 18 : 9)];
     for (final (:id, :segs) in cache.lines) {
       final t = shine[id] ?? 0;
       if (t == 0) continue;
@@ -663,17 +670,30 @@ class _PanoramaPainter extends CustomPainter {
           secs: twinkle?.value,
           name: names[id],
           nameStyle: label.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600, color: litStarColor),
-          bounds: Rect.fromLTRB(0, 0, s.width, horizon - 6));
+          bounds: Rect.fromLTRB(0, 0, s.width, horizon - 6),
+          avoid: bodyGlow);
       if (at != null) litNames.add(at);
+    }
+    // Planet and Moon names first: they win, and the constellation names
+    // below step around them.
+    final bodyStyle = label.copyWith(fontSize: 12, fontWeight: FontWeight.w600, color: LookUpColors.white);
+    // Every label so far, and each body's disc.
+    Rect disc(({String id, Offset o, bool moon}) b) => Rect.fromCircle(center: b.o, radius: b.moon ? 12 : 4);
+    final taken = [...litNames, for (final b in bodies) disc(b)];
+    final bodyLabels = <String, Offset>{};
+    for (final b in bodies) {
+      final name = b.moon ? 'Moon' : things.firstWhere((t) => t.id == b.id).name;
+      bodyLabels[b.id] = placeBodyLabel(b.o, b.moon ? 24 : 16, _measure(name, bodyStyle), taken, disc: disc(b));
     }
     for (final (:id, :name, :major, :h) in cache.names) {
       if (!major || shine.containsKey(id)) continue; // a lit one is named beneath its lines
       final o = _xy(s, h);
       if (o != null && o.dy < horizon - 10) {
         final style = label.copyWith(fontSize: 10.5, fontWeight: FontWeight.w500, color: const Color(0x88A0A8B8));
-        // The lit one's name wins: a plain name that would run into it waits.
-        if (litNames.isNotEmpty && labelClashes(o, _measure(name, style), litNames)) continue;
-        _text(canvas, name, o, style);
+        // The lit one's name wins; plain names step aside for it and for
+        // each other (Andromeda and Cassiopeia sit close).
+        final at = placeLabel(o, _measure(name, style), taken);
+        if (at != null) _text(canvas, name, at, style);
       }
     }
 
@@ -713,10 +733,7 @@ class _PanoramaPainter extends CustomPainter {
               ..strokeWidth = 2
               ..color = LookUpColors.blue);
       }
-      if (moon || planet || selected) {
-        _text(canvas, moon ? 'Moon' : t.name, o + Offset(0, moon ? 24 : 16),
-            label.copyWith(fontSize: 12, fontWeight: FontWeight.w600, color: LookUpColors.white));
-      }
+      if (bodyLabels[t.id] case final at?) _text(canvas, moon ? 'Moon' : t.name, at, bodyStyle);
     }
 
     for (final (y, words) in guides) {
