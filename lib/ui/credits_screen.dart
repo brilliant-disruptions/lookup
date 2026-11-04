@@ -40,7 +40,8 @@ class CreditsScreen extends StatelessWidget {
   Widget build(BuildContext context) => PageScaffold(title: 'Credits', children: [
         GroupedList(children: [
           for (final c in credits)
-            Padding(
+            Container(
+              width: double.infinity,
               padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(c.what, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
