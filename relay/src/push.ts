@@ -79,6 +79,8 @@ export class ApnsPusher implements Pusher {
       if (res.ok) return 'ok';
       // Apple's answer, for the Worker's logs (never the token or the key).
       const reason = ((await res.json().catch(() => ({}))) as { reason?: string }).reason;
+      // Only the status and Apple's reason: never echo configuration, which
+      // may hold a mis-pasted key.
       console.warn(`apns ${res.status} ${reason ?? ''}`.trim());
       if (res.status === 410) return 'gone';
       if (res.status === 400 && (reason === 'BadDeviceToken' || reason === 'DeviceTokenNotForTopic')) return 'gone';

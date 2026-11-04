@@ -48,8 +48,23 @@ let cached: { env: Env; pushers: Partial<Record<Platform, Pusher>> } | undefined
 function pushersFor(env: Env): Partial<Record<Platform, Pusher>> {
   if (cached?.env === env) return cached.pushers;
   const pushers: Partial<Record<Platform, Pusher>> = {};
-  if (env.APNS_KEY_P8 && env.APNS_KEY_ID && env.APNS_TEAM_ID && env.APNS_TOPIC) {
-    pushers.apns = new ApnsPusher({ keyP8: env.APNS_KEY_P8, keyId: env.APNS_KEY_ID, teamId: env.APNS_TEAM_ID, topic: env.APNS_TOPIC });
+  // Apple's Key ID and Team ID are both 10 letters and digits. Anything else
+  // is a mis-pasted secret (e.g. the .p8's contents in APNS_KEY_ID): say
+  // which setting, never its value, and don't send.
+  const appleId = /^[A-Z0-9]{10}$/;
+  for (const [name, v] of [['APNS_KEY_ID', env.APNS_KEY_ID], ['APNS_TEAM_ID', env.APNS_TEAM_ID]] as const) {
+    if (v && !appleId.test(v.trim())) console.warn(`${name} doesn't look like an Apple id (10 letters and digits); iPhone wake-ups are off`);
+  }
+  if (env.APNS_KEY_P8 && env.APNS_KEY_ID && env.APNS_TEAM_ID && env.APNS_TOPIC &&
+      appleId.test(env.APNS_KEY_ID.trim()) && appleId.test(env.APNS_TEAM_ID.trim())) {
+    // Trimmed: a pasted secret often carries a trailing space or line break,
+    // which Apple reads as a different key or team (403 InvalidProviderToken).
+    pushers.apns = new ApnsPusher({
+      keyP8: env.APNS_KEY_P8,
+      keyId: env.APNS_KEY_ID.trim(),
+      teamId: env.APNS_TEAM_ID.trim(),
+      topic: env.APNS_TOPIC.trim(),
+    });
   }
   if (env.FCM_SERVICE_ACCOUNT) {
     try {
