@@ -25,6 +25,22 @@ function fold(line: string): string {
   return out.join('\r\n ');
 }
 
+/**
+ * The same event as a Google Calendar link, for Android and Gmail, where a
+ * calendar file from the browser often just downloads. (Google's links
+ * can't carry a reminder; their default notification applies.)
+ */
+export function googleCalendarUrl(inv: Invite, url: string): string {
+  const q = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `${inv.title}: look up`,
+    dates: `${stamp(new Date(inv.start))}/${stamp(new Date(inv.end))}`,
+    details: [inv.look, cloudWords(inv.clouds), url].filter(Boolean).join('\n\n'),
+    ...(inv.place ? { location: inv.place } : {}),
+  });
+  return `https://calendar.google.com/calendar/render?${q}`;
+}
+
 export function inviteIcs(code: string, inv: Invite, url: string, now: number): string {
   const lines = [
     'BEGIN:VCALENDAR',

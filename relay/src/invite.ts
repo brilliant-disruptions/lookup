@@ -12,7 +12,7 @@
 // Kept until two days after it's over, then swept. No accounts, no
 // positions: the town is whatever name the sender's app shows.
 
-import { cloudWords, inviteIcs } from './ics';
+import { cloudWords, googleCalendarUrl, inviteIcs } from './ics';
 import { buildPass, type PassConfig, type PassImages } from './pass';
 import type { Store } from './store';
 
@@ -196,6 +196,7 @@ ${deps.appStoreId ? `<meta name="apple-itunes-app" content="app-id=${esc(deps.ap
   a.button { display: block; text-align: center; text-decoration: none; padding: 15px 18px; border-radius: 999px; font-weight: 650; font-size: 16.5px; }
   a.primary { background: #F4F6FA; color: #04060B; }
   a.secondary { background: rgba(255,255,255,.08); color: #F4F6FA; border: 1px solid var(--line); }
+  a.link { text-align: center; color: var(--grey); font-size: 14.5px; padding: 4px; }
   a.wallet { background: #000; color: #fff; border: 1px solid rgba(255,255,255,.28); }
   .foot { margin-top: 26px; color: var(--dim); font-size: 13px; text-align: center; }
   .foot b { color: var(--grey); }
@@ -214,6 +215,7 @@ ${deps.appStoreId ? `<meta name="apple-itunes-app" content="app-id=${esc(deps.ap
   </div>
   <div class="buttons">
     ${over ? '' : `<a class="button primary" href="${esc(`${url}/invite.ics`)}">Add to calendar</a>`}
+    ${over ? '' : `<a class="link" href="${esc(googleCalendarUrl(inv, url))}" target="_blank" rel="noopener">Use Google Calendar instead</a>`}
     ${over || !deps.pass ? '' : `<a class="button wallet" href="${esc(`${url}/pass.pkpass`)}">Add to Apple Wallet</a>`}
     ${store ? `<a class="button secondary" href="${esc(store)}">Get LookUp: it taps you when it’s overhead</a>` : ''}
   </div>

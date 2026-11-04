@@ -119,12 +119,28 @@ describe('the page', () => {
     expect(html).toContain('https://apps.apple.com/app/id6739000000');
   });
 
+  it('Add to calendar, with Google Calendar for phones where the file just downloads', async () => {
+    const { code } = await create();
+    const html = await (await get(`/n/${code}`)).text();
+    expect(html).toContain(`/n/${code}/invite.ics"`);
+    const m = /href="(https:\/\/calendar\.google\.com\/calendar\/render\?[^"]+)"/.exec(html);
+    expect(m).not.toBeNull();
+    const q = new URL(m![1].replace(/&amp;/g, '&')).searchParams;
+    expect(q.get('action')).toBe('TEMPLATE');
+    expect(q.get('text')).toBe('ISS flyover: look up');
+    const stamp = (iso: string) => iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    expect(q.get('dates')).toBe(`${stamp(START)}/${stamp(END)}`);
+    expect(q.get('details')).toContain('Face west-southwest');
+    expect(q.get('location')).toBe('Nashville');
+  });
+
   it('after it\'s over: no countdown or buttons; after two days the link has gone', async () => {
     const { code } = await create();
     now = Date.parse(END) + 60e3;
     const html = await (await get(`/n/${code}`)).text();
     expect(html).toContain('That one’s over');
     expect(html).not.toContain('invite.ics"');
+    expect(html).not.toContain('calendar.google.com');
     now = Date.parse(END) + INVITE_RULES.keepAfterMs + 60e3;
     expect((await get(`/n/${code}`)).status).toBe(404);
     expect((await sweep(store, now)).invites).toBe(1);
