@@ -156,7 +156,7 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
     session = s
     device = d
     textureId = textures.register(self)
-    focusAtInfinity()
+    autoFocus()
     queue.async {
       s.startRunning()
       let dims = CMVideoFormatDescriptionGetDimensions(d.activeFormat.formatDescription)
@@ -168,6 +168,14 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
     }
   }
 
+  /// Aiming: ordinary autofocus, so the preview is sharp indoors too.
+  private func autoFocus() {
+    guard let d = device, (try? d.lockForConfiguration()) != nil else { return }
+    if d.isFocusModeSupported(.continuousAutoFocus) { d.focusMode = .continuousAutoFocus }
+    d.unlockForConfiguration()
+  }
+
+  /// Capturing: stars are at infinity, and autofocus can't find them in the dark.
   private func focusAtInfinity() {
     guard let d = device, (try? d.lockForConfiguration()) != nil else { return }
     if d.isFocusModeSupported(.locked) { d.setFocusModeLocked(lensPosition: 1.0, completionHandler: nil) }
@@ -181,6 +189,7 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
     if d.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) { d.whiteBalanceMode = .continuousAutoWhiteBalance }
     d.activeVideoMaxFrameDuration = .invalid
     d.activeVideoMinFrameDuration = .invalid
+    if d.isFocusModeSupported(.continuousAutoFocus) { d.focusMode = .continuousAutoFocus }
     d.unlockForConfiguration()
   }
 
@@ -190,6 +199,7 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
       return
     }
     self.longPx = longPx
+    focusAtInfinity()
     if let shutterS = shutterS, let iso = iso, d.isExposureModeSupported(.custom) {
       do {
         try d.lockForConfiguration()
