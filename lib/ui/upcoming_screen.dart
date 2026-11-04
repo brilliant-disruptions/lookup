@@ -11,6 +11,7 @@ import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
+import 'settings_screen.dart';
 import 'theme.dart';
 import 'week_views.dart';
 
@@ -49,6 +50,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
         title: const Text('The week'),
         place: (place?.isNotEmpty ?? false) ? place! : 'Near you',
         onPlaceTap: () => openPlaces(context),
+        actions: const [SettingsButton()],
       ),
       body: SkyBackdrop(
         stars: false,
@@ -257,7 +259,7 @@ class _EventRow extends StatelessWidget {
           const Text('No alert', style: TextStyle(fontSize: 11.5, color: LookUpColors.greyDim)),
         ] else if (!past && locked) ...[
           const SizedBox(height: 4),
-          const Text('LookUp+', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
+          const PlusAlertTag(),
         ],
       ]),
     );

@@ -180,8 +180,8 @@ class _Axis extends StatelessWidget {
               String h(int hour) => DateFormat.j().format(DateTime(2000, 1, 1, hour));
               return Stack(clipBehavior: Clip.none, children: [
                 for (final (hour, f) in [(17, 0.0), (21, 4 / 14), (1, 8 / 14), (5, 12 / 14)])
+                  // Every four hours; a 7 AM at the end would run into 5 AM.
                   Positioned(left: f * box.maxWidth, child: Text(h(hour), style: style)),
-                Positioned(right: 0, child: Text(h(7), style: style)),
               ]);
             }),
           ),
@@ -211,6 +211,53 @@ class _NightBar extends StatelessWidget {
 
   static const _size = 22.0;
 
+  /// Room between neighbouring markers and at the bar's ends.
+  static const _gap = 3.0, _edge = 2.0;
+
+  /// Each marker's left edge, icon centred on its time.
+  List<double> _iconLefts(double w) {
+    final xs = <double>[];
+    for (final e in n.events) {
+      var x = barPosition(e.start) * w;
+      if (xs.isNotEmpty) x = math.max(x, xs.last + _size * 0.8);
+      xs.add(x.clamp(_size / 2 + _edge, w - _size / 2 - _edge));
+    }
+    return [for (final x in xs) x - _size / 2];
+  }
+
+  /// Named markers, each starting at its time; pushed right past the one
+  /// before, then back left from the bar's end. Null when they can't all fit.
+  ({List<double> lefts, List<double> labelWidths})? _namedLayout(BuildContext context, double w) {
+    if (n.events.isEmpty) return null;
+    final style = DefaultTextStyle.of(context).style.merge(_Marker.labelStyle);
+    final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.15);
+    final labels = [
+      for (final e in n.events)
+        (TextPainter(
+          text: TextSpan(text: eventShortName(e), style: style),
+          textDirection: Directionality.of(context),
+          textScaler: scaler,
+          maxLines: 1,
+        )..layout(maxWidth: _Marker.maxLabelWidth))
+            .width
+            .ceilToDouble()
+    ];
+    final widths = [for (final l in labels) _Marker.widthFor(l)];
+    final lefts = <double>[];
+    for (var i = 0; i < n.events.length; i++) {
+      var x = math.max(barPosition(n.events[i].start) * w - _size / 2, _edge);
+      if (i > 0) x = math.max(x, lefts[i - 1] + widths[i - 1] + _gap);
+      lefts.add(x);
+    }
+    var limit = w - _edge;
+    for (var i = n.events.length - 1; i >= 0; i--) {
+      lefts[i] = math.min(lefts[i], limit - widths[i]);
+      limit = lefts[i] - _gap;
+    }
+    if (lefts.first < _edge) return null;
+    return (lefts: lefts, labelWidths: labels);
+  }
+
   @override
   Widget build(BuildContext context) => Semantics(
         container: true,
@@ -230,20 +277,20 @@ class _NightBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               child: LayoutBuilder(builder: (context, box) {
                 final w = box.maxWidth;
-                // Markers at their times, nudged apart when they'd overlap.
-                final xs = <double>[];
-                for (final e in n.events) {
-                  var x = barPosition(e.start) * w;
-                  if (xs.isNotEmpty) x = math.max(x, xs.last + _size * 0.8);
-                  xs.add(x.clamp(_size / 2 + 2, w - _size / 2 - 2));
-                }
+                // Named where there's room ("ISS", "Tiangong"), else just
+                // the icons, nudged apart when they'd overlap.
+                final named = _namedLayout(context, w);
+                final xs = named?.lefts ?? _iconLefts(w);
                 return Stack(children: [
                   Positioned.fill(child: CustomPaint(painter: _BarPainter(n.clouds))),
                   for (var i = 0; i < n.events.length; i++)
                     Positioned(
-                      left: xs[i] - _size / 2,
+                      left: xs[i],
                       top: (32 - 2 - _size) / 2,
-                      child: _Marker(n.events[i], selected: n.events[i].id == pick?.id, onTap: onPick),
+                      child: _Marker(n.events[i],
+                          selected: n.events[i].id == pick?.id,
+                          onTap: onPick,
+                          labelWidth: named?.labelWidths[i]),
                     ),
                 ]);
               }),
@@ -254,14 +301,30 @@ class _NightBar extends StatelessWidget {
 }
 
 class _Marker extends StatelessWidget {
-  const _Marker(this.e, {required this.selected, required this.onTap});
+  const _Marker(this.e, {required this.selected, required this.onTap, this.labelWidth});
   final SkyEvent e;
   final bool selected;
   final ValueChanged<SkyEvent> onTap;
 
+  /// Set when there's room for the name beside the icon.
+  final double? labelWidth;
+
+  static const labelStyle = TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, height: 1.1);
+  static const maxLabelWidth = 84.0;
+  static double widthFor(double label) => _NightBar._size + label + 7;
+
   @override
   Widget build(BuildContext context) {
     final s = eventStyle(e.type, details: e.details);
+    final ink = selected ? LookUpColors.black : s.color;
+    final icon = SizedBox(
+      width: _NightBar._size,
+      height: _NightBar._size,
+      child: s.icon == null
+          ? Padding(padding: const EdgeInsets.all(3), child: PlanetMark(color: ink))
+          : Icon(s.icon, size: 13, color: ink),
+    );
+    final label = labelWidth;
     return Semantics(
       container: true,
       button: true,
@@ -273,16 +336,29 @@ class _Marker extends StatelessWidget {
         child: Opacity(
           opacity: e.type.pushes || selected ? 1 : 0.5,
           child: Container(
-            width: _NightBar._size,
+            width: label == null ? _NightBar._size : widthFor(label),
             height: _NightBar._size,
             decoration: BoxDecoration(
               color: selected ? s.color : s.color.withValues(alpha: 0.24),
               borderRadius: BorderRadius.circular(6),
               border: selected ? Border.all(color: LookUpColors.white, width: 2) : null,
             ),
-            child: s.icon == null
-                ? Padding(padding: const EdgeInsets.all(3), child: PlanetMark(color: selected ? LookUpColors.black : s.color))
-                : Icon(s.icon, size: 13, color: selected ? LookUpColors.black : s.color),
+            child: label == null
+                ? icon
+                : Row(children: [
+                    icon,
+                    SizedBox(
+                      width: label,
+                      child: Text(
+                        eventShortName(e),
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.15),
+                        style: labelStyle.copyWith(color: selected ? LookUpColors.black : LookUpColors.white),
+                      ),
+                    ),
+                  ]),
           ),
         ),
       ),
@@ -349,7 +425,7 @@ class _PickCard extends StatelessWidget {
               Text(eventSubtitle(e), style: const TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.35)),
               if (locked) ...[
                 const SizedBox(height: 6),
-                const Text('LookUp+', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
+                const PlusAlertTag(size: 12),
               ] else if (!e.type.pushes) ...[
                 const SizedBox(height: 6),
                 const Text('No alert', style: TextStyle(fontSize: 12, color: LookUpColors.greyDim)),
@@ -460,13 +536,10 @@ class CalendarPage extends StatelessWidget {
             ]),
           ),
         const SizedBox(height: 6),
-        const Wrap(spacing: 12, runSpacing: 4, children: [
-          _Dot(LookUpColors.blue, 'Stations'),
-          _Dot(LookUpColors.violet, 'Starlink'),
-          _Dot(LookUpColors.gold, 'Planets'),
-          _Dot(LookUpColors.orange, 'Meteors'),
-          _Dot(LookUpColors.red, 'Launches'),
-          _Key(icon: Icons.texture_rounded, label: 'Cloudy'),
+        // Only the dots actually on the calendar, each named.
+        Wrap(spacing: 12, runSpacing: 4, children: [
+          for (final (color, label) in _legend(days)) _Dot(color, label),
+          const _Key(icon: Icons.texture_rounded, label: 'Cloudy'),
         ]),
         if (sel != null) ...[
           Padding(
@@ -494,12 +567,12 @@ class CalendarPage extends StatelessWidget {
                   leading: EventGlyph.of(e, size: 30),
                   title: eventTitle(e),
                   padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (lockedOnFree(e, isPlus: isPlus)) ...[
-                      const Text('LookUp+', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: LookUpColors.blue)),
-                      const SizedBox(width: 10),
-                    ],
+                  trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
                     Text(fmtTime(e.start), style: numeric(size: 14, weight: FontWeight.w600)),
+                    if (lockedOnFree(e, isPlus: isPlus)) ...[
+                      const SizedBox(height: 4),
+                      const PlusAlertTag(),
+                    ],
                   ]),
                 ),
               if (sel.quiet.isNotEmpty)
@@ -515,6 +588,30 @@ class CalendarPage extends StatelessWidget {
       ],
     );
   }
+
+  /// One key per kind of dot on the calendar, in the order they first show.
+  static List<(Color, String)> _legend(List<WeekNight> days) {
+    final seen = <String>{};
+    return [
+      for (final d in days)
+        for (final e in d.alerts.take(4))
+          if (seen.add(_kind(e.type))) (eventStyle(e.type, details: e.details).color, _kind(e.type)),
+    ];
+  }
+
+  static String _kind(SkyEventType t) => switch (t) {
+        SkyEventType.iss => 'ISS',
+        SkyEventType.tiangong => 'Tiangong',
+        SkyEventType.starlinkTrain => 'Starlink',
+        SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora',
+        SkyEventType.meteorShower => 'Meteors',
+        SkyEventType.lunarEclipse || SkyEventType.solarEclipse => 'Eclipses',
+        SkyEventType.planetPairing || SkyEventType.planetHighlight => 'Planets',
+        SkyEventType.rocketLaunch => 'Launches',
+        SkyEventType.issTransit => 'Transits',
+        SkyEventType.satellitePass => 'Satellites',
+        SkyEventType.skyObject => 'Sky',
+      };
 
   /// How the night's clouds look, from the forecast; nothing claimed
   /// without one.

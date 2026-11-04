@@ -9,7 +9,8 @@ import '../theme.dart';
 /// up: list glyphs, the hero card's glow, the Week tab. A null icon means
 /// the ringed [PlanetMark] (Material's only planet icon is the Earth).
 ({IconData? icon, Color color}) eventStyle(SkyEventType? t, {Map<String, Object?> details = const {}}) => switch (t) {
-      SkyEventType.iss || SkyEventType.tiangong => (icon: Icons.satellite_alt_rounded, color: LookUpColors.blue),
+      SkyEventType.iss => (icon: Icons.satellite_alt_rounded, color: LookUpColors.blue),
+      SkyEventType.tiangong => (icon: Icons.satellite_alt_rounded, color: LookUpColors.rose),
       SkyEventType.satellitePass => (icon: Icons.satellite_alt_rounded, color: LookUpColors.cyan),
       SkyEventType.starlinkTrain => (icon: Icons.linear_scale_rounded, color: LookUpColors.violet),
       SkyEventType.auroraNow || SkyEventType.auroraOutlook => (icon: Icons.waves_rounded, color: LookUpColors.good),

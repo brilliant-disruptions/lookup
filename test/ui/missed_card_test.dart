@@ -85,7 +85,7 @@ void main() {
     // The train coming tomorrow is Plus-only.
     await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')).first);
     await t.pump();
-    expect(find.text('LookUp+'), findsOneWidget);
+    expect(find.text('Alert with LookUp+'), findsOneWidget);
 
     await t.tap(find.text('Last 7 nights · You missed 2'));
     for (var i = 0; i < 5; i++) {
@@ -105,7 +105,7 @@ void main() {
     expect(find.textContaining('You missed'), findsNothing);
     await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')).first);
     await t.pump();
-    expect(find.text('LookUp+'), findsNothing);
+    expect(find.text('Alert with LookUp+'), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
 }

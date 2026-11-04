@@ -132,6 +132,22 @@ void main() {
     await t.pump(const Duration(minutes: 1));
   });
 
+  testWidgets('every tab has the Settings gear, and it opens Settings', (t) async {
+    await pump(t);
+    Finder tab(String label) => find.descendant(of: find.byType(FloatingTabBar), matching: find.text(label));
+    for (final label in ['Tonight', 'Sky', 'Week', 'Log']) {
+      await t.tap(tab(label));
+      await t.pump(const Duration(seconds: 1));
+      expect(find.descendant(of: find.byType(AppHeader), matching: find.byTooltip('Settings')), findsOneWidget,
+          reason: label);
+    }
+    await t.tap(find.descendant(of: find.byType(AppHeader), matching: find.byTooltip('Settings')));
+    await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
+    expect(find.text('What to tell me about'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 1));
+  });
+
   // Settings stays Settings: a tap opens all of it. Press and hold is only a
   // shortcut to night vision.
   testWidgets('press and hold Settings for just night vision; a tap is still all of Settings', (t) async {
