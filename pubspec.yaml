@@ -54,6 +54,8 @@ flutter:
     - assets/sky/proper_motion.json
     - assets/sky/skyglow.bin.gz
     - assets/sky/places.json
+    - assets/sky/figures.json
+    - assets/sky/figures/
   fonts:
     # Inter (OFL): one family for everything, variable wght + opsz.
     - family: Inter
