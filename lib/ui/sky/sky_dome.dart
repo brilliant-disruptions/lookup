@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models/sky_event.dart';
 import '../../domain/sky/catalog.dart';
 import '../theme.dart';
+import 'constellation_glow.dart' show placeBodyLabel, placeLabel;
 import 'sky_thing.dart';
 import 'sky_track.dart';
 
@@ -184,11 +185,32 @@ class _DomePainter extends CustomPainter {
       canvas.drawCircle(o, r, dot);
     }
 
-    // Constellation names for the well-known ones.
+    // Constellation names for the well-known ones, stepping aside so
+    // neighbours never sit on each other.
+    final nameStyle = label.copyWith(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0x99A0A8B8));
+    final taken = <Rect>[];
+    // Planet and Moon names are placed first, so these step around them.
+    final bodyStyle = label.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600, color: LookUpColors.white);
+    final bodies = <(SkyThing, Offset)>[
+      for (final t in things)
+        if (t.kind == 'Planet' || t.id == 'moon' || t.id == selectedId)
+          if (_xy(s, t.position(time).azimuthDeg, t.position(time).altitudeDeg) case final o?) (t, o),
+    ];
+    // Names keep off every body's disc.
+    Rect disc(SkyThing t, Offset o) => Rect.fromCircle(center: o, radius: t.id == 'moon' ? 9 : 4);
+    taken.addAll([for (final (t, o) in bodies) disc(t, o)]);
+    final bodyLabels = <String, (String, Offset)>{};
+    for (final (t, o) in bodies) {
+      final name = t.id == 'moon' ? 'Moon' : t.name;
+      final tp = TextPainter(text: TextSpan(text: name, style: bodyStyle), textDirection: TextDirection.ltr)..layout();
+      bodyLabels[t.id] = (name, placeBodyLabel(o, 15, tp.size, taken, disc: disc(t, o)));
+    }
     for (final con in catalog.constellations.where((c) => c.rank == 1)) {
       final o = _eq(s, con.centerRaDeg, con.centerDecDeg);
       if (o == null) continue;
-      _text(canvas, con.name, o, label.copyWith(fontSize: 10, fontWeight: FontWeight.w500, color: const Color(0x99A0A8B8)));
+      final tp = TextPainter(text: TextSpan(text: con.name, style: nameStyle), textDirection: TextDirection.ltr)..layout();
+      final at = placeLabel(o, tp.size, taken);
+      if (at != null) tp.paint(canvas, at - Offset(tp.width / 2, tp.height / 2));
     }
 
     // Passes, under the planets and the Moon.
@@ -238,10 +260,7 @@ class _DomePainter extends CustomPainter {
               ..strokeWidth = 2
               ..color = LookUpColors.blue);
       }
-      if (t.kind == 'Planet' || t.id == 'moon' || selected) {
-        _text(canvas, t.id == 'moon' ? 'Moon' : t.name, o + const Offset(0, 15),
-            label.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600, color: LookUpColors.white));
-      }
+      if (bodyLabels[t.id] case (final name, final at)) _text(canvas, name, at, bodyStyle);
     }
 
     // You: standing under the middle of the map, looking straight up.

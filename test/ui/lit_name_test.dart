@@ -35,4 +35,56 @@ void main() {
     expect(labelClashes(const Offset(200, 300), const Size(60, 14), [lit]), isFalse);
     expect(labelClashes(const Offset(200, 392), const Size(60, 14), const []), isFalse);
   });
+
+  test('plain names step aside for each other: below, then above, else wait', () {
+    final taken = <Rect>[];
+    final first = placeLabel(const Offset(200, 100), name, taken)!;
+    expect(first, const Offset(200, 100));
+    // A neighbour aimed at almost the same spot goes just below.
+    final second = placeLabel(const Offset(210, 104), name, taken)!;
+    expect(second.dy, greaterThan(104));
+    // A third tries below (taken), then above.
+    final third = placeLabel(const Offset(205, 96), name, taken)!;
+    expect(third.dy, lessThan(96));
+    // None of the three overlap.
+    final rects = [for (final o in [first, second, third]) Rect.fromCenter(center: o, width: name.width, height: name.height)];
+    for (var i = 0; i < rects.length; i++) {
+      for (var j = i + 1; j < rects.length; j++) {
+        expect(rects[i].overlaps(rects[j]), isFalse);
+      }
+    }
+    // A fourth has nowhere to go and waits.
+    expect(placeLabel(const Offset(200, 101), name, taken), isNull);
+    expect(taken, hasLength(3));
+  });
+
+  test('planet names come first and step down or up for each other; never dropped', () {
+    final taken = <Rect>[];
+    const jupiter = Offset(200, 300), mars = Offset(212, 304);
+    final j = placeBodyLabel(jupiter, 16, name, taken);
+    expect(j, const Offset(200, 316));
+    final m = placeBodyLabel(mars, 16, name, taken);
+    expect(Rect.fromCenter(center: j, width: name.width, height: name.height)
+        .overlaps(Rect.fromCenter(center: m, width: name.width, height: name.height)), isFalse);
+    // A constellation name aimed at Jupiter's label steps aside, or waits.
+    final leo = placeLabel(const Offset(205, 318), name, taken);
+    if (leo != null) {
+      for (final r in taken.take(2)) {
+        expect(r.overlaps(Rect.fromCenter(center: leo, width: name.width, height: name.height)), isFalse);
+      }
+    }
+    // Crowded out entirely, a planet is still named, beneath it.
+    final crowded = [const Rect.fromLTRB(0, 0, 400, 500)];
+    expect(placeBodyLabel(jupiter, 16, name, crowded), const Offset(200, 316));
+  });
+
+  test('the spotlight name goes above rather than sit on a planet', () {
+    const stars = [Offset(200, 100), Offset(220, 200)];
+    final jupiter = Rect.fromCircle(center: const Offset(210, 226), radius: 9);
+    final r = litNameRect(stars, name, sky, avoid: [jupiter]);
+    expect(r.overlaps(jupiter), isFalse);
+    expect(r.bottom, lessThanOrEqualTo(100));
+    // Nothing in the way: beneath, as before.
+    expect(litNameRect(stars, name, sky).top, 218);
+  });
 }

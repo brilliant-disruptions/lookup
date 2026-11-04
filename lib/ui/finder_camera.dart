@@ -311,9 +311,19 @@ class SkyOverlayPainter extends CustomPainter {
             bounds: Offset.zero & size);
         if (at != null) litNames.add(at);
       }
+      // Planets and the Moon (drawn below) keep their names where they are;
+      // constellation names step around them and their discs.
+      final taken = [
+        ...litNames,
+        for (final m in marks)
+          if (_at(size, m.d) case final o?) ...[
+            Rect.fromCircle(center: o, radius: 10),
+            Rect.fromCenter(center: o + const Offset(0, 18), width: _measureLabel(m.label, 12).width, height: 16),
+          ],
+      ];
       for (final (name, o) in plainNames) {
-        if (litNames.isNotEmpty && labelClashes(o, _measureLabel(name, 11), litNames)) continue;
-        _label(canvas, name, o, Colors.white.withValues(alpha: 0.55), 11);
+        final at = placeLabel(o, _measureLabel(name, 11), taken);
+        if (at != null) _label(canvas, name, at, Colors.white.withValues(alpha: 0.55), 11);
       }
     }
 

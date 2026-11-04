@@ -88,6 +88,7 @@ Rect? paintLitConstellation(
   String? name,
   TextStyle? nameStyle,
   Rect? bounds,
+  Iterable<Rect> avoid = const [],
 }) {
   if (t <= 0) return null;
   final under = Paint()
@@ -138,7 +139,7 @@ Rect? paintLitConstellation(
     ),
     textDirection: TextDirection.ltr,
   )..layout();
-  final rect = litNameRect(on, Size(tp.width, tp.height), bounds);
+  final rect = litNameRect(on, Size(tp.width, tp.height), bounds, avoid: avoid);
   tp.paint(canvas, rect.topLeft);
   return rect;
 }
@@ -147,23 +148,74 @@ Rect? paintLitConstellation(
 /// the name's [size]: centred beneath the lowest star; above the highest
 /// when that would run past the bottom of [bounds] (behind the ground);
 /// nudged in from the sides and top so it's never cut off.
-Rect litNameRect(List<Offset> on, Size size, Rect? bounds) {
+///
+/// When beneath would sit on something in [avoid] (a planet, the Moon) it
+/// goes above instead, if that's clear; never below the ground for it.
+Rect litNameRect(List<Offset> on, Size size, Rect? bounds, {Iterable<Rect> avoid = const []}) {
   const gap = 18.0;
   final x = on.fold(0.0, (a, o) => a + o.dx) / on.length;
   final lowest = on.fold(double.negativeInfinity, (a, o) => max(a, o.dy));
   final highest = on.fold(double.infinity, (a, o) => min(a, o.dy));
-  var top = lowest + gap;
-  if (bounds != null && top + size.height > bounds.bottom) top = highest - gap - size.height;
-  var left = x - size.width / 2;
-  if (bounds != null) {
-    left = left.clamp(bounds.left + 4, max(bounds.left + 4, bounds.right - 4 - size.width));
-    top = top.clamp(bounds.top + 4, max(bounds.top + 4, bounds.bottom - 4 - size.height));
+  Rect at(double top) {
+    var left = x - size.width / 2;
+    if (bounds != null) {
+      left = left.clamp(bounds.left + 4, max(bounds.left + 4, bounds.right - 4 - size.width));
+      top = top.clamp(bounds.top + 4, max(bounds.top + 4, bounds.bottom - 4 - size.height));
+    }
+    return Offset(left, top) & size;
   }
-  return Offset(left, top) & size;
+
+  final beneath = lowest + gap, above = highest - gap - size.height;
+  final fitsBeneath = bounds == null || beneath + size.height <= bounds.bottom;
+  final first = at(fitsBeneath ? beneath : above);
+  if (!fitsBeneath || !avoid.any(first.overlaps)) return first;
+  final second = at(above);
+  return avoid.any(second.overlaps) ? first : second;
 }
 
 /// Whether a label of [size] centred at [at] would run into [taken].
 bool labelClashes(Offset at, Size size, Iterable<Rect> taken) {
   final r = Rect.fromCenter(center: at, width: size.width, height: size.height).inflate(4);
   return taken.any(r.overlaps);
+}
+
+/// Where to put a plain name of [size] meant for [at], clear of every
+/// label in [taken]: there, else just below, else just above. Records the
+/// spot in [taken] and returns its centre, or null when all three are
+/// taken (the name waits rather than sitting on another).
+Offset? placeLabel(Offset at, Size size, List<Rect> taken) {
+  final step = size.height + 4; // clear of labelClashes' margin
+  return _firstClear([at, at + Offset(0, step), at - Offset(0, step)], size, taken);
+}
+
+/// A planet's or the Moon's name, [gap] beneath its centre; else above it,
+/// else further down. Bodies are what people look for, so the name is
+/// always drawn: when nowhere is clear it goes beneath anyway. Place these
+/// before constellation names so the names step around them.
+///
+/// [disc] is the body's own, ignored: its name is meant to sit by it.
+Offset placeBodyLabel(Offset body, double gap, Size size, List<Rect> taken, {Rect? disc}) {
+  if (disc != null) taken.remove(disc);
+  try {
+    return _placeBodyLabel(body, gap, size, taken);
+  } finally {
+    if (disc != null) taken.add(disc);
+  }
+}
+
+Offset _placeBodyLabel(Offset body, double gap, Size size, List<Rect> taken) {
+  final beneath = body + Offset(0, gap);
+  final spot = _firstClear([beneath, body - Offset(0, gap), beneath + Offset(0, size.height + 4)], size, taken);
+  if (spot != null) return spot;
+  taken.add(Rect.fromCenter(center: beneath, width: size.width, height: size.height));
+  return beneath;
+}
+
+Offset? _firstClear(List<Offset> spots, Size size, List<Rect> taken) {
+  for (final o in spots) {
+    if (labelClashes(o, size, taken)) continue;
+    taken.add(Rect.fromCenter(center: o, width: size.width, height: size.height));
+    return o;
+  }
+  return null;
 }
