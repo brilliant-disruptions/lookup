@@ -268,7 +268,7 @@ void main() {
 
     await t.tap(find.byTooltip('Settings'));
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
-    await Scrollable.ensureVisible(t.element(find.text('Show me around')), alignment: 0.5);
+    await t.scrollUntilVisible(find.text('Show me around'), 300, scrollable: find.byType(Scrollable).last);
     await t.pump(const Duration(milliseconds: 400));
     await t.tap(find.text('Show me around'));
     await settle(t);

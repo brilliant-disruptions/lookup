@@ -6,6 +6,7 @@ import '../../domain/orbit/omm.dart';
 import '../../domain/orbit/orbit_facts.dart';
 import '../../domain/satellites/crew.dart';
 import '../../state/sky_extras.dart';
+import '../format.dart' show fmtDistance;
 import '../kit/surfaces.dart';
 import '../theme.dart';
 
@@ -29,7 +30,7 @@ class StationFacts extends ConsumerWidget {
     final line = [
       if (crew.isNotEmpty) '${crew.length} people aboard',
       if (facts != null) '${_thousands(facts.speedMph)} mph',
-      if (facts != null) '${facts.altitudeKm.round()} km up',
+      if (facts != null) '${fmtDistance(facts.altitudeKm)} up',
       if (facts != null) 'a lap every ${facts.minutesPerOrbit.round()} min',
     ].join(' · ');
     return Padding(

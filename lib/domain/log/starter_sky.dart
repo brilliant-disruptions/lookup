@@ -11,7 +11,6 @@ import '../models/sky_event.dart';
 import '../plan/night_plan.dart';
 import '../sky/catalog.dart';
 import '../sky/tonight.dart';
-import '../sky/visibility.dart';
 import 'sighting.dart';
 import 'sky_log.dart';
 
@@ -93,7 +92,7 @@ abstract final class StarterSky {
       pass = ahead.firstOrNull;
     }
 
-    bool easy(SkySighting? s) => s != null && (s.verdict == Seeability.great || s.verdict == Seeability.good);
+    bool easy(SkySighting? s) => s != null && s.verdict.worthPlanning;
 
     ({String id, int night, SkySighting sighting})? planet;
     if (!p.planet) {

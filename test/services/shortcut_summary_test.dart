@@ -25,7 +25,7 @@ void main() {
 
   test('speaks direction words, never numbers', () {
     final s = spokenSummary(ev('iss:1', SkyEventType.iss));
-    expect(s, startsWith('The space station passes over'));
+    expect(s, startsWith('The ISS passes over'));
     expect(s, contains('Look west-southwest'));
     expect(RegExp(r'\d+°').hasMatch(s), isFalse);
     expect(spokenSummary(ev('iss:2', SkyEventType.iss, clouds: 90)), endsWith('Clouds may get in the way.'));

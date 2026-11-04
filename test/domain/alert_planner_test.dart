@@ -170,6 +170,9 @@ void main() {
     expect(plan.map((a) => a.title), ['Geminids tonight', 'Rocket launch in 10 min']);
     expect(plan.first.body, startsWith('Up to ~60 an hour'));
     expect(plan.last.body, contains('Falcon 9, 210 km away'));
+    // In miles where people read miles: 210 km is about 130 miles.
+    final inMiles = planner.plan(events: [launch], settings: plus.copyWith(goNowNudge: false, miles: true), now: now, utcOffsetMinutes: cdt);
+    expect(inMiles.single.body, contains('Falcon 9, 130 miles away'));
     final off = planner.plan(events: [meteor, launch], settings: plus.copyWith(meteorsEnabled: false, launchesEnabled: false), now: now, utcOffsetMinutes: cdt);
     expect(off, isEmpty);
     // Launches are Plus; meteors are free.

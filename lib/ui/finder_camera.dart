@@ -369,9 +369,17 @@ class SkyOverlayPainter extends CustomPainter {
 
     // The passes: past part dim, future part bright, minute ticks with
     // times, and a dot where each one is now.
-    _paintPath(canvas, size, path, LookUpColors.blue);
+    // The target ring and its name (drawn last, on top) keep the minute
+    // times off them: a time steps below its tick, or waits.
+    final ringAt = this.target == null ? null : _at(size, this.target!);
+    final keepClear = <Rect>[
+      if (ringAt != null) Rect.fromCircle(center: ringAt, radius: 28),
+      if (ringAt != null && targetLabel != null)
+        Rect.fromCenter(center: ringAt + const Offset(0, -40), width: _measureLabel(targetLabel!, 13).width, height: 18),
+    ];
+    _paintPath(canvas, size, path, LookUpColors.blue, keepClear);
     for (final tr in tracks) {
-      _paintPath(canvas, size, tr.path, tr.color);
+      _paintPath(canvas, size, tr.path, tr.color, keepClear);
       final first = tr.path.map((p) => _at(size, p.d)).nonNulls.firstOrNull;
       final live = tr.now == null ? null : _at(size, tr.now!);
       if (live != null) {
@@ -406,7 +414,7 @@ class SkyOverlayPainter extends CustomPainter {
     canvas.drawLine(c - const Offset(0, 14), c + const Offset(0, 14), cross);
   }
 
-  void _paintPath(Canvas canvas, Size size, List<({DateTime t, SkyDir d})> path, Color color) {
+  void _paintPath(Canvas canvas, Size size, List<({DateTime t, SkyDir d})> path, Color color, List<Rect> keepClear) {
     if (path.length < 2) return;
     final past = Paint()
       ..color = color.withValues(alpha: 0.35)
@@ -429,7 +437,9 @@ class SkyOverlayPainter extends CustomPainter {
       final o = _at(size, p.d);
       if (o == null) continue;
       canvas.drawCircle(o, 3.5, Paint()..color = Colors.white);
-      _label(canvas, fmtTime(p.t), o + const Offset(0, -16), Colors.white, 11);
+      final words = fmtTime(p.t);
+      final spot = _firstClearSpot([o + const Offset(0, -16), o + const Offset(0, 16)], _measureLabel(words, 11), keepClear);
+      if (spot != null) _label(canvas, words, spot, Colors.white, 11);
     }
   }
 
@@ -438,6 +448,17 @@ class SkyOverlayPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout())
           .size;
+
+  /// The first of [spots] where a label of [size] stays clear of [taken]
+  /// (and is then added to it); null when none is.
+  static Offset? _firstClearSpot(List<Offset> spots, Size size, List<Rect> taken) {
+    for (final o in spots) {
+      if (labelClashes(o, size, taken)) continue;
+      taken.add(Rect.fromCenter(center: o, width: size.width, height: size.height));
+      return o;
+    }
+    return null;
+  }
 
   void _label(Canvas canvas, String text, Offset at, Color color, double size) {
     final tp = TextPainter(

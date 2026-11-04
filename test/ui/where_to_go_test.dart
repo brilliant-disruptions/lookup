@@ -10,6 +10,7 @@ import 'package:lookup/domain/weather/cloud_forecast.dart';
 import 'package:lookup/state/plan_state.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/state/sky_state.dart';
+import 'package:lookup/ui/format.dart' show displayMiles;
 import 'package:lookup/ui/theme.dart';
 import 'package:lookup/ui/where_to_go_screen.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -92,6 +93,10 @@ void main() {
     test('distances are rounded, never falsely precise', () {
       PlaceNight at(double km) => PlaceNight(name: 'x', here: false, darkness: SkyDarkness.dark, outlook: null, distanceKm: km, bearingDeg: 0);
       expect(howFar(at(7.4)), '7 km north');
+      displayMiles = true;
+      addTearDown(() => displayMiles = false);
+      expect(howFar(at(43)), '25 miles north'); // 26.7
+      displayMiles = false;
       expect(howFar(at(43)), '45 km north');
       expect(howFar(at(243)), '240 km north');
     });
@@ -185,7 +190,7 @@ void main() {
     ));
     await t.pumpAndSettle();
 
-    expect(find.text('Your sky here: about city.'), findsOneWidget);
+    expect(find.text('Your sky here is washed out by city lights.'), findsOneWidget);
     expect(find.text('35 km west'), findsOneWidget);
     expect(find.text('80 km west-southwest'), findsOneWidget);
     // 20.6 is darker than a city but not a dark sky: no Milky Way promised.

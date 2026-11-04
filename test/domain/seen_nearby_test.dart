@@ -49,6 +49,10 @@ void main() {
     expect(v.byEye, 4);
     expect(v.headline, startsWith('Aurora being seen'));
     expect(v.headline, isNot(contains('°')));
+    // In the reader's units: km by default, miles when they read miles.
+    expect(v.nearestKm, greaterThanOrEqualTo(30), reason: 'the crowd is a little way off');
+    expect(v.headline, contains(' km '));
+    expect(v.headlineIn(miles: true), contains(' miles '));
     expect(v.body(const CrowdRules().window), contains('5 people'));
   });
 

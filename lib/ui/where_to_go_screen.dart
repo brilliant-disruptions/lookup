@@ -28,18 +28,15 @@ Future<void> openWhereToGo(BuildContext context) {
   return Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WhereToGoScreen()));
 }
 
-/// "240 km east", or "40 km northeast"; null for here.
+/// "240 km east", or "25 miles northeast"; null for here.
 String? howFar(PlaceNight p) {
   final km = p.distanceKm, b = p.bearingDeg;
   if (km == null || b == null) return null;
-  return '${roundKm(km)} km ${compassWord(b)}';
+  return '${fmtDistance(km)} ${compassWord(b)}';
 }
 
-/// Distances to the nearest sensible step: never falsely precise.
-int roundKm(double km) => km < 20 ? km.round() : km < 100 ? (km / 5).round() * 5 : (km / 10).round() * 10;
-
-/// "30 km west".
-String spotName(DarkSpot s) => '${roundKm(s.distanceKm)} km ${compassWord(s.bearingDeg)}';
+/// "30 km west" or "20 miles west".
+String spotName(DarkSpot s) => '${fmtDistance(s.distanceKm)} ${compassWord(s.bearingDeg)}';
 
 bool _isDark(DarkSpot s) => darknessForSqm(s.sqm) == SkyDarkness.dark;
 
@@ -213,7 +210,13 @@ class _DarkSpots extends ConsumerWidget {
     final d = ref.watch(darkSpotsProvider).value;
     if (d == null) return const SizedBox.shrink();
     final here = d.here;
-    final hereWords = here == null ? null : 'Your sky here: about ${darknessForSqm(here).label.toLowerCase()}.';
+    final hereWords = here == null
+        ? null
+        : switch (darknessForSqm(here)) {
+            SkyDarkness.city => 'Your sky here is washed out by city lights.',
+            SkyDarkness.suburbs => 'Your sky here has a suburban glow.',
+            SkyDarkness.dark => 'Your sky here is already dark.',
+          };
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const SectionHeader('Darker skies nearby'),
       if (d.spots.isEmpty)
@@ -221,7 +224,7 @@ class _DarkSpots extends ConsumerWidget {
           child: Text(
             here != null && darknessForSqm(here) == SkyDarkness.dark
                 ? 'Your sky is already about as dark as it gets around here.'
-                : 'Nowhere within 150 km is clearly darker.',
+                : 'Nowhere within ${fmtDistance(150)} is clearly darker.',
             style: const TextStyle(color: LookUpColors.grey, height: 1.4),
           ),
         )

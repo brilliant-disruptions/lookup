@@ -12,6 +12,7 @@ import '../../domain/aurora/seen_nearby.dart';
 import '../../domain/models/sky_event.dart';
 import '../../domain/sky/sun.dart';
 import '../../state/providers.dart';
+import '../format.dart' show fmtDistance;
 import '../theme.dart';
 
 /// Whether to offer "Can you see it?" for [e] at [lat], [lon] right now.
@@ -41,9 +42,9 @@ class _SeenItRowState extends ConsumerState<SeenItRow> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Tell people nearby?'),
-        content: const Text(
+        content: Text(
           'LookUp sends that you can see it, when, and roughly where: '
-          'a square about 55 km across, never your position. No name, no account.\n\n'
+          'a square about ${fmtDistance(55)} across, never your position. No name, no account.\n\n'
           'In return you\'ll hear when people near you see the aurora (LookUp+). '
           'You can turn this off in Settings › Tell me about.',
           style: TextStyle(height: 1.4),

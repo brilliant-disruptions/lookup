@@ -8,6 +8,7 @@ import 'paywall_sheet.dart';
 
 import '../data/geocoding_client.dart';
 import '../domain/models/settings.dart';
+import '../domain/plan/near_town.dart';
 import '../domain/sky/skyglow.dart';
 import '../domain/sky/visibility.dart';
 import '../state/providers.dart';
@@ -27,6 +28,7 @@ class PlacesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider).value ?? const LookUpSettings();
     final active = s.activePlace;
+    final towns = ref.watch(placesProvider).value;
     Future<void> set(LookUpSettings Function(LookUpSettings) f) async {
       await ref.read(settingsProvider.notifier).edit(f);
       await ref.read(homeProvider.notifier).refresh();
@@ -77,9 +79,12 @@ class PlacesScreen extends ConsumerWidget {
                   child: ListRow(
                     leading: const EventGlyph(icon: Icons.place_rounded, color: LookUpColors.violet, size: 32),
                     title: p.name,
-                    subtitle: p.skyDarkness == null
-                        ? '${p.latitude.toStringAsFixed(2)}, ${p.longitude.toStringAsFixed(2)}'
-                        : '${p.skyDarkness!.label} · ${p.latitude.toStringAsFixed(2)}, ${p.longitude.toStringAsFixed(2)}',
+                    subtitle: [
+                      if (p.skyDarkness != null) p.skyDarkness!.label,
+                      // "25 miles east of Knoxville"; coordinates only far from any town.
+                      (towns == null ? null : nearTown(p.latitude, p.longitude, towns, miles: s.usesMiles)) ??
+                          '${p.latitude.toStringAsFixed(2)}, ${p.longitude.toStringAsFixed(2)}',
+                    ].join(' · '),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       _SkyMenu(
                         place: p,

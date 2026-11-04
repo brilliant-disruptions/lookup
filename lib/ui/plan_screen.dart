@@ -182,6 +182,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   static String _verdictShort(Seeability v) => switch (v) {
         Seeability.great => 'Easy',
         Seeability.good => 'Good',
+        Seeability.ifClear => 'If clear',
         Seeability.low => 'Low',
         Seeability.patchy => 'Gaps',
         Seeability.cloudy => 'Cloud',

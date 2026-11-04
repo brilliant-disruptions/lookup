@@ -32,6 +32,14 @@ String elevationWord(double elevationDeg) {
   return 'low on the horizon';
 }
 
+/// [elevationWord] in one word, for a tile: Overhead, High, Halfway, Low.
+String elevationShort(double elevationDeg) {
+  if (elevationDeg >= 75) return 'Overhead';
+  if (elevationDeg >= 50) return 'High';
+  if (elevationDeg >= 20) return 'Halfway';
+  return 'Low';
+}
+
 /// `4 min`, `90 sec`.
 String durationWord(Duration d) {
   if (d.inSeconds < 100) return '${d.inSeconds} sec';

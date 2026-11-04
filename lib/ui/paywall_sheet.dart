@@ -233,7 +233,7 @@ class _NotificationPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final e = event;
     final title = e == null ? 'Aurora now' : AlertPlanner.headsUpTitle(e, leadMinutes);
-    final body = e == null ? 'Find a dark spot and look north.' : AlertPlanner.headsUpBody(e);
+    final body = e == null ? 'Find a dark spot and look north.' : AlertPlanner.headsUpBody(e, miles: displayMiles);
     final when = e == null ? 'now' : fmtTime(e.start.subtract(Duration(minutes: leadMinutes)));
     return Semantics(
       label: 'Example alert: $title. $body',

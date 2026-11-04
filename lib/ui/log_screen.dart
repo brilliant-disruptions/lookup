@@ -149,7 +149,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
       );
 
   static String _typeLabel(SkyEventType? t) => switch (t) {
-        SkyEventType.iss => 'Space station',
+        SkyEventType.iss => 'ISS',
         SkyEventType.tiangong => 'Tiangong',
         SkyEventType.starlinkTrain => 'Starlink train',
         SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora',

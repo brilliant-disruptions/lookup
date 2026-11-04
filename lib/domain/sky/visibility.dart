@@ -71,6 +71,10 @@ class SkyConditions {
 enum Seeability {
   great('Easy to see'),
   good('Visible'),
+
+  /// Up and bright enough, but there's no cloud forecast for then (none
+  /// loaded, or too far ahead): never a plain yes.
+  ifClear('If it\'s clear'),
   low('Low: needs a clear view to the horizon'),
   patchy('Through gaps in the cloud'),
   cloudy('Hidden by cloud'),
@@ -84,7 +88,11 @@ enum Seeability {
   const Seeability(this.words);
   final String words;
 
-  bool get yes => this == great || this == good || this == low || this == patchy;
+  bool get yes => this == great || this == good || this == ifClear || this == low || this == patchy;
+
+  /// Good enough to plan a night around: easy, visible, or would be if
+  /// it's clear (nights beyond the forecast).
+  bool get worthPlanning => this == great || this == good || this == ifClear;
 }
 
 /// [mag] is the object's brightness; [diffuse] objects (galaxies, nebulae,
@@ -120,6 +128,8 @@ Seeability canSee({
   if (vis != null && vis < 4000) return Seeability.foggy;
   if (cloud != null && cloud > 40) return Seeability.patchy;
   if (altDeg < 12) return Seeability.low;
+  // Nobody knows the clouds: up and bright enough, but not a promise.
+  if (cloud == null) return Seeability.ifClear;
   return limit - (effective + extinction) > 1.5 ? Seeability.great : Seeability.good;
 }
 

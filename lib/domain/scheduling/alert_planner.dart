@@ -6,6 +6,7 @@
 library;
 
 import '../models/settings.dart';
+import '../units.dart';
 import '../events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../models/sky_event.dart';
 import '../sky/direction.dart';
@@ -83,7 +84,7 @@ class AlertPlanner {
           fireAt: headsUpAt,
           kind: AlertKind.headsUp,
           title: headsUpTitle(e, settings.leadMinutes),
-          body: headsUpBody(e),
+          body: headsUpBody(e, miles: settings.usesMiles),
         ));
       }
       final goNowAt = e.start.subtract(const Duration(minutes: 1));
@@ -108,7 +109,7 @@ class AlertPlanner {
   /// "Remind me in 5 min" from a heads-up: fires [by] from [now] but never
   /// later than a minute before the start. Null when the event is too close
   /// for a reminder to help (the go-now tap covers that).
-  static PlannedAlert? snooze(SkyEvent e, DateTime now, {Duration by = const Duration(minutes: 5)}) {
+  static PlannedAlert? snooze(SkyEvent e, DateTime now, {Duration by = const Duration(minutes: 5), bool miles = false}) {
     final nowUtc = now.toUtc();
     var at = nowUtc.add(by);
     final latest = e.start.subtract(const Duration(minutes: 1));
@@ -121,7 +122,7 @@ class AlertPlanner {
       fireAt: at,
       kind: AlertKind.snooze,
       title: headsUpTitle(e, lead),
-      body: headsUpBody(e),
+      body: headsUpBody(e, miles: miles),
     );
   }
 
@@ -208,7 +209,8 @@ class AlertPlanner {
   static String auroraNowTitle(SkyEvent e) =>
       e.details['crowd'] == true ? (e.details['headline'] as String?) ?? 'Aurora being seen near you' : 'Aurora now';
 
-  static String headsUpBody(SkyEvent e) {
+  /// [miles]: write distances in miles (see `LookUpSettings.usesMiles`).
+  static String headsUpBody(SkyEvent e, {bool miles = false}) {
     if (e.type == SkyEventType.auroraNow) {
       if (e.details['crowd'] == true && e.details['body'] is String) return e.details['body'] as String;
       return 'Find a dark spot and look north. ${_cloudNote(e)}'.trim();
@@ -237,9 +239,10 @@ class AlertPlanner {
         final b = e.details['brightness'] as String?;
         return '${e.details['planet']} is ${b ?? 'bright'}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. ${_cloudNote(e)}'.trim();
       case SkyEventType.rocketLaunch:
-        final dist = e.details['distanceKm'];
+        final dist = (e.details['distanceKm'] as num?)?.toDouble();
         final name = e.details['name'] ?? 'A rocket';
-        return '$name, $dist km away. Look ${compassWord(e.peakAzimuthDeg)}, low on the horizon. Launch times slip; we update if it moves. ${_cloudNote(e)}'.trim();
+        final away = dist == null ? 'in range' : '${distanceWords(dist, miles: miles)} away';
+        return '$name, $away. Look ${compassWord(e.peakAzimuthDeg)}, low on the horizon. Launch times slip; we update if it moves. ${_cloudNote(e)}'.trim();
       default:
         break;
     }

@@ -22,7 +22,7 @@ String spokenSummary(SkyEvent e) {
       ? e.riseAzimuthDeg
       : e.peakAzimuthDeg;
   final what = switch (e.type) {
-    SkyEventType.iss => 'The space station passes over',
+    SkyEventType.iss => 'The ISS passes over',
     SkyEventType.tiangong => 'Tiangong passes over',
     SkyEventType.starlinkTrain => 'A Starlink train passes over',
     SkyEventType.auroraNow => 'Aurora is possible right now,',
