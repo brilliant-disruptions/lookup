@@ -190,7 +190,7 @@ void main() {
     ));
     await t.pumpAndSettle();
 
-    expect(find.text('Your sky here: about city.'), findsOneWidget);
+    expect(find.text('Your sky here is washed out by city lights.'), findsOneWidget);
     expect(find.text('35 km west'), findsOneWidget);
     expect(find.text('80 km west-southwest'), findsOneWidget);
     // 20.6 is darker than a city but not a dark sky: no Milky Way promised.

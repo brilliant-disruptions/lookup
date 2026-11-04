@@ -210,7 +210,13 @@ class _DarkSpots extends ConsumerWidget {
     final d = ref.watch(darkSpotsProvider).value;
     if (d == null) return const SizedBox.shrink();
     final here = d.here;
-    final hereWords = here == null ? null : 'Your sky here: about ${darknessForSqm(here).label.toLowerCase()}.';
+    final hereWords = here == null
+        ? null
+        : switch (darknessForSqm(here)) {
+            SkyDarkness.city => 'Your sky here is washed out by city lights.',
+            SkyDarkness.suburbs => 'Your sky here has a suburban glow.',
+            SkyDarkness.dark => 'Your sky here is already dark.',
+          };
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const SectionHeader('Darker skies nearby'),
       if (d.spots.isEmpty)

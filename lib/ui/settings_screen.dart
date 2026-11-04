@@ -140,7 +140,7 @@ class SettingsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.only(top: 10),
                   child: Row(children: [
                     Expanded(
-                      child: Text('The night-lights map puts your sky at ${darknessForSqm(m).label}.',
+                      child: Text('The night-lights map says "${darknessForSqm(m).label}" for here.',
                           style: const TextStyle(color: LookUpColors.grey, fontSize: 13.5)),
                     ),
                     TextButton(
