@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models/sky_event.dart';
 import '../../domain/sky/catalog.dart';
 import '../theme.dart';
-import 'constellation_glow.dart' show placeBodyLabel, placeLabel;
+import 'constellation_glow.dart' show placeBodyLabel, placeLabel, starColor;
 import 'sky_thing.dart';
 import 'sky_track.dart';
 
@@ -181,7 +181,7 @@ class _DomePainter extends CustomPainter {
       final o = _eq(s, st.raDeg, st.decDeg);
       if (o == null) continue;
       final r = (2.6 - 0.42 * st.mag).clamp(0.5, 3.4);
-      dot.color = _starColor(st.bv).withValues(alpha: (1.15 - st.mag * 0.15).clamp(0.35, 1.0));
+      dot.color = starColor(st.bv).withValues(alpha: (1.15 - st.mag * 0.15).clamp(0.35, 1.0));
       canvas.drawCircle(o, r, dot);
     }
 
@@ -282,15 +282,6 @@ class _DomePainter extends CustomPainter {
       _text(canvas, l, o,
           label.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: l == 'N' ? LookUpColors.blue : LookUpColors.grey));
     }
-  }
-
-  static Color _starColor(double? bv) {
-    final b = bv ?? 0.6;
-    if (b < 0) return const Color(0xFFBFD4FF);
-    if (b < 0.4) return const Color(0xFFF2F5FF);
-    if (b < 0.9) return const Color(0xFFFFF4E0);
-    if (b < 1.3) return const Color(0xFFFFDDB0);
-    return const Color(0xFFFFC28A);
   }
 
   void _text(Canvas canvas, String s, Offset at, TextStyle style) {
