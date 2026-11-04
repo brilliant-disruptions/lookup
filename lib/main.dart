@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'services/alert_actions.dart';
 import 'services/background.dart';
+import 'services/push_service.dart';
 import 'services/widget_service.dart';
 import 'state/providers.dart';
 
@@ -26,6 +27,13 @@ Future<void> main() async {
   } catch (_) {
     // Background refresh is best effort (unsupported on some platforms).
   }
+  // Seen near you wake-ups (iPhone): a nudge from the relay runs the usual
+  // refresh, which decides for itself whether to alert. Registration
+  // follows the settings: on, off, or a new area.
+  await PushService.init(onWake: () => container.read(homeProvider.notifier).refresh(force: true));
+  container.listen(settingsProvider, (_, next) {
+    if (next.value case final s?) PushService.sync(s);
+  }, fireImmediately: true);
   await container.read(plusServiceProvider).start();
   await WidgetService.init();
   runApp(UncontrolledProviderScope(

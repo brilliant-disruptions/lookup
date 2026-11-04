@@ -43,6 +43,112 @@ import ActivityKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpCapture") {
       LookUpCapture.register(with: registrar)
     }
+    // Seen near you wake-ups (lib/services/push_service.dart).
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpPush") {
+      LookUpPush.shared.attach(registrar.messenger())
+    }
+  }
+
+  // MARK: Push: the relay's silent "check now" nudge
+
+  override func application(_ application: UIApplication,
+                            didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    LookUpPush.shared.gotToken(deviceToken)
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+
+  override func application(_ application: UIApplication,
+                            didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    LookUpPush.shared.failed(error)
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+
+  override func application(_ application: UIApplication,
+                            didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                            fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    if userInfo["lookup"] as? String == "aurora-crowd" {
+      LookUpPush.shared.wake(completionHandler)
+      return
+    }
+    super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+  }
+}
+
+// MARK: - Seen near you wake-ups
+//
+// Dart asks for the push address ("register") and says when it can take a
+// wake-up ("ready"). A silent push from the relay becomes a "wake" call that
+// runs the usual refresh. iOS allows about 30 s, so it finishes by 25 s.
+
+final class LookUpPush {
+  static let shared = LookUpPush()
+
+  private var channel: FlutterMethodChannel?
+  private var dartReady = false
+  private var waitingForToken: [FlutterResult] = []
+  private var waitingForDart: [UUID: (UIBackgroundFetchResult) -> Void] = [:]
+
+  func attach(_ messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "lookup/push", binaryMessenger: messenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else { return }
+      switch call.method {
+      case "register":
+        self.waitingForToken.append(result)
+        UIApplication.shared.registerForRemoteNotifications()
+      case "ready":
+        self.dartReady = true
+        result(nil)
+        let waiting = self.waitingForDart.values
+        self.waitingForDart = [:]
+        waiting.forEach { self.send($0) }
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    self.channel = channel
+  }
+
+  func gotToken(_ deviceToken: Data) {
+    let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+    #if DEBUG
+    let sandbox = true   // Xcode builds use Apple's development push service
+    #else
+    let sandbox = false  // TestFlight and the App Store use production
+    #endif
+    let waiting = waitingForToken
+    waitingForToken = []
+    waiting.forEach { $0(["token": token, "sandbox": sandbox]) }
+  }
+
+  func failed(_ error: Error) {
+    let waiting = waitingForToken
+    waitingForToken = []
+    waiting.forEach { $0(FlutterError(code: "push-unavailable", message: error.localizedDescription, details: nil)) }
+  }
+
+  func wake(_ done: @escaping (UIBackgroundFetchResult) -> Void) {
+    if dartReady {
+      send(done)
+    } else {
+      // Launched by this push: Dart is still starting and calls "ready".
+      let id = UUID()
+      waitingForDart[id] = done
+      DispatchQueue.main.asyncAfter(deadline: .now() + 25) { [weak self] in
+        self?.waitingForDart.removeValue(forKey: id)?(.failed)
+      }
+    }
+  }
+
+  private func send(_ done: @escaping (UIBackgroundFetchResult) -> Void) {
+    var finished = false
+    let finish: (UIBackgroundFetchResult) -> Void = { r in
+      guard !finished else { return }
+      finished = true
+      done(r)
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 25) { finish(.failed) }
+    channel?.invokeMethod("wake", arguments: nil) { _ in finish(.newData) }
   }
 }
 

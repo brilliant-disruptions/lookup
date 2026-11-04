@@ -16,9 +16,17 @@ misses the space station.
 1. Select the **Runner** target → **Signing & Capabilities**.
 2. **+ Capability** → **Time Sensitive Notifications**.
 
-Xcode creates `ios/Runner/Runner.entitlements` and registers the capability
-with your App ID (automatic signing). Commit that file and the
-`project.pbxproj` change.
+3. **+ Capability** → **Push Notifications** (Seen near you wake-ups:
+   the relay nudges the phone when people nearby see the aurora; see
+   `lib/services/push_service.dart`). Push is already ticked on the App ID
+   and the APNs key is on the relay. Leave *Broadcast* off. The
+   *Remote notifications* background mode is already in `Info.plist`.
+
+Xcode creates `ios/Runner/Runner.entitlements` (with `aps-environment` and
+the time-sensitive key) and registers the capabilities with your App ID
+(automatic signing). Commit that file and the `project.pbxproj` change.
+Until then, wake-ups quietly stay off: the app asks iOS for a push
+address, iOS declines, and nothing else changes.
 
 ## 2. Home-screen widget and Live Activity
 
