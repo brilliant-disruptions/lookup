@@ -10,6 +10,7 @@ import '../domain/sky/visibility.dart';
 import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
+import 'credits_screen.dart';
 import 'demo.dart';
 import 'night_vision_controls.dart';
 import '../domain/models/sky_event.dart';
@@ -353,6 +354,16 @@ class _MoreScreen extends ConsumerWidget {
             title: 'Restore purchases',
             onTap: () => ref.read(plusServiceProvider).restore(),
           ),
+      ]),
+      const _Header('About'),
+      GroupedList(indent: 60, children: [
+        _Row(
+          icon: Icons.favorite_rounded,
+          color: LookUpColors.gold,
+          title: 'Credits',
+          subtitle: 'The sky data and pictures, and who made them',
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CreditsScreen())),
+        ),
       ]),
     ]);
   }
