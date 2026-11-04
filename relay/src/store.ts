@@ -19,8 +19,12 @@ export interface Store {
   /** Subscribers to any of these cells not woken since `quietSince`. */
   toWake(cells: Cell[], quietSince: number): Promise<Subscriber[]>;
   markWoken(tokens: string[], now: number): Promise<void>;
-  /** Drops reports and limits older than `before`, subscriptions not renewed since `subsBefore`. */
-  sweep(before: number, subsBefore: number): Promise<{ reports: number; subs: number }>;
+  /** Drops reports and limits older than `before`, subscriptions not renewed since `subsBefore`, and expired invites. */
+  sweep(before: number, subsBefore: number, now?: number): Promise<{ reports: number; subs: number; invites?: number }>;
+  addInvite(code: string, data: string, image: Uint8Array | null, expires: number, now: number): Promise<void>;
+  /** The invite's JSON, unless it has expired. */
+  getInvite(code: string, now: number): Promise<{ data: string } | null>;
+  inviteImage(code: string): Promise<Uint8Array | null>;
 }
 
 /** The SQL store. Works on D1 and on anything with D1's prepare/bind API. */
@@ -99,12 +103,31 @@ export class SqlStore implements Store {
     await this.db.batch(tokens.map((t) => this.db.prepare('UPDATE subs SET woken = ? WHERE token = ?').bind(now, t)));
   }
 
-  async sweep(before: number, subsBefore: number) {
+  async addInvite(code: string, data: string, image: Uint8Array | null, expires: number, now: number) {
+    await this.db
+      .prepare('INSERT INTO invites (code, data, image, created, expires) VALUES (?, ?, ?, ?, ?)')
+      .bind(code, data, image, now, expires)
+      .run();
+  }
+
+  async getInvite(code: string, now: number) {
+    return this.db.prepare('SELECT data FROM invites WHERE code = ? AND expires > ?').bind(code, now).first<{ data: string }>();
+  }
+
+  async inviteImage(code: string) {
+    const row = await this.db.prepare('SELECT image FROM invites WHERE code = ?').bind(code).first<{ image: ArrayBuffer | Uint8Array | number[] | null }>();
+    const img = row?.image;
+    if (!img) return null;
+    return img instanceof Uint8Array ? img : new Uint8Array(img as ArrayBuffer);
+  }
+
+  async sweep(before: number, subsBefore: number, now = before) {
+    const inv = await this.db.prepare('DELETE FROM invites WHERE expires < ?').bind(now).run();
     const r = await this.db.prepare('DELETE FROM reports WHERE at < ?').bind(before).run();
     await this.db.prepare('DELETE FROM limits WHERE at < ?').bind(before).run();
     const old = await this.db.prepare('SELECT token FROM subs WHERE updated < ?').bind(subsBefore).all<{ token: string }>();
     for (const { token } of old.results ?? []) await this.unsubscribe(token);
-    return { reports: r.meta?.changes ?? 0, subs: old.results?.length ?? 0 };
+    return { reports: r.meta?.changes ?? 0, subs: old.results?.length ?? 0, invites: inv.meta?.changes ?? 0 };
   }
 }
 

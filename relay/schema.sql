@@ -34,3 +34,15 @@ CREATE TABLE IF NOT EXISTS sub_cells (
 );
 CREATE INDEX IF NOT EXISTS sub_cells_cell ON sub_cells (la, lo);
 CREATE INDEX IF NOT EXISTS sub_cells_token ON sub_cells (token);
+
+-- "Look up with me" links (src/invite.ts): what, when, where to look, the
+-- town name the sender's app shows, the forecast and the card picture. Kept
+-- until two days after the event, then swept.
+CREATE TABLE IF NOT EXISTS invites (
+  code TEXT PRIMARY KEY,
+  data TEXT NOT NULL,           -- JSON: type, title, start, end, look, face, place, clouds, tz
+  image BLOB,                   -- the "where to look" PNG, or NULL for the default card
+  created INTEGER NOT NULL,
+  expires INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS invites_expires ON invites (expires);

@@ -1,7 +1,10 @@
-# Seen near you relay (docs/seen-near-you.md). Deploy steps: README.md.
+# LookUp relay: Seen near you (docs/seen-near-you.md) and "Look up with me"
+# invite links. Deploy steps: README.md.
 name = "lookup-relay"
 main = "src/index.ts"
 compatibility_date = "2025-10-01"
+# node-forge (Wallet pass signing) looks for Node's crypto module.
+compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"

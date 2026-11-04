@@ -1,7 +1,14 @@
-# LookUp relay (Seen near you)
+# LookUp relay
 
-The one server LookUp has: anonymous "I can see the aurora" reports, kept
-for an hour, and wake-up pushes to phones nearby. Why and what it may hold:
+The one server LookUp has. It does two things:
+
+- **Seen near you:** anonymous "I can see the aurora" reports, kept for an
+  hour, and wake-up pushes to phones nearby.
+- **"Look up with me" links:** invites that unfurl into a card in Messages,
+  with **Add to calendar** and **Add to Apple Wallet** behind them. See
+  [Invite links](#invite-links) below.
+
+For Seen near you: Why and what it may hold:
 [`docs/seen-near-you.md`](../docs/seen-near-you.md). The rules that decide
 whether a phone *alerts* run on the phone
 (`lib/domain/aurora/seen_nearby.dart`). The relay only stores and wakes.
@@ -15,6 +22,9 @@ dependencies at runtime.
 | `src/store.ts` | The SQL (D1) |
 | `src/push.ts` | APNs (token auth, ES256) and FCM HTTP v1 (service account, RS256) |
 | `src/cells.ts` | Half-degree cells, same as the app's `reportCell` / `cellsNear` |
+| `src/invite.ts` | Invite links: create, the page, the card picture |
+| `src/ics.ts`, `src/pass.ts`, `src/zip.ts` | The calendar file; the Wallet pass (signed with node-forge, zipped) |
+| `src/assets.ts` | Wallet icons and the default card, made by `tool/make_assets.py` |
 | `schema.sql` | Tables |
 
 ## API
@@ -43,6 +53,67 @@ GET    /v1/health
 - **Cleanup:** every 10 minutes (cron), reports and limits older than an
   hour are deleted, along with subscriptions the app hasn't renewed in 30
   days. Tokens Apple or Google call dead are dropped at once.
+
+## Invite links
+
+When this build of the app knows the relay (`LOOKUP_RELAY_URL`), **Tell a
+friend** / **Send the invite** sends a link instead of a bare picture:
+
+```
+POST /v1/invites  {type, title, start, end, look, face?, place?, clouds?, tz, image?}  → 201 {url, code}
+GET  /n/:code              the page (Open Graph tags → the card in Messages, WhatsApp, Slack…)
+GET  /n/:code/card.png     the app's "where to look" picture, or the default card
+GET  /n/:code/invite.ics   the event, with a reminder 10 minutes before
+GET  /n/:code/pass.pkpass  an Apple Wallet event pass (only once set up, below)
+```
+
+- **What's stored:** what, when, where to look in words, the town name the
+  sender's app shows, the forecast and the picture. It's kept until two
+  days after the event, then the 10-minute sweep deletes it.
+- **What's refused:** links of any kind, markup, unknown event kinds, past
+  events and events more than 35 days away.
+- **Rate limit:** 30 invites per network per hour.
+- **Without the relay:** the app sends the poster and a calendar file, as
+  it always could.
+
+Optional settings (`npx wrangler secret put …`, or `[vars]` in `wrangler.toml`):
+
+| Setting | What it does |
+|---|---|
+| `SITE_URL` | The address links use, e.g. `https://lookup.app` (a custom domain on the Worker). Defaults to the Worker's own `workers.dev` address |
+| `APP_STORE_ID` | LookUp's numeric App Store id: shows **Get LookUp** and Safari's app banner |
+
+### Apple Wallet (optional)
+
+1. In the Apple Developer portal, go to Identifiers → **+** → **Pass Type
+   IDs** and create one, e.g. `pass.com.brilliantdisruptions.lookup.invite`.
+2. Create its certificate (it asks for a CSR from Keychain Access), and
+   download the `.cer`. Export the certificate *with its private key* from
+   Keychain as `pass.p12`.
+3. Download Apple's **WWDR G4** intermediate from
+   https://www.apple.com/certificateauthority/.
+4. Convert them to PEM:
+   ```bash
+   openssl pkcs12 -in pass.p12 -clcerts -nokeys -out pass-cert.pem -legacy
+   openssl pkcs12 -in pass.p12 -nocerts -nodes -out pass-key.pem -legacy
+   openssl x509 -inform der -in AppleWWDRCAG4.cer -out wwdr.pem
+   ```
+5. Set the secrets:
+   ```bash
+   npx wrangler secret put PASS_TYPE_ID     # pass.com.brilliantdisruptions.lookup.invite
+   npx wrangler secret put PASS_TEAM_ID     # your 10-character team id
+   npx wrangler secret put PASS_CERT_PEM < pass-cert.pem
+   npx wrangler secret put PASS_KEY_PEM  < pass-key.pem
+   npx wrangler secret put PASS_WWDR_PEM < wwdr.pem
+   ```
+
+The **Add to Apple Wallet** button appears on invite pages from then on. The
+pass shows what and when on the front, the direction to face, the town and
+the forecast. Where to look is on the back. It comes up on the lock screen
+from 15 minutes before and voids itself an hour after. Apple's guidelines
+want the official "Add to Apple Wallet" badge artwork on web pages: swap
+it in for the plain button once you've downloaded it from Apple's Wallet
+marketing page.
 
 ## Test
 

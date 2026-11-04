@@ -11,6 +11,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../data/aurora_reports_client.dart' show relayConfigured;
+import '../data/invite_client.dart';
+import '../domain/plan/invite_calendar.dart';
+import '../services/alert_art.dart';
+import 'look_sheet.dart' show lookLine;
+
 import '../domain/models/sky_event.dart';
 import '../domain/sky/astro.dart';
 import '../domain/sky/direction.dart';
@@ -26,15 +32,42 @@ enum ShareMode { sawIt, invite }
 
 /// Renders the [RepaintBoundary] under [key] to a PNG and opens the share
 /// sheet with it and [text].
-Future<void> sharePoster(GlobalKey key, String text) async {
+Future<void> sharePoster(GlobalKey key, String text, {String? calendar}) async {
   final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
   final image = await boundary.toImage(pixelRatio: 3);
   final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
   final dir = await getTemporaryDirectory();
-  final file = File('${dir.path}/lookup-${DateTime.now().millisecondsSinceEpoch}.png');
+  final stamp = DateTime.now().millisecondsSinceEpoch;
+  final file = File('${dir.path}/lookup-$stamp.png');
   await file.writeAsBytes(bytes!.buffer.asUint8List());
-  await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'image/png')], text: text));
+  final files = [XFile(file.path, mimeType: 'image/png')];
+  // An invite also carries the event itself: one tap adds it to their calendar.
+  if (calendar != null) {
+    final ics = File('${dir.path}/lookup-$stamp.ics');
+    await ics.writeAsString(calendar);
+    files.add(XFile(ics.path, mimeType: 'text/calendar', name: 'Look up with me.ics'));
+  }
+  await SharePlus.instance.share(ShareParams(files: files, text: text));
 }
+
+/// What an invite link says, from the event. Words only, as the app says
+/// them; the picture for passes is the alert's "where to look" art.
+Map<String, Object?> inviteFields(SkyEvent e, String? place) => {
+      'type': e.type.name,
+      'title': eventTitle(e),
+      'start': e.start.toUtc().toIso8601String(),
+      'end': e.end.toUtc().toIso8601String(),
+      'look': lookLine(e),
+      'face': switch (e.type) {
+        SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'north',
+        SkyEventType.iss || SkyEventType.tiangong || SkyEventType.starlinkTrain || SkyEventType.satellitePass =>
+          compassWord(e.riseAzimuthDeg),
+        _ => compassWord(e.peakAzimuthDeg),
+      },
+      'place': invitePlace(place),
+      'clouds': e.cloudCoverPercent,
+      'tz': DateTime.now().timeZoneOffset.inMinutes,
+    };
 
 Future<void> showShareCard(BuildContext context, SkyEvent event, {ShareMode mode = ShareMode.sawIt}) =>
     showModalBottomSheet<void>(
@@ -56,16 +89,48 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
   final _key = GlobalKey();
   bool _busy = false;
 
+  /// The invite as a link (it unfurls into a card in Messages), when this
+  /// build has a relay and it answers; null otherwise.
+  Future<Uri?> _inviteLink(String? place) async {
+    if (!relayConfigured) return null;
+    final e = widget.event;
+    List<int>? art;
+    if (AlertArt.types.contains(e.type)) {
+      try {
+        art = await AlertArt.png(e, startLabel: fmtTime(e.start)).timeout(const Duration(seconds: 3));
+      } catch (_) {}
+    }
+    return InviteClient().create(inviteFields(e, place), image: art);
+  }
+
   Future<void> _share() async {
     setState(() => _busy = true);
     try {
       final place = ref.read(settingsProvider).value?.placeName;
+      if (widget.mode == ShareMode.invite) {
+        final e = widget.event;
+        final link = await _inviteLink(place);
+        if (link != null) {
+          // Just the words and the link: Messages turns the link into the card.
+          await SharePlus.instance.share(ShareParams(text: inviteText(e, place, link: link)));
+        } else {
+          await sharePoster(_key, inviteText(e, place),
+              calendar: inviteIcs(
+                uid: e.id.replaceAll(RegExp(r'[^A-Za-z0-9-]'), '-'),
+                title: eventTitle(e),
+                start: e.start,
+                end: e.end,
+                look: lookLine(e),
+                place: place,
+                clouds: e.cloudCoverPercent,
+                now: DateTime.now(),
+              ));
+        }
+        return;
+      }
       final under = widget.mode == ShareMode.sawIt ? ref.read(underThePassProvider(widget.event)).value : null;
-      await sharePoster(
-          _key,
-          widget.mode == ShareMode.invite
-              ? inviteText(widget.event, place)
-              : '${shareText(widget.event, place)}${under == null ? '' : ' Along with about ${under.peopleWords} others under the same pass.'}');
+      await sharePoster(_key,
+          '${shareText(widget.event, place)}${under == null ? '' : ' Along with about ${under.peopleWords} others under the same pass.'}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -101,17 +166,21 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
   }
 }
 
-String inviteText(SkyEvent e, String? place, {DateTime? now}) {
+/// The invite's words. With [link], it ends with the link (which unfurls
+/// into the card, with the calendar and Wallet behind it); without, it says
+/// where it's from.
+String inviteText(SkyEvent e, String? place, {DateTime? now, Uri? link}) {
   final until = e.start.difference((now ?? DateTime.now()).toUtc());
   final where = place == null ? '' : ' over $place';
+  final tail = link == null ? ' (LookUp)' : ' $link';
   // From the heads-up it's minutes away: say so, so they actually step out.
   if (until > Duration.zero && until <= const Duration(minutes: 30)) {
     final m = until.inMinutes < 1 ? 'under a minute' : '${until.inMinutes} minute${until.inMinutes == 1 ? '' : 's'}';
     return 'Step outside with me: ${eventTitle(e)}$where in $m (${fmtTime(e.start)}). '
-        'Face ${compassWord(e.riseAzimuthDeg)} and look up. (LookUp)';
+        'Face ${compassWord(e.riseAzimuthDeg)} and look up.$tail';
   }
   return 'Look up with me: ${eventTitle(e)} ${fmtDay(e.start).toLowerCase()} at ${fmtTime(e.start)}'
-      '$where. Face ${compassWord(e.riseAzimuthDeg)}. (LookUp)';
+      '$where. Face ${compassWord(e.riseAzimuthDeg)}.$tail';
 }
 
 /// 4:5 poster. Fixed logical size so it renders identically everywhere.
