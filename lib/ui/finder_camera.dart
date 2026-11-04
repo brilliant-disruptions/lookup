@@ -4,14 +4,19 @@
 library;
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../domain/finder/pointing.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/direction.dart';
+import '../domain/sky/figures.dart';
 import 'format.dart';
+import 'sky/constellation_glow.dart';
+import 'sky/figure_art.dart';
 import 'theme.dart';
 
 /// Back camera, filling the screen (cropped to cover, never letterboxed).
@@ -126,7 +131,11 @@ class SkyOverlayPainter extends CustomPainter {
     this.lonDeg = 0,
     this.tracks = const [],
     this.marks = const [],
-  });
+    this.art,
+    this.glow,
+    this.onSpotlit,
+    this.twinkle,
+  }) : super(repaint: Listenable.merge([glow, twinkle]));
 
   /// Everything else up there, for the whole-sky camera view.
   final List<OverlayTrack> tracks;
@@ -135,6 +144,21 @@ class SkyOverlayPainter extends CustomPainter {
   /// When set, the real stars and constellation figures are drawn too.
   final SkyCatalog? catalog;
   final double latDeg, lonDeg;
+
+  /// Constellation pictures behind the lines; null when they're turned off.
+  final FigureArt? art;
+
+  /// How lit each picture is, 0 (faint) to 1, as it fades; without it the
+  /// spotlit picture is simply lit.
+  final ValueListenable<Map<String, double>>? glow;
+
+  /// Told which picture is in the middle (null for none) on every paint, so
+  /// the owner can fade it up and the last one down.
+  final void Function(String? id)? onSpotlit;
+
+  /// Seconds on a running clock, for the lit constellation's stars to
+  /// twinkle by; null keeps them steady (reduced motion, tests).
+  final ValueListenable<double>? twinkle;
 
   /// Base style for labels (the app's font; colour and size are set here).
   final TextStyle labelStyle;
@@ -149,6 +173,29 @@ class SkyOverlayPainter extends CustomPainter {
   final bool onTarget;
   final double previewHeightPx;
 
+  /// The spotlit picture's tint, and everyone else's.
+  static const _figureLit = Color(0x59B8CCFF), _figureDim = Color(0x0FB8CCFF);
+
+  /// The picture in the middle of the view, judged by its anchor stars as on
+  /// the Sky tab: the centre must be on (or near) its anchor triangle, and
+  /// where triangles overlap the one centred nearer wins. Null when the
+  /// middle is between constellations.
+  static ConstellationFigure? spotlitFigure(Size size, List<(ConstellationFigure, List<Offset>)> placed) {
+    final mid = size.center(Offset.zero);
+    ConstellationFigure? best;
+    var bestD = size.width * 0.22, bestC = double.infinity;
+    for (final (f, tri) in placed) {
+      final d = distanceToTriangle((mid.dx, mid.dy), [for (final o in tri) (o.dx, o.dy)]);
+      final c = ((tri[0] + tri[1] + tri[2]) / 3 - mid).distance;
+      if (d < bestD || (d == bestD && c < bestC)) {
+        bestD = d;
+        bestC = c;
+        best = f;
+      }
+    }
+    return best;
+  }
+
   Offset? _at(Size size, SkyDir d) {
     final p = projectToScreen(r, d, declinationDeg: declinationDeg, previewHeightPx: previewHeightPx);
     return p == null ? null : size.center(Offset(p.x, p.y));
@@ -162,15 +209,54 @@ class SkyOverlayPainter extends CustomPainter {
     // The real sky behind it: constellation figures and the brighter stars.
     final cat = catalog;
     if (cat != null) {
-      final lines = Paint()
-        ..color = LookUpColors.blue.withValues(alpha: 0.45)
-        ..strokeWidth = 1.2;
+      final lineColor = LookUpColors.blue.withValues(alpha: 0.45);
       Offset? eq(double ra, double dec) {
         final h = cat.place(ra, dec, now, latDeg, lonDeg);
         return _at(size, SkyDir(h.azimuthDeg, h.altitudeDeg));
       }
 
+      // Pictures under their lines, each placed by its three anchor stars.
+      // Grey on black, so adding them leaves only the drawing. Only the one
+      // in the middle of the view shows properly; the rest are a whisper, so
+      // overlapping pictures don't blur into each other.
+      final shine = <String, double>{}; // constellation id -> how lit, eased
+      var back = 1.0; // the rest of the sky steps back while one is lit
+      if (art case final art?) {
+        final placed = <(ConstellationFigure, List<Offset>)>[];
+        for (final f in art.figures) {
+          final to = [for (final a in f.anchors) eq(a.raDeg, a.decDeg)];
+          if (to.any((o) => o == null)) continue;
+          final pts = to.cast<Offset>();
+          if (pts.any((o) => (o - pts.first).distance > size.width)) continue;
+          placed.add((f, pts));
+        }
+        final lit = spotlitFigure(size, placed);
+        onSpotlit?.call(lit?.id);
+        final levels = glow?.value;
+        back = skyRecede(levels == null
+            ? (lit == null ? 0 : 1)
+            : levels.values.fold(0.0, (m, v) => max(m, Curves.easeInOut.transform(v))));
+        final dim = _figureDim.withValues(alpha: _figureDim.a * back);
+        for (final (f, pts) in placed) {
+          final t = levels == null ? (f == lit ? 1.0 : 0.0) : Curves.easeInOut.transform(levels[f.id] ?? 0);
+          if (t > 0) shine[f.id] = t;
+          final m = affineFrom3([for (final a in f.anchors) (a.x, a.y)], [for (final o in pts) (o.dx, o.dy)]);
+          final img = m == null ? null : art.image(f);
+          if (m == null || img == null) continue;
+          final (a, b, c, d, e, g) = m;
+          canvas.save();
+          canvas.transform(Matrix4(a, b, 0, 0, c, d, 0, 0, 0, 0, 1, 0, e, g, 0, 1).storage);
+          canvas.scale(f.width / img.width, f.height / img.height);
+          paintFigure(canvas, img, Color.lerp(dim, _figureLit, t)!, t);
+          canvas.restore();
+        }
+      }
+
+      final lines = Paint()
+        ..color = lineColor.withValues(alpha: lineColor.a * back)
+        ..strokeWidth = 1.2;
       for (final con in cat.constellations) {
+        if (shine.containsKey(con.id)) continue; // drawn lit, below
         for (final seg in con.lines) {
           Offset? prev;
           for (final (ra, dec) in seg) {
@@ -184,13 +270,41 @@ class SkyOverlayPainter extends CustomPainter {
           if (o != null) _label(canvas, con.name, o, Colors.white.withValues(alpha: 0.55), 11);
         }
       }
-      final dot = Paint()..color = Colors.white;
+      final dot = Paint()..color = Colors.white.withValues(alpha: back);
       for (final st in cat.stars) {
         if (st.mag > 4) break; // brightest first
         final o = eq(st.raDeg, st.decDeg);
         if (o == null) continue;
         canvas.drawCircle(o, (3.0 - 0.5 * st.mag).clamp(0.8, 3.6), dot);
         if (st.name != null && st.mag < 1.5) _label(canvas, st.name!, o + const Offset(0, 12), Colors.white70, 10);
+      }
+
+      // The lit constellation over everything: glowing lines, its stars
+      // brought forward, gently twinkling.
+      for (final con in cat.constellations) {
+        final t = shine[con.id] ?? 0;
+        if (t == 0) continue;
+        final shape = [
+          for (final seg in con.lines)
+            [
+              for (final (ra, dec) in seg)
+                (
+                  at: eq(ra, dec),
+                  ra: ra,
+                  dec: dec,
+                  star: cat.starAt(ra, dec),
+                  altDeg: cat.place(ra, dec, now, latDeg, lonDeg).altitudeDeg,
+                ),
+            ],
+        ];
+        paintLitConstellation(canvas, shape,
+            t: t,
+            base: lineColor,
+            maxJump: size.width,
+            secs: twinkle?.value,
+            name: con.name,
+            nameStyle: labelStyle.copyWith(
+                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600, shadows: const [Shadow(blurRadius: 4, color: Colors.black)]));
       }
     }
 
