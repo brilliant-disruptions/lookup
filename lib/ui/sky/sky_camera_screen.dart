@@ -20,8 +20,7 @@ import '../finder_camera.dart';
 import '../format.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
-import 'constellation_glow.dart' show figureFade;
-import 'figure_art.dart';
+import 'figure_spotlight.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 
@@ -76,63 +75,13 @@ class SkyCameraScreen extends ConsumerStatefulWidget {
   ConsumerState<SkyCameraScreen> createState() => _SkyCameraState();
 }
 
-class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerProviderStateMixin {
+class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerProviderStateMixin, FigureSpotlight {
   StreamSubscription<List<double>>? _sub;
   List<double>? _r;
   String? _error;
   late bool _cameraOn = widget.camera;
   double? _previewHeight;
   double _declination = 0;
-  FigureArt? _art;
-
-  /// The picture in the middle lights up and the last one lets go, as on
-  /// the Sky tab: how lit each is, 0 to 1.
-  final _glow = ValueNotifier<Map<String, double>>(const {});
-  late final _glowTicker = createTicker(_stepGlow);
-  Duration _glowLast = Duration.zero;
-  String? _spotlit;
-  bool _fade = true;
-  String? _ticked;
-
-  /// A running clock (seconds) for the lit constellation's stars to twinkle
-  /// by. It only ticks while something is lit and motion is allowed.
-  final _twinkle = ValueNotifier<double>(0);
-
-  /// Called from paint, so it only starts the ticker; the levels change on
-  /// the next frame.
-  void _onSpotlit(String? id) {
-    if (id == _spotlit) return;
-    _spotlit = id;
-    // A light tick as a new constellation settles in the middle; not again
-    // for the same one, so wavering on its edge doesn't buzz.
-    if (id != null && id != _ticked) {
-      _ticked = id;
-      HapticFeedback.selectionClick();
-    }
-    if (!_glowTicker.isActive) {
-      _glowLast = Duration.zero;
-      _glowTicker.start();
-    }
-  }
-
-  void _stepGlow(Duration elapsed) {
-    final dt = elapsed - _glowLast;
-    final step = _fade ? dt.inMicroseconds / figureFade.inMicroseconds : 1.0;
-    _glowLast = elapsed;
-    final next = <String, double>{};
-    var settled = true, changed = false;
-    for (final id in {..._glow.value.keys, ?_spotlit}) {
-      final target = id == _spotlit ? 1.0 : 0.0;
-      final n = ((_glow.value[id] ?? 0.0) + (target > 0 ? step : -step)).clamp(0.0, 1.0);
-      if (n > 0) next[id] = n;
-      if (n != target) settled = false;
-      if (n != _glow.value[id]) changed = true;
-    }
-    if (changed) _glow.value = next;
-    final twinkling = _fade && _spotlit != null;
-    if (twinkling) _twinkle.value += dt.inMicroseconds / 1e6;
-    if (settled && !twinkling) _glowTicker.stop();
-  }
 
   @override
   void initState() {
@@ -148,21 +97,11 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
     }
     _sub = stream?.listen((r) => setState(() => _r = r), onError: (e) => setState(() => _error = '$e'));
     if (stream == null) _error ??= 'This device has no orientation sensor.';
-    FigureArt.load().then((art) {
-      if (!mounted) return;
-      setState(() => _art = art..addListener(_onArt));
-    }, onError: (_) {});
   }
-
-  void _onArt() => setState(() {});
 
   @override
   void dispose() {
     _sub?.cancel();
-    _art?.removeListener(_onArt);
-    _glowTicker.dispose();
-    _glow.dispose();
-    _twinkle.dispose();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
   }
@@ -170,7 +109,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(settingsProvider).value;
-    _fade = !MediaQuery.disableAnimationsOf(context);
+    figureFadeOn = !MediaQuery.disableAnimationsOf(context);
     // The sky drawn is the map's place; the compass is always where you are.
     final lat = widget.lat ?? s?.latitude, lon = widget.lon ?? s?.longitude;
     final now = widget.time ?? ref.watch(clockProvider).value ?? DateTime.now();
@@ -235,10 +174,10 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
                   lonDeg: lon,
                   tracks: tracks,
                   marks: marks,
-                  art: (s?.skyFigures ?? true) ? _art : null,
-                  glow: _glow,
-                  onSpotlit: _onSpotlit,
-                  twinkle: _fade ? _twinkle : null,
+                  art: (s?.skyFigures ?? true) ? figureArt : null,
+                  glow: figureGlow,
+                  onSpotlit: onFigureSpotlit,
+                  twinkle: figureFadeOn ? figureTwinkle : null,
                 ),
               ),
             ),

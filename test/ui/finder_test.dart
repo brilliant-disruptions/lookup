@@ -11,6 +11,7 @@ import 'package:lookup/domain/orbit/omm.dart';
 import 'package:lookup/domain/passes/pass_predictor.dart';
 import 'package:lookup/domain/sky/landmarks.dart';
 import 'package:lookup/state/providers.dart';
+import 'package:lookup/ui/finder_camera.dart';
 import 'package:lookup/ui/finder_firefly.dart';
 import 'package:lookup/ui/finder_screen.dart';
 
@@ -68,6 +69,33 @@ void main() {
     await t.pump();
     expect(find.text('You\'re looking right at it'), findsOneWidget);
     // Unmount first so the finder cancels its subscription.
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
+
+  // The finder is the camera view with a target in it: the constellation
+  // pictures, and the one in the middle lighting up and twinkling, must come
+  // with it, not just the bare stars.
+  testWidgets('over the camera, the finder draws the constellation pictures and lights the middle one', (t) async {
+    final c = StreamController<List<double>>(sync: true);
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(_Settings.new),
+        clockProvider.overrideWith((_) => Stream.value(now)),
+      ],
+      child: MaterialApp(home: FinderScreen(event: event, orientationStream: c.stream, camera: true)),
+    ));
+    await t.pump();
+    c.add(north);
+    await t.pump();
+    final sky = t
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((p) => p.painter)
+        .whereType<SkyOverlayPainter>()
+        .single;
+    expect(sky.glow, isNotNull, reason: 'pictures fade up as you turn onto them');
+    expect(sky.onSpotlit, isNotNull, reason: 'the middle one is found and lit');
+    expect(sky.twinkle, isNotNull, reason: 'its stars twinkle');
     await t.pumpWidget(const SizedBox());
     unawaited(c.close());
   });
