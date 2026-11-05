@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,12 +37,20 @@ SkyEvent _ev(String id, SkyEventType type, Duration inFuture) => SkyEvent(
 
 /// Nothing until the first refresh, as on a fresh install.
 class _Home extends HomeNotifier {
-  int refreshes = 0;
+  /// The `quick` flag of each refresh, in order.
+  final quick = <bool>[];
+  int get refreshes => quick.length;
+
+  /// Holds full (not quick) refreshes until completed: Starlink on a slow network.
+  Completer<void>? slowFull;
+  @override
+  bool get refreshing => !(slowFull?.isCompleted ?? true);
   @override
   Future<HomeData> build() async => const HomeData(events: [], aurora: null, lastRefresh: null, errors: []);
   @override
-  Future<void> refresh({bool force = false}) async {
-    refreshes++;
+  Future<void> refresh({bool force = false, bool quick = false}) async {
+    this.quick.add(quick);
+    if (!quick && slowFull != null) await slowFull!.future;
     state = AsyncData(HomeData(
       events: [
         _ev('iss:a', SkyEventType.iss, const Duration(hours: 5)),
@@ -119,7 +129,8 @@ void main() {
     // Nothing asked about notifications yet; the free sight is shown, the
     // Plus-only train is not promised.
     expect(notifications.asked, 0);
-    expect(home.refreshes, 1);
+    // A quick look first (no 4.7 MB Starlink download), the full one behind it.
+    expect(home.quick, [true, false]);
     expect(find.text('Your next sight'), findsOneWidget);
     expect(find.text('ISS flyover'), findsOneWidget);
     expect(find.text('Starlink train'), findsNothing);
@@ -129,7 +140,7 @@ void main() {
       await t.pump(const Duration(milliseconds: 300));
     }
     expect(notifications.asked, 1);
-    expect(home.refreshes, 2); // alerts planned again now they can land
+    expect(home.refreshes, 3); // alerts planned again now they can land
 
     // A Plus-only train really is coming, so the paywall shows its tap now;
     // closing it finishes onboarding.
@@ -140,6 +151,31 @@ void main() {
       await t.pump(const Duration(milliseconds: 300));
     }
     expect(container.read(settingsProvider).value?.onboarded, isTrue);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  // The first sights used to wait for the whole Starlink catalogue; on a
+  // phone network that was most of onboarding.
+  testWidgets('sights show before the slow full refresh, and the alert ask does not wait for it',
+      (t) async {
+    await pump(t, grantLocation: true);
+    home.slowFull = Completer();
+    await t.tap(find.text('Show me what\'s over me'));
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.text('Your next sight'), findsOneWidget);
+    expect(find.text('ISS flyover'), findsOneWidget);
+
+    await t.tap(find.text('Tap me 10 minutes before'));
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    expect(notifications.asked, 1);
+    // The running full refresh plans alerts at its end; no second one queued.
+    expect(home.quick, [true, false]);
+    expect(find.text('Restore purchases'), findsOneWidget);
+    home.slowFull!.complete();
     await t.pumpWidget(const SizedBox());
   });
 
