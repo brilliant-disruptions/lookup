@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +11,10 @@ import 'package:lookup/data/local_store.dart';
 import 'package:lookup/data/open_meteo_client.dart';
 import 'package:lookup/data/swpc_client.dart';
 import 'package:lookup/domain/scheduling/alert_planner.dart';
+import 'package:lookup/domain/scheduling/alert_tuning.dart';
 import 'package:lookup/domain/models/settings.dart';
+import 'package:lookup/domain/models/sky_event.dart';
+import 'package:lookup/domain/orbit/omm.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/services/notification_service.dart';
 import 'package:lookup/services/refresh_service.dart';
@@ -18,16 +22,46 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _Here extends LocationService {
-  const _Here();
+  _Here();
+
+  /// The `anyAge` of each location asked for.
+  final anyAge = <bool>[];
   @override
-  Future<LatLon?> resolve(LookUpSettings s, {bool allowPrompt = false}) async => (lat: 40.0, lon: -75.0);
+  Future<LatLon?> resolve(LookUpSettings s, {bool allowPrompt = false, bool anyAge = false}) async {
+    this.anyAge.add(anyAge);
+    return (lat: 40.0, lon: -75.0);
+  }
 }
 
 class _Notes implements NotificationService {
+  /// The last plan scheduled.
+  List<PlannedAlert>? planned;
   @override
-  Future<Set<int>> applyPlan(List<PlannedAlert> plan, Set<int> previous) async => const {};
+  Future<Set<int>> applyPlan(List<PlannedAlert> plan, Set<int> previous) async {
+    planned = plan;
+    return const {};
+  }
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+/// Records what it was asked to plan from: the gates after it (clouds,
+/// quiet hours) can hide an ISS pass that should never have reached it.
+class _Planner extends AlertPlanner {
+  List<SkyEvent>? given;
+  @override
+  List<PlannedAlert> plan({
+    required List<SkyEvent> events,
+    required LookUpSettings settings,
+    required DateTime now,
+    required int utcOffsetMinutes,
+    Duration horizon = const Duration(hours: 48),
+    AlertTuning tuning = AlertTuning.neutral,
+  }) {
+    given = events;
+    return super.plan(
+        events: events, settings: settings, now: now, utcOffsetMinutes: utcOffsetMinutes, horizon: horizon, tuning: tuning);
+  }
 }
 
 /// Every source behind one network that holds each request until [open]s,
@@ -56,8 +90,9 @@ class _Network {
         swpc: SwpcClient(client: client),
         meteo: OpenMeteoClient(client: client),
         launchLibrary: LaunchLibraryClient(client: client),
-        location: const _Here(),
+        location: _Here(),
         catalog: () async => throw 'no sky in this test',
+        issSeed: () async => const [],
       );
 }
 
@@ -88,6 +123,8 @@ void main() {
     expect(hosts, containsAll(['celestrak.org', 'api.open-meteo.com', 'services.swpc.noaa.gov', 'll.thespacedevs.com']));
     expect(net.asked.where((u) => u.contains('CATNR=25544')), hasLength(1));
     expect(net.asked.where((u) => u.contains('GROUP=starlink')), hasLength(1));
+    // The aurora's forecast, Kp now and map together, not one after another.
+    expect(net.asked.where((u) => u.contains('swpc')), hasLength(3));
 
     final report = await _finish(t, net, run);
     expect(report.events, isNotEmpty);
@@ -127,8 +164,9 @@ void main() {
       swpc: SwpcClient(client: silent),
       meteo: OpenMeteoClient(client: silent),
       launchLibrary: LaunchLibraryClient(client: silent),
-      location: const _Here(),
+      location: _Here(),
       catalog: () async => throw 'no sky in this test',
+      issSeed: () async => const [],
     );
     RefreshReport? report;
     unawaited(service.run(quick: true).then((r) => report = r));
@@ -138,5 +176,119 @@ void main() {
     expect(report, isNotNull, reason: 'gone on after RefreshService.quickLimit');
     expect(report!.errors.where((e) => e.startsWith('iss')), isNotEmpty);
     await t.pump(const Duration(minutes: 4)); // let the abandoned requests' own retries run out
+  });
+
+  // The ISS and launches are fetched while the user reads the intro and
+  // answers the location prompt; the first look must reuse that download,
+  // not ask Celestrak again (once a day per feed).
+  testWidgets('a prefetch and the quick look share one ISS download', (t) async {
+    final net = _Network();
+    final service = net.service(LocalStore());
+    final prefetch = service.prefetch();
+    await t.pump(const Duration(milliseconds: 100));
+    final quick = service.run(quick: true);
+    var prefetched = false;
+    unawaited(prefetch.then((_) => prefetched = true));
+    final report = await _finish(t, net, quick);
+    for (var i = 0; i < 20 && !prefetched; i++) {
+      await t.pump(const Duration(seconds: 5));
+    }
+    expect(prefetched, isTrue);
+    expect(net.asked.where((u) => u.contains('CATNR=25544')), hasLength(1));
+    expect(report.events, isNotEmpty);
+  });
+
+  // Clouds, aurora and launches can be slow or down; the first look waits
+  // for none of them, only for where the user is and the ISS.
+  testWidgets('a quick look waits for the ISS only, and takes wherever the phone last was', (t) async {
+    final iss = File('test/fixtures/iss_omm.json').readAsStringSync();
+    final asked = <String>[];
+    final client = MockClient((req) {
+      asked.add(req.url.host);
+      return req.url.toString().contains('CATNR=25544')
+          ? Future.value(http.Response(iss, 200))
+          : Completer<http.Response>().future; // never answers
+    });
+    final here = _Here();
+    final service = RefreshService(
+      store: LocalStore(),
+      notifications: _Notes(),
+      celestrak: CelestrakClient(client: client),
+      swpc: SwpcClient(client: client),
+      meteo: OpenMeteoClient(client: client),
+      launchLibrary: LaunchLibraryClient(client: client),
+      location: here,
+      catalog: () async => throw 'no sky in this test',
+      issSeed: () async => const [],
+    );
+    RefreshReport? report;
+    unawaited(service.run(quick: true).then((r) => report = r));
+    await t.pump(const Duration(seconds: 1));
+    expect(report, isNotNull, reason: 'nothing but the ISS was waited for');
+    expect(report!.events, isNotEmpty);
+    expect(asked.toSet(), {'celestrak.org'});
+    expect(here.anyAge, [true]);
+  });
+
+  group('Celestrak out of reach on a first launch', () {
+    // The shipped ISS with its epoch moved to [age] ago.
+    Future<List<OmmRecord>> Function() seed(Duration age) => () async => [
+          for (final j in jsonDecode(File('test/fixtures/iss_omm.json').readAsStringSync()) as List)
+            OmmRecord.fromJson({
+              ...(j as Map).cast<String, Object?>(),
+              'EPOCH': DateTime.now().toUtc().subtract(age).toIso8601String().replaceAll('Z', ''),
+            }),
+        ];
+
+    RefreshService offline(LocalStore store, _Notes notes, Future<List<OmmRecord>> Function() issSeed,
+        {AlertPlanner planner = const AlertPlanner()}) {
+      final down = MockClient((req) async => http.Response('down', 503));
+      return RefreshService(
+        store: store,
+        notifications: notes,
+        celestrak: CelestrakClient(client: down),
+        swpc: SwpcClient(client: down),
+        meteo: OpenMeteoClient(client: down),
+        launchLibrary: LaunchLibraryClient(client: down),
+        location: _Here(),
+        catalog: () async => throw 'no sky in this test',
+        issSeed: issSeed,
+        planner: planner,
+      );
+    }
+
+    Future<RefreshReport> settle(WidgetTester t, Future<RefreshReport> run) async {
+      RefreshReport? report;
+      unawaited(run.then((r) => report = r));
+      for (var i = 0; i < 20 && report == null; i++) {
+        await t.pump(const Duration(seconds: 5));
+      }
+      return report!;
+    }
+
+    // A first look beats an empty sky, but its times are only roughly
+    // right: it never alerts (a false alarm is the one thing this app must
+    // never do), isn't kept, and the next open tries Celestrak again.
+    testWidgets('the shipped ISS gives a first look, marked approximate, that never alerts', (t) async {
+      final store = LocalStore();
+      final notes = _Notes();
+      final planner = _Planner();
+      final report = await settle(t, offline(store, notes, seed(const Duration(days: 2)), planner: planner).run());
+      expect(report.approximate, isTrue);
+      expect(report.events.where((e) => e.type == SkyEventType.iss), isNotEmpty);
+      expect(planner.given, isNotNull);
+      expect(planner.given!.where((e) => e.type == SkyEventType.iss || e.type == SkyEventType.issTransit), isEmpty);
+      expect(notes.planned, isNotNull);
+      expect(notes.planned!.where((a) => a.event.type == SkyEventType.iss || a.event.type == SkyEventType.issTransit),
+          isEmpty);
+      expect(await store.loadEvents(), isEmpty);
+      expect(await store.loadLastRefresh(), isNull);
+    });
+
+    testWidgets('a shipped ISS too old to trust shows nothing', (t) async {
+      final report = await settle(t, offline(LocalStore(), _Notes(), seed(const Duration(days: 30))).run(quick: true));
+      expect(report.approximate, isFalse);
+      expect(report.events.where((e) => e.type == SkyEventType.iss), isEmpty);
+    });
   });
 }

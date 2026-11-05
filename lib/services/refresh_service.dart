@@ -24,11 +24,16 @@ import 'notification_service.dart';
 import 'sky_catalog_loader.dart';
 
 class RefreshReport {
-  RefreshReport({required this.events, required this.plan, required this.errors, this.recent = const []});
+  RefreshReport(
+      {required this.events, required this.plan, required this.errors, this.recent = const [], this.approximate = false});
   final List<SkyEvent> events;
   final List<SkyEvent> recent;
   final List<PlannedAlert> plan;
   final List<String> errors;
+
+  /// The ISS came from the copy shipped with the app (Celestrak out of
+  /// reach and nothing cached): its times are approximate and alert nothing.
+  final bool approximate;
   bool get ok => errors.isEmpty;
 }
 
@@ -46,6 +51,7 @@ class RefreshService {
     this.pipeline = const EventPipeline(),
     this.planner = const AlertPlanner(),
     this.catalog = loadSkyCatalog,
+    this.issSeed = loadIssSeed,
   })  : celestrak = celestrak ?? CelestrakClient(),
         swpc = swpc ?? SwpcClient(),
         meteo = meteo ?? OpenMeteoClient(),
@@ -73,6 +79,104 @@ class RefreshService {
   /// The fixed sky, so alerts can say which bright things a pass goes near.
   final Future<SkyCatalog> Function() catalog;
 
+  /// The ISS as shipped with the app, for a first look when Celestrak can't
+  /// be reached and nothing is cached. Display only: never alerts.
+  final Future<List<OmmRecord>> Function() issSeed;
+
+  /// How old the shipped ISS may be and still give a first look. Past this
+  /// its pass times drift too far to show.
+  static const seedMaxAge = Duration(days: 21);
+
+  /// Downloads in flight, by feed, so a prefetch and the refreshes after it
+  /// share one request instead of asking the feed twice.
+  final _inflight = <String, Future<Object?>>{};
+
+  /// Fetches [key] once however many ask while it's in flight.
+  Future<T> _shared<T>(String key, Future<T> Function() fetch) =>
+      (_inflight[key] ??= fetch().whenComplete(() {
+        _inflight.remove(key); // not returned: whenComplete would wait on it, i.e. on itself
+      })) as Future<T>;
+
+  /// What doesn't depend on where the user is (satellites, launches, the
+  /// fixed sky), fetched while onboarding asks for location so the first
+  /// look only waits for the location itself. Same staleness rules as
+  /// [run], so it never asks a feed more often; failures are left to [run].
+  Future<void> prefetch() async {
+    final now = DateTime.now().toUtc();
+    final settings = await store.loadSettings();
+    final errors = <String>[];
+    await (
+      _elements('iss', _fetchIss, now: now, errors: errors),
+      settings.tiangongEnabled
+          ? _elements('tiangong', _fetchTiangong, now: now, errors: errors)
+          : Future<List<OmmRecord>?>.value(),
+      settings.launchesEnabled ? _launches(now: now, errors: errors) : Future.value(),
+      catalog().then<Object?>((c) => c, onError: (_) => null),
+    ).wait;
+    // Last and biggest: not ahead of the ISS on a slow connection.
+    if (settings.starlinkEnabled) await _elements('starlink', _fetchStarlink, now: now, errors: errors);
+  }
+
+  Future<List<OmmRecord>> _fetchIss() => celestrak.fetchByCatalogNumber(Norad.iss);
+  Future<List<OmmRecord>> _fetchTiangong() => celestrak.fetchByCatalogNumber(Norad.tiangong);
+
+  Future<List<OmmRecord>> _fetchStarlink() async {
+    // Keep only what we need: train-phase groups are a few hundred
+    // records, not 11 k. Supplemental covers the newest launch.
+    final all = await celestrak.fetchStarlink();
+    List<OmmRecord> sup = const [];
+    try {
+      sup = await celestrak.fetchStarlinkSupplemental();
+    } catch (_) {}
+    return _trimStarlink([...all, ...sup]);
+  }
+
+  /// Cached elements for [key], fetched first when stale. [limit] caps the
+  /// wait without stopping the download: whoever asks next gets it.
+  Future<List<OmmRecord>?> _elements(String key, Future<List<OmmRecord>> Function() fetch,
+      {required DateTime now,
+      required List<String> errors,
+      bool force = false,
+      bool cacheOnly = false,
+      Duration? limit}) async {
+    final cached = await store.loadElements(key);
+    if (cacheOnly || (!force && cached != null && !cached.isOlderThan(elementsMaxAge, now))) {
+      return cached?.records;
+    }
+    try {
+      var got = _shared(key, () async {
+        final recs = await fetch();
+        if (recs.isNotEmpty) await store.saveElements(key, recs, now);
+        return recs;
+      });
+      if (limit != null) got = got.timeout(limit);
+      final recs = await got;
+      if (recs.isNotEmpty) return recs;
+    } catch (e) {
+      errors.add('$key: $e');
+    }
+    return cached?.records;
+  }
+
+  Future<List<Map<String, Object?>>> _launches(
+      {required DateTime now, required List<String> errors, bool force = false, bool cacheOnly = false}) async {
+    var launchesCache = await store.loadLaunches();
+    if (!cacheOnly &&
+        (force || launchesCache == null || now.difference(launchesCache.fetchedAt) > launchesMaxAge)) {
+      try {
+        final raw = await _shared('launches', () async {
+          final raw = await launchLibrary.fetchUpcomingRaw();
+          await store.saveLaunches(raw, now);
+          return raw;
+        });
+        launchesCache = (fetchedAt: now, raw: raw);
+      } catch (e) {
+        errors.add('launches: $e');
+      }
+    }
+    return launchesCache?.raw ?? const [];
+  }
+
   static const elementsMaxAge = Duration(hours: 24);
   static const cloudsMaxAge = Duration(hours: 6);
   static const auroraMaxAge = Duration(minutes: 30);
@@ -83,16 +187,17 @@ class RefreshService {
   /// minutes (60 s timeout × 3 tries); the full refresh after it tries again.
   static const quickLimit = Duration(seconds: 10);
 
-  /// [quick] skips the ~4.7 MB Starlink download (cached Starlink still
-  /// counts) and doesn't mark the refresh done, so a full one must follow.
-  /// Onboarding uses it to show the first sights in seconds. Each source
-  /// gets [quickLimit] before the quick refresh goes on without it.
+  /// [quick] is onboarding's first look: it waits only for a location (any
+  /// the phone already has) and the ISS (at most [quickLimit], else the
+  /// shipped copy). Everything else is whatever is cached: clouds, aurora,
+  /// launches and Starlink fill in with the full refresh that must follow.
+  /// It schedules nothing and doesn't mark the refresh done.
   Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false, bool quick = false}) async {
     final errors = <String>[];
     final now = DateTime.now().toUtc();
     var settings = await store.loadSettings();
 
-    final fix = await location.resolve(settings, allowPrompt: allowLocationPrompt);
+    final fix = await location.resolve(settings, allowPrompt: allowLocationPrompt, anyAge: quick);
     if (fix == null) {
       return RefreshReport(events: const [], plan: const [], errors: ['no location']);
     }
@@ -102,34 +207,15 @@ class RefreshService {
       await store.saveSettings(settings);
     }
 
-    Future<T> capped<T>(Future<T> f) => quick ? f.timeout(quickLimit) : f;
-
-    Future<List<OmmRecord>?> elements(
-        String key, Future<List<OmmRecord>> Function() fetch, {bool cacheOnly = false}) async {
-      final cached = await store.loadElements(key);
-      if (cacheOnly || (!force && cached != null && !cached.isOlderThan(elementsMaxAge, now))) {
-        return cached?.records;
-      }
-      try {
-        final recs = await capped(fetch());
-        if (recs.isNotEmpty) {
-          await store.saveElements(key, recs, now);
-          return recs;
-        }
-      } catch (e) {
-        errors.add('$key: $e');
-      }
-      return cached?.records;
-    }
-
     Future<CloudForecast?> fetchClouds() async {
       var clouds = await store.loadClouds();
+      if (quick) return clouds;
       final cloudsMoved = clouds != null &&
           ((clouds.latitude - fix.lat).abs() > 0.2 ||
               (clouds.longitude - fix.lon).abs() > 0.2);
       if (force || clouds == null || cloudsMoved || clouds.isStale(now, maxAge: cloudsMaxAge)) {
         try {
-          clouds = await capped<CloudForecast>(meteo.fetchCloudForecast(fix.lat, fix.lon));
+          clouds = await meteo.fetchCloudForecast(fix.lat, fix.lon);
           await store.saveClouds(clouds);
         } catch (e) {
           errors.add('clouds: $e');
@@ -140,15 +226,19 @@ class RefreshService {
 
     Future<AuroraSnapshot?> fetchAurora() async {
       var aurora = await store.loadAurora();
-      if (settings.auroraEnabled &&
+      if (!quick &&
+          settings.auroraEnabled &&
           (force || aurora == null || now.difference(aurora.fetchedAt) > auroraMaxAge)) {
         try {
-          final forecast = await capped(swpc.fetchKpForecast());
+          // All three at once; the forecast alone decides whether there's a snapshot.
+          final kpNowF = swpc.fetchEstimatedKpNow()..ignore();
+          final ovationF = swpc.fetchOvationProbabilityAt(fix.lat, fix.lon)..ignore();
+          final forecast = await swpc.fetchKpForecast();
           double? kpNow;
           var ovation = 0;
           try {
-            kpNow = await capped(swpc.fetchEstimatedKpNow());
-            ovation = await capped(swpc.fetchOvationProbabilityAt(fix.lat, fix.lon));
+            kpNow = await kpNowF;
+            ovation = await ovationF;
           } catch (e) {
             errors.add('aurora-now: $e');
           }
@@ -162,21 +252,6 @@ class RefreshService {
       return aurora;
     }
 
-    Future<List<Map<String, Object?>>> fetchLaunches() async {
-      var launchesCache = await store.loadLaunches();
-      if (settings.launchesEnabled &&
-          (force || launchesCache == null || now.difference(launchesCache.fetchedAt) > launchesMaxAge)) {
-        try {
-          final raw = await capped(launchLibrary.fetchUpcomingRaw());
-          await store.saveLaunches(raw, now);
-          launchesCache = (fetchedAt: now, raw: raw);
-        } catch (e) {
-          errors.add('launches: $e');
-        }
-      }
-      return launchesCache?.raw ?? const [];
-    }
-
     Future<SkyCatalog?> loadCatalog() async {
       try {
         return await catalog();
@@ -187,28 +262,34 @@ class RefreshService {
 
     // The sources don't depend on each other, so they download together:
     // the wait is the slowest one, not the sum of them all.
-    final (iss, tiangong, starlink, clouds, aurora, launchesRaw, sky) = await (
-      elements('iss', () => celestrak.fetchByCatalogNumber(Norad.iss)),
+    var (iss, tiangong, starlink, clouds, aurora, launchesRaw, sky) = await (
+      _elements('iss', _fetchIss, now: now, errors: errors, force: force, limit: quick ? quickLimit : null),
       settings.tiangongEnabled
-          ? elements('tiangong', () => celestrak.fetchByCatalogNumber(Norad.tiangong))
+          ? _elements('tiangong', _fetchTiangong, now: now, errors: errors, force: force, cacheOnly: quick)
           : Future<List<OmmRecord>?>.value(),
       settings.starlinkEnabled
-          ? elements('starlink', () async {
-              // Keep only what we need: train-phase groups are a few hundred
-              // records, not 11 k. Supplemental covers the newest launch.
-              final all = await celestrak.fetchStarlink();
-              List<OmmRecord> sup = const [];
-              try {
-                sup = await celestrak.fetchStarlinkSupplemental();
-              } catch (_) {}
-              return _trimStarlink([...all, ...sup]);
-            }, cacheOnly: quick)
+          ? _elements('starlink', _fetchStarlink, now: now, errors: errors, force: force, cacheOnly: quick)
           : Future<List<OmmRecord>?>.value(),
       fetchClouds(),
       fetchAurora(),
-      fetchLaunches(),
+      settings.launchesEnabled
+          ? _launches(now: now, errors: errors, force: force, cacheOnly: quick)
+          : _launches(now: now, errors: errors, cacheOnly: true),
       loadCatalog(),
     ).wait;
+
+    // Celestrak out of reach on a first launch: the shipped ISS, if it's
+    // recent enough, rather than an empty sky.
+    var approximate = false;
+    if (iss == null || iss.isEmpty) {
+      try {
+        final seed = await issSeed();
+        if (seed.isNotEmpty && now.difference(seed.first.epoch) < seedMaxAge) {
+          iss = seed;
+          approximate = true;
+        }
+      } catch (_) {}
+    }
     final launches = LaunchLibraryClient.parse(launchesRaw);
 
     // Learned thresholds from "what got in the way?" answers.
@@ -246,7 +327,8 @@ class RefreshService {
       clouds: clouds,
       aurora: aurora,
     ));
-    await store.saveEvents(events);
+    // Approximate times aren't kept: the next open tries Celestrak again.
+    if (!approximate) await store.saveEvents(events);
     final recent = pipeline.buildRecent(PipelineInputs(
       settings: settings,
       now: now,
@@ -256,11 +338,19 @@ class RefreshService {
       clouds: clouds,
       aurora: aurora,
     ));
-    await store.saveRecent(recent);
+    if (!approximate) await store.saveRecent(recent);
+    if (quick) {
+      // A first look: the full refresh after it schedules and updates widgets.
+      return RefreshReport(events: events, plan: const [], errors: errors, recent: recent, approximate: approximate);
+    }
 
     final offset = NotificationService.utcOffsetMinutes();
+    // Never alert from the shipped ISS: its times are only roughly right.
     final plan = planner.plan(
-        events: events, settings: tuned, now: now, utcOffsetMinutes: offset, tuning: tuning);
+        events: approximate
+            ? [for (final e in events) if (e.type != SkyEventType.iss && e.type != SkyEventType.issTransit) e]
+            : events,
+        settings: tuned, now: now, utcOffsetMinutes: offset, tuning: tuning);
     try {
       final previous = await store.loadPlannedIds();
       final scheduled = await notifications.applyPlan(plan, previous);
@@ -269,7 +359,7 @@ class RefreshService {
     } catch (e) {
       errors.add('schedule: $e');
     }
-    if (onRefreshed != null) {
+    if (onRefreshed != null && !approximate) {
       try {
         await onRefreshed!(settings, events);
       } catch (e) {
@@ -279,9 +369,10 @@ class RefreshService {
 
     // Without any ISS elements (first launch + a failed fetch) there is
     // nothing to show; don't mark the refresh done so the next app open
-    // retries instead of waiting out the 3-hour staleness window.
-    if (!quick && iss != null && iss.isNotEmpty) await store.saveLastRefresh(now);
-    return RefreshReport(events: events, plan: plan, errors: errors, recent: recent);
+    // retries instead of waiting out the 3-hour staleness window. The same
+    // for the shipped ISS.
+    if (!approximate && iss != null && iss.isNotEmpty) await store.saveLastRefresh(now);
+    return RefreshReport(events: events, plan: plan, errors: errors, recent: recent, approximate: approximate);
   }
 
   /// "Aurora now" can't be scheduled ahead; show it immediately, once per

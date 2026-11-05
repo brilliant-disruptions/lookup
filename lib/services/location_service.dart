@@ -39,7 +39,7 @@ class LocationService {
   }
 
   /// A coarse fix is plenty: pass geometry barely changes over 10 km.
-  Future<LatLon?> resolve(LookUpSettings s, {bool allowPrompt = false}) async {
+  Future<LatLon?> resolve(LookUpSettings s, {bool allowPrompt = false, bool anyAge = false}) async {
     if (s.locationMode == LocationMode.pinned && s.hasLocation) {
       return (lat: s.latitude!, lon: s.longitude!);
     }
@@ -52,8 +52,10 @@ class LocationService {
             };
       if (ok) {
         final last = await Geolocator.getLastKnownPosition();
+        // [anyAge]: a first look takes wherever the phone last was; the
+        // full refresh after it asks for a fresh fix.
         if (last != null &&
-            DateTime.now().difference(last.timestamp) < const Duration(hours: 6)) {
+            (anyAge || DateTime.now().difference(last.timestamp) < const Duration(hours: 6))) {
           return (lat: last.latitude, lon: last.longitude);
         }
         final pos = await Geolocator.getCurrentPosition(
