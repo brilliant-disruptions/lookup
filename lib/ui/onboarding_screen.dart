@@ -30,6 +30,15 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   _Step _step = _Step.intro;
   bool _busy = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // The satellites and launches don't depend on where the user is: fetch
+    // them while they read the intro and answer the location prompt, so
+    // the first look only waits for the location.
+    unawaited(ref.read(refreshServiceProvider).prefetch().catchError((_) {}));
+  }
+
   Future<void> _showMe() async {
     setState(() => _busy = true);
     final ok = await ref.read(locationServiceProvider).requestPermission();
@@ -57,8 +66,9 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
       // Let the stored (empty) data finish loading first, or it can land
       // after the refresh and hide what it found.
       await ref.read(homeProvider.future);
-      // Quick first, so the sights show in seconds; Starlink (~4.7 MB)
-      // follows in the background and the screen updates when it lands.
+      // Quick first (location and the ISS only), so the sights show in
+      // seconds; clouds, aurora and Starlink follow in the background and
+      // the screen updates when they land.
       await ref.read(homeProvider.notifier).refresh(quick: true);
     } catch (_) {
       // Offline: the sights screen says so and the shell retries.
@@ -228,6 +238,7 @@ class _SightsPage extends ConsumerWidget {
         if (e.type.pushes && !e.plusOnly && e.start.isAfter(now) && e.start.isBefore(now.add(const Duration(days: 14)))) e,
     ].take(3).toList();
     final lead = s?.leadMinutes ?? 10;
+    final approximate = ref.watch(homeProvider).value?.approximate ?? false;
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
@@ -235,9 +246,16 @@ class _SightsPage extends ConsumerWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               const Spacer(),
               if (looking) ...[
-                const Center(child: CircularProgressIndicator()),
+                // The page as it will be, cards still empty: no spinner to wait on.
+                Kicker('Coming over $place', color: LookUpColors.blue),
+                const SizedBox(height: 10),
+                Text('Looking at your sky…', style: display(32, weight: FontWeight.w700, height: 1.1)),
                 const SizedBox(height: 18),
-                const Text('Looking at your sky…', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey)),
+                for (var i = 0; i < 3; i++)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: GlassCard(padding: EdgeInsets.zero, child: SizedBox(key: Key('sight-placeholder'), height: 72)),
+                  ),
                 const Spacer(flex: 2),
               ] else ...[
                 Rise(index: 0, child: Kicker('Coming over $place', color: LookUpColors.blue)),
@@ -290,6 +308,11 @@ class _SightsPage extends ConsumerWidget {
                         ),
                       ),
                     ),
+                if (approximate && sights.isNotEmpty)
+                  const Text(
+                    'Times may be off by a few minutes until we can reach the satellite tracker.',
+                    style: TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.4),
+                  ),
                 const Spacer(flex: 2),
                 Text(
                   'Easy to miss: these last a few minutes. LookUp taps you $lead minutes before, '

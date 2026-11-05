@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lookup/services/refresh_service.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/services/location_service.dart';
@@ -43,6 +44,12 @@ class _Home extends HomeNotifier {
 
   /// Holds full (not quick) refreshes until completed: Starlink on a slow network.
   Completer<void>? slowFull;
+
+  /// Holds the quick look until completed: the ISS on a slow network.
+  Completer<void>? slowQuick;
+
+  /// Whether the look comes from the shipped ISS (Celestrak out of reach).
+  bool approximate = false;
   @override
   bool get refreshing => !(slowFull?.isCompleted ?? true);
   @override
@@ -51,6 +58,7 @@ class _Home extends HomeNotifier {
   Future<void> refresh({bool force = false, bool quick = false}) async {
     this.quick.add(quick);
     if (!quick && slowFull != null) await slowFull!.future;
+    if (quick && slowQuick != null) await slowQuick!.future;
     state = AsyncData(HomeData(
       events: [
         _ev('iss:a', SkyEventType.iss, const Duration(hours: 5)),
@@ -59,6 +67,7 @@ class _Home extends HomeNotifier {
       aurora: null,
       lastRefresh: _now,
       errors: const [],
+      approximate: approximate,
     ));
   }
 }
@@ -68,6 +77,14 @@ class _Location implements LocationService {
   final bool grant;
   @override
   Future<bool> requestPermission() async => grant;
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class _Refresh implements RefreshService {
+  int prefetched = 0;
+  @override
+  Future<void> prefetch() async => prefetched++;
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
@@ -95,6 +112,7 @@ void main() {
   late ProviderContainer container;
   late _Home home;
   late _Notifications notifications;
+  late _Refresh refresh;
 
   Future<void> pump(WidgetTester t, {required bool grantLocation}) async {
     t.view.physicalSize = const Size(1179, 2556);
@@ -102,6 +120,7 @@ void main() {
     addTearDown(t.view.reset);
     home = _Home();
     notifications = _Notifications();
+    refresh = _Refresh();
     container = ProviderContainer(overrides: [
       settingsProvider.overrideWith(_Settings.new),
       homeProvider.overrideWith(() => home),
@@ -109,6 +128,7 @@ void main() {
       notificationServiceProvider.overrideWithValue(notifications),
       clockProvider.overrideWith((_) => Stream.value(DateTime.now())),
       plusServiceProvider.overrideWithValue(_FakePlus()),
+      refreshServiceProvider.overrideWithValue(refresh),
     ]);
     addTearDown(container.dispose);
     await t.pumpWidget(UncontrolledProviderScope(
@@ -176,6 +196,42 @@ void main() {
     expect(home.quick, [true, false]);
     expect(find.text('Restore purchases'), findsOneWidget);
     home.slowFull!.complete();
+    await t.pumpWidget(const SizedBox());
+  });
+
+  // The welcome screen is read while the ISS downloads, and the look shows
+  // where the sights will be rather than a spinner.
+  testWidgets('the ISS is fetched on the welcome screen, and the look holds places, not a spinner',
+      (t) async {
+    await pump(t, grantLocation: true);
+    expect(refresh.prefetched, 1, reason: 'started before anything is tapped');
+    home.slowQuick = Completer();
+    await t.tap(find.text('Show me what\'s over me'));
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.byKey(const Key('sight-placeholder')), findsNWidgets(3));
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    home.slowQuick!.complete();
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.byKey(const Key('sight-placeholder')), findsNothing);
+    expect(find.text('ISS flyover'), findsOneWidget);
+    expect(find.textContaining('Times may be off'), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a look from the shipped ISS says its times may be off', (t) async {
+    await pump(t, grantLocation: true);
+    home.approximate = true;
+    await t.tap(find.text('Show me what\'s over me'));
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.text('ISS flyover'), findsOneWidget);
+    expect(find.textContaining('Times may be off'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
 
