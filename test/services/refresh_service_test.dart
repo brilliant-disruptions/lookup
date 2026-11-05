@@ -317,4 +317,122 @@ void main() {
       expect(report.events.where((e) => e.type == SkyEventType.iss), isEmpty);
     });
   });
+
+  // Celestrak asks for each feed at most once a day; every phone forcing,
+  // retrying or coming back at the same moment is how it gets hammered.
+  group('Celestrak etiquette', () {
+    // Celestrak answers [celestrak] for every feed (the ISS from the fixture
+    // on 200); the other sources answer nothing useful.
+    ({List<String> asked, RefreshService service}) world(LocalStore store, int celestrak) {
+      final asked = <String>[];
+      final iss = File('test/fixtures/iss_omm.json').readAsStringSync();
+      final client = MockClient((req) async {
+        asked.add(req.url.toString());
+        if (req.url.host != 'celestrak.org') return http.Response('down', 503);
+        if (celestrak != 200) return http.Response('no', celestrak);
+        return http.Response(req.url.toString().contains('CATNR=25544') ? iss : '[]', 200);
+      });
+      return (
+        asked: asked,
+        service: RefreshService(
+          store: store,
+          notifications: _Notes(),
+          celestrak: CelestrakClient(client: client),
+          swpc: SwpcClient(client: client),
+          meteo: OpenMeteoClient(client: client),
+          launchLibrary: LaunchLibraryClient(client: client),
+          location: _Here(),
+          catalog: () async => throw 'no sky in this test',
+          issSeed: () async => const [],
+        ),
+      );
+    }
+
+    Future<void> settle(WidgetTester t, Future<RefreshReport> run) async {
+      var done = false;
+      unawaited(run.whenComplete(() => done = true));
+      for (var i = 0; i < 30 && !done; i++) {
+        await t.pump(const Duration(seconds: 5));
+      }
+      expect(done, isTrue);
+    }
+
+    bool celestrak(String u) => u.contains('celestrak.org');
+
+    // A relay nudge forces a refresh on every subscribed phone at once.
+    testWidgets('a forced refresh leaves a feed fetched today alone, and still refreshes the weather', (t) async {
+      final store = LocalStore();
+      final first = world(store, 200);
+      await settle(t, first.service.run());
+      expect(first.asked.where((u) => u.contains('CATNR=25544')), hasLength(1));
+
+      final forced = world(store, 200);
+      await settle(t, forced.service.run(force: true));
+      expect(forced.asked.where(celestrak), isEmpty);
+      expect(forced.asked.where((u) => u.contains('open-meteo')), isNotEmpty, reason: 'force still means something');
+    });
+
+    testWidgets('a feed that failed rests instead of being asked on every open', (t) async {
+      final store = LocalStore();
+      final down = world(store, 503);
+      await settle(t, down.service.run());
+      expect(down.asked.where((u) => u.contains('CATNR=25544')), hasLength(3), reason: 'a 503 may be a glitch: retried');
+
+      final again = world(store, 200);
+      await settle(t, again.service.run(force: true));
+      expect(again.asked.where(celestrak), isEmpty);
+    });
+
+    testWidgets('a refusal is asked once, not retried', (t) async {
+      final store = LocalStore();
+      final blocked = world(store, 403);
+      await settle(t, blocked.service.run());
+      expect(blocked.asked.where((u) => u.contains('CATNR=25544')), hasLength(1));
+    });
+  });
+
+  group('LocalStore.celestrakDue', () {
+    final now = DateTime.utc(2026, 11, 4, 12);
+    CachedElements aged(Duration d) => CachedElements(fetchedAt: now.subtract(d), records: const []);
+
+    test('rests 1 h, then 4 h, then a day after failures in a row, and a success ends it', () async {
+      final store = LocalStore();
+      Future<bool> dueAfter(Duration d) => store.celestrakDue('iss', null, now.add(d));
+      await store.celestrakFailed('iss', now);
+      expect(await dueAfter(const Duration(minutes: 59)), isFalse);
+      expect(await dueAfter(const Duration(minutes: 61)), isTrue);
+      await store.celestrakFailed('iss', now);
+      expect(await dueAfter(const Duration(hours: 3, minutes: 59)), isFalse);
+      expect(await dueAfter(const Duration(hours: 4, minutes: 1)), isTrue);
+      await store.celestrakFailed('iss', now);
+      expect(await dueAfter(const Duration(hours: 23, minutes: 59)), isFalse);
+      await store.celestrakSucceeded('iss');
+      await store.celestrakFailed('iss', now);
+      expect(await dueAfter(const Duration(minutes: 61)), isTrue, reason: 'back to the shortest rest');
+      expect(await store.celestrakDue('starlink', null, now), isTrue, reason: 'each feed rests on its own');
+    });
+
+    test('a refusal rests a day at once', () async {
+      final store = LocalStore();
+      await store.celestrakFailed('iss', now, refused: true);
+      expect(await store.celestrakDue('iss', null, now.add(const Duration(hours: 23, minutes: 59))), isFalse);
+    });
+
+    // Phones that all downloaded after one event shouldn't all come back
+    // at the same moment the next day.
+    test('a cache is due between 24 and 25 h old, at a moment each install picks', () async {
+      final at30 = <bool>{};
+      for (var i = 0; i < 24; i++) {
+        SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
+        final store = LocalStore();
+        expect(await store.celestrakDue('iss', aged(const Duration(hours: 23, minutes: 59)), now), isFalse);
+        expect(await store.celestrakDue('iss', aged(const Duration(hours: 25, minutes: 1)), now), isTrue);
+        final mid = await store.celestrakDue('iss', aged(const Duration(hours: 24, minutes: 30)), now);
+        expect(await store.celestrakDue('iss', aged(const Duration(hours: 24, minutes: 30)), now), mid,
+            reason: 'an install keeps its moment');
+        at30.add(mid);
+      }
+      expect(at30, {true, false}, reason: 'installs differ (fails 1 time in ~8 million by chance)');
+    });
+  });
 }

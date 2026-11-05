@@ -10,14 +10,15 @@ Future<T> withRetry<T>(
   int attempts = 3,
   Duration initialDelay = const Duration(seconds: 2),
   Future<void> Function(Duration)? sleep,
+  bool Function(Object error)? retryIf,
 }) async {
   final wait = sleep ?? Future<void>.delayed;
   var delay = initialDelay;
   for (var i = 1; ; i++) {
     try {
       return await fn();
-    } catch (_) {
-      if (i >= attempts) rethrow;
+    } catch (e) {
+      if (i >= attempts || !(retryIf?.call(e) ?? true)) rethrow;
       await wait(delay);
       delay *= 2;
     }

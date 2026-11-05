@@ -140,22 +140,31 @@ class RefreshService {
     return _trimStarlink([...all, ...sup]);
   }
 
-  /// Cached elements for [key], fetched first when stale. [limit] caps the
-  /// wait without stopping the download: whoever asks next gets it.
+  /// Cached elements for [key], fetched first when [LocalStore.celestrakDue]
+  /// says so; there is no forcing it, as every phone forcing a fetch is how
+  /// Celestrak gets hammered. [limit] caps the wait without stopping the
+  /// download: whoever asks next gets it.
   Future<List<OmmRecord>?> _elements(String key, Future<List<OmmRecord>> Function() fetch,
-      {required DateTime now,
-      required List<String> errors,
-      bool force = false,
-      bool cacheOnly = false,
-      Duration? limit}) async {
+      {required DateTime now, required List<String> errors, bool cacheOnly = false, Duration? limit}) async {
     final cached = await store.loadElements(key);
-    if (cacheOnly || (!force && cached != null && !cached.isOlderThan(elementsMaxAge, now))) {
-      return cached?.records;
-    }
+    if (cacheOnly || !await store.celestrakDue(key, cached, now)) return cached?.records;
     try {
       var got = _shared(key, () async {
-        final recs = await fetch();
-        if (recs.isNotEmpty) await store.saveElements(key, recs, now);
+        final List<OmmRecord> recs;
+        try {
+          recs = await fetch();
+        } catch (e) {
+          await store.celestrakFailed(key, now, refused: e is CelestrakRefused);
+          rethrow;
+        }
+        // Nothing to keep (or nothing left after trimming Starlink) rests the
+        // feed like a failure: unsaved, it would be due on every refresh.
+        if (recs.isEmpty) {
+          await store.celestrakFailed(key, now);
+        } else {
+          await store.celestrakSucceeded(key);
+          await store.saveElements(key, recs, now);
+        }
         return recs;
       });
       if (limit != null) got = got.timeout(limit);
@@ -186,7 +195,6 @@ class RefreshService {
     return launchesCache?.raw ?? const [];
   }
 
-  static const elementsMaxAge = Duration(hours: 24);
   static const cloudsMaxAge = Duration(hours: 6);
   static const auroraMaxAge = Duration(minutes: 30);
   static const launchesMaxAge = Duration(hours: 6);
@@ -279,12 +287,12 @@ class RefreshService {
     // The sources don't depend on each other, so they download together:
     // the wait is the slowest one, not the sum of them all.
     var (iss, tiangong, starlink, clouds, aurora, launchesRaw, sky) = await (
-      _elements('iss', _fetchIss, now: now, errors: errors, force: force, limit: quick ? (seed != null ? seedLimit : quickLimit) : null),
+      _elements('iss', _fetchIss, now: now, errors: errors, limit: quick ? (seed != null ? seedLimit : quickLimit) : null),
       settings.tiangongEnabled
-          ? _elements('tiangong', _fetchTiangong, now: now, errors: errors, force: force, cacheOnly: quick)
+          ? _elements('tiangong', _fetchTiangong, now: now, errors: errors, cacheOnly: quick)
           : Future<List<OmmRecord>?>.value(),
       settings.starlinkEnabled
-          ? _elements('starlink', _fetchStarlink, now: now, errors: errors, force: force, cacheOnly: quick)
+          ? _elements('starlink', _fetchStarlink, now: now, errors: errors, cacheOnly: quick)
           : Future<List<OmmRecord>?>.value(),
       fetchClouds(),
       fetchAurora(),
