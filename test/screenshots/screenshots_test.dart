@@ -235,7 +235,7 @@ class _FakeHome extends HomeNotifier {
         errors: const [],
       );
   @override
-  Future<void> refresh({bool force = false}) async {}
+  Future<void> refresh({bool force = false, bool quick = false}) async {}
 }
 
 Future<void> _loadFonts() async {

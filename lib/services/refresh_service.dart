@@ -17,6 +17,7 @@ import '../domain/orbit/omm.dart';
 import '../domain/scheduling/alert_planner.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/sun.dart';
+import '../domain/weather/cloud_forecast.dart';
 import 'event_pipeline.dart';
 import 'location_service.dart';
 import 'notification_service.dart';
@@ -77,7 +78,16 @@ class RefreshService {
   static const auroraMaxAge = Duration(minutes: 30);
   static const launchesMaxAge = Duration(hours: 6);
 
-  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false}) async {
+  /// How long a quick refresh waits on any one source before going without
+  /// it. A source that never answers would otherwise hold the first look for
+  /// minutes (60 s timeout × 3 tries); the full refresh after it tries again.
+  static const quickLimit = Duration(seconds: 10);
+
+  /// [quick] skips the ~4.7 MB Starlink download (cached Starlink still
+  /// counts) and doesn't mark the refresh done, so a full one must follow.
+  /// Onboarding uses it to show the first sights in seconds. Each source
+  /// gets [quickLimit] before the quick refresh goes on without it.
+  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false, bool quick = false}) async {
     final errors = <String>[];
     final now = DateTime.now().toUtc();
     var settings = await store.loadSettings();
@@ -92,14 +102,16 @@ class RefreshService {
       await store.saveSettings(settings);
     }
 
+    Future<T> capped<T>(Future<T> f) => quick ? f.timeout(quickLimit) : f;
+
     Future<List<OmmRecord>?> elements(
-        String key, Future<List<OmmRecord>> Function() fetch) async {
+        String key, Future<List<OmmRecord>> Function() fetch, {bool cacheOnly = false}) async {
       final cached = await store.loadElements(key);
-      if (!force && cached != null && !cached.isOlderThan(elementsMaxAge, now)) {
-        return cached.records;
+      if (cacheOnly || (!force && cached != null && !cached.isOlderThan(elementsMaxAge, now))) {
+        return cached?.records;
       }
       try {
-        final recs = await fetch();
+        final recs = await capped(fetch());
         if (recs.isNotEmpty) {
           await store.saveElements(key, recs, now);
           return recs;
@@ -110,69 +122,94 @@ class RefreshService {
       return cached?.records;
     }
 
-    final iss = await elements('iss', () => celestrak.fetchByCatalogNumber(Norad.iss));
-    final tiangong = settings.tiangongEnabled
-        ? await elements('tiangong', () => celestrak.fetchByCatalogNumber(Norad.tiangong))
-        : null;
-    final starlink = settings.starlinkEnabled
-        ? await elements('starlink', () async {
-            // Keep only what we need: train-phase groups are a few hundred
-            // records, not 11 k. Supplemental covers the newest launch.
-            final all = await celestrak.fetchStarlink();
-            List<OmmRecord> sup = const [];
-            try {
-              sup = await celestrak.fetchStarlinkSupplemental();
-            } catch (_) {}
-            return _trimStarlink([...all, ...sup]);
-          })
-        : null;
-
-    var clouds = await store.loadClouds();
-    final cloudsMoved = clouds != null &&
-        ((clouds.latitude - fix.lat).abs() > 0.2 ||
-            (clouds.longitude - fix.lon).abs() > 0.2);
-    if (force || clouds == null || cloudsMoved || clouds.isStale(now, maxAge: cloudsMaxAge)) {
-      try {
-        clouds = await meteo.fetchCloudForecast(fix.lat, fix.lon);
-        await store.saveClouds(clouds);
-      } catch (e) {
-        errors.add('clouds: $e');
-      }
-    }
-
-    var aurora = await store.loadAurora();
-    if (settings.auroraEnabled &&
-        (force || aurora == null || now.difference(aurora.fetchedAt) > auroraMaxAge)) {
-      try {
-        final forecast = await swpc.fetchKpForecast();
-        double? kpNow;
-        var ovation = 0;
+    Future<CloudForecast?> fetchClouds() async {
+      var clouds = await store.loadClouds();
+      final cloudsMoved = clouds != null &&
+          ((clouds.latitude - fix.lat).abs() > 0.2 ||
+              (clouds.longitude - fix.lon).abs() > 0.2);
+      if (force || clouds == null || cloudsMoved || clouds.isStale(now, maxAge: cloudsMaxAge)) {
         try {
-          kpNow = await swpc.fetchEstimatedKpNow();
-          ovation = await swpc.fetchOvationProbabilityAt(fix.lat, fix.lon);
+          clouds = await capped<CloudForecast>(meteo.fetchCloudForecast(fix.lat, fix.lon));
+          await store.saveClouds(clouds);
         } catch (e) {
-          errors.add('aurora-now: $e');
+          errors.add('clouds: $e');
         }
-        aurora = AuroraSnapshot(
-            fetchedAt: now, kpNow: kpNow, forecast: forecast, ovationProbability: ovation);
-        await store.saveAurora(aurora);
-      } catch (e) {
-        errors.add('aurora: $e');
+      }
+      return clouds;
+    }
+
+    Future<AuroraSnapshot?> fetchAurora() async {
+      var aurora = await store.loadAurora();
+      if (settings.auroraEnabled &&
+          (force || aurora == null || now.difference(aurora.fetchedAt) > auroraMaxAge)) {
+        try {
+          final forecast = await capped(swpc.fetchKpForecast());
+          double? kpNow;
+          var ovation = 0;
+          try {
+            kpNow = await capped(swpc.fetchEstimatedKpNow());
+            ovation = await capped(swpc.fetchOvationProbabilityAt(fix.lat, fix.lon));
+          } catch (e) {
+            errors.add('aurora-now: $e');
+          }
+          aurora = AuroraSnapshot(
+              fetchedAt: now, kpNow: kpNow, forecast: forecast, ovationProbability: ovation);
+          await store.saveAurora(aurora);
+        } catch (e) {
+          errors.add('aurora: $e');
+        }
+      }
+      return aurora;
+    }
+
+    Future<List<Map<String, Object?>>> fetchLaunches() async {
+      var launchesCache = await store.loadLaunches();
+      if (settings.launchesEnabled &&
+          (force || launchesCache == null || now.difference(launchesCache.fetchedAt) > launchesMaxAge)) {
+        try {
+          final raw = await capped(launchLibrary.fetchUpcomingRaw());
+          await store.saveLaunches(raw, now);
+          launchesCache = (fetchedAt: now, raw: raw);
+        } catch (e) {
+          errors.add('launches: $e');
+        }
+      }
+      return launchesCache?.raw ?? const [];
+    }
+
+    Future<SkyCatalog?> loadCatalog() async {
+      try {
+        return await catalog();
+      } catch (_) {
+        return null; // no landmarks this time; everything else stands
       }
     }
 
-    var launchesCache = await store.loadLaunches();
-    if (settings.launchesEnabled &&
-        (force || launchesCache == null || now.difference(launchesCache.fetchedAt) > launchesMaxAge)) {
-      try {
-        final raw = await launchLibrary.fetchUpcomingRaw();
-        await store.saveLaunches(raw, now);
-        launchesCache = (fetchedAt: now, raw: raw);
-      } catch (e) {
-        errors.add('launches: $e');
-      }
-    }
-    final launches = LaunchLibraryClient.parse(launchesCache?.raw ?? const []);
+    // The sources don't depend on each other, so they download together:
+    // the wait is the slowest one, not the sum of them all.
+    final (iss, tiangong, starlink, clouds, aurora, launchesRaw, sky) = await (
+      elements('iss', () => celestrak.fetchByCatalogNumber(Norad.iss)),
+      settings.tiangongEnabled
+          ? elements('tiangong', () => celestrak.fetchByCatalogNumber(Norad.tiangong))
+          : Future<List<OmmRecord>?>.value(),
+      settings.starlinkEnabled
+          ? elements('starlink', () async {
+              // Keep only what we need: train-phase groups are a few hundred
+              // records, not 11 k. Supplemental covers the newest launch.
+              final all = await celestrak.fetchStarlink();
+              List<OmmRecord> sup = const [];
+              try {
+                sup = await celestrak.fetchStarlinkSupplemental();
+              } catch (_) {}
+              return _trimStarlink([...all, ...sup]);
+            }, cacheOnly: quick)
+          : Future<List<OmmRecord>?>.value(),
+      fetchClouds(),
+      fetchAurora(),
+      fetchLaunches(),
+      loadCatalog(),
+    ).wait;
+    final launches = LaunchLibraryClient.parse(launchesRaw);
 
     // Learned thresholds from "what got in the way?" answers.
     final tuning = AlertTuning.from([for (final f in await store.loadFeedback()) f.toSighting()], now: now);
@@ -197,10 +234,6 @@ class RefreshService {
       }
     }
 
-    SkyCatalog? sky;
-    try {
-      sky = await catalog();
-    } catch (_) {} // no landmarks this time; everything else stands
     final events = pipeline.build(PipelineInputs(
       auroraReports: reports,
       catalog: sky,
@@ -247,7 +280,7 @@ class RefreshService {
     // Without any ISS elements (first launch + a failed fetch) there is
     // nothing to show; don't mark the refresh done so the next app open
     // retries instead of waiting out the 3-hour staleness window.
-    if (iss != null && iss.isNotEmpty) await store.saveLastRefresh(now);
+    if (!quick && iss != null && iss.isNotEmpty) await store.saveLastRefresh(now);
     return RefreshReport(events: events, plan: plan, errors: errors, recent: recent);
   }
 

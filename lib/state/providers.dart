@@ -125,11 +125,30 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
   /// a day, Open-Meteo 6 h, SWPC 30 min). Settings has "Refresh everything".
   Future<void> pull() => refresh().timeout(pullLimit, onTimeout: () {});
 
-  /// Fetch + recompute + reschedule, then reload.
-  Future<void> refresh({bool force = false}) async {
+  /// The refresh in progress. Refreshes queue behind it: two at once would
+  /// race to save events and planned alerts.
+  Future<void> _running = Future.value();
+  int _queued = 0;
+
+  /// Whether a refresh is running or queued.
+  bool get refreshing => _queued > 0;
+
+  /// Fetch + recompute + reschedule, then reload. [quick] skips the big
+  /// Starlink download (see [RefreshService.run]).
+  Future<void> refresh({bool force = false, bool quick = false}) {
+    _queued++;
+    final next = _running
+        .catchError((_) {})
+        .then((_) => _refresh(force: force, quick: quick))
+        .whenComplete(() => _queued--);
+    _running = next;
+    return next;
+  }
+
+  Future<void> _refresh({required bool force, required bool quick}) async {
     final report = await ref
         .read(refreshServiceProvider)
-        .run(force: force, allowLocationPrompt: true);
+        .run(force: force, allowLocationPrompt: true, quick: quick);
     ref.invalidate(settingsProvider); // location may have been updated
     final store = ref.read(storeProvider);
     state = AsyncData(HomeData(
