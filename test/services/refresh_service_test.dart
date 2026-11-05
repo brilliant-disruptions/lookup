@@ -285,6 +285,32 @@ void main() {
       expect(await store.loadLastRefresh(), isNull);
     });
 
+    // A blocked or slow Celestrak held the first look's empty cards for
+    // the whole quickLimit; a usable shipped ISS stands in after seedLimit.
+    testWidgets('a quick look shows the shipped ISS after 2 s rather than waiting out 10 s', (t) async {
+      final silent = MockClient((req) => Completer<http.Response>().future);
+      final service = RefreshService(
+        store: LocalStore(),
+        notifications: _Notes(),
+        celestrak: CelestrakClient(client: silent),
+        swpc: SwpcClient(client: silent),
+        meteo: OpenMeteoClient(client: silent),
+        launchLibrary: LaunchLibraryClient(client: silent),
+        location: _Here(),
+        catalog: () async => throw 'no sky in this test',
+        issSeed: seed(const Duration(days: 2)),
+      );
+      RefreshReport? report;
+      unawaited(service.run(quick: true).then((r) => report = r));
+      await t.pump(const Duration(milliseconds: 1900));
+      expect(report, isNull, reason: 'a real ISS that comes quickly still wins');
+      await t.pump(const Duration(milliseconds: 300));
+      expect(report, isNotNull, reason: 'gone on after RefreshService.seedLimit');
+      expect(report!.approximate, isTrue);
+      expect(report!.events.where((e) => e.type == SkyEventType.iss), isNotEmpty);
+      await t.pump(const Duration(minutes: 4)); // let the abandoned requests' own retries run out
+    });
+
     testWidgets('a shipped ISS too old to trust shows nothing', (t) async {
       final report = await settle(t, offline(LocalStore(), _Notes(), seed(const Duration(days: 30))).run(quick: true));
       expect(report.approximate, isFalse);

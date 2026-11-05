@@ -117,6 +117,15 @@ class RefreshService {
     if (settings.starlinkEnabled) await _elements('starlink', _fetchStarlink, now: now, errors: errors);
   }
 
+  /// The shipped ISS, if it's recent enough to show; else null.
+  Future<List<OmmRecord>?> _seed(DateTime now) async {
+    try {
+      final seed = await issSeed();
+      if (seed.isNotEmpty && now.difference(seed.first.epoch) < seedMaxAge) return seed;
+    } catch (_) {}
+    return null;
+  }
+
   Future<List<OmmRecord>> _fetchIss() => celestrak.fetchByCatalogNumber(Norad.iss);
   Future<List<OmmRecord>> _fetchTiangong() => celestrak.fetchByCatalogNumber(Norad.tiangong);
 
@@ -187,9 +196,13 @@ class RefreshService {
   /// minutes (60 s timeout × 3 tries); the full refresh after it tries again.
   static const quickLimit = Duration(seconds: 10);
 
+  /// How long the first look waits for the ISS when the shipped copy is
+  /// recent enough to show instead; the full refresh brings the real one.
+  static const seedLimit = Duration(seconds: 2);
+
   /// [quick] is onboarding's first look: it waits only for a location (any
-  /// the phone already has) and the ISS (at most [quickLimit], else the
-  /// shipped copy). Everything else is whatever is cached: clouds, aurora,
+  /// the phone already has) and the ISS (at most [seedLimit] when the
+  /// shipped copy can stand in, else [quickLimit]). Everything else is whatever is cached: clouds, aurora,
   /// launches and Starlink fill in with the full refresh that must follow.
   /// It schedules nothing and doesn't mark the refresh done.
   Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false, bool quick = false}) async {
@@ -206,6 +219,9 @@ class RefreshService {
       settings = settings.copyWith(latitude: fix.lat, longitude: fix.lon);
       await store.saveSettings(settings);
     }
+
+    // Read before the ISS so the first look knows how long to wait for it.
+    final seed = quick ? await _seed(now) : null;
 
     Future<CloudForecast?> fetchClouds() async {
       var clouds = await store.loadClouds();
@@ -263,7 +279,7 @@ class RefreshService {
     // The sources don't depend on each other, so they download together:
     // the wait is the slowest one, not the sum of them all.
     var (iss, tiangong, starlink, clouds, aurora, launchesRaw, sky) = await (
-      _elements('iss', _fetchIss, now: now, errors: errors, force: force, limit: quick ? quickLimit : null),
+      _elements('iss', _fetchIss, now: now, errors: errors, force: force, limit: quick ? (seed != null ? seedLimit : quickLimit) : null),
       settings.tiangongEnabled
           ? _elements('tiangong', _fetchTiangong, now: now, errors: errors, force: force, cacheOnly: quick)
           : Future<List<OmmRecord>?>.value(),
@@ -282,13 +298,11 @@ class RefreshService {
     // recent enough, rather than an empty sky.
     var approximate = false;
     if (iss == null || iss.isEmpty) {
-      try {
-        final seed = await issSeed();
-        if (seed.isNotEmpty && now.difference(seed.first.epoch) < seedMaxAge) {
-          iss = seed;
-          approximate = true;
-        }
-      } catch (_) {}
+      final shipped = seed ?? await _seed(now);
+      if (shipped != null) {
+        iss = shipped;
+        approximate = true;
+      }
     }
     final launches = LaunchLibraryClient.parse(launchesRaw);
 
