@@ -44,6 +44,8 @@ class Sighting {
     if (id.startsWith('pair:')) return SkyEventType.planetPairing;
     if (id.startsWith('occ:')) return SkyEventType.occultation;
     if (id.startsWith('occnear:')) return SkyEventType.occultationNear;
+    if (id.startsWith('comet:')) return SkyEventType.comet;
+    if (id.startsWith('nova:')) return SkyEventType.nova;
     if (id.startsWith('launch:')) return SkyEventType.rocketLaunch;
     if (id.startsWith('transit-')) return SkyEventType.issTransit;
     if (id.startsWith('sat:')) return SkyEventType.satellitePass;

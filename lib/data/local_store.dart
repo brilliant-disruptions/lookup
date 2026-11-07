@@ -69,6 +69,7 @@ class LocalStore {
   static const _kEvents = 'events';
   static const _kRecent = 'recent_events';
   static const _kLaunches = 'launches';
+  static const _kRareEvents = 'rareEvents';
   static const _kPlan = 'plan_ids';
   static const _kAurora = 'aurora';
   static const _kClouds = 'clouds';
@@ -220,6 +221,21 @@ class LocalStore {
 
   Future<void> saveLaunches(List<Map<String, Object?>> raw, DateTime at) =>
       _prefs.setString(_kLaunches, jsonEncode({'t': at.toUtc().toIso8601String(), 'r': raw}));
+
+  /// The relay's rare-events list (decoded JSON) and when we fetched it.
+  Future<({DateTime fetchedAt, Object? json})?> loadRareEvents() async {
+    final raw = await _prefs.getString(_kRareEvents);
+    if (raw == null) return null;
+    try {
+      final j = (jsonDecode(raw) as Map).cast<String, Object?>();
+      return (fetchedAt: DateTime.parse(j['t'] as String).toUtc(), json: j['r']);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveRareEvents(Object? json, DateTime at) =>
+      _prefs.setString(_kRareEvents, jsonEncode({'t': at.toUtc().toIso8601String(), 'r': json}));
 
   /// Station crews (trimmed Launch Library JSON) and when we fetched them.
   Future<({DateTime fetchedAt, Object? json})?> loadCrew() async {

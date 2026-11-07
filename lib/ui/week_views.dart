@@ -612,6 +612,7 @@ class CalendarPage extends StatelessWidget {
         SkyEventType.satellitePass => 'Satellites',
         SkyEventType.skyObject => 'Sky',
         SkyEventType.occultation || SkyEventType.occultationNear => 'Moon',
+        SkyEventType.comet || SkyEventType.nova => 'Rare',
       };
 
   /// How the night's clouds look, from the forecast; nothing claimed

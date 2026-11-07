@@ -8,9 +8,11 @@ import '../data/launch_library_client.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../data/local_store.dart';
 import '../data/open_meteo_client.dart';
+import '../data/rare_events_client.dart';
 import '../data/swpc_client.dart';
 import '../domain/aurora/aurora_rules.dart';
 import '../domain/aurora/seen_nearby.dart';
+import '../domain/events/rare_events.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
@@ -41,6 +43,7 @@ class RefreshService {
     LaunchLibraryClient? launchLibrary,
     LocationService? location,
     AuroraReportsClient? auroraReports,
+    RareEventsClient? rareEvents,
     this.onRefreshed,
     this.pipeline = const EventPipeline(),
     this.planner = const AlertPlanner(),
@@ -50,7 +53,8 @@ class RefreshService {
         meteo = meteo ?? OpenMeteoClient(),
         launchLibrary = launchLibrary ?? LaunchLibraryClient(),
         location = location ?? const LocationService(),
-        auroraReports = auroraReports ?? (relayConfigured ? AuroraReportsClient() : null);
+        auroraReports = auroraReports ?? (relayConfigured ? AuroraReportsClient() : null),
+        rareEvents = rareEvents ?? (relayConfigured ? RareEventsClient() : null);
 
   final LocalStore store;
   final NotificationService notifications;
@@ -62,6 +66,9 @@ class RefreshService {
 
   /// Seen near you; null when this build has no relay.
   final AuroraReportsClient? auroraReports;
+
+  /// Rare comets and novae; null when this build has no relay.
+  final RareEventsClient? rareEvents;
 
   /// Called after each successful refresh (home-screen widgets). Errors
   /// there never fail the refresh.
@@ -76,6 +83,7 @@ class RefreshService {
   static const cloudsMaxAge = Duration(hours: 6);
   static const auroraMaxAge = Duration(minutes: 30);
   static const launchesMaxAge = Duration(hours: 6);
+  static const rareEventsMaxAge = Duration(hours: 24);
 
   Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false}) async {
     final errors = <String>[];
@@ -174,6 +182,23 @@ class RefreshService {
     }
     final launches = LaunchLibraryClient.parse(launchesCache?.raw ?? const []);
 
+    // A hand-curated list that changes a few times a year: once a day,
+    // even when forced.
+    var rareCache = await store.loadRareEvents();
+    final rareClient = rareEvents;
+    if (rareClient != null &&
+        settings.rareEventsEnabled &&
+        (rareCache == null || now.difference(rareCache.fetchedAt) > rareEventsMaxAge)) {
+      try {
+        final json = await rareClient.fetchRaw();
+        await store.saveRareEvents(json, now);
+        rareCache = (fetchedAt: now, json: json);
+      } catch (e) {
+        errors.add('rare-events: $e');
+      }
+    }
+    final rare = rareClient == null ? const <RareObject>[] : parseRareEvents(rareCache?.json);
+
     // Learned thresholds from "what got in the way?" answers.
     final tuning = AlertTuning.from([for (final f in await store.loadFeedback()) f.toSighting()], now: now);
     final tuned = tuning.apply(settings);
@@ -205,6 +230,7 @@ class RefreshService {
       auroraReports: reports,
       catalog: sky,
       launches: launches,
+      rareEvents: rare,
       settings: tuned,
       now: now,
       iss: iss,

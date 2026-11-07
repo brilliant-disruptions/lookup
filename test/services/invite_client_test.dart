@@ -66,6 +66,8 @@ void main() {
       _ev(SkyEventType.planetPairing, details: {'label': 'Moon and Jupiter', 'separation': 2.4, 'bodies': ['Moon', 'Jupiter']}),
       _ev(SkyEventType.meteorShower, details: {'shower': 'Leonids', 'perHour': 15}),
       _ev(SkyEventType.issTransit, details: {'body': 'Moon', 'crossingMs': 820}),
+      _ev(SkyEventType.comet, details: {'name': 'Comet NEOWISE', 'note': 'Low in the northwest after dusk; binoculars show the tail.'}),
+      _ev(SkyEventType.nova, details: {'name': 'RS Ophiuchi', 'note': 'A recurrent nova in Ophiuchus, fading over a few weeks.'}),
     ];
     for (final e in events) {
       final f = inviteFields(e, 'St. John’s');

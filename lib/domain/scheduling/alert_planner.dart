@@ -137,6 +137,7 @@ class AlertPlanner {
         SkyEventType.planetPairing || SkyEventType.planetHighlight => s.pairingsEnabled,
         SkyEventType.rocketLaunch => s.launchesEnabled,
         SkyEventType.occultation => s.occultationsEnabled,
+        SkyEventType.comet || SkyEventType.nova => s.rareEventsEnabled,
         // Listed for planning, never pushed.
         SkyEventType.issTransit || SkyEventType.satellitePass || SkyEventType.skyObject || SkyEventType.occultationNear => false,
       };
@@ -201,9 +202,12 @@ class AlertPlanner {
       SkyEventType.skyObject => (e.details['name'] as String?) ?? 'Sky object',
       SkyEventType.occultation => 'The Moon covers ${e.details['body'] ?? 'a star'}',
       SkyEventType.occultationNear => '${e.details['body'] ?? 'A star'} near the Moon',
+      SkyEventType.comet => (e.details['name'] as String?) ?? 'Bright comet',
+      SkyEventType.nova => 'New star: ${e.details['name'] ?? 'a nova'}',
     };
     if (e.type == SkyEventType.planetHighlight) return what;
     if (e.type == SkyEventType.meteorShower) return what;
+    if (e.type == SkyEventType.comet || e.type == SkyEventType.nova) return '$what tonight';
     return '$what in $leadMinutes min';
   }
 
@@ -243,6 +247,13 @@ class AlertPlanner {
         return '${e.details['planet']} is ${b ?? 'bright'}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. ${_cloudNote(e)}'.trim();
       case SkyEventType.occultation:
         return '${occultationTimes(e)} The Moon is ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Binoculars help. ${_cloudNote(e)}'.trim();
+      case SkyEventType.comet:
+      case SkyEventType.nova:
+        // Up for hours, so when it's clear of the horizon, not "in 10 min".
+        final note = e.details['note'] as String?;
+        return 'Up from ${_hm(e.start)}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)} at its best. ${note ?? ''} ${_cloudNote(e)}'
+            .replaceAll(RegExp(r' +'), ' ')
+            .trim();
       case SkyEventType.rocketLaunch:
         final dist = (e.details['distanceKm'] as num?)?.toDouble();
         final name = e.details['name'] ?? 'A rocket';
