@@ -38,6 +38,7 @@ String typePlural(SkyEventType t, int n) {
     SkyEventType.satellitePass => one ? 'satellite' : 'satellites',
     SkyEventType.planetHighlight => one ? 'planet highlight' : 'planet highlights',
     SkyEventType.skyObject => one ? 'sky sight' : 'sky sights',
+    SkyEventType.fullMoonRise => one ? 'full Moon rise' : 'full Moon rises',
   };
 }
 

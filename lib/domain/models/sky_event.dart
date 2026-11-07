@@ -19,6 +19,10 @@ enum SkyEventType {
   issTransit('ISS transit', plusOnly: false, pushes: false),
   planetHighlight('Planet highlight', plusOnly: false),
 
+  /// The full Moon coming up over the horizon; `details['supermoon']` marks
+  /// the closest ones. Free: it's the easiest sky event there is.
+  fullMoonRise('Full Moon rising', plusOnly: false),
+
   /// A planet, star, constellation or showpiece opened from the Sky tab:
   /// not an event, but the finder and sheets speak [SkyEvent].
   skyObject('Sky object', plusOnly: false, pushes: false),
