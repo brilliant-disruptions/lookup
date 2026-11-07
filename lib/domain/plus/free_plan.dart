@@ -2,7 +2,8 @@
 ///
 /// Free is the hook and stays genuinely useful: space station alerts (cloud
 /// checked), meteor showers, lunar and solar eclipses, planet pairings, the
-/// sky map, tonight's verdict and the log. LookUp+ is "never miss anything
+/// full Moon rising, the sky map, tonight's verdict and the log. LookUp+ is
+/// "never miss anything
 /// up there": every kind of alert, where to go tonight, the whole fortnight
 /// ahead at any saved place, as many places as you like, and photo planning.
 library;

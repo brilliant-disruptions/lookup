@@ -34,6 +34,7 @@ POST   /v1/report     {cell: {la, lo}, how: "eye"|"camera", reporter}      → 2
 GET    /v1/reports?cells=la,lo;la,lo…                                       → {now, reports: [{la, lo, at, how, r}]}
 POST   /v1/subscribe  {token, platform: "apns"|"fcm", sandbox?, cells: […]} → 204
 DELETE /v1/subscribe  {token}                                               → 204
+GET    /v1/rare-events                                                      → {now, events: [{id, kind, name, magnitude, validUntil, note, ephemeris}]}
 GET    /v1/health
 ```
 
@@ -53,6 +54,15 @@ GET    /v1/health
 - **Cleanup:** every 10 minutes (cron), reports and limits older than an
   hour are deleted, along with subscriptions the app hasn't renewed in 30
   days. Tokens Apple or Google call dead are dropped at once.
+- **Rare events** are a hand-curated list of comets and novae in
+  `src/rare_events.ts` (`CURATED`). Each has daily J2000 RA/Dec rows
+  (`{date, ra, dec, mag?}`, degrees, 0h UT) and the phone only interpolates
+  them: no orbit solving. Take comet positions from JPL Horizons and
+  magnitudes from what observers report (Horizons' comet magnitudes can be
+  several magnitudes out). An event is served until the end of its
+  `validUntil` day, and `npm test` refuses a list with a bad row. The app
+  asks at most once a day. To add one, edit `CURATED`, run `npm test` and
+  deploy.
 
 ## Invite links
 

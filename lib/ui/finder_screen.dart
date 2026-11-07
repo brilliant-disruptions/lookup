@@ -26,6 +26,7 @@ import 'finder_camera.dart';
 import 'finder_firefly.dart';
 import 'format.dart';
 import 'kit/kit.dart';
+import 'sky/figure_spotlight.dart';
 import 'theme.dart';
 
 Future<void> openFinder(BuildContext context, SkyEvent event) =>
@@ -105,6 +106,7 @@ class FinderTarget {
       case SkyEventType.lunarEclipse:
       case SkyEventType.occultation:
       case SkyEventType.occultationNear:
+      case SkyEventType.fullMoonRise:
         final m = moonHorizontal(u, latDeg, lonDeg);
         return SkyDir(m.azimuthDeg, m.altitudeDeg);
       case SkyEventType.planetPairing:
@@ -140,7 +142,12 @@ class FinderScreen extends ConsumerStatefulWidget {
   ConsumerState<FinderScreen> createState() => _FinderState();
 }
 
-class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProviderStateMixin {
+class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateMixin, FigureSpotlight {
+  // The finder buzzes when you're on the target; a tick per constellation
+  // would muddle that.
+  @override
+  bool get figureTicks => false;
+
   StreamSubscription<List<double>>? _sub;
   List<double>? _r;
   String? _error;
@@ -208,6 +215,7 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    figureFadeOn = !MediaQuery.disableAnimationsOf(context);
     final now = ref.watch(clockProvider).value ?? DateTime.now();
     final target = _target!.at(now);
     final r = _r;
@@ -325,6 +333,10 @@ class _FinderState extends ConsumerState<FinderScreen> with SingleTickerProvider
                   catalog: ref.watch(skyCatalogProvider).value,
                   latDeg: _target!.latDeg,
                   lonDeg: _target!.lonDeg,
+                  art: (ref.watch(settingsProvider).value?.skyFigures ?? true) ? figureArt : null,
+                  glow: figureGlow,
+                  onSpotlit: onFigureSpotlit,
+                  twinkle: figureFadeOn ? figureTwinkle : null,
                 ),
               ),
             ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import '../domain/orbit/omm.dart';
 import '../domain/sky/catalog.dart';
 
 Future<SkyCatalog>? _loading;
@@ -18,3 +19,10 @@ Future<SkyCatalog> loadSkyCatalog() => _loading ??= () async {
         rethrow;
       }
     }();
+
+/// The ISS as it was when this build was made, for a first look when
+/// Celestrak can't be reached. Refresh `assets/sky/iss_seed.json` from
+/// Celestrak (CATNR=25544, FORMAT=json) before each release: it is only
+/// used while under [RefreshService.seedMaxAge] old.
+Future<List<OmmRecord>> loadIssSeed() async =>
+    OmmRecord.listFromJson(jsonDecode(await rootBundle.loadString('assets/sky/iss_seed.json')));

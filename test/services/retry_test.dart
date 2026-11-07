@@ -26,4 +26,18 @@ void main() {
     );
     expect(calls, 3);
   });
+
+  // A server that says no (403 blocked, 429 too many) is answered by
+  // stopping; retrying is what turns "slow down" into a block.
+  test('an error retryIf turns down is not retried', () async {
+    var calls = 0;
+    await expectLater(
+      withRetry<int>(() async {
+        calls++;
+        throw StateError('refused');
+      }, retryIf: (e) => e is! StateError, sleep: (_) async {}),
+      throwsStateError,
+    );
+    expect(calls, 1);
+  });
 }
