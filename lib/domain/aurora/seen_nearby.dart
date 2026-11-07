@@ -16,6 +16,7 @@ library;
 
 import 'dart:math' as math;
 
+import '../models/sky_event.dart';
 import '../plan/where_to_go.dart' show bearingDeg, distanceKm;
 import '../sky/direction.dart';
 import '../sky/geomagnetic.dart';
@@ -232,3 +233,25 @@ List<({double lat, double lon})> cellsNear(double latDeg, double lonDeg, {double
 /// Kp 6 (about 52° geomagnetic), so enough people will be looking. Elsewhere
 /// the forecast-only aurora alert carries on unchanged.
 bool seenNearbyOffered(double latDeg, double lonDeg) => kpNeededAt(latDeg, lonDeg) <= 6;
+
+/// The "Seen near you" line on Tonight: the crowd-confirmed aurora-now
+/// event, but only while the count it quotes ("5 people in the last 20
+/// minutes") is still current, i.e. within [CrowdRules.window] of when it
+/// was confirmed. A refresh that confirms it again starts it afresh; one
+/// that doesn't lets it go. Never in a build without the relay.
+SkyEvent? seenNearYouLine(
+  Iterable<SkyEvent> events,
+  DateTime now, {
+  required bool relayConfigured,
+  CrowdRules rules = const CrowdRules(),
+}) {
+  if (!relayConfigured) return null;
+  final u = now.toUtc();
+  for (final e in events) {
+    if (e.type != SkyEventType.auroraNow || e.details['crowd'] != true) continue;
+    if (e.details['headline'] is! String || e.details['body'] is! String) continue;
+    final age = u.difference(e.start);
+    if (!age.isNegative && age <= rules.window) return e;
+  }
+  return null;
+}

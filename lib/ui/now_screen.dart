@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/aurora_reports_client.dart' show relayConfigured;
+import '../domain/aurora/seen_nearby.dart' show seenNearYouLine;
 import '../domain/models/sky_event.dart';
 import '../domain/plan/where_to_go.dart';
 import '../domain/sky/skyglow.dart';
@@ -85,7 +87,11 @@ class NowScreen extends ConsumerWidget {
                 if (!d.needsLocation) const Rise(index: 1, child: StarterSkyCard()),
                 // Free users: what LookUp+ would add here, quietly, in the list.
                 if (!d.needsLocation) const Rise(index: 1, child: PlusNearYouCard()),
-                if (d.auroraOutlook != null) ...[
+                // Seen near you replaces the outlook while its count is current.
+                if (seenNearYouLine(d.events, DateTime.now(), relayConfigured: relayConfigured) case final seen?) ...[
+                  const SizedBox(height: 12),
+                  Rise(index: 1, child: _SeenNearYouCard(seen)),
+                ] else if (d.auroraOutlook != null) ...[
                   const SizedBox(height: 12),
                   Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
                 ],
@@ -151,6 +157,30 @@ class _OutlookCard extends StatelessWidget {
           Text(eventTitle(e), style: display(19, weight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text(eventSubtitle(e), style: const TextStyle(color: LookUpColors.grey, fontSize: 14, height: 1.4)),
+        ]),
+      );
+}
+
+/// Other LookUp users nearby can see the aurora right now.
+class _SeenNearYouCard extends StatelessWidget {
+  const _SeenNearYouCard(this.e);
+  final SkyEvent e;
+  @override
+  Widget build(BuildContext context) => GlassCard(
+        tint: LookUpColors.violet,
+        onTap: () => showLookSheet(context, e),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            EventGlyph.of(e),
+            const SizedBox(width: 12),
+            const Kicker('Seen near you', color: LookUpColors.violet),
+            const Spacer(),
+            CloudPill(e.cloudCoverPercent),
+          ]),
+          const SizedBox(height: 14),
+          Text(e.details['headline'] as String, style: display(19, weight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(e.details['body'] as String, style: const TextStyle(color: LookUpColors.grey, fontSize: 14, height: 1.4)),
         ]),
       );
 }

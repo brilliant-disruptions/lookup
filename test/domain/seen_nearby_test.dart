@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/domain/aurora/aurora_rules.dart';
 import 'package:lookup/domain/aurora/seen_nearby.dart';
+import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/plan/where_to_go.dart' show distanceKm;
 
 // Edinburgh on a November night: dark by 18:00 UTC.
@@ -142,5 +143,50 @@ void main() {
     ]) {
       expect(seenNearbyOffered(lat, lon), isFalse, reason: name);
     }
+  });
+
+  group('the Seen near you line on Tonight', () {
+    SkyEvent auroraNow({required DateTime at, bool crowd = true}) {
+      final v = _check(_crowd, now: at);
+      return SkyEvent(
+        id: 'aurora-now:x',
+        type: SkyEventType.auroraNow,
+        start: at,
+        peak: at,
+        end: at.add(const Duration(hours: 3)),
+        peakElevationDeg: 15,
+        riseAzimuthDeg: 0,
+        peakAzimuthDeg: 0,
+        setAzimuthDeg: 0,
+        details: {
+          'kp': 5.0,
+          if (crowd) ...{'crowd': true, 'people': v.people, 'headline': v.headline, 'body': v.body(const CrowdRules().window)},
+        },
+      );
+    }
+
+    test('shows the crowd\'s words while the count it quotes is current', () {
+      final e = auroraNow(at: _now);
+      final line = seenNearYouLine([e], _now.add(const Duration(minutes: 5)), relayConfigured: true);
+      expect(line, same(e));
+      expect(line!.details['headline'], startsWith('Aurora being seen'));
+    });
+
+    test('goes once "in the last 20 minutes" is no longer true, though the alert window runs on', () {
+      // The event lasts 3 h for the alert's sake; the line mustn't, or it
+      // would quote an old crowd as if it were looking now.
+      final e = auroraNow(at: _now);
+      final window = const CrowdRules().window;
+      expect(seenNearYouLine([e], _now.add(window), relayConfigured: true), same(e));
+      expect(seenNearYouLine([e], _now.add(window + const Duration(minutes: 1)), relayConfigured: true), isNull);
+    });
+
+    test('never from the Kp model alone: an aurora-now with no crowd behind it keeps the outlook card', () {
+      expect(seenNearYouLine([auroraNow(at: _now, crowd: false)], _now, relayConfigured: true), isNull);
+    });
+
+    test('hidden in a build without the relay', () {
+      expect(seenNearYouLine([auroraNow(at: _now)], _now, relayConfigured: false), isNull);
+    });
   });
 }
