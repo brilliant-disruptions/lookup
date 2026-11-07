@@ -19,6 +19,14 @@ enum SkyEventType {
   issTransit('ISS transit', plusOnly: false, pushes: false),
   planetHighlight('Planet highlight', plusOnly: false),
 
+  /// The Moon covers a bright star or a planet: only when the track passes
+  /// well inside its edge (domain/events/occultations.dart).
+  occultation('Moon covers a star or planet', plusOnly: true),
+
+  /// Right at the Moon's edge: a graze or a miss, so listed and never
+  /// pushed, and never called a cover.
+  occultationNear('Near the Moon', plusOnly: false, pushes: false),
+
   /// The full Moon coming up over the horizon; `details['supermoon']` marks
   /// the closest ones. Free: it's the easiest sky event there is.
   fullMoonRise('Full Moon rising', plusOnly: false),

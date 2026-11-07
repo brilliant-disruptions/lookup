@@ -9,7 +9,8 @@
 library;
 
 enum PlusFeature {
-  /// Starlink trains, Tiangong, rocket launches and live aurora alerts.
+  /// Starlink trains, Tiangong, rocket launches, live aurora alerts and the
+  /// Moon covering a bright star or planet.
   alerts,
 
   /// Where to go tonight: clearer, darker skies near you.

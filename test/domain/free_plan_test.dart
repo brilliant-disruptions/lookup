@@ -31,7 +31,7 @@ void main() {
     ]) {
       expect(t.plusOnly, isFalse, reason: t.name);
     }
-    for (final t in [SkyEventType.starlinkTrain, SkyEventType.tiangong, SkyEventType.rocketLaunch, SkyEventType.auroraNow]) {
+    for (final t in [SkyEventType.starlinkTrain, SkyEventType.tiangong, SkyEventType.rocketLaunch, SkyEventType.auroraNow, SkyEventType.occultation]) {
       expect(t.plusOnly, isTrue, reason: t.name);
     }
   });

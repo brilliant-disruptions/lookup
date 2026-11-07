@@ -136,9 +136,10 @@ class AlertPlanner {
         SkyEventType.lunarEclipse || SkyEventType.solarEclipse => s.eclipsesEnabled,
         SkyEventType.planetPairing || SkyEventType.planetHighlight => s.pairingsEnabled,
         SkyEventType.rocketLaunch => s.launchesEnabled,
+        SkyEventType.occultation => s.occultationsEnabled,
         SkyEventType.fullMoonRise => s.moonriseEnabled,
         // Listed for planning, never pushed.
-        SkyEventType.issTransit || SkyEventType.satellitePass || SkyEventType.skyObject => false,
+        SkyEventType.issTransit || SkyEventType.satellitePass || SkyEventType.skyObject || SkyEventType.occultationNear => false,
       };
 
   /// Quiet hours block everything except aurora and lunar eclipses when
@@ -199,6 +200,8 @@ class AlertPlanner {
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? 'Satellite pass',
       SkyEventType.planetHighlight => (e.details['label'] as String?) ?? 'Planet highlight',
       SkyEventType.skyObject => (e.details['name'] as String?) ?? 'Sky object',
+      SkyEventType.occultation => 'The Moon covers ${e.details['body'] ?? 'a star'}',
+      SkyEventType.occultationNear => '${e.details['body'] ?? 'A star'} near the Moon',
       SkyEventType.fullMoonRise => '${e.details['label'] ?? 'Full Moon'} rising',
     };
     if (e.type == SkyEventType.planetHighlight) return what;
@@ -240,6 +243,8 @@ class AlertPlanner {
       case SkyEventType.planetHighlight:
         final b = e.details['brightness'] as String?;
         return '${e.details['planet']} is ${b ?? 'bright'}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. ${_cloudNote(e)}'.trim();
+      case SkyEventType.occultation:
+        return '${occultationTimes(e)} The Moon is ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Binoculars help. ${_cloudNote(e)}'.trim();
       case SkyEventType.rocketLaunch:
         final dist = (e.details['distanceKm'] as num?)?.toDouble();
         final name = e.details['name'] ?? 'A rocket';
@@ -271,9 +276,29 @@ class AlertPlanner {
 
   static String goNowBody(SkyEvent e) => switch (e.type) {
         SkyEventType.solarEclipse => 'Eclipse glasses on, then look ${compassWord(e.peakAzimuthDeg)} at the Sun.',
+        SkyEventType.occultation =>
+          'Look ${compassWord(e.riseAzimuthDeg)} at the Moon, ${elevationWord(e.peakElevationDeg)}. ${occultationTimes(e)}',
         SkyEventType.fullMoonRise => 'Look ${compassWord(e.riseAzimuthDeg)}, right on the horizon.',
         _ => 'Look ${compassWord(e.riseAzimuthDeg)}. ${_cap(elevationWord(e.peakElevationDeg))} at its best.',
       };
+
+  /// "Regulus goes behind the Moon at 9:14 PM and comes back at 10:21 PM
+  /// (give or take 35 s)." Only the contacts that can be seen.
+  static String occultationTimes(SkyEvent e) {
+    final body = e.details['body'] ?? 'It';
+    DateTime? at(String k) => e.details[k] is String ? DateTime.parse(e.details[k] as String) : null;
+    final d = at('disappears'), r = at('reappears');
+    final s = (e.details['plusMinusSeconds'] as num?)?.round() ?? 0;
+    final pm = s < 90 ? '$s s' : '${(s / 60).round()} min';
+    final when = d != null && r != null
+        ? 'goes behind the Moon at ${_hm(d)} and comes back at ${_hm(r)}'
+        : d != null
+            ? 'goes behind the Moon at ${_hm(d)}'
+            : r != null
+                ? 'comes out from behind the Moon at ${_hm(r)}'
+                : 'goes behind the Moon around ${_hm(e.start)}';
+    return '$body $when (give or take $pm).';
+  }
 
   /// Device-local clock time, e.g. "2:40 AM". Domain stays timezone-free by
   /// using the event's own offset-free UTC→local conversion.
