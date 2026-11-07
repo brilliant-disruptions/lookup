@@ -150,19 +150,28 @@ Also before launch:
 5. **Push wake-ups on the phone.** iPhone: built (`lib/services/push_service.dart`,
    `LookUpPush` in `ios/Runner/AppDelegate.swift`); the APNs key is on the
    relay; waiting only on the Push Notifications capability (Mac checklist §1).
-   Android: still to do. Until this is done, crowd alerts only
-   come when the app refreshes on its own: on open, on pull-to-refresh, and
-   in the 6-hourly background refresh.
+   Android: the Dart side is ready (`PushService` runs there too and
+   registers as `fcm` once `lookup/push` answers `register`); the Kotlin
+   side below is still to do, and until it is nothing is sent to the relay.
+   Until both are live, crowd alerts only come when the app refreshes on
+   its own: on open, on pull-to-refresh, and in the 6-hourly background
+   refresh.
    - **Android:** the `firebase-messaging` library added in Gradle
      (Kotlin, not the Flutter plugin, so iOS's Swift packages and Xcode
      Cloud are untouched). Firebase is started from build-time options, so
-     no `google-services.json` is needed. A data message runs the
-     background refresh, and the app subscribes its cells.
+     no `google-services.json` is needed. In `MainActivity`, a
+     `lookup/push` channel answers `register` with `{token, sandbox: false}`
+     and `ready`, and calls `wake` when the app is running; a data message
+     with the app closed enqueues the background refresh. Not Mac work:
+     it builds on any machine, but needs the Firebase project first.
    - **iPhone:** the Push Notifications capability and `aps-environment`
      entitlement (Mac), then `registerForRemoteNotifications` and a
      background-fetch handler in Swift that runs the same refresh.
    - Needs from the owner: a Firebase project with the Android app added,
      and an APNs key (`relay/README.md`).
-6. A "Seen near you" line on Tonight while it lasts.
+6. ✅ A "Seen near you" line on Tonight (`seenNearYouLine()`), in place of
+   the aurora outlook card while the count it quotes is current (20
+   minutes from the refresh that confirmed it). Hidden without
+   `LOOKUP_RELAY_URL`. Tested.
 7. Measure before widening: alerts sent per storm, and how many people
    answered *Did you see it?* with yes.
