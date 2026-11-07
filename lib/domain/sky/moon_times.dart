@@ -53,14 +53,17 @@ List<FullMoon> fullMoonsBetween(DateTime from, DateTime to) {
   return out;
 }
 
-/// Moonrises in [from, to): when the top of the Moon clears a flat horizon,
-/// with the usual 34′ of refraction (USNO's definition).
-List<({DateTime at, double azimuthDeg})> moonrisesBetween(DateTime from, DateTime to, double lat, double lon) {
+/// Moonrises and moonsets in [from, to): when the top of the Moon crosses a
+/// flat horizon, with the usual 34′ of refraction (USNO's definition).
+List<({DateTime t, bool rising})> moonHorizonCrossings(DateTime from, DateTime to, double lat, double lon) {
   // moonHorizontal is already topocentric, so the centre is one refraction
   // plus one radius below the horizon.
   double alt(DateTime t) => moonHorizontal(t, lat, lon).altitudeDeg + 34 / 60 + moonRadiusDeg(t, 0);
-  return [
-    for (final c in horizonCrossings(alt, from, to))
-      if (c.rising) (at: c.t, azimuthDeg: moonHorizontal(c.t, lat, lon).azimuthDeg),
-  ];
+  return horizonCrossings(alt, from, to);
 }
+
+/// Moonrises in [from, to), with where on the horizon.
+List<({DateTime at, double azimuthDeg})> moonrisesBetween(DateTime from, DateTime to, double lat, double lon) => [
+      for (final c in moonHorizonCrossings(from, to, lat, lon))
+        if (c.rising) (at: c.t, azimuthDeg: moonHorizontal(c.t, lat, lon).azimuthDeg),
+    ];

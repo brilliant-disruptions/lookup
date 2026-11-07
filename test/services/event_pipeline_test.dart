@@ -79,6 +79,29 @@ void main() {
     expect(off.where((e) => e.type == SkyEventType.planetHighlight), isEmpty);
   });
 
+  test('the full Moon rising is in the week, with clouds at moonrise, and its switch removes it', () {
+    // Nashville, full Moon 24 Nov 2026 14:53Z: it rises that evening.
+    final now = DateTime.utc(2026, 11, 20, 12);
+    // Cloudy only around the evening it rises: the gate must see that hour.
+    final clouds = CloudForecast(latitude: 36.17, longitude: -86.78, fetchedAt: now, hourly: [
+      for (var h = 0; h < 24 * 7; h++)
+        CloudSample(
+          time: now.add(Duration(hours: h)),
+          coverPercent: now.add(Duration(hours: h)).isAfter(DateTime.utc(2026, 11, 24, 19)) &&
+                  now.add(Duration(hours: h)).isBefore(DateTime.utc(2026, 11, 25, 1))
+              ? 80
+              : 10,
+        ),
+    ]);
+    final events = const EventPipeline().build(PipelineInputs(settings: nashville, now: now, clouds: clouds));
+    final moon = events.where((e) => e.type == SkyEventType.fullMoonRise).toList();
+    expect(moon.map((e) => e.id), ['fullmoon:2026-11-24']);
+    expect(moon.single.start.day, 24);
+    expect(moon.single.cloudCoverPercent, 80);
+    final off = const EventPipeline().build(PipelineInputs(settings: nashville.copyWith(moonriseEnabled: false), now: now));
+    expect(off.where((e) => e.type == SkyEventType.fullMoonRise), isEmpty);
+  });
+
   test('aurora now is skipped in daylight and when Kp is low', () {
     final events = const EventPipeline().build(PipelineInputs(
       settings: nashville,

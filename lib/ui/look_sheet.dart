@@ -402,6 +402,8 @@ String lookLine(SkyEvent e) => switch (e.type) {
       SkyEventType.solarEclipse =>
         'Never look at the Sun without certified eclipse glasses (ISO 12312-2), not even when it\'s mostly covered. Face ${compassWord(e.peakAzimuthDeg)}, ${elevationWord(e.peakElevationDeg)}. ${solarEclipseHeadline(e)}.'
         '${e.details['kind'] == 'total' ? ' Glasses off only while the Sun is completely covered; back on at the first flash of light.' : e.details['kind'] == 'nearPath' ? ' You\'re at the edge of the path of totality: a short drive toward the centre line could make it total. Check an official eclipse map.' : ''}',
+      SkyEventType.fullMoonRise =>
+        'Face ${compassWord(e.riseAzimuthDeg)} and find a low, open horizon: a field, a shore, a high floor. It comes up big and orange and whitens as it climbs.${e.details['supermoon'] == true ? ' A supermoon: about as close as the Moon gets.' : ''}',
       SkyEventType.planetPairing =>
         '${e.details['label']}: two bright points ${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Hold your thumb out at arm\'s length: they fit behind it.',
       SkyEventType.rocketLaunch =>
@@ -438,6 +440,11 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
           ('Apart', '${e.details['separation']}°'),
           ('Look', compassAbbrev(e.peakAzimuthDeg)),
           ('Height', '${e.peakElevationDeg.round()}°'),
+        ],
+      SkyEventType.fullMoonRise => [
+          ('Rises', fmtTime(e.start)),
+          ('Look', compassAbbrev(e.riseAzimuthDeg)),
+          ('Full', e.details['fullAt'] is String ? fmtTime(DateTime.parse(e.details['fullAt'] as String)) : '–'),
         ],
       SkyEventType.rocketLaunch => [
           ('Liftoff', fmtTime(e.start)),
