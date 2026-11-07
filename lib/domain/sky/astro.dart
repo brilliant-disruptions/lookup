@@ -1,16 +1,17 @@
 /// Low-precision positions of the Sun, Moon and bright planets.
 ///
 /// Paul Schlyter's method ("How to compute planetary positions"), good to
-/// ~1–2 arcminutes for the Sun and planets and a few arcminutes for the Moon
-/// (with the main perturbations and topocentric parallax). Plenty for
+/// ~1–2 arcminutes for the Sun and planets. The Moon is Meeus ch. 47 with
+/// exact topocentric parallax, good to ~10 arcseconds (docs/moon-accuracy.md)
+/// because occultations need it. Plenty for
 /// "Venus and Jupiter are 1° apart low in the west after sunset", moon phase,
 /// and meteor-shower dates. Verified against NASA eclipse times and a known
 /// conjunction in test/domain/astro_test.dart.
 ///
 /// For other centuries it adds what Schlyter's linear elements leave out:
 /// ΔT (the Sun, Moon and planets run on TT), the quadratic term of
-/// precession, the IAU obliquity polynomial and the Moon's secular
-/// acceleration (Meeus ch. 22 & 47). Checked against JPL Horizons from
+/// precession, the IAU obliquity polynomial and IAU sidereal time (Meeus
+/// ch. 12 & 22). Checked against JPL Horizons from
 /// 3000 BC to 2400 AD in test/domain/history_test.dart.
 library;
 
@@ -116,7 +117,10 @@ Equatorial _eclToEq(double lonDeg, double latDeg, double dist, double d) {
   // Schlyter's elements precess linearly; this is the 1.11″·T² that's
   // missing (0.7° by 3000 BC).
   final t = _centuries(d);
-  lonDeg += 3.0865e-4 * t * t;
+  return _eclOfDateToEq(lonDeg + 3.0865e-4 * t * t, latDeg, dist, d);
+}
+
+Equatorial _eclOfDateToEq(double lonDeg, double latDeg, double dist, double d) {
   final x = dist * _cosd(lonDeg) * _cosd(latDeg);
   final y = dist * _sind(lonDeg) * _cosd(latDeg);
   final z = dist * _sind(latDeg);
@@ -132,43 +136,101 @@ Equatorial sunEquatorial(DateTime utc) {
   return _eclToEq(s.lonDeg, 0, s.r, d);
 }
 
-/// Geocentric Moon (distance in Earth radii).
+// Meeus, Astronomical Algorithms (2nd ed.), table 47.A: multiples of D, M,
+// M′, F, then the sine coefficient for longitude and the cosine for
+// distance (10⁻⁶ degree, 10⁻³ km).
+const _moonLonDist = <int>[
+  0, 0, 1, 0, 6288774, -20905355, 2, 0, -1, 0, 1274027, -3699111, //
+  2, 0, 0, 0, 658314, -2955968, 0, 0, 2, 0, 213618, -569925, //
+  0, 1, 0, 0, -185116, 48888, 0, 0, 0, 2, -114332, -3149, //
+  2, 0, -2, 0, 58793, 246158, 2, -1, -1, 0, 57066, -152138, //
+  2, 0, 1, 0, 53322, -170733, 2, -1, 0, 0, 45758, -204586, //
+  0, 1, -1, 0, -40923, -129620, 1, 0, 0, 0, -34720, 108743, //
+  0, 1, 1, 0, -30383, 104755, 2, 0, 0, -2, 15327, 10321, //
+  0, 0, 1, 2, -12528, 0, 0, 0, 1, -2, 10980, 79661, //
+  4, 0, -1, 0, 10675, -34782, 0, 0, 3, 0, 10034, -23210, //
+  4, 0, -2, 0, 8548, -21636, 2, 1, -1, 0, -7888, 24208, //
+  2, 1, 0, 0, -6766, 30824, 1, 0, -1, 0, -5163, -8379, //
+  1, 1, 0, 0, 4987, -16675, 2, -1, 1, 0, 4036, -12831, //
+  2, 0, 2, 0, 3994, -10445, 4, 0, 0, 0, 3861, -11650, //
+  2, 0, -3, 0, 3665, 14403, 0, 1, -2, 0, -2689, -7003, //
+  2, 0, -1, 2, -2602, 0, 2, -1, -2, 0, 2390, 10056, //
+  1, 0, 1, 0, -2348, 6322, 2, -2, 0, 0, 2236, -9884, //
+  0, 1, 2, 0, -2120, 5751, 0, 2, 0, 0, -2069, 0, //
+  2, -2, -1, 0, 2048, -4950, 2, 0, 1, -2, -1773, 4130, //
+  2, 0, 0, 2, -1595, 0, 4, -1, -1, 0, 1215, -3958, //
+  0, 0, 2, 2, -1110, 0, 3, 0, -1, 0, -892, 3258, //
+  2, 1, 1, 0, -810, 2616, 4, -1, -2, 0, 759, -1897, //
+  0, 2, -1, 0, -713, -2117, 2, 2, -1, 0, -700, 2354, //
+  2, 1, -2, 0, 691, 0, 2, -1, 0, -2, 596, 0, //
+  4, 0, 1, 0, 549, -1423, 0, 0, 4, 0, 537, -1117, //
+  4, -1, 0, 0, 520, -1571, 1, 0, -2, 0, -487, -1739, //
+  2, 1, 0, -2, -399, 0, 0, 0, 2, -2, -381, -4421, //
+  1, 1, 1, 0, 351, 0, 3, 0, -2, 0, -340, 0, //
+  4, 0, -3, 0, 330, 0, 2, -1, 2, 0, 327, 0, //
+  0, 2, 1, 0, -323, 1165, 1, 1, -1, 0, 299, 0, //
+  2, 0, 3, 0, 294, 0, 2, 0, -1, -2, 0, 8752, //
+];
+
+// Table 47.B: multiples of D, M, M′, F, then the sine coefficient for
+// latitude (10⁻⁶ degree).
+const _moonLat = <int>[
+  0, 0, 0, 1, 5128122, 0, 0, 1, 1, 280602, 0, 0, 1, -1, 277693, //
+  2, 0, 0, -1, 173237, 2, 0, -1, 1, 55413, 2, 0, -1, -1, 46271, //
+  2, 0, 0, 1, 32573, 0, 0, 2, 1, 17198, 2, 0, 1, -1, 9266, //
+  0, 0, 2, -1, 8822, 2, -1, 0, -1, 8216, 2, 0, -2, -1, 4324, //
+  2, 0, 1, 1, 4200, 2, 1, 0, -1, -3359, 2, -1, -1, 1, 2463, //
+  2, -1, 0, 1, 2211, 2, -1, -1, -1, 2065, 0, 1, -1, -1, -1870, //
+  4, 0, -1, -1, 1828, 0, 1, 0, 1, -1794, 0, 0, 0, 3, -1749, //
+  0, 1, -1, 1, -1565, 1, 0, 0, 1, -1491, 0, 1, 1, 1, -1475, //
+  0, 1, 1, -1, -1410, 0, 1, 0, -1, -1344, 1, 0, 0, -1, -1335, //
+  0, 0, 3, 1, 1107, 4, 0, 0, -1, 1021, 4, 0, -1, 1, 833, //
+  0, 0, 1, -3, 777, 4, 0, -2, 1, 671, 2, 0, 0, -3, 607, //
+  2, 0, 2, -1, 596, 2, -1, 1, -1, 491, 2, 0, -2, 1, -451, //
+  0, 0, 3, -1, 439, 2, 0, 2, 1, 422, 2, 0, -3, -1, 421, //
+  2, 1, -1, 1, -366, 2, 1, 0, 1, -351, 4, 0, 0, 1, 331, //
+  2, -1, 1, 1, 315, 2, -2, 0, -1, 302, 0, 0, 1, 3, -283, //
+  2, 1, 1, -1, -229, 1, 1, 0, -1, 223, 1, 1, 0, 1, 223, //
+  0, 1, -2, -1, -220, 2, 1, -1, -1, -220, 1, 0, 1, 1, -185, //
+  2, -1, -2, -1, 181, 0, 1, 2, 1, -177, 4, 0, -2, -1, 176, //
+  4, -1, -1, -1, 166, 1, 0, 1, -1, -164, 4, 0, 1, -1, 132, //
+  1, 0, -1, -1, -119, 4, -1, 0, -1, 115, 2, -2, 0, 1, 107, //
+];
+
+/// Geocentric Moon (distance in Earth radii), referred to the mean equator
+/// and equinox of date like the precessed stars. Meeus ch. 47, the
+/// truncated ELP-2000/82: he gives ~10″ in longitude and 4″ in latitude,
+/// good enough to time an occultation (docs/moon-accuracy.md). Its T²
+/// terms carry the Moon's secular acceleration and already include
+/// precession, so it skips [_eclToEq]'s correction for Schlyter.
 Equatorial moonEquatorial(DateTime utc) {
   final d = _ttDay(utc);
-  final s = _sun(d);
-  // The quadratic terms (Meeus 47.2–47.7) carry the Moon's secular
-  // acceleration: several degrees by 3000 BC without them.
-  final t2 = _centuries(d) * _centuries(d);
-  final n = 125.1228 - 0.0529538083 * d + 0.0020754 * t2;
-  final w = 318.0634 + 0.1643573223 * d - 0.0123954 * t2;
-  final m = _rev(115.3654 + 13.0649929509 * d + 0.0087414 * t2);
-  final ecl = _orbit(n, 5.1454, w, 60.2666, 0.054900, m);
-  final ms = s.m - 0.0001536 * t2;
-  final ls = ms + s.w;
-  final lm = m + w + n;
-  final dd = lm - ls;
-  final f = lm - n;
-  final lon = ecl.lonDeg -
-      1.274 * _sind(m - 2 * dd) +
-      0.658 * _sind(2 * dd) -
-      0.186 * _sind(ms) -
-      0.059 * _sind(2 * m - 2 * dd) -
-      0.057 * _sind(m - 2 * dd + ms) +
-      0.053 * _sind(m + 2 * dd) +
-      0.046 * _sind(2 * dd - ms) +
-      0.041 * _sind(m - ms) -
-      0.035 * _sind(dd) -
-      0.031 * _sind(m + ms) -
-      0.015 * _sind(2 * f - 2 * dd) +
-      0.011 * _sind(m - 4 * dd);
-  final lat = ecl.latDeg -
-      0.173 * _sind(f - 2 * dd) -
-      0.055 * _sind(m - f - 2 * dd) -
-      0.046 * _sind(m + f - 2 * dd) +
-      0.033 * _sind(f + 2 * dd) +
-      0.017 * _sind(2 * m + f);
-  final r = ecl.r - 0.58 * _cosd(m - 2 * dd) - 0.46 * _cosd(2 * dd);
-  return _eclToEq(lon, lat, r, d);
+  final t = _centuries(d), t2 = t * t, t3 = t2 * t, t4 = t3 * t;
+  final lp = 218.3164477 + 481267.88123421 * t - 0.0015786 * t2 + t3 / 538841 - t4 / 65194000;
+  final dd = 297.8501921 + 445267.1114034 * t - 0.0018819 * t2 + t3 / 545868 - t4 / 113065000;
+  final m = 357.5291092 + 35999.0502909 * t - 0.0001536 * t2 + t3 / 24490000;
+  final mp = 134.9633964 + 477198.8675055 * t + 0.0087414 * t2 + t3 / 69699 - t4 / 14712000;
+  final f = 93.2720950 + 483202.0175233 * t - 0.0036539 * t2 - t3 / 3526000 + t4 / 863310000;
+  final a1 = 119.75 + 131.849 * t, a2 = 53.09 + 479264.290 * t, a3 = 313.45 + 481266.484 * t;
+  // The Earth's orbit is getting rounder: terms in M shrink with it.
+  final e = 1 - 0.002516 * t - 0.0000074 * t2;
+  double ecc(int k) => k == 0 ? 1 : (k.abs() == 1 ? e : e * e);
+  var sl = 3958 * _sind(a1) + 1962 * _sind(lp - f) + 318 * _sind(a2);
+  var sr = 0.0;
+  for (var i = 0; i < _moonLonDist.length; i += 6) {
+    final arg = _moonLonDist[i] * dd + _moonLonDist[i + 1] * m + _moonLonDist[i + 2] * mp + _moonLonDist[i + 3] * f;
+    final k = ecc(_moonLonDist[i + 1]);
+    sl += _moonLonDist[i + 4] * k * _sind(arg);
+    sr += _moonLonDist[i + 5] * k * _cosd(arg);
+  }
+  var sb = -2235 * _sind(lp) + 382 * _sind(a3) + 175 * _sind(a1 - f) + 175 * _sind(a1 + f) +
+      127 * _sind(lp - mp) - 115 * _sind(lp + mp);
+  for (var i = 0; i < _moonLat.length; i += 5) {
+    final arg = _moonLat[i] * dd + _moonLat[i + 1] * m + _moonLat[i + 2] * mp + _moonLat[i + 3] * f;
+    sb += _moonLat[i + 4] * ecc(_moonLat[i + 1]) * _sind(arg);
+  }
+  final km = 385000.56 + sr / 1000;
+  return _eclOfDateToEq(_rev(lp + sl / 1e6), sb / 1e6, km / 6378.14, d);
 }
 
 enum Planet { mercury, venus, mars, jupiter, saturn }
@@ -234,14 +296,10 @@ Equatorial planetEquatorial(Planet p, DateTime utc) {
   return _eclToEq(g.lonDeg, g.latDeg, g.r, d);
 }
 
-/// Local sidereal time in degrees.
+/// Local mean sidereal time in degrees (IAU 1982 GMST, Meeus 12.4).
 double localSiderealDeg(DateTime utc, double lonDeg) {
-  final ut = utc.toUtc();
-  final hours = ut.hour + ut.minute / 60 + ut.second / 3600 + ut.millisecond / 3.6e6;
-  // Schlyter's GMST0 is defined at 0h UT of the date.
-  final s0 = _sun(dayNumber(ut) - hours / 24);
-  final gmst0 = _rev(s0.m + s0.w + 180);
-  return _rev(gmst0 + hours * 15.04107 + lonDeg);
+  final d = dayNumber(utc) - 1.5, t = d / 36525;
+  return _rev(280.46061837 + 360.98564736629 * d + 0.000387933 * t * t - t * t * t / 38710000 + lonDeg);
 }
 
 /// J2000 catalogue coordinates moved to the equator and equinox of [utc]
@@ -282,13 +340,25 @@ Horizontal toHorizontal(Equatorial eq, DateTime utc, double latDeg, double lonDe
   return Horizontal(_rev(_atan2d(y, xh) + 180), _atan2d(zh, math.sqrt(xh * xh + y * y)));
 }
 
-/// Moon alt/az with topocentric parallax (up to ~1°, matters for pairings).
-Horizontal moonHorizontal(DateTime utc, double latDeg, double lonDeg) {
-  final geo = toHorizontal(moonEquatorial(utc), utc, latDeg, lonDeg);
-  final mpar = math.asin(1 / moonEquatorial(utc).distance) * _r2d;
-  final alt = geo.altitudeDeg - mpar * _cosd(geo.altitudeDeg);
-  return Horizontal(geo.azimuthDeg, alt);
+/// The Moon as seen from where you stand (distance in Earth radii): up to
+/// ~1° from the geocentric place, which is the whole of an occultation.
+/// Subtracts your position on the WGS 84 ellipsoid (Meeus ch. 11) from the
+/// Moon's, so it's exact rather than a first-order shift in altitude.
+Equatorial moonTopocentric(DateTime utc, double latDeg, double lonDeg) {
+  final m = moonEquatorial(utc);
+  const ba = 1 - 1 / 298.257223563;
+  final u = math.atan(ba * math.tan(latDeg * _d2r));
+  final lst = localSiderealDeg(utc, lonDeg);
+  final x = m.distance * _cosd(m.decDeg) * _cosd(m.raDeg) - math.cos(u) * _cosd(lst);
+  final y = m.distance * _cosd(m.decDeg) * _sind(m.raDeg) - math.cos(u) * _sind(lst);
+  final z = m.distance * _sind(m.decDeg) - ba * math.sin(u);
+  final r = math.sqrt(x * x + y * y + z * z);
+  return Equatorial(_rev(_atan2d(y, x)), math.asin(z / r) * _r2d, r);
 }
+
+/// Moon alt/az from the ground (see [moonTopocentric]).
+Horizontal moonHorizontal(DateTime utc, double latDeg, double lonDeg) =>
+    toHorizontal(moonTopocentric(utc, latDeg, lonDeg), utc, latDeg, lonDeg);
 
 Horizontal planetHorizontal(Planet p, DateTime utc, double latDeg, double lonDeg) =>
     toHorizontal(planetEquatorial(p, utc), utc, latDeg, lonDeg);

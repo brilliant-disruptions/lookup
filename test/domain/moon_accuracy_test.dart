@@ -1,11 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/domain/sky/astro.dart';
+import 'package:lookup/domain/sky/delta_t.dart';
 
 /// Where the Moon is from the ground, against JPL Horizons (topocentric,
 /// apparent, airless). This is the audit behind docs/moon-accuracy.md: it
 /// decides whether LookUp can say the Moon will cover a star or planet.
-/// history_test.dart checks the geocentric Moon; this checks the parallax
-/// on top, which is up to a degree and the whole of an occultation.
+/// history_test.dart checks the Moon across millennia; this checks it to
+/// arcseconds now, parallax included (up to a degree, and the whole of an
+/// occultation).
 void main() {
   // (lat, lon, UTC, Horizons azimuth, Horizons elevation). Sampled from the
   // full audit (4 sites, every 53 h, Nov 2026 – Nov 2028), with the worst
@@ -31,14 +35,28 @@ void main() {
     (-0.18, -78.47, DateTime.utc(2028, 5, 23, 18), 320.590904719, 58.279585585),
   ];
 
-  test('the Moon from the ground is within 7 arcminutes of Horizons', () {
-    // Measured over 648 rows above the horizon: median 1.7′, 95% under 3.7′,
-    // worst 6.3′. Nearly all of it is Schlyter's Moon (geocentric worst
-    // 6.1′); the parallax adds under 0.5′. An occultation needs the limb
-    // to well under 1′, so this is why LookUp doesn't predict them yet.
+  test('the Moon from the ground is within 15 arcseconds of Horizons', () {
+    // Measured over 648 rows above the horizon: median 5″, 95% under 9″,
+    // worst 12″ (it was 6.3′ on Schlyter's Moon). The Moon crosses 15″ in
+    // under 30 s, so a cover can be called and timed: see
+    // docs/moon-accuracy.md. Don't loosen this to make a change pass.
     for (final (lat, lon, utc, az, el) in rows) {
-      final sep = separationDeg(moonHorizontal(utc, lat, lon), Horizontal(az, el)) * 60;
-      expect(sep, lessThan(7), reason: '$utc at $lat, $lon');
+      final sep = separationDeg(moonHorizontal(utc, lat, lon), Horizontal(az, el)) * 3600;
+      expect(sep, lessThan(15), reason: '$utc at $lat, $lon');
     }
+  });
+
+  test('the series is typed in right: Meeus example 47.a', () {
+    // 1992 April 12, 0h TT: λ 133.162655°, β −3.229126°, Δ 368409.7 km.
+    // Back to the ecliptic with the mean obliquity of date, no nutation.
+    final tt = DateTime.utc(1992, 4, 12);
+    final m = moonEquatorial(tt.subtract(Duration(microseconds: (deltaTSeconds(1992.28) * 1e6).round())));
+    const e = (23.4392911 + 0.0130042 * 0.077221081) * math.pi / 180;
+    final ra = m.raDeg * math.pi / 180, dec = m.decDeg * math.pi / 180;
+    final lam = math.atan2(math.sin(ra) * math.cos(e) + math.tan(dec) * math.sin(e), math.cos(ra)) * 180 / math.pi;
+    final beta = math.asin(math.sin(dec) * math.cos(e) - math.cos(dec) * math.sin(e) * math.sin(ra)) * 180 / math.pi;
+    expect((lam - 133.162655).abs() * 3600, lessThan(0.1));
+    expect((beta + 3.229126).abs() * 3600, lessThan(0.1));
+    expect((m.distance * 6378.14 - 368409.7).abs(), lessThan(0.1));
   });
 }
