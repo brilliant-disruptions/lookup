@@ -72,8 +72,13 @@ class HomeData {
     required this.lastRefresh,
     required this.errors,
     this.recent = const [],
+    this.approximate = false,
   });
   final List<SkyEvent> events;
+
+  /// The ISS times come from the copy shipped with the app (see
+  /// [RefreshReport.approximate]).
+  final bool approximate;
 
   /// Real events from the last 7 nights, newest first.
   final List<SkyEvent> recent;
@@ -133,8 +138,8 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
   /// Whether a refresh is running or queued.
   bool get refreshing => _queued > 0;
 
-  /// Fetch + recompute + reschedule, then reload. [quick] skips the big
-  /// Starlink download (see [RefreshService.run]).
+  /// Fetch + recompute + reschedule, then reload. [quick] is onboarding's
+  /// first look (see [RefreshService.run]).
   Future<void> refresh({bool force = false, bool quick = false}) {
     _queued++;
     final next = _running
@@ -157,6 +162,7 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
       aurora: await store.loadAurora(),
       lastRefresh: await store.loadLastRefresh(),
       errors: report.errors,
+      approximate: report.approximate,
     ));
   }
 }

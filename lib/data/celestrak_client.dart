@@ -1,10 +1,9 @@
 /// Celestrak GP data (OMM JSON). Be polite: callers cache for ≥ 24 h.
 library;
 
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import 'decode.dart';
 import 'retry.dart';
 
 import '../domain/orbit/omm.dart';
@@ -40,6 +39,6 @@ class CelestrakClient {
     if (res.statusCode != 200) {
       throw http.ClientException('Celestrak ${res.statusCode}', Uri.parse(url));
     }
-    return OmmRecord.listFromJson(jsonDecode(res.body));
+    return decodeJson(res.body, OmmRecord.listFromJson);
   }
 }
