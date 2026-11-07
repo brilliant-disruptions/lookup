@@ -15,7 +15,7 @@ class _SlowRefresh extends RefreshService {
   final done = Completer<RefreshReport>();
   final forced = <bool>[];
   @override
-  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false}) {
+  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false, bool quick = false}) {
     forced.add(force);
     return done.future;
   }
@@ -57,5 +57,28 @@ void main() {
     unawaited(c.read(homeProvider.notifier).pull());
     await t.pump(HomeNotifier.pullLimit);
     expect(slow.forced, [false]);
+  });
+
+  // Onboarding's full refresh runs in the background while the user may
+  // refresh again; two at once raced to save events and planned alerts.
+  testWidgets('refreshes queue, never overlap', (t) async {
+    final slow = _SlowRefresh();
+    final c = ProviderContainer(overrides: [refreshServiceProvider.overrideWithValue(slow)]);
+    addTearDown(c.dispose);
+    await c.read(homeProvider.future);
+    final home = c.read(homeProvider.notifier);
+
+    unawaited(home.refresh(quick: true));
+    unawaited(home.refresh());
+    await t.pump();
+    expect(slow.forced, hasLength(1), reason: 'the second waits for the first');
+    expect(home.refreshing, isTrue);
+
+    slow.done.complete(RefreshReport(events: const [], plan: const [], errors: const []));
+    await t.pump();
+    await t.pump();
+    expect(slow.forced, hasLength(2));
+    await t.pump();
+    expect(home.refreshing, isFalse);
   });
 }

@@ -416,6 +416,19 @@ double moonElongationDeg(DateTime utc) => equatorialSeparationDeg(sunEquatorial(
 /// Illuminated fraction of the Moon, 0–1.
 double moonIllumination(DateTime utc) => (1 - _cosd(moonElongationDeg(utc))) / 2;
 
+/// The Moon's ecliptic longitude minus the Sun's (degrees, 0–360): 0 at new
+/// Moon, 180 at full. The phases are defined by this; the elongation only
+/// reaches 180° in an eclipse.
+double moonLongitudeFromSunDeg(DateTime utc) {
+  final ob = _obliquity(_ttDay(utc));
+  double lon(Equatorial e) =>
+      _atan2d(_sind(e.raDeg) * _cosd(ob) + math.tan(e.decDeg * _d2r) * _sind(ob), _cosd(e.raDeg));
+  return _rev(lon(moonEquatorial(utc)) - lon(sunEquatorial(utc)));
+}
+
+/// The Moon's distance from the centre of the Earth (km).
+double moonDistanceKm(DateTime utc) => moonEquatorial(utc).distance * 6378.14;
+
 Horizontal sunHorizontal(DateTime utc, double latDeg, double lonDeg) =>
     toHorizontal(sunEquatorial(utc), utc, latDeg, lonDeg);
 

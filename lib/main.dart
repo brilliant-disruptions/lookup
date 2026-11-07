@@ -22,6 +22,14 @@ Future<void> main() async {
   await notifications.init(onResponse: onAlert, onBackgroundResponse: onAlertActionInBackground);
   // Opened by tapping an alert while the app wasn't running.
   onAlert(await notifications.launchResponse());
+  await container.read(plusServiceProvider).start();
+  await WidgetService.init();
+  runApp(UncontrolledProviderScope(
+    container: container,
+    child: const LookUpApp(),
+  ));
+
+  // Nothing on screen waits for these: set up after the first frame is asked for.
   try {
     await BackgroundScheduler.register();
   } catch (_) {
@@ -34,10 +42,4 @@ Future<void> main() async {
   container.listen(settingsProvider, (_, next) {
     if (next.value case final s?) PushService.sync(s);
   }, fireImmediately: true);
-  await container.read(plusServiceProvider).start();
-  await WidgetService.init();
-  runApp(UncontrolledProviderScope(
-    container: container,
-    child: const LookUpApp(),
-  ));
 }

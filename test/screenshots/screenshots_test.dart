@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lookup/services/refresh_service.dart';
 import 'package:lookup/app.dart';
 import 'package:lookup/data/local_store.dart';
 import 'package:lookup/domain/models/settings.dart';
@@ -198,6 +199,14 @@ class _FakeSettings extends SettingsNotifier {
   Future<LookUpSettings> build() async => s;
 }
 
+class _Refresh implements RefreshService {
+  int prefetched = 0;
+  @override
+  Future<void> prefetch() async => prefetched++;
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
 class _FakePlus implements PlusService {
   @override
   Future<List<PlusOffer>> offers() async => const [];
@@ -235,7 +244,7 @@ class _FakeHome extends HomeNotifier {
         errors: const [],
       );
   @override
-  Future<void> refresh({bool force = false}) async {}
+  Future<void> refresh({bool force = false, bool quick = false}) async {}
 }
 
 Future<void> _loadFonts() async {
@@ -275,6 +284,7 @@ Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
       homeProvider.overrideWith(_FakeHome.new),
       clockProvider.overrideWith((_) => Stream.value(_now)),
       plusServiceProvider.overrideWithValue(_FakePlus()),
+      refreshServiceProvider.overrideWithValue(_Refresh()),
       skyLogProvider.overrideWith((_) async => _log),
       yearReviewProvider.overrideWith((_) async => YearReview.from(_sightings, _now.year, utcOffsetMinutes: _now.timeZoneOffset.inMinutes)),
       crewProvider.overrideWith((_) async => {

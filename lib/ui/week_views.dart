@@ -613,6 +613,7 @@ class CalendarPage extends StatelessWidget {
         SkyEventType.skyObject => 'Sky',
         SkyEventType.occultation || SkyEventType.occultationNear => 'Moon',
         SkyEventType.comet || SkyEventType.nova => 'Rare',
+        SkyEventType.fullMoonRise => 'Full Moon',
       };
 
   /// How the night's clouds look, from the forecast; nothing claimed

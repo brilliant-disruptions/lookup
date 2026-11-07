@@ -8,14 +8,14 @@ LookUp+) is in code at `lib/domain/plus/free_plan.dart`.
 
 **Free is the hook, and stays genuinely useful:** space station alerts
 (cloud-checked), meteor showers, solar and lunar eclipses, planet pairings,
-new stars (novae), tonight's verdict, the sky map and finder, the log and
-share cards.
+the full Moon rising, new stars (novae), tonight's verdict, the sky map
+and finder, the log and share cards.
 
 **LookUp+ is "never miss anything up there":**
 
 | LookUp+ | Free |
 |---|---|
-| Every alert: live aurora (with wake-me and "Seen near you"), Starlink trains, Tiangong, rocket launches, bright comets, the Moon covering a star or planet | Station, showers, eclipses, pairings, novae |
+| Every alert: live aurora (with wake-me and "Seen near you"), Starlink trains, Tiangong, rocket launches, bright comets, the Moon covering a star or planet | Station, showers, eclipses, pairings, full Moons, novae |
 | Where to go tonight: clearer, darker skies within a drive | Darker skies nudge only |
 | Plan any of the next 14 nights | Tonight and the next two |
 | As many saved places as you like | One (following the phone is always free) |
@@ -94,6 +94,7 @@ text, a social post and a press note ready for each of these; set App Store
 | Any G3+ geomagnetic storm | Aurora far south of normal | "LookUp+ tapped me the moment it started" — the live-aurora alert is the clearest LookUp+ demo there is |
 | Dec 13–14 every year | Geminids | Free: "LookUp tells you when, and whether the Moon will spoil it" |
 | Aug 12–13 every year | Perseids | Same |
+| 23–24 Dec 2026, 22 Jan 2027 | Supermoons rising | Free and for everyone: "LookUp tapped me as it came up". Easy to see from a city, so the widest share-card moment of the winter |
 | 6 Feb 2027 | Annular eclipse, South America | Ring of fire in Chile/Argentina |
 | **2 Aug 2027** | **Total solar eclipse, Spain, North Africa, Egypt (6 min at Luxor)** | The biggest download moment in years. Free eclipse alert for exactly where you stand; Where to go (LookUp+) for the path of totality. Start the In-App Event and ASO ("solar eclipse") in spring 2027 |
 | 26 Jan 2028 | Annular, Ecuador/Peru/Brazil, Spain at sunset | |

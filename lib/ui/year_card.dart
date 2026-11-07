@@ -41,6 +41,7 @@ String typePlural(SkyEventType t, int n) {
     SkyEventType.occultation || SkyEventType.occultationNear => one ? 'occultation' : 'occultations',
     SkyEventType.comet => one ? 'comet' : 'comets',
     SkyEventType.nova => one ? 'nova' : 'novae',
+    SkyEventType.fullMoonRise => one ? 'full Moon rise' : 'full Moon rises',
   };
 }
 

@@ -1,10 +1,11 @@
 /// What LookUp gives everyone and what LookUp+ adds, in one place. Pure.
 ///
 /// Free is the hook and stays genuinely useful: space station alerts (cloud
-/// checked), meteor showers, lunar and solar eclipses, planet pairings, new
-/// stars (novae), the sky map, tonight's verdict and the log. LookUp+ is "never miss anything
-/// up there": every kind of alert, where to go tonight, the whole fortnight
-/// ahead at any saved place, as many places as you like, and photo planning.
+/// checked), meteor showers, lunar and solar eclipses, planet pairings, the
+/// full Moon rising, new stars (novae), the sky map, tonight's verdict and
+/// the log. LookUp+ is "never miss anything up there": every kind of alert,
+/// where to go tonight, the whole fortnight ahead at any saved place, as many
+/// places as you like, and photo planning.
 library;
 
 enum PlusFeature {

@@ -6,6 +6,7 @@ library;
 import '../weather/cloud_forecast.dart';
 import 'astro.dart';
 import 'catalog.dart';
+import 'moon_times.dart' show moonHorizonCrossings;
 import 'sun.dart';
 import 'visibility.dart';
 
@@ -234,8 +235,7 @@ class MoonTonight {
 }
 
 MoonTonight moonTonight({required DateTime now, required double lat, required double lon, CloudForecast? weather}) {
-  final crossings = horizonCrossings((t) => moonHorizontal(t, lat, lon).altitudeDeg, now.subtract(const Duration(hours: 1)),
-      now.add(const Duration(hours: 26)), h0: 0.125);
+  final crossings = moonHorizonCrossings(now.subtract(const Duration(hours: 1)), now.add(const Duration(hours: 26)), lat, lon);
   DateTime? rise, set;
   for (final c in crossings) {
     if (c.rising && rise == null) rise = c.t;

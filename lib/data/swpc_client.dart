@@ -1,10 +1,9 @@
 /// NOAA Space Weather Prediction Center feeds.
 library;
 
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import 'decode.dart';
 import 'retry.dart';
 
 import '../domain/aurora/aurora_rules.dart';
@@ -43,20 +42,20 @@ class SwpcClient {
   /// Ovation aurora probability (0–100) at the grid cell containing the
   /// location. The grid is ~900 KB; we decode and sample, never store it.
   Future<int> fetchOvationProbabilityAt(double lat, double lon) async {
-    final j = await _getJson('$_base/json/ovation_aurora_latest.json');
-    if (j is! Map || j['coordinates'] is! List) return 0;
-    return ovationProbabilityAt(j['coordinates'] as List, lat, lon);
+    // ~900 KB: decoded and sampled off the UI thread; only the number comes back.
+    return withRetry(() => _getJsonOnce('$_base/json/ovation_aurora_latest.json',
+        (j) => j is Map && j['coordinates'] is List ? ovationProbabilityAt(j['coordinates'] as List, lat, lon) : 0));
   }
 
-  Future<Object?> _getJson(String url) => withRetry(() => _getJsonOnce(url));
+  Future<Object?> _getJson(String url) => withRetry(() => _getJsonOnce(url, (j) => j));
 
-  Future<Object?> _getJsonOnce(String url) async {
+  Future<T> _getJsonOnce<T>(String url, T Function(Object? json) then) async {
     final res = await _client
         .get(Uri.parse(url), headers: const {'User-Agent': 'LookUp/0.1'})
         .timeout(const Duration(seconds: 45));
     if (res.statusCode != 200) {
       throw http.ClientException('SWPC ${res.statusCode}', Uri.parse(url));
     }
-    return jsonDecode(res.body);
+    return decodeJson(res.body, then);
   }
 }

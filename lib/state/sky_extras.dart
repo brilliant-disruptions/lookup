@@ -26,18 +26,23 @@ final brightTonightProvider = FutureProvider<List<SkyEvent>>((ref) async {
   final store = ref.read(storeProvider);
   final now = DateTime.now().toUtc();
   var cached = await store.loadElements('visual');
-  if (cached == null || cached.isOlderThan(_maxAge, now)) {
+  if (await store.celestrakDue('visual', cached, now)) {
     try {
       final recs = await ref.read(celestrakProvider).fetchVisual();
-      if (recs.isNotEmpty) {
+      if (recs.isEmpty) {
+        await store.celestrakFailed('visual', now);
+      } else {
+        await store.celestrakSucceeded('visual');
         await store.saveElements('visual', recs, now);
         cached = CachedElements(fetchedAt: now, records: recs);
       }
-    } catch (_) {
+    } catch (e) {
+      await store.celestrakFailed('visual', now, refused: e is CelestrakRefused);
       if (cached == null) rethrow;
     }
   }
-  final records = [for (final r in cached!.records) r.json];
+  if (cached == null) throw StateError('Celestrak is resting; no satellites cached yet');
+  final records = [for (final r in cached.records) r.json];
   final events = await compute(_brightTonight, (
     records: records,
     lat: s.latitude!,

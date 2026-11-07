@@ -79,6 +79,8 @@ class LocalStore {
   static const _kReporter = 'aurora_reporter';
   static const _kPush = 'aurora_push';
   static String _kElements(String key) => 'elements_$key';
+  static String _kCelestrakFailed(String key) => 'celestrak_failed_$key';
+  static const _kCelestrakOffset = 'celestrak_offset_min';
 
   Future<LookUpSettings> loadSettings() async {
     final raw = await _prefs.getString(_kSettings);
@@ -116,6 +118,52 @@ class LocalStore {
             'fetchedAt': fetchedAt.toUtc().toIso8601String(),
             'records': [for (final r in records) r.json],
           }));
+
+  /// Celestrak's etiquette: each feed at most once a day. [key]'s cache is
+  /// due a download once it is a day old plus this install's own offset (so
+  /// phones don't all come back at the same moment), and never while it is
+  /// resting after a failure. Nothing forces it sooner.
+  Future<bool> celestrakDue(String key, CachedElements? cached, DateTime now) async {
+    final failed = await _celestrakFailures(key);
+    if (failed != null && now.toUtc().isBefore(failed.until)) return false;
+    if (cached == null) return true;
+    return cached.isOlderThan(celestrakMaxAge + Duration(minutes: await _celestrakOffset()), now);
+  }
+
+  static const celestrakMaxAge = Duration(hours: 24);
+
+  /// How long a feed rests after each failure in a row; a refusal rests the longest.
+  static const celestrakBackoff = [Duration(hours: 1), Duration(hours: 4), Duration(hours: 24)];
+
+  /// Records a failed download of [key]; [refused] when Celestrak said no.
+  Future<void> celestrakFailed(String key, DateTime now, {bool refused = false}) async {
+    final n = ((await _celestrakFailures(key))?.count ?? 0) + 1;
+    final rest = refused ? celestrakBackoff.last : celestrakBackoff[(n - 1).clamp(0, celestrakBackoff.length - 1)];
+    await _prefs.setString(_kCelestrakFailed(key),
+        jsonEncode({'count': n, 'until': now.toUtc().add(rest).toIso8601String()}));
+  }
+
+  Future<void> celestrakSucceeded(String key) => _prefs.remove(_kCelestrakFailed(key));
+
+  Future<({int count, DateTime until})?> _celestrakFailures(String key) async {
+    final raw = await _prefs.getString(_kCelestrakFailed(key));
+    if (raw == null) return null;
+    try {
+      final j = (jsonDecode(raw) as Map).cast<String, Object?>();
+      return (count: j['count'] as int, until: DateTime.parse(j['until'] as String).toUtc());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 0–59 minutes, picked once per install.
+  Future<int> _celestrakOffset() async {
+    final have = await _prefs.getInt(_kCelestrakOffset);
+    if (have != null) return have;
+    final pick = Random.secure().nextInt(60);
+    await _prefs.setInt(_kCelestrakOffset, pick);
+    return pick;
+  }
 
   Future<CloudForecast?> loadClouds() async {
     final raw = await _prefs.getString(_kClouds);
