@@ -9,6 +9,7 @@ library;
 
 import 'dart:math' as math;
 
+import '../models/sky_event.dart';
 import '../sky/astro.dart';
 import '../sky/catalog.dart';
 import '../sky/sun.dart';
@@ -218,4 +219,52 @@ double _diskRadiusDeg(Planet p, DateTime utc) {
     Planet.saturn => 136775.0,
   };
   return math.atan(km / (planetEquatorial(p, utc).distance * 149597870.7)) * 180 / math.pi;
+}
+
+/// [occultations] as events: [SkyEventType.occultation] when the Moon
+/// covers it, from the first seen contact less its ± (so the go-now lands
+/// before it can happen) to the last; [SkyEventType.occultationNear], never
+/// pushed, for a graze or a miss, around closest approach.
+List<SkyEvent> occultationEvents({
+  required DateTime now,
+  required double latDeg,
+  required double lonDeg,
+  required Iterable<Star> stars,
+  int days = 14,
+}) {
+  final out = <SkyEvent>[];
+  for (final o in occultations(now: now, latDeg: latDeg, lonDeg: lonDeg, stars: stars, days: days)) {
+    final DateTime start, end;
+    if (o.covered) {
+      final first = o.disappears ?? o.reappears!, last = o.reappears ?? o.disappears!;
+      start = first.subtract(o.plusMinus);
+      end = last.add(o.plusMinus);
+    } else {
+      start = o.closest.subtract(const Duration(minutes: 15));
+      end = o.closest.add(const Duration(minutes: 15));
+    }
+    final peak = o.closest.isBefore(start) ? start : (o.closest.isAfter(end) ? end : o.closest);
+    final rise = moonHorizontal(start, latDeg, lonDeg), top = moonHorizontal(peak, latDeg, lonDeg);
+    final key = '${o.body}-${peak.toIso8601String().substring(0, 16)}';
+    out.add(SkyEvent(
+      id: o.covered ? 'occ:$key' : 'occnear:$key',
+      type: o.covered ? SkyEventType.occultation : SkyEventType.occultationNear,
+      start: start,
+      peak: peak,
+      end: end,
+      peakElevationDeg: top.altitudeDeg,
+      riseAzimuthDeg: rise.azimuthDeg,
+      peakAzimuthDeg: top.azimuthDeg,
+      setAzimuthDeg: moonHorizontal(end, latDeg, lonDeg).azimuthDeg,
+      details: {
+        'body': o.body,
+        'isPlanet': o.isPlanet,
+        'label': o.covered ? 'The Moon covers ${o.body}' : '${o.body} near the Moon',
+        if (o.disappears != null) 'disappears': o.disappears!.toIso8601String(),
+        if (o.reappears != null) 'reappears': o.reappears!.toIso8601String(),
+        if (o.covered) 'plusMinusSeconds': o.plusMinus.inSeconds,
+      },
+    ));
+  }
+  return out;
 }

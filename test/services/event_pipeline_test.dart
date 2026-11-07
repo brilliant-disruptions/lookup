@@ -9,6 +9,7 @@ import 'package:lookup/domain/aurora/seen_nearby.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/orbit/omm.dart';
+import 'package:lookup/domain/sky/catalog.dart';
 import 'package:lookup/domain/weather/cloud_forecast.dart';
 import 'package:lookup/services/event_pipeline.dart';
 
@@ -77,6 +78,22 @@ void main() {
     final off = const EventPipeline()
         .build(PipelineInputs(settings: nashville.copyWith(pairingsEnabled: false), now: DateTime.utc(2026, 10, 1, 12)));
     expect(off.where((e) => e.type == SkyEventType.planetHighlight), isEmpty);
+  });
+
+  test('the Moon covering Mars is listed for everyone, behind its own switch', () {
+    // 8 Dec 2022 from Los Angeles (IOTA-pinned in occultations_test.dart).
+    // Listed for free users too; only LookUp+ gets the tap (the planner).
+    final catalog = SkyCatalog.fromJson(jsonDecode(File('assets/sky/stars.json').readAsStringSync()),
+        jsonDecode(File('assets/sky/constellations.json').readAsStringSync()),
+        jsonDecode(File('assets/sky/proper_motion.json').readAsStringSync()));
+    const la = LookUpSettings(latitude: 33.94, longitude: -118.41);
+    final when = DateTime.utc(2022, 12, 7, 12);
+    final events = const EventPipeline().build(PipelineInputs(settings: la, now: when, catalog: catalog));
+    final mars = events.where((e) => e.type == SkyEventType.occultation && e.details['body'] == 'Mars').single;
+    expect(mars.start.toUtc().day, 8);
+    final off = const EventPipeline()
+        .build(PipelineInputs(settings: la.copyWith(occultationsEnabled: false), now: when, catalog: catalog));
+    expect(off.where((e) => e.type == SkyEventType.occultation || e.type == SkyEventType.occultationNear), isEmpty);
   });
 
   test('aurora now is skipped in daylight and when Kp is low', () {

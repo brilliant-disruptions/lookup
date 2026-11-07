@@ -19,6 +19,14 @@ enum SkyEventType {
   issTransit('ISS transit', plusOnly: false, pushes: false),
   planetHighlight('Planet highlight', plusOnly: false),
 
+  /// The Moon covers a bright star or a planet: only when the track passes
+  /// well inside its edge (domain/events/occultations.dart).
+  occultation('Moon covers a star or planet', plusOnly: true),
+
+  /// Right at the Moon's edge: a graze or a miss, so listed and never
+  /// pushed, and never called a cover.
+  occultationNear('Near the Moon', plusOnly: false, pushes: false),
+
   /// A planet, star, constellation or showpiece opened from the Sky tab:
   /// not an event, but the finder and sheets speak [SkyEvent].
   skyObject('Sky object', plusOnly: false, pushes: false),

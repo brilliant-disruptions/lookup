@@ -101,6 +101,8 @@ class FinderTarget {
         final h = event.details['body'] == 'Moon' ? moonHorizontal(u, latDeg, lonDeg) : sunHorizontal(u, latDeg, lonDeg);
         return SkyDir(h.azimuthDeg, h.altitudeDeg);
       case SkyEventType.lunarEclipse:
+      case SkyEventType.occultation:
+      case SkyEventType.occultationNear:
         final m = moonHorizontal(u, latDeg, lonDeg);
         return SkyDir(m.azimuthDeg, m.altitudeDeg);
       case SkyEventType.planetPairing:

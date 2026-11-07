@@ -14,7 +14,7 @@ tonight's verdict, the sky map and finder, the log and share cards.
 
 | LookUp+ | Free |
 |---|---|
-| Every alert: live aurora (with wake-me), Starlink trains, Tiangong, rocket launches | Station, showers, eclipses, pairings |
+| Every alert: live aurora (with wake-me), Starlink trains, Tiangong, rocket launches, the Moon covering a star or planet | Station, showers, eclipses, pairings |
 | Where to go tonight: clearer, darker skies within a drive | Darker skies nudge only |
 | Plan any of the next 14 nights | Tonight and the next two |
 | As many saved places as you like | One (following the phone is always free) |

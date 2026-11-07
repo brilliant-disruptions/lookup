@@ -67,6 +67,7 @@ String eventTitle(SkyEvent e) => switch (e.type) {
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? e.type.label,
       SkyEventType.planetHighlight => (e.details['label'] as String?) ?? e.type.label,
       SkyEventType.skyObject => (e.details['name'] as String?) ?? e.type.label,
+      SkyEventType.occultation || SkyEventType.occultationNear => (e.details['label'] as String?) ?? e.type.label,
       _ => e.type.label,
     };
 
@@ -87,6 +88,7 @@ String eventShortName(SkyEvent e) => switch (e.type) {
       SkyEventType.issTransit => 'ISS × ${e.details['body'] ?? 'Sun'}',
       SkyEventType.planetHighlight => (e.details['planet'] as String?) ?? 'Planet',
       SkyEventType.satellitePass || SkyEventType.skyObject => (e.details['name'] as String?) ?? e.type.label,
+      SkyEventType.occultation || SkyEventType.occultationNear => '${e.details['body'] ?? 'Star'} · Moon',
     };
 
 /// "the Moon" → "Moon": markers are names, not sentences.
@@ -123,6 +125,10 @@ String eventSubtitle(SkyEvent e) {
       return '${b == null ? '' : '${b[0].toUpperCase()}${b.substring(1)}, '}${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}';
     case SkyEventType.skyObject:
       return '${elevationWord(e.peakElevationDeg)[0].toUpperCase()}${elevationWord(e.peakElevationDeg).substring(1)} in the ${compassWord(e.peakAzimuthDeg)}';
+    case SkyEventType.occultation:
+      return '${e.details['disappears'] is String ? 'Goes behind it at ${fmtTime(DateTime.parse(e.details['disappears'] as String))}' : 'Comes out at ${fmtTime(DateTime.parse(e.details['reappears'] as String))}'}, the Moon ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}';
+    case SkyEventType.occultationNear:
+      return 'Right at the Moon\'s edge around ${fmtTime(e.peak)}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}';
     case SkyEventType.satellitePass:
     case SkyEventType.iss:
     case SkyEventType.tiangong:
@@ -157,6 +163,7 @@ String eventEmoji(SkyEvent e) => switch (e.type) {
       SkyEventType.satellitePass => '🛰️',
       SkyEventType.planetHighlight => '🪐',
       SkyEventType.skyObject => '✨',
+      SkyEventType.occultation || SkyEventType.occultationNear => '🌙',
     };
 
 String shareText(SkyEvent e, String? place) {
@@ -177,6 +184,8 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.satellitePass => 'Watched ${e.details['name'] ?? 'a satellite'} cross the sky$where 🛰️ Spotted with LookUp.',
     SkyEventType.planetHighlight => '${e.details['label']}$where 🪐 Spotted with LookUp.',
     SkyEventType.skyObject => 'Found ${e.details['name'] ?? 'it'} in the sky$where ✨ with LookUp.',
+    SkyEventType.occultation => 'Watched the Moon cover ${e.details['body'] ?? 'a star'}$where 🌙 LookUp told me when.',
+    SkyEventType.occultationNear => '${e.details['body'] ?? 'A star'} right by the Moon$where 🌙 Spotted with LookUp.',
   };
 }
 
