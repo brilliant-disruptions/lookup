@@ -61,4 +61,11 @@ void main() {
     expect(j.raDeg, closeTo(100, 1e-6));
     expect(j.decDeg, closeTo(-20, 1e-6));
   });
+
+  test('sidereal time is IAU GMST: Meeus example 12.b', () {
+    // 1987 April 10, 19:21 UT: 8h34m57.0896s. Every star, the Moon's
+    // parallax and so every occultation hang off this; Schlyter's version
+    // was 21″ out.
+    expect((localSiderealDeg(DateTime.utc(1987, 4, 10, 19, 21), 0) - 128.7378734).abs() * 3600, lessThan(0.1));
+  });
 }

@@ -193,10 +193,10 @@ void main() {
     for (final (body, jd, ra, dec) in _horizons) {
       final utc = utcFromJulianDay(jd);
       final early = utc.isBefore(utcFromJulianDay(julianDay(-999, 1, 1)));
-      // Measured: from 1000 BC on, the Moon is within 0.45° and the rest
-      // within 0.25°; before, the Moon within 1.7° (ΔT itself is uncertain
-      // by an hour or so then).
-      final tolerance = body == 'moon' ? (early ? 2.0 : 0.6) : (early ? 0.5 : 0.3);
+      // Measured: from 1000 BC on, the Moon (Meeus ch. 47) is within 0.16°
+      // and the rest within 0.25°; before, the Moon within 0.35° (ΔT itself
+      // is uncertain by an hour or so then).
+      final tolerance = body == 'moon' ? (early ? 0.5 : 0.25) : (early ? 0.5 : 0.3);
       expect(equatorialSeparationDeg(_model(body, utc), Equatorial(ra, dec, 1)), lessThan(tolerance),
           reason: '$body at JD $jd');
     }
