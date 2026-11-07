@@ -45,6 +45,10 @@ List<(String, String)> photoTips(SkyEventType t) => switch (t) {
           ('Phone', 'Use 2–3× zoom and frame some landscape; the pair reads best low over a skyline at dusk.'),
           ('Camera', 'Tripod, 50–200 mm, ISO 400, 1–2 s. Shoot in twilight, not full dark, for a deep-blue sky.'),
         ],
+      SkyEventType.occultation || SkyEventType.occultationNear => const [
+          ('Phone', 'Zoom in on the Moon and slide exposure down until its surface shows: the star or planet is the small point beside it. Video catches the moment it winks out.'),
+          ('Camera', 'Tripod, 300 mm+, expose for the Moon (ISO 200, 1/250 s) and shoot a burst from a minute before the time.'),
+        ],
       SkyEventType.rocketLaunch => const [
           ('Camera', 'Tripod, wide lens, ISO 100–200, f/8, 30 s+ exposures from liftoff for the arc of the climb.'),
           ('Twilight', 'If the plume lights up after sunset, switch to 1–2 s shots: it changes fast.'),

@@ -10,6 +10,7 @@ import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
 import '../domain/photo/capture_plan.dart' show offerCatchIt;
 import '../domain/plus/free_plan.dart';
+import '../domain/scheduling/alert_planner.dart' show AlertPlanner;
 import '../domain/sky/direction.dart';
 import '../domain/sky/landmarks.dart';
 import '../services/photo_store.dart';
@@ -404,6 +405,11 @@ String lookLine(SkyEvent e) => switch (e.type) {
         '${e.details['kind'] == 'total' ? ' Glasses off only while the Sun is completely covered; back on at the first flash of light.' : e.details['kind'] == 'nearPath' ? ' You\'re at the edge of the path of totality: a short drive toward the centre line could make it total. Check an official eclipse map.' : ''}',
       SkyEventType.planetPairing =>
         '${e.details['label']}: two bright points ${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Hold your thumb out at arm\'s length: they fit behind it.',
+      SkyEventType.occultation =>
+        'Find the Moon, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}, and the bright point beside it. ${AlertPlanner.occultationTimes(e)} '
+        '${e.details['isPlanet'] == true ? 'A planet slides behind the Moon\'s edge over a few seconds.' : 'A star goes out in an instant, like a switch.'} Binoculars help against the Moon\'s glare.',
+      SkyEventType.occultationNear =>
+        '${e.details['body'] ?? 'A star'} passes right at the Moon\'s edge, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Too close to call whether the Moon covers it from here: worth a look through binoculars.',
       SkyEventType.rocketLaunch =>
         'Look ${compassWord(e.peakAzimuthDeg)}, low on the horizon. A bright point climbs and arcs away; at twilight the plume glows like a jellyfish.',
       SkyEventType.planetHighlight || SkyEventType.skyObject =>
@@ -436,6 +442,16 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
         ],
       SkyEventType.planetPairing => [
           ('Apart', '${e.details['separation']}°'),
+          ('Look', compassAbbrev(e.peakAzimuthDeg)),
+          ('Height', '${e.peakElevationDeg.round()}°'),
+        ],
+      SkyEventType.occultation => [
+          ('Behind', e.details['disappears'] is String ? fmtTime(DateTime.parse(e.details['disappears'] as String)) : '–'),
+          ('Back', e.details['reappears'] is String ? fmtTime(DateTime.parse(e.details['reappears'] as String)) : '–'),
+          ('Give or take', '${e.details['plusMinusSeconds']} s'),
+        ],
+      SkyEventType.occultationNear => [
+          ('Closest', fmtTime(e.peak)),
           ('Look', compassAbbrev(e.peakAzimuthDeg)),
           ('Height', '${e.peakElevationDeg.round()}°'),
         ],
