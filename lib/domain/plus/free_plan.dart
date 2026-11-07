@@ -1,15 +1,16 @@
 /// What LookUp gives everyone and what LookUp+ adds, in one place. Pure.
 ///
 /// Free is the hook and stays genuinely useful: space station alerts (cloud
-/// checked), meteor showers, lunar and solar eclipses, planet pairings, the
-/// sky map, tonight's verdict and the log. LookUp+ is "never miss anything
+/// checked), meteor showers, lunar and solar eclipses, planet pairings, new
+/// stars (novae), the sky map, tonight's verdict and the log. LookUp+ is "never miss anything
 /// up there": every kind of alert, where to go tonight, the whole fortnight
 /// ahead at any saved place, as many places as you like, and photo planning.
 library;
 
 enum PlusFeature {
-  /// Starlink trains, Tiangong, rocket launches, live aurora alerts and the
-  /// Moon covering a bright star or planet.
+  /// Starlink trains, Tiangong, rocket launches, live aurora alerts (with
+  /// "Seen near you"), bright comets and the Moon covering a bright star or
+  /// planet. Which event types these are is `SkyEventType.plusOnly`.
   alerts,
 
   /// Where to go tonight: clearer, darker skies near you.
