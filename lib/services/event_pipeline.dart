@@ -7,6 +7,7 @@ import '../domain/aurora/seen_nearby.dart';
 import '../domain/events/eclipses.dart';
 import '../domain/events/solar_eclipses.dart';
 import '../domain/events/launches.dart';
+import '../domain/events/rare_events.dart';
 import '../domain/events/meteors.dart';
 import '../domain/events/occultations.dart';
 import '../domain/events/moonrise.dart';
@@ -35,6 +36,7 @@ class PipelineInputs {
     this.launches = const [],
     this.catalog,
     this.auroraReports = const [],
+    this.rareEvents = const [],
   });
 
   final LookUpSettings settings;
@@ -53,6 +55,9 @@ class PipelineInputs {
   /// Seen near you: what people nearby reported in the last few minutes
   /// (empty when the feature is off or the relay couldn't be reached).
   final List<AuroraReport> auroraReports;
+
+  /// The relay's curated comets and novae (empty without a relay).
+  final List<RareObject> rareEvents;
 }
 
 class EventPipeline {
@@ -232,6 +237,11 @@ class EventPipeline {
     }
     if (s.launchesEnabled && i.launches.isNotEmpty) {
       out.addAll(launchEvents(launches: i.launches, now: now, latDeg: lat, lonDeg: lon, window: horizon).map(withClouds));
+    }
+
+    if (s.rareEventsEnabled && i.rareEvents.isNotEmpty) {
+      out.addAll(rareEventEvents(objects: i.rareEvents, now: now, latDeg: lat, lonDeg: lon, darkness: s.skyDarkness, days: horizon.inDays)
+          .map(withClouds));
     }
 
     out.removeWhere((e) => !e.end.isAfter(now));

@@ -69,6 +69,7 @@ class LookUpSettings {
     this.eclipsesEnabled = true,
     this.pairingsEnabled = true,
     this.occultationsEnabled = true,
+    this.rareEventsEnabled = true,
     this.launchesEnabled = true,
     this.moonriseEnabled = true,
     this.transitsEnabled = true,
@@ -113,6 +114,9 @@ class LookUpSettings {
 
   /// The Moon covering a bright star or planet (LookUp+).
   final bool occultationsEnabled;
+
+  /// Bright comets (LookUp+) and novae from the curated list.
+  final bool rareEventsEnabled;
   final bool launchesEnabled;
 
   /// Full-Moon moonrises (supermoons included).
@@ -212,6 +216,7 @@ class LookUpSettings {
     bool? eclipsesEnabled,
     bool? pairingsEnabled,
     bool? occultationsEnabled,
+    bool? rareEventsEnabled,
     bool? launchesEnabled,
     bool? moonriseEnabled,
     bool? transitsEnabled,
@@ -251,6 +256,7 @@ class LookUpSettings {
         eclipsesEnabled: eclipsesEnabled ?? this.eclipsesEnabled,
         pairingsEnabled: pairingsEnabled ?? this.pairingsEnabled,
         occultationsEnabled: occultationsEnabled ?? this.occultationsEnabled,
+        rareEventsEnabled: rareEventsEnabled ?? this.rareEventsEnabled,
         launchesEnabled: launchesEnabled ?? this.launchesEnabled,
         moonriseEnabled: moonriseEnabled ?? this.moonriseEnabled,
         transitsEnabled: transitsEnabled ?? this.transitsEnabled,
@@ -293,6 +299,7 @@ class LookUpSettings {
         'eclipsesEnabled': eclipsesEnabled,
         'pairingsEnabled': pairingsEnabled,
         'occultationsEnabled': occultationsEnabled,
+        'rareEventsEnabled': rareEventsEnabled,
         'launchesEnabled': launchesEnabled,
         'moonriseEnabled': moonriseEnabled,
         'transitsEnabled': transitsEnabled,
@@ -337,6 +344,7 @@ class LookUpSettings {
       eclipsesEnabled: j['eclipsesEnabled'] as bool? ?? d.eclipsesEnabled,
       pairingsEnabled: j['pairingsEnabled'] as bool? ?? d.pairingsEnabled,
       occultationsEnabled: j['occultationsEnabled'] as bool? ?? d.occultationsEnabled,
+      rareEventsEnabled: j['rareEventsEnabled'] as bool? ?? d.rareEventsEnabled,
       launchesEnabled: j['launchesEnabled'] as bool? ?? d.launchesEnabled,
       moonriseEnabled: j['moonriseEnabled'] as bool? ?? d.moonriseEnabled,
       transitsEnabled: j['transitsEnabled'] as bool? ?? d.transitsEnabled,

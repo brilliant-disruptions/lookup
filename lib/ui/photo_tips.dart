@@ -54,6 +54,14 @@ List<(String, String)> photoTips(SkyEventType t) => switch (t) {
           ('Phone', 'Zoom in on the Moon and slide exposure down until its surface shows: the star or planet is the small point beside it. Video catches the moment it winks out.'),
           ('Camera', 'Tripod, 300 mm+, expose for the Moon (ISO 200, 1/250 s) and shoot a burst from a minute before the time.'),
         ],
+      SkyEventType.comet => const [
+          ('Phone', 'Night mode on its longest setting, propped steady, in the last of the twilight: the tail shows best against a deep-blue sky.'),
+          ('Camera', 'Tripod, 50–135 mm, f/2.8, ISO 1600, 2–5 s. Several frames stacked bring out the tail.'),
+        ],
+      SkyEventType.nova => const [
+          ('Phone', 'A nova is a single new point among the stars: shoot wide with something on the ground, then again on later nights to see it fade.'),
+          ('Camera', 'Tripod, 50 mm, f/2.8, ISO 800, 5–10 s. Same framing each night makes the change easy to see.'),
+        ],
       SkyEventType.rocketLaunch => const [
           ('Camera', 'Tripod, wide lens, ISO 100–200, f/8, 30 s+ exposures from liftoff for the arc of the climb.'),
           ('Twilight', 'If the plume lights up after sunset, switch to 1–2 s shots: it changes fast.'),

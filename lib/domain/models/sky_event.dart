@@ -3,6 +3,8 @@
 /// Pure Dart. No Flutter imports anywhere under `lib/domain/`.
 library;
 
+import '../events/rare_events.dart';
+
 enum SkyEventType {
   iss('ISS flyover', plusOnly: false),
   tiangong('Tiangong flyover', plusOnly: true),
@@ -26,6 +28,12 @@ enum SkyEventType {
   /// Right at the Moon's edge: a graze or a miss, so listed and never
   /// pushed, and never called a cover.
   occultationNear('Near the Moon', plusOnly: false, pushes: false),
+
+  /// A bright comet or a nova from the relay's curated list, on nights
+  /// it can be seen from here (domain/events/rare_events.dart, where the
+  /// plan defaults and the magnitude floor live).
+  comet('Bright comet', plusOnly: rareCometPlusOnly),
+  nova('New star', plusOnly: rareNovaPlusOnly),
 
   /// The full Moon coming up over the horizon; `details['supermoon']` marks
   /// the closest ones. Free: it's the easiest sky event there is.

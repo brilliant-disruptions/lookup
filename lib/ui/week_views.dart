@@ -612,6 +612,7 @@ class CalendarPage extends StatelessWidget {
         SkyEventType.satellitePass => 'Satellites',
         SkyEventType.skyObject => 'Sky',
         SkyEventType.occultation || SkyEventType.occultationNear => 'Moon',
+        SkyEventType.comet || SkyEventType.nova => 'Rare',
         SkyEventType.fullMoonRise => 'Full Moon',
       };
 

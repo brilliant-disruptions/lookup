@@ -6,10 +6,12 @@ import 'package:lookup/data/local_store.dart';
 import 'package:lookup/data/open_meteo_client.dart';
 import 'package:lookup/domain/aurora/aurora_rules.dart';
 import 'package:lookup/domain/aurora/seen_nearby.dart';
+import 'package:lookup/domain/events/rare_events.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/orbit/omm.dart';
 import 'package:lookup/domain/sky/catalog.dart';
+import 'package:lookup/domain/sky/visibility.dart' show SkyDarkness;
 import 'package:lookup/domain/weather/cloud_forecast.dart';
 import 'package:lookup/services/event_pipeline.dart';
 
@@ -94,6 +96,18 @@ void main() {
     final off = const EventPipeline()
         .build(PipelineInputs(settings: la.copyWith(occultationsEnabled: false), now: when, catalog: catalog));
     expect(off.where((e) => e.type == SkyEventType.occultation || e.type == SkyEventType.occultationNear), isEmpty);
+  });
+
+  test('a curated comet is listed from a dark site, behind its own switch', () {
+    // NEOWISE from near Denver, 20 July 2020 (rare_events_test.dart).
+    final rare = parseRareEvents(jsonDecode(File('test/fixtures/rare_events.json').readAsStringSync()));
+    const denver = LookUpSettings(latitude: 39.74, longitude: -104.99, skyDarkness: SkyDarkness.dark);
+    final when = DateTime.utc(2020, 7, 20, 18);
+    final events = const EventPipeline().build(PipelineInputs(settings: denver, now: when, rareEvents: rare));
+    expect(events.where((e) => e.type == SkyEventType.comet).first.id, 'comet:comet-c2020f3:20200720');
+    final off = const EventPipeline()
+        .build(PipelineInputs(settings: denver.copyWith(rareEventsEnabled: false), now: when, rareEvents: rare));
+    expect(off.where((e) => e.type == SkyEventType.comet || e.type == SkyEventType.nova), isEmpty);
   });
 
   test('the full Moon rising is in the week, with clouds at moonrise, and its switch removes it', () {

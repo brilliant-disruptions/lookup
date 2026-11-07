@@ -22,6 +22,8 @@ import '../theme.dart';
       SkyEventType.planetHighlight => (icon: null, color: LookUpColors.gold),
       SkyEventType.skyObject => (icon: Icons.star_rounded, color: LookUpColors.gold),
       SkyEventType.occultation || SkyEventType.occultationNear => (icon: Icons.nightlight_round, color: LookUpColors.white),
+      SkyEventType.comet => (icon: Icons.auto_awesome_rounded, color: LookUpColors.cyan),
+      SkyEventType.nova => (icon: Icons.flare_rounded, color: LookUpColors.gold),
       SkyEventType.rocketLaunch => (icon: Icons.rocket_launch_rounded, color: LookUpColors.red),
       SkyEventType.issTransit => (
           icon: details['body'] == 'Moon' ? Icons.nightlight_round : Icons.wb_sunny_rounded,

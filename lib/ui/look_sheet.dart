@@ -414,6 +414,10 @@ String lookLine(SkyEvent e) => switch (e.type) {
         '${e.details['body'] ?? 'A star'} passes right at the Moon\'s edge, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Too close to call whether the Moon covers it from here: worth a look through binoculars.',
       SkyEventType.rocketLaunch =>
         'Look ${compassWord(e.peakAzimuthDeg)}, low on the horizon. A bright point climbs and arcs away; at twilight the plume glows like a jellyfish.',
+      SkyEventType.comet =>
+        'Look ${compassWord(e.peakAzimuthDeg)}, ${elevationWord(e.peakElevationDeg)}. A comet is a soft, fuzzy patch, not a point; binoculars show the tail best. ${e.details['note'] ?? ''}'.trim(),
+      SkyEventType.nova =>
+        'Look ${compassWord(e.peakAzimuthDeg)}, ${elevationWord(e.peakElevationDeg)}, for a star that isn\'t usually there. ${e.details['note'] ?? ''}'.trim(),
       SkyEventType.planetHighlight || SkyEventType.skyObject =>
         'Look ${compassWord(e.peakAzimuthDeg)}, ${elevationWord(e.peakElevationDeg)}. ${e.details['look'] ?? 'Planets shine with a steady light; stars twinkle.'}',
       SkyEventType.issTransit => e.details['body'] == 'Moon'
@@ -467,7 +471,7 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
           ('Away', fmtDistance((e.details['distanceKm'] as num).toDouble())),
           ('Look', compassAbbrev(e.peakAzimuthDeg)),
         ],
-      SkyEventType.planetHighlight || SkyEventType.skyObject => [
+      SkyEventType.planetHighlight || SkyEventType.skyObject || SkyEventType.comet || SkyEventType.nova => [
           ('Look', compassAbbrev(e.peakAzimuthDeg)),
           ('Height', '${e.peakElevationDeg.round()}°'),
           ('Mag', (e.details['magnitude'] as num?)?.toStringAsFixed(1) ?? '–'),

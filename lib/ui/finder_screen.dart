@@ -83,6 +83,8 @@ class FinderTarget {
         return const SkyDir(0, 15);
       case SkyEventType.planetHighlight:
       case SkyEventType.skyObject:
+      case SkyEventType.comet:
+      case SkyEventType.nova:
         final planet = Planet.values.where((p) => p.label == event.details['planet']).firstOrNull;
         if (planet != null) {
           final h = planetHorizontal(planet, u, latDeg, lonDeg);

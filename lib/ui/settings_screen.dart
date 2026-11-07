@@ -287,6 +287,7 @@ String alertTypesSummary(LookUpSettings s) {
     if (s.eclipsesEnabled) 'eclipses',
     if (s.pairingsEnabled) 'planets',
     if (s.occultationsEnabled) 'occultations',
+    if (relayConfigured && s.rareEventsEnabled) 'comets',
     if (s.moonriseEnabled) 'full Moons',
     if (s.launchesEnabled) 'launches',
     if (s.tiangongEnabled) 'Tiangong',
@@ -323,6 +324,9 @@ class _AlertTypesScreen extends ConsumerWidget {
         toggle(SkyEventType.planetPairing, s.pairingsEnabled, (s, v) => s.copyWith(pairingsEnabled: v), 'Planet pairings', 'The Moon and bright planets side by side'),
         toggle(SkyEventType.occultation, s.occultationsEnabled, (s, v) => s.copyWith(occultationsEnabled: v), 'The Moon covering a star or planet',
             'Only when it\'s sure to · LookUp+'),
+        if (relayConfigured)
+          toggle(SkyEventType.comet, s.rareEventsEnabled, (s, v) => s.copyWith(rareEventsEnabled: v), 'Bright comets and new stars',
+              'Only the rare ones you can see without a telescope · comets LookUp+'),
         toggle(SkyEventType.fullMoonRise, s.moonriseEnabled, (s, v) => s.copyWith(moonriseEnabled: v), 'Full Moon rising',
             'When it comes up over the horizon, supermoons included'),
         toggle(SkyEventType.rocketLaunch, s.launchesEnabled, (s, v) => s.copyWith(launchesEnabled: v), 'Rocket launches', 'Ones you can see from here · LookUp+'),
