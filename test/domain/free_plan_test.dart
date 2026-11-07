@@ -28,10 +28,11 @@ void main() {
       SkyEventType.lunarEclipse,
       SkyEventType.solarEclipse,
       SkyEventType.planetPairing,
+      SkyEventType.nova,
     ]) {
       expect(t.plusOnly, isFalse, reason: t.name);
     }
-    for (final t in [SkyEventType.starlinkTrain, SkyEventType.tiangong, SkyEventType.rocketLaunch, SkyEventType.auroraNow, SkyEventType.occultation]) {
+    for (final t in [SkyEventType.starlinkTrain, SkyEventType.tiangong, SkyEventType.rocketLaunch, SkyEventType.auroraNow, SkyEventType.occultation, SkyEventType.comet]) {
       expect(t.plusOnly, isTrue, reason: t.name);
     }
   });

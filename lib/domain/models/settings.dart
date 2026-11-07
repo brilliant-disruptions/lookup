@@ -69,6 +69,7 @@ class LookUpSettings {
     this.eclipsesEnabled = true,
     this.pairingsEnabled = true,
     this.occultationsEnabled = true,
+    this.rareEventsEnabled = true,
     this.launchesEnabled = true,
     this.transitsEnabled = true,
     this.nightVision = true,
@@ -112,6 +113,9 @@ class LookUpSettings {
 
   /// The Moon covering a bright star or planet (LookUp+).
   final bool occultationsEnabled;
+
+  /// Bright comets (LookUp+) and novae from the curated list.
+  final bool rareEventsEnabled;
   final bool launchesEnabled;
 
   /// List ISS transits of the Sun and Moon (never pushed).
@@ -208,6 +212,7 @@ class LookUpSettings {
     bool? eclipsesEnabled,
     bool? pairingsEnabled,
     bool? occultationsEnabled,
+    bool? rareEventsEnabled,
     bool? launchesEnabled,
     bool? transitsEnabled,
     bool? nightVision,
@@ -246,6 +251,7 @@ class LookUpSettings {
         eclipsesEnabled: eclipsesEnabled ?? this.eclipsesEnabled,
         pairingsEnabled: pairingsEnabled ?? this.pairingsEnabled,
         occultationsEnabled: occultationsEnabled ?? this.occultationsEnabled,
+        rareEventsEnabled: rareEventsEnabled ?? this.rareEventsEnabled,
         launchesEnabled: launchesEnabled ?? this.launchesEnabled,
         transitsEnabled: transitsEnabled ?? this.transitsEnabled,
         nightVision: nightVision ?? this.nightVision,
@@ -287,6 +293,7 @@ class LookUpSettings {
         'eclipsesEnabled': eclipsesEnabled,
         'pairingsEnabled': pairingsEnabled,
         'occultationsEnabled': occultationsEnabled,
+        'rareEventsEnabled': rareEventsEnabled,
         'launchesEnabled': launchesEnabled,
         'transitsEnabled': transitsEnabled,
         'nightVisionAfterSunset': nightVision,
@@ -330,6 +337,7 @@ class LookUpSettings {
       eclipsesEnabled: j['eclipsesEnabled'] as bool? ?? d.eclipsesEnabled,
       pairingsEnabled: j['pairingsEnabled'] as bool? ?? d.pairingsEnabled,
       occultationsEnabled: j['occultationsEnabled'] as bool? ?? d.occultationsEnabled,
+      rareEventsEnabled: j['rareEventsEnabled'] as bool? ?? d.rareEventsEnabled,
       launchesEnabled: j['launchesEnabled'] as bool? ?? d.launchesEnabled,
       transitsEnabled: j['transitsEnabled'] as bool? ?? d.transitsEnabled,
       // A new key: the old one-tap switch was off unless tapped, which says
