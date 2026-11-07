@@ -611,6 +611,7 @@ class CalendarPage extends StatelessWidget {
         SkyEventType.issTransit => 'Transits',
         SkyEventType.satellitePass => 'Satellites',
         SkyEventType.skyObject => 'Sky',
+        SkyEventType.fullMoonRise => 'Full Moon',
       };
 
   /// How the night's clouds look, from the forecast; nothing claimed

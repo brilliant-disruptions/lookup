@@ -155,6 +155,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora',
         SkyEventType.meteorShower => 'Meteor shower',
         SkyEventType.lunarEclipse => 'Lunar eclipse',
+        SkyEventType.fullMoonRise => 'Full Moon',
         SkyEventType.solarEclipse => 'Solar eclipse',
         SkyEventType.planetPairing => 'Planet pairing',
         SkyEventType.rocketLaunch => 'Rocket launch',

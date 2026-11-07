@@ -136,6 +136,7 @@ class AlertPlanner {
         SkyEventType.lunarEclipse || SkyEventType.solarEclipse => s.eclipsesEnabled,
         SkyEventType.planetPairing || SkyEventType.planetHighlight => s.pairingsEnabled,
         SkyEventType.rocketLaunch => s.launchesEnabled,
+        SkyEventType.fullMoonRise => s.moonriseEnabled,
         // Listed for planning, never pushed.
         SkyEventType.issTransit || SkyEventType.satellitePass || SkyEventType.skyObject => false,
       };
@@ -198,6 +199,7 @@ class AlertPlanner {
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? 'Satellite pass',
       SkyEventType.planetHighlight => (e.details['label'] as String?) ?? 'Planet highlight',
       SkyEventType.skyObject => (e.details['name'] as String?) ?? 'Sky object',
+      SkyEventType.fullMoonRise => '${e.details['label'] ?? 'Full Moon'} rising',
     };
     if (e.type == SkyEventType.planetHighlight) return what;
     if (e.type == SkyEventType.meteorShower) return what;
@@ -243,6 +245,11 @@ class AlertPlanner {
         final name = e.details['name'] ?? 'A rocket';
         final away = dist == null ? 'in range' : '${distanceWords(dist, miles: miles)} away';
         return '$name, $away. Look ${compassWord(e.peakAzimuthDeg)}, low on the horizon. Launch times slip; we update if it moves. ${_cloudNote(e)}'.trim();
+      case SkyEventType.fullMoonRise:
+        // "Rising", never "you'll see it": it starts on the horizon, where
+        // trees, buildings and haze can hide it even on a clear night.
+        final close = e.details['supermoon'] == true ? ' A supermoon: about as close as the Moon gets.' : '';
+        return 'Coming up in the ${compassWord(e.riseAzimuthDeg)}, on the horizon. You\'ll need a clear view that way.$close ${_cloudNote(e)}'.trim();
       default:
         break;
     }
@@ -262,9 +269,11 @@ class AlertPlanner {
     return '$lead$bright$arc$hedge.$near ${_cloudNote(e)}'.trim();
   }
 
-  static String goNowBody(SkyEvent e) => e.type == SkyEventType.solarEclipse
-      ? 'Eclipse glasses on, then look ${compassWord(e.peakAzimuthDeg)} at the Sun.'
-      : 'Look ${compassWord(e.riseAzimuthDeg)}. ${_cap(elevationWord(e.peakElevationDeg))} at its best.';
+  static String goNowBody(SkyEvent e) => switch (e.type) {
+        SkyEventType.solarEclipse => 'Eclipse glasses on, then look ${compassWord(e.peakAzimuthDeg)} at the Sun.',
+        SkyEventType.fullMoonRise => 'Look ${compassWord(e.riseAzimuthDeg)}, right on the horizon.',
+        _ => 'Look ${compassWord(e.riseAzimuthDeg)}. ${_cap(elevationWord(e.peakElevationDeg))} at its best.',
+      };
 
   /// Device-local clock time, e.g. "2:40 AM". Domain stays timezone-free by
   /// using the event's own offset-free UTC→local conversion.
