@@ -321,13 +321,37 @@ Equatorial precessFromJ2000(double raDeg, double decDeg, DateTime utc) {
 /// milliarcseconds a year (RA·cos Dec, Dec): Arcturus moves ~2° in 3,000
 /// years, Alpha Centauri ~3°.
 Horizontal catalogHorizontal(double raDeg, double decDeg, DateTime utc, double latDeg, double lonDeg,
-    {(double, double)? pm}) {
+        {(double, double)? pm}) =>
+    toHorizontal(catalogEquatorial(raDeg, decDeg, utc, pm: pm), utc, latDeg, lonDeg);
+
+/// A J2000 catalogue position moved by its proper motion [pm] (see
+/// [catalogHorizontal]) and precessed to the mean equator of [utc].
+Equatorial catalogEquatorial(double raDeg, double decDeg, DateTime utc, {(double, double)? pm}) {
   if (pm != null) {
     final years = (dayNumber(utc) - 1.5) / 365.25;
     decDeg += pm.$2 * years / 3.6e6;
     raDeg += pm.$1 * years / 3.6e6 / math.max(_cosd(decDeg), 1e-3);
   }
-  return toHorizontal(precessFromJ2000(raDeg, decDeg, utc), utc, latDeg, lonDeg);
+  return precessFromJ2000(raDeg, decDeg, utc);
+}
+
+/// A star's place with annual aberration (Meeus 23.3): the Earth's motion
+/// tilts the starlight by up to 20″. The sky map doesn't need it; saying
+/// whether the Moon covers a star does.
+Equatorial withAberration(Equatorial eq, DateTime utc) {
+  final d = _ttDay(utc), t = _centuries(d);
+  const k = 20.49552 / 3600;
+  final e = 0.016708634 - 0.000042037 * t;
+  final pi = 102.93735 + 1.71946 * t + 0.00046 * t * t;
+  final sun = _sun(d).lonDeg, ob = _obliquity(d);
+  final a = eq.raDeg, dec = eq.decDeg;
+  final da = (-k * (_cosd(a) * _cosd(sun) * _cosd(ob) + _sind(a) * _sind(sun)) +
+          e * k * (_cosd(a) * _cosd(pi) * _cosd(ob) + _sind(a) * _sind(pi))) /
+      _cosd(dec);
+  final q = _sind(ob) / _cosd(ob) * _cosd(dec) - _sind(a) * _sind(dec);
+  final dd = -k * (_cosd(sun) * _cosd(ob) * q + _cosd(a) * _sind(dec) * _sind(sun)) +
+      e * k * (_cosd(pi) * _cosd(ob) * q + _cosd(a) * _sind(dec) * _sind(pi));
+  return Equatorial(_rev(a + da), dec + dd, eq.distance);
 }
 
 Horizontal toHorizontal(Equatorial eq, DateTime utc, double latDeg, double lonDeg) {
@@ -342,16 +366,27 @@ Horizontal toHorizontal(Equatorial eq, DateTime utc, double latDeg, double lonDe
 
 /// The Moon as seen from where you stand (distance in Earth radii): up to
 /// ~1° from the geocentric place, which is the whole of an occultation.
-/// Subtracts your position on the WGS 84 ellipsoid (Meeus ch. 11) from the
-/// Moon's, so it's exact rather than a first-order shift in altitude.
-Equatorial moonTopocentric(DateTime utc, double latDeg, double lonDeg) {
-  final m = moonEquatorial(utc);
+Equatorial moonTopocentric(DateTime utc, double latDeg, double lonDeg) =>
+    _topocentric(moonEquatorial(utc), utc, latDeg, lonDeg);
+
+/// A planet as seen from where you stand (distance in AU). The shift is at
+/// most ~30″ (Venus close in), which only matters when the Moon covers it.
+Equatorial planetTopocentric(Planet p, DateTime utc, double latDeg, double lonDeg) {
+  const au = 149597870.7 / 6378.14; // in Earth radii
+  final g = planetEquatorial(p, utc);
+  final t = _topocentric(Equatorial(g.raDeg, g.decDeg, g.distance * au), utc, latDeg, lonDeg);
+  return Equatorial(t.raDeg, t.decDeg, t.distance / au);
+}
+
+/// [geo] (distance in Earth radii) less your position on the WGS 84
+/// ellipsoid (Meeus ch. 11): exact, not a first-order shift in altitude.
+Equatorial _topocentric(Equatorial geo, DateTime utc, double latDeg, double lonDeg) {
   const ba = 1 - 1 / 298.257223563;
   final u = math.atan(ba * math.tan(latDeg * _d2r));
   final lst = localSiderealDeg(utc, lonDeg);
-  final x = m.distance * _cosd(m.decDeg) * _cosd(m.raDeg) - math.cos(u) * _cosd(lst);
-  final y = m.distance * _cosd(m.decDeg) * _sind(m.raDeg) - math.cos(u) * _sind(lst);
-  final z = m.distance * _sind(m.decDeg) - ba * math.sin(u);
+  final x = geo.distance * _cosd(geo.decDeg) * _cosd(geo.raDeg) - math.cos(u) * _cosd(lst);
+  final y = geo.distance * _cosd(geo.decDeg) * _sind(geo.raDeg) - math.cos(u) * _sind(lst);
+  final z = geo.distance * _sind(geo.decDeg) - ba * math.sin(u);
   final r = math.sqrt(x * x + y * y + z * z);
   return Equatorial(_rev(_atan2d(y, x)), math.asin(z / r) * _r2d, r);
 }
