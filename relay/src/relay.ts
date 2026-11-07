@@ -4,6 +4,7 @@
 //   GET    /v1/reports?cells=la,lo;la,lo…        → {now, reports: [{la, lo, at, how, r}]}
 //   POST   /v1/subscribe  {token, platform: 'apns'|'fcm', sandbox?, cells: [{la, lo}…]}
 //   DELETE /v1/subscribe  {token}
+//   GET    /v1/rare-events                       → {now, events: [RareEvent…]}
 //
 // It stores and forwards. It never decides who sees an aurora: a wake-up
 // push only tells phones nearby to look, and each phone runs crowdConfirms()
@@ -12,6 +13,7 @@
 import { cellKey, cellsNear, distanceKm, isCell, type Cell } from './cells';
 import type { Pusher } from './push';
 import { createInvite, serveInvite, type InviteDeps } from './invite';
+import { CURATED, live, type RareEvent } from './rare_events';
 import type { How, Platform, Store, StoredReport } from './store';
 
 export const RULES = {
@@ -48,6 +50,8 @@ export type Deps = {
   later: (p: Promise<unknown>) => void;
   /** "Look up with me" links; absent, the routes 404. */
   invites?: Omit<InviteDeps, 'store' | 'now'>;
+  /** The curated comets and novae; [CURATED] unless a test says otherwise. */
+  rareEvents?: RareEvent[];
 };
 
 const json = (status: number, body: unknown) =>
@@ -104,6 +108,14 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const net = `ip:${await dailyHash(deps.secret, ip, now)}`;
 
   if (url.pathname === '/v1/health') return json(200, { ok: true });
+
+  // The same for everyone and asked for once a day, so no limit and no store.
+  if (url.pathname === '/v1/rare-events' && req.method === 'GET') {
+    const events = live(deps.rareEvents ?? CURATED, now);
+    return new Response(JSON.stringify({ now: new Date(now).toISOString(), events }), {
+      headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600' },
+    });
+  }
 
   // "Look up with me" links.
   if (deps.invites) {
