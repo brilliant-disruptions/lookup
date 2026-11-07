@@ -8,13 +8,14 @@ LookUp+) is in code at `lib/domain/plus/free_plan.dart`.
 
 **Free is the hook, and stays genuinely useful:** space station alerts
 (cloud-checked), meteor showers, solar and lunar eclipses, planet pairings,
-tonight's verdict, the sky map and finder, the log and share cards.
+new stars (novae), tonight's verdict, the sky map and finder, the log and
+share cards.
 
 **LookUp+ is "never miss anything up there":**
 
 | LookUp+ | Free |
 |---|---|
-| Every alert: live aurora (with wake-me), Starlink trains, Tiangong, rocket launches, the Moon covering a star or planet | Station, showers, eclipses, pairings |
+| Every alert: live aurora (with wake-me and "Seen near you"), Starlink trains, Tiangong, rocket launches, bright comets, the Moon covering a star or planet | Station, showers, eclipses, pairings, novae |
 | Where to go tonight: clearer, darker skies within a drive | Darker skies nudge only |
 | Plan any of the next 14 nights | Tonight and the next two |
 | As many saved places as you like | One (following the phone is always free) |
