@@ -68,6 +68,7 @@ String eventTitle(SkyEvent e) => switch (e.type) {
       SkyEventType.planetHighlight => (e.details['label'] as String?) ?? e.type.label,
       SkyEventType.skyObject => (e.details['name'] as String?) ?? e.type.label,
       SkyEventType.occultation || SkyEventType.occultationNear => (e.details['label'] as String?) ?? e.type.label,
+      SkyEventType.fullMoonRise => '${e.details['label'] ?? 'Full Moon'} rising',
       _ => e.type.label,
     };
 
@@ -89,6 +90,7 @@ String eventShortName(SkyEvent e) => switch (e.type) {
       SkyEventType.planetHighlight => (e.details['planet'] as String?) ?? 'Planet',
       SkyEventType.satellitePass || SkyEventType.skyObject => (e.details['name'] as String?) ?? e.type.label,
       SkyEventType.occultation || SkyEventType.occultationNear => '${e.details['body'] ?? 'Star'} · Moon',
+      SkyEventType.fullMoonRise => (e.details['label'] as String?) ?? 'Full Moon',
     };
 
 /// "the Moon" → "Moon": markers are names, not sentences.
@@ -112,6 +114,8 @@ String eventSubtitle(SkyEvent e) {
       return 'Up to ~${e.details['perHour']} an hour, best around ${fmtTime(e.peak)} · Moon ${moon.round()}% lit';
     case SkyEventType.lunarEclipse:
       return 'The Moon, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Deepest at ${fmtTime(e.peak)}';
+    case SkyEventType.fullMoonRise:
+      return 'Rising in the ${compassWord(e.riseAzimuthDeg)} at ${fmtTime(e.start)}';
     case SkyEventType.solarEclipse:
       return '${solarEclipseHeadline(e)}, deepest at ${fmtTime(e.peak)}. Eclipse glasses only';
     case SkyEventType.planetPairing:
@@ -164,6 +168,7 @@ String eventEmoji(SkyEvent e) => switch (e.type) {
       SkyEventType.planetHighlight => '🪐',
       SkyEventType.skyObject => '✨',
       SkyEventType.occultation || SkyEventType.occultationNear => '🌙',
+      SkyEventType.fullMoonRise => '🌕',
     };
 
 String shareText(SkyEvent e, String? place) {
@@ -186,6 +191,7 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.skyObject => 'Found ${e.details['name'] ?? 'it'} in the sky$where ✨ with LookUp.',
     SkyEventType.occultation => 'Watched the Moon cover ${e.details['body'] ?? 'a star'}$where 🌙 LookUp told me when.',
     SkyEventType.occultationNear => '${e.details['body'] ?? 'A star'} right by the Moon$where 🌙 Spotted with LookUp.',
+    SkyEventType.fullMoonRise => 'Watched the ${e.details['supermoon'] == true ? 'supermoon' : 'full Moon'} rise$where 🌕 LookUp told me when.',
   };
 }
 

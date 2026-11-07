@@ -27,6 +27,10 @@ enum SkyEventType {
   /// pushed, and never called a cover.
   occultationNear('Near the Moon', plusOnly: false, pushes: false),
 
+  /// The full Moon coming up over the horizon; `details['supermoon']` marks
+  /// the closest ones. Free: it's the easiest sky event there is.
+  fullMoonRise('Full Moon rising', plusOnly: false),
+
   /// A planet, star, constellation or showpiece opened from the Sky tab:
   /// not an event, but the finder and sheets speak [SkyEvent].
   skyObject('Sky object', plusOnly: false, pushes: false),

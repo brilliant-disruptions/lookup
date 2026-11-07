@@ -1,10 +1,9 @@
 /// Celestrak GP data (OMM JSON). Be polite: callers cache for ≥ 24 h.
 library;
 
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import 'decode.dart';
 import 'retry.dart';
 
 import '../domain/orbit/omm.dart';
@@ -31,15 +30,26 @@ class CelestrakClient {
   /// satellites-tonight list. Fetched on demand, at most daily.
   Future<List<OmmRecord>> fetchVisual() => _get('$_base/gp.php?GROUP=visual&FORMAT=json');
 
-  Future<List<OmmRecord>> _get(String url) => withRetry(() => _getOnce(url));
+  // A refusal is an answer, not a glitch: asking again would only add to
+  // whatever made Celestrak refuse.
+  Future<List<OmmRecord>> _get(String url) =>
+      withRetry(() => _getOnce(url), retryIf: (e) => e is! CelestrakRefused);
 
   Future<List<OmmRecord>> _getOnce(String url) async {
     final res = await _client
         .get(Uri.parse(url), headers: const {'User-Agent': 'LookUp/0.1'})
         .timeout(const Duration(seconds: 60));
+    if (res.statusCode >= 400 && res.statusCode < 500) throw CelestrakRefused(res.statusCode, Uri.parse(url));
     if (res.statusCode != 200) {
       throw http.ClientException('Celestrak ${res.statusCode}', Uri.parse(url));
     }
-    return OmmRecord.listFromJson(jsonDecode(res.body));
+    return decodeJson(res.body, OmmRecord.listFromJson);
   }
+}
+
+/// Celestrak said no (403 blocked, 429 too many, 404 gone): never retried,
+/// and the feed rests a day ([LocalStore.celestrakDue]).
+class CelestrakRefused extends http.ClientException {
+  CelestrakRefused(this.statusCode, Uri url) : super('Celestrak $statusCode', url);
+  final int statusCode;
 }

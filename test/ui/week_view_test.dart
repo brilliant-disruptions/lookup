@@ -55,7 +55,7 @@ class _Home extends HomeNotifier {
         errors: const [],
       );
   @override
-  Future<void> refresh({bool force = false}) async {}
+  Future<void> refresh({bool force = false, bool quick = false}) async {}
 }
 
 void main() {

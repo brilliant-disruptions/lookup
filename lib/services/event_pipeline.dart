@@ -9,6 +9,7 @@ import '../domain/events/solar_eclipses.dart';
 import '../domain/events/launches.dart';
 import '../domain/events/meteors.dart';
 import '../domain/events/occultations.dart';
+import '../domain/events/moonrise.dart';
 import '../domain/events/pairings.dart';
 import '../domain/events/planet_highlights.dart';
 import '../domain/models/settings.dart';
@@ -217,6 +218,9 @@ class EventPipeline {
     if (s.occultationsEnabled) {
       out.addAll(occultationEvents(now: now, latDeg: lat, lonDeg: lon, stars: i.catalog?.stars ?? const [], days: horizon.inDays)
           .map(withClouds));
+    }
+    if (s.moonriseEnabled) {
+      out.addAll(fullMoonRiseEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
     }
     if (s.pairingsEnabled) {
       out.addAll(pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));

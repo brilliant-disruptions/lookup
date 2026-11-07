@@ -77,6 +77,15 @@ void main() {
     expect(moonPhase(DateTime.utc(2026, 10, 26, 5)), MoonPhase.full);
   });
 
+  test('moon: rise and set times match USNO', () {
+    // Tonight used to time the Moon's centre against a fixed 0.125° and ran
+    // ~7 min late; it now shares the alert's upper-limb rule. USNO, Chicago:
+    // rises 22:08Z on 24 Nov 2026, sets 14:24Z on the 25th.
+    final m = moonTonight(now: DateTime.utc(2026, 11, 24, 21), lat: 41.88, lon: -87.63);
+    expect(m.rise!.difference(DateTime.utc(2026, 11, 24, 22, 8)).inSeconds.abs(), lessThan(90));
+    expect(m.set!.difference(DateTime.utc(2026, 11, 25, 14, 24)).inSeconds.abs(), lessThan(90));
+  });
+
   test('catalog loads all 88 constellations and the naked-eye stars', () {
     expect(catalog.constellations, hasLength(88));
     expect(catalog.stars.length, greaterThan(1500));

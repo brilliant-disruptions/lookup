@@ -42,7 +42,7 @@ class _Home extends HomeNotifier {
   @override
   Future<HomeData> build() async => HomeData(events: _events, aurora: null, lastRefresh: _now, errors: const []);
   @override
-  Future<void> refresh({bool force = false}) async {}
+  Future<void> refresh({bool force = false, bool quick = false}) async {}
 }
 
 class _FakePlus implements PlusService {
