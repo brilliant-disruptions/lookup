@@ -62,8 +62,59 @@ figures.
 - **The time.** The Moon moves about 0.55′ a minute against the stars, so
   12″ is about **±22 s** on the disappearance. That's fine for a heads-up
   alert, and close enough to pin tests to published IOTA/USNO times.
-- **The other body is now the weak side.** The stars are precessed J2000
-  places without annual aberration (up to 20″, which has to be added for
-  this). The planets are Schlyter's, good to 1–2′, which is ten times worse
-  than the Moon. They need their own Horizons check, and a bigger margin or
-  a better theory, before a planet occultation is called.
+- **The other body is the weak side.** See below.
+
+## The stars and planets
+
+**Stars** are the J2000 catalogue places, moved by proper motion and
+precessed to the date. Annual aberration (Meeus 23.3, pinned to example
+23.a) is added only for occultations, where its 20″ matters. Nutation is left
+out because it moves the Moon and the star together. The catalogue rounds RA
+to 0.001°, so a star is good to ~4″, and against the Moon to ~16″.
+
+**Planets** are still Schlyter's. Their error was measured against Horizons
+(geocentric apparent RA/Dec, every 49 h, 2026–2030), relative to our Moon:
+
+| Planet, arcseconds | median | 95% | worst |
+|---|---|---|---|
+| Mercury | 32 | 62 | 84 |
+| Venus | 31 | 53 | 73 |
+| Mars | 26 | 67 | 95 |
+| Jupiter | 18 | 51 | 65 |
+| Saturn | 29 | 96 | 109 |
+
+A light-time correction helped Mercury and Venus but made Saturn worse, so it
+was left out. Planet parallax is exact (`planetTopocentric`).
+
+## How a cover is called (`domain/events/occultations.dart`)
+
+| | Margin inside the limb | Error budget |
+|---|---|---|
+| Stars ≤ mag 2.0 (Aldebaran, Spica, Antares, Pollux, Regulus, Elnath, Alhena) | 1′ | 16″ |
+| Planets | 3′ plus the planet's radius (Saturn's rings included) | 121″ |
+
+- **Covers** means the closest approach is at least the margin inside the
+  Moon's edge.
+- **Near the Moon** means it is within the margin either side of the edge. No
+  times are given, because it could be a graze or a miss.
+- Otherwise there is no event.
+- A contact is only given if it can be seen: Sun ≤ −6° and Moon ≥ 10° up.
+- The ± on each time is the error budget over how fast the gap to the edge
+  closes there.
+
+## Checked against IOTA
+
+`test/domain/occultations_test.dart` checks against IOTA's archived
+predictions from lunar-occultations.com, via the Wayback Machine:
+
+| Event | Sites | Worst difference |
+|---|---|---|
+| Mars, 8 Dec 2022 | Los Angeles, Denver, Chicago, Phoenix, Seattle, London, Madrid | 19 s |
+| Aldebaran, 9 Jan 2017 | Tokyo, Seoul, Taipei | 9 s |
+| Spica, 21 Jan 2025 | Dakar, Accra, Lagos, Luanda | 5 s |
+
+Near Aldebaran's southern limit in Taiwan, IOTA has 10–24 minute grazes at
+Hualien, Makung and Chiayi. LookUp says "near the Moon" for those, not
+"covers". Just outside the path (Kaohsiung) it says near, and far outside
+(Manila) nothing. Cairo is in the path but has the Sun up, so LookUp gives
+nothing there either.
