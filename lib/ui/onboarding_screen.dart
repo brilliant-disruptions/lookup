@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -55,10 +57,13 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
       // Let the stored (empty) data finish loading first, or it can land
       // after the refresh and hide what it found.
       await ref.read(homeProvider.future);
-      await ref.read(homeProvider.notifier).refresh();
+      // Quick first, so the sights show in seconds; Starlink (~4.7 MB)
+      // follows in the background and the screen updates when it lands.
+      await ref.read(homeProvider.notifier).refresh(quick: true);
     } catch (_) {
       // Offline: the sights screen says so and the shell retries.
     }
+    unawaited(ref.read(homeProvider.notifier).refresh().catchError((_) {}));
     if (mounted) setState(() => _step = _Step.sights);
   }
 
@@ -67,10 +72,15 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
     if (alerts) {
       final granted = await ref.read(notificationServiceProvider).requestPermission();
       // Alerts were planned before permission; plan them again now they can land.
+      // A refresh still running (onboarding's Starlink one) plans at its end,
+      // so waiting for it here would only bring the download's wait back.
       if (granted) {
-        try {
-          await ref.read(homeProvider.notifier).refresh();
-        } catch (_) {}
+        final home = ref.read(homeProvider.notifier);
+        if (!home.refreshing) {
+          try {
+            await home.refresh();
+          } catch (_) {}
+        }
         // Taps are on. If something Plus-only really is coming over them,
         // this is the moment to show the tap they'd get for it too (the
         // paywall only ever appears for a real coming event, spec §7).

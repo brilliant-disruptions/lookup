@@ -23,7 +23,7 @@ class _Home extends HomeNotifier {
   @override
   Future<HomeData> build() async => HomeData(events: const [], aurora: null, lastRefresh: DateTime.now().toUtc(), errors: const []);
   @override
-  Future<void> refresh({bool force = false}) async {}
+  Future<void> refresh({bool force = false, bool quick = false}) async {}
 }
 
 void main() {
