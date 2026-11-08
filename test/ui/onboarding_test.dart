@@ -10,6 +10,7 @@ import 'package:lookup/services/location_service.dart';
 import 'package:lookup/services/notification_service.dart';
 import 'package:lookup/services/plus_service.dart';
 import 'package:lookup/state/providers.dart';
+import 'package:lookup/ui/kit/kit.dart';
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/theme.dart';
 
@@ -241,8 +242,37 @@ void main() {
     await t.pump();
     await t.pump();
     expect(find.text('Choose your town'), findsOneWidget);
+    expect(t.widget<PipMark>(find.byKey(const Key('onboarding-pip'))).dim, isTrue, reason: 'Pip dims at a no');
     expect(container.read(settingsProvider).value?.onboarded ?? false, isFalse);
     expect(notifications.asked, 0);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  // Pip is the one guide from the first screen on, so it is on every step.
+  testWidgets('Pip is on every step: resting, circling, on the first sight, blinking at the ask', (t) async {
+    await pump(t, grantLocation: true);
+    expect(find.text('This is Pip. Pip shows you where to look.'), findsOneWidget);
+    PipMark pip() => t.widget<PipMark>(find.byKey(const Key('onboarding-pip')));
+    expect(pip().state, PipState.resting);
+    expect(pip().dim, isFalse);
+
+    home.slowQuick = Completer();
+    await t.tap(find.text('Show me what\'s over me'));
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.text('Looking at your sky…'), findsOneWidget);
+    expect(pip().state, PipState.searching);
+
+    home.slowQuick!.complete();
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    expect(pip().state, PipState.resting);
+    expect(pip().flyFrom, isNotNull, reason: 'it flies to the first sight');
+    expect(find.descendant(of: find.byType(GlassCard).first, matching: find.text('ISS flyover')), findsOneWidget);
+    expect(t.widget<PipMark>(find.byKey(const Key('onboarding-pip-blink'))).blinking, isTrue);
+    expect(find.text('Tap me 10 minutes before'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
 

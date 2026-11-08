@@ -10,7 +10,9 @@ import 'theme.dart';
 /// Over a dark horizon the space station glides across, then a Starlink
 /// train, then an aurora rises in the north, and each time the tap LookUp
 /// sends drops in at the top, worded the way real alerts are. One loop is
-/// about 16 seconds. With reduced motion it holds the station mid-pass.
+/// about 16 seconds. Pip flies to where each one rises just before it does.
+/// With reduced motion it holds the station mid-pass, Pip resting where it
+/// rose.
 class IntroScene extends StatefulWidget {
   const IntroScene({super.key, this.animate = true, this.chrome = true});
 
@@ -66,7 +68,8 @@ class _IntroSceneState extends State<IntroScene> with SingleTickerProviderStateM
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) => AnimatedBuilder(
     animation: _c,
     builder: (context, _) {
       final n = IntroScene.scenes.length;
@@ -75,12 +78,29 @@ class _IntroSceneState extends State<IntroScene> with SingleTickerProviderStateM
       final p = v - i;
       final scene = IntroScene.scenes[i];
       final shown = _smooth(0.08, 0.2, p) * (1 - _smooth(0.88, 0.97, p));
+      final still = !_c.isAnimating;
+      // Pip: in from above, on the rise point just before it rises, then
+      // gone once it's up. Still, it simply rests there.
+      final rise = introRisePoint(scene.type, box.biggest);
+      final from = Offset(box.maxWidth * 0.5, rise.dy * 0.45);
+      final pip = still ? rise : Offset.lerp(from, rise, Curves.easeInOutCubic.transform(_smooth(0.0, 0.09, p)))!;
+      final pipShown = still ? 1.0 : _smooth(0.0, 0.03, p) * (1 - _smooth(0.22, 0.32, p));
       return Stack(
         fit: StackFit.expand,
         children: [
           CustomPaint(
             painter: _ScenePainter(scene: scene, p: p),
           ),
+          if (pipShown > 0)
+            Positioned(
+              key: const Key('intro-pip'),
+              left: pip.dx - 18,
+              top: pip.dy - 18,
+              child: Opacity(
+                opacity: pipShown,
+                child: PipMark(size: 36, state: p > 0.09 || still ? PipState.resting : PipState.idle),
+              ),
+            ),
           if (widget.chrome)
             Positioned(
               left: 0,
@@ -119,7 +139,19 @@ class _IntroSceneState extends State<IntroScene> with SingleTickerProviderStateM
         ],
       );
     },
+  ),
   );
+}
+
+/// Where each sight in the intro first rises, just above the horizon: where
+/// Pip waits for it.
+Offset introRisePoint(SkyEventType type, Size size) {
+  final horizon = size.height * 0.80;
+  return switch (type) {
+    SkyEventType.auroraNow => Offset(size.width * 0.5, horizon - 14),
+    SkyEventType.starlinkTrain => Offset(size.width * 0.04 + 14, horizon - 14),
+    _ => Offset(size.width * 0.06 + 14, horizon - 14),
+  };
 }
 
 double _smooth(double a, double b, double x) {

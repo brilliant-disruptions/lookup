@@ -220,6 +220,8 @@ ${deps.appStoreId ? `<meta name="apple-itunes-app" content="app-id=${esc(deps.ap
   a.secondary { background: rgba(255,255,255,.08); color: #F4F6FA; border: 1px solid var(--line); }
   a.link { text-align: center; color: var(--grey); font-size: 14.5px; padding: 4px; }
   a.wallet { background: #000; color: #fff; border: 1px solid rgba(255,255,255,.28); }
+  .remind { display: flex; align-items: center; gap: 10px; margin: 0 0 2px; color: var(--grey); font-size: 14.5px; }
+  .remind svg { flex: none; }
   .foot { margin-top: 26px; color: var(--dim); font-size: 13px; text-align: center; }
   .foot b { color: var(--grey); }
 </style>
@@ -236,6 +238,7 @@ ${deps.appStoreId ? `<meta name="apple-itunes-app" content="app-id=${esc(deps.ap
     ${forecast ? `<p class="sky">${esc(forecast)}</p>` : ''}
   </div>
   <div class="buttons">
+    ${over ? '' : `<p class="remind">${PIP_SVG}<span>Pip will tap you when it’s time to look up.</span></p>`}
     <a class="button primary" href="${esc(`${url}/get`)}">Get reminders</a>
     ${over || !deps.pass ? '' : `<a class="button wallet" href="${esc(`${url}/pass.pkpass`)}">Add to Apple Wallet</a>`}
   </div>
@@ -286,6 +289,12 @@ const comingSoon = (back: string) =>
 <body><div><h1 style="font-size:26px;margin:0 0 8px">LookUp is coming soon</h1><p style="color:#A0A8B8;margin:0 0 14px">Reminders that tap you when it’s overhead are on their way to the App Store and Google Play.</p><a href="${esc(back)}">Back to the invite</a></div></body></html>`;
 
 /** GET /n/:code[/card.png|/invite.ics|/pass.pkpass|/get] */
+/** Pip, the firefly the app guides with: the same glow (#C4F55E) and core
+ *  (#F4FFD9) as paintFirefly in lib/ui/kit/firefly_mark.dart. */
+export const PIP_SVG = `<svg class="pip" width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
+<defs><radialGradient id="pipglow"><stop offset="0" stop-color="#C4F55E" stop-opacity=".55"/><stop offset="1" stop-color="#C4F55E" stop-opacity="0"/></radialGradient></defs>
+<circle cx="18" cy="18" r="18" fill="url(#pipglow)"/><circle cx="18" cy="18" r="6" fill="#C4F55E"/><circle cx="18" cy="18" r="3" fill="#F4FFD9"/></svg>`;
+
 export async function serveInvite(path: string, base: string, deps: InviteDeps, userAgent = ''): Promise<Response> {
   const m = /^\/n\/([a-z2-9]{10})(?:\/(card\.png|invite\.ics|pass\.pkpass|get))?\/?$/.exec(path);
   if (!m) return notFound(base, deps.appStoreId);
@@ -297,6 +306,7 @@ export async function serveInvite(path: string, base: string, deps: InviteDeps, 
   const cache = { 'cache-control': 'public, max-age=300' };
   switch (part) {
     case 'get': {
+      await deps.store.tally('get', deps.now());
       // Phone-specific, so never cached. Until a store has a listing, a plain "coming soon".
       const store = storeFor(userAgent, deps);
       const headers = { 'cache-control': 'no-store' };
@@ -319,6 +329,7 @@ export async function serveInvite(path: string, base: string, deps: InviteDeps, 
       });
     }
     default:
+      await deps.store.tally('view', deps.now());
       return new Response(invitePage(code, inv, base, deps), { headers: { 'content-type': 'text/html; charset=utf-8', ...cache } });
   }
 }

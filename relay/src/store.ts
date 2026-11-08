@@ -25,6 +25,10 @@ export interface Store {
   /** The invite's JSON, unless it has expired. */
   getInvite(code: string, now: number): Promise<{ data: string } | null>;
   inviteImage(code: string): Promise<Uint8Array | null>;
+  /** Counts an invite page view or "Get reminders" tap for the day. */
+  tally(what: 'view' | 'get', now: number): Promise<void>;
+  /** Totals since `sinceDay` (YYYY-MM-DD, inclusive). */
+  tallies(sinceDay: string): Promise<{ view: number; get: number }>;
 }
 
 /** The SQL store. Works on D1 and on anything with D1's prepare/bind API. */
@@ -119,6 +123,24 @@ export class SqlStore implements Store {
     const img = row?.image;
     if (!img) return null;
     return img instanceof Uint8Array ? img : new Uint8Array(img as ArrayBuffer);
+  }
+
+  async tally(what: 'view' | 'get', now: number) {
+    const day = new Date(now).toISOString().slice(0, 10);
+    await this.db
+      .prepare('INSERT INTO invite_tally (day, what, n) VALUES (?, ?, 1) ON CONFLICT (day, what) DO UPDATE SET n = n + 1')
+      .bind(day, what)
+      .run();
+  }
+
+  async tallies(sinceDay: string) {
+    const rows = await this.db
+      .prepare('SELECT what, SUM(n) AS n FROM invite_tally WHERE day >= ? GROUP BY what')
+      .bind(sinceDay)
+      .all<{ what: string; n: number }>();
+    const out = { view: 0, get: 0 };
+    for (const r of rows.results ?? []) if (r.what === 'view' || r.what === 'get') out[r.what] = r.n;
+    return out;
   }
 
   async sweep(before: number, subsBefore: number, now = before) {

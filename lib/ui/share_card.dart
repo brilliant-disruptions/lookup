@@ -214,6 +214,13 @@ class ShareCard extends ConsumerWidget {
         centerAlt: (e.peakElevationDeg * 0.55).clamp(12.0, 50.0),
         track: moves ? [for (final p in passTrack(e, lat, lon).points) p.h] : const [],
         mark: !moves && e.peakElevationDeg > 0 ? Horizontal(e.peakAzimuthDeg, e.peakElevationDeg) : null,
+        pip: !invite
+            ? null
+            : moves
+                ? Horizontal(e.riseAzimuthDeg, 2)
+                : e.peakElevationDeg > 0
+                    ? Horizontal(e.peakAzimuthDeg, e.peakElevationDeg)
+                    : null,
         tint: tint,
       );
     }
@@ -251,7 +258,7 @@ class ShareCard extends ConsumerWidget {
                   )
                 else ...[
                   const Spacer(),
-                  SizedBox(height: 90, width: double.infinity, child: CustomPaint(painter: _MiniArc(e.peakElevationDeg, tint))),
+                  SizedBox(height: 90, width: double.infinity, child: CustomPaint(painter: _MiniArc(e.peakElevationDeg, tint, pip: invite))),
                   const SizedBox(height: 8),
                 ],
                 Text(
@@ -304,9 +311,12 @@ class PosterFooter extends StatelessWidget {
 }
 
 class _MiniArc extends CustomPainter {
-  _MiniArc(this.peakEl, this.tint);
+  _MiniArc(this.peakEl, this.tint, {this.pip = false});
   final double peakEl;
   final Color tint;
+
+  /// Pip waiting where it rises (invites).
+  final bool pip;
   @override
   void paint(Canvas canvas, Size s) {
     final base = s.height - 4;
@@ -335,8 +345,9 @@ class _MiniArc extends CustomPainter {
           ..color = tint.withValues(alpha: 0.45)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
     canvas.drawCircle(peak, 4.5, Paint()..color = Colors.white);
+    if (pip) paintFirefly(canvas, Offset(8, base - 6), blink: 1, scale: 0.55);
   }
 
   @override
-  bool shouldRepaint(_MiniArc o) => o.peakEl != peakEl || o.tint != tint;
+  bool shouldRepaint(_MiniArc o) => o.peakEl != peakEl || o.tint != tint || o.pip != pip;
 }

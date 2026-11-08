@@ -123,3 +123,36 @@ FireflyStep fireflyStep({
   if (hasLandmark && !skipped) return landmarkFound ? FireflyStep.meetingPoint : FireflyStep.findLandmark;
   return FireflyStep.target;
 }
+
+/// What Pip says through the phone's motor. The same three in every mode
+/// (countdown, find, catch), so a tap means the same thing everywhere.
+enum PipBuzz {
+  /// One light tick per blink: faster ticks, closer.
+  tick,
+
+  /// One heavy tap: you're on it.
+  lock,
+
+  /// Two taps: it has just appeared.
+  appear,
+}
+
+/// Turns what's happening into [PipBuzz]es, once per change: a lock when
+/// you come onto the target (not again while you stay on it), an appear
+/// when it comes up, a tick for each blink while searching.
+class PipCues {
+  bool? _onTarget, _appeared;
+
+  /// [blinked]: a blink came round since the last call. [canLock]: false
+  /// while Pip is only showing the way (the ghost run), so no "you're on it".
+  List<PipBuzz> update({required bool onTarget, required bool appeared, bool blinked = false, bool canLock = true}) {
+    final out = <PipBuzz>[];
+    if (appeared && _appeared == false) out.add(PipBuzz.appear);
+    _appeared = appeared;
+    final locked = onTarget && canLock;
+    if (locked && _onTarget == false) out.add(PipBuzz.lock);
+    _onTarget = locked;
+    if (blinked && !locked) out.add(PipBuzz.tick);
+    return out;
+  }
+}

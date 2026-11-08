@@ -35,6 +35,16 @@ address, iOS declines, and nothing else changes.
 2. Follow [`ios-widgets.md`](ios-widgets.md) to add the widget extension
    (sources are already in `ios/LookUpWidgets/`). Give the extension the same
    App Group.
+3. **Pip on the Lock Screen (not built yet: needs Xcode to compile).** The
+   Live Activity and widgets should carry the same firefly as the app and the
+   alerts: glow `#C4F55E`, core `#F4FFD9`, drawn as in `paintFirefly`
+   (`lib/ui/kit/firefly_mark.dart`): a soft glow, a smaller bright ring, and a
+   core. In SwiftUI, three stacked `Circle()`s with `.blur` (radius 16/5/0 at
+   scale 1) in `ios/LookUpWidgets/`. The Live Activity shows Pip blinking
+   (`.symbolEffect`-style opacity pulse, 2.5 Hz) in the last minute before
+   it rises, and still once it's up. Keep the text factual ("ISS in 2 min ·
+   look west-southwest"); Pip is the only flourish. Keep both
+   `LookUpActivityAttributes` structs identical if a field is added.
 
 ## 3. "Hey Siri, when's the next pass in LookUp?"
 

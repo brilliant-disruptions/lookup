@@ -166,6 +166,22 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
                     ),
                   ),
                   const Spacer(flex: 2),
+                  // Pip rests on the ask, circles while it looks, and dims
+                  // if the answer is no.
+                  Row(children: [
+                    PipMark(
+                      key: const Key('onboarding-pip'),
+                      size: 40,
+                      state: _busy ? PipState.searching : PipState.resting,
+                      dim: _step == _Step.noLocation,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text('This is Pip. Pip shows you where to look.',
+                          style: TextStyle(color: LookUpColors.grey, height: 1.4)),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
                   if (_step == _Step.noLocation) ...[
                     const Text(
                       'No problem. Tell us your town instead: a rough place is all LookUp needs.',
@@ -247,6 +263,7 @@ class _SightsPage extends ConsumerWidget {
               const Spacer(),
               if (looking) ...[
                 // The page as it will be, cards still empty: no spinner to wait on.
+                const PipMark(key: Key('onboarding-pip'), size: 48, state: PipState.searching),
                 Kicker('Coming over $place', color: LookUpColors.blue),
                 const SizedBox(height: 10),
                 Text('Looking at your sky…', style: display(32, weight: FontWeight.w700, height: 1.1)),
@@ -284,7 +301,8 @@ class _SightsPage extends ConsumerWidget {
                       index: 2 + i,
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: GlassCard(
+                        child: Stack(clipBehavior: Clip.none, children: [
+                        GlassCard(
                           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                           child: Row(children: [
                             EventGlyph.of(e),
@@ -306,6 +324,15 @@ class _SightsPage extends ConsumerWidget {
                             ]),
                           ]),
                         ),
+                        // Pip flies down from "Looking at your sky…" to the first sight.
+                        if (i == 0)
+                          const Positioned(
+                            right: -10,
+                            top: -18,
+                            child: PipMark(
+                                key: Key('onboarding-pip'), size: 36, state: PipState.resting, flyFrom: Offset(-140, -120)),
+                          ),
+                        ]),
                       ),
                     ),
                 if (approximate && sights.isNotEmpty)
@@ -314,11 +341,18 @@ class _SightsPage extends ConsumerWidget {
                     style: TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.4),
                   ),
                 const Spacer(flex: 2),
-                Text(
-                  'Easy to miss: these last a few minutes. LookUp taps you $lead minutes before, '
-                  'with which way to face, and stays quiet when it\'s cloudy.',
-                  style: const TextStyle(color: LookUpColors.grey, height: 1.45),
-                ),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  // Blinking, as it will before each tap.
+                  const PipMark(key: Key('onboarding-pip-blink'), size: 32, blinking: true),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Easy to miss: these last a few minutes. LookUp taps you $lead minutes before, '
+                      'with which way to face, and stays quiet when it\'s cloudy.',
+                      style: const TextStyle(color: LookUpColors.grey, height: 1.45),
+                    ),
+                  ),
+                ]),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: busy ? null : () => onFinish(alerts: true),

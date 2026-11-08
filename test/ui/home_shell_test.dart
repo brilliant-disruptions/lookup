@@ -19,6 +19,10 @@ import 'package:lookup/ui/settings_screen.dart';
 import 'package:lookup/ui/sky/sky_camera_screen.dart';
 import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/year_card.dart';
+import 'package:lookup/services/notification_service.dart' show AlertAction;
+import 'package:lookup/ui/finder_screen.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _Settings extends SettingsNotifier {
   _Settings({this.toured = true});
@@ -99,6 +103,20 @@ void main() {
       await t.pump(const Duration(milliseconds: 500));
     }
   }
+
+  // "Find it" on an alert is one step: straight into the finder. A Look
+  // sheet first would cost the pass.
+  testWidgets('Find it on an alert opens the finder directly', (t) async {
+    SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
+    await pump(t);
+    final event = (await container.read(homeProvider.future)).events.single;
+    await container.read(storeProvider).saveEvents([event]);
+    container.read(alertTapProvider.notifier).set(AlertTap(event.id, action: AlertAction.find));
+    await settle(t);
+    expect(find.byType(FinderScreen), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing, reason: 'no Look sheet on the way');
+    await t.pumpWidget(const SizedBox());
+  });
 
   testWidgets('four tabs; settings live behind the gear', (t) async {
     await pump(t);

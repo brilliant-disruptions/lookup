@@ -19,7 +19,6 @@ import '../../state/sky_state.dart';
 import '../finder_camera.dart';
 import '../format.dart';
 import '../kit/kit.dart';
-import '../theme.dart';
 import 'figure_spotlight.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
@@ -83,11 +82,20 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
   double? _previewHeight;
   double _declination = 0;
 
+  /// The cloud and figure-8 hint, shown the first time only.
+  late final bool _hint;
+
   @override
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     final s = ref.read(settingsProvider).value;
+    _hint = !(s?.skyCameraCoached ?? true);
+    if (_hint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(settingsProvider.notifier).edit((s) => s.copyWith(skyCameraCoached: true));
+      });
+    }
     _declination = declinationDeg(s?.latitude ?? 0, s?.longitude ?? 0, DateTime.now().toUtc());
     var stream = widget.orientationStream;
     try {
@@ -186,51 +194,31 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
           child: Column(children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(children: [
-                CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: () => Navigator.of(context).pop()),
-                // Between the buttons, trimmed rather than overflowing on a small phone with big text.
-                const Expanded(
-                  child: Text('Sky through your camera',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
-                ),
-                CircleButton(
+              child: ScanTopBar(
+                title: scanTitle(status),
+                trailing: CircleButton(
                   tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
                   icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
                   onPressed: () => setState(() => _cameraOn = !_cameraOn),
                 ),
-              ]),
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              child: Text(status,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white,
-                      shadows: [Shadow(blurRadius: 6, color: Colors.black)])),
-            ),
+            if (_hint)
+              const ScanHint('Cloud or a roof in the way? Everything is still drawn where it is. '
+                  'Wave the phone in a figure-8 if it drifts.'),
             const Spacer(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 6),
-              child: Text(
-                camera == null
-                    ? (_error != null ? 'No motion sensor here, so this view can\'t follow the phone.' : 'Hold your phone up to the sky')
-                    : centred != null
-                        ? 'That\'s ${centred.m.label == 'Moon' ? 'the Moon' : centred.m.label}'
-                        : 'Looking ${compassWord(camera.azimuthDeg)}, ${elevationWord(camera.elevationDeg)}',
-                textAlign: TextAlign.center,
-                style: display(24, weight: FontWeight.w700).copyWith(shadows: const [Shadow(blurRadius: 8, color: Colors.black)]),
-              ),
+            // Pip, as on every screen you hold up: settling when there's
+            // something named in the middle, dimmed with no sensor.
+            PipMark(
+              state: centred != null ? PipState.resting : PipState.idle,
+              dim: camera == null && _error != null,
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 0, 24, 16),
-              child: Text(
-                'Cloud, haze or a roof in the way? Everything is still drawn where it is. '
-                'Wave the phone in a figure-8 if it drifts.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: LookUpColors.grey, fontSize: 12, shadows: [Shadow(blurRadius: 6, color: Colors.black)]),
-              ),
+            ScanLine(
+              camera == null
+                  ? (_error != null ? 'No motion sensor here, so this view can\'t follow the phone.' : 'Hold your phone up to the sky')
+                  : centred != null
+                      ? 'That\'s ${centred.m.label == 'Moon' ? 'the Moon' : centred.m.label}'
+                      : 'Looking ${compassWord(camera.azimuthDeg)}, ${elevationWord(camera.elevationDeg)}',
             ),
           ]),
         ),

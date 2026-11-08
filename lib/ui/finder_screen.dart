@@ -1,5 +1,11 @@
-/// Live sky finder: hold the phone up and it guides you onto the target,
-/// tracking the satellite in real time. Vibrates when you're on it.
+/// Live sky finder: hold the phone up and Pip guides you onto the target,
+/// tracking the satellite in real time. Words stay off the screen: Pip's
+/// blink and the phone's ticks say how close you are, VoiceOver reads the
+/// directions, and tapping the name opens the Look sheet with the numbers.
+///
+/// It's also the countdown ([FinderScreen.countdown]): in the last minutes
+/// Pip waits where it will rise beside a small clock, and the same screen
+/// becomes the finder the moment it appears.
 library;
 
 import 'dart:async';
@@ -11,6 +17,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:satellite_observer/satellite_observer.dart';
 
+import '../data/local_store.dart';
 import '../domain/finder/firefly.dart';
 import '../domain/finder/pointing.dart';
 import '../domain/models/sky_event.dart';
@@ -23,9 +30,11 @@ import '../services/orientation.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'finder_camera.dart';
-import 'finder_firefly.dart';
+import '../domain/finder/look_up_now.dart';
 import 'format.dart';
 import 'kit/kit.dart';
+import 'look_sheet.dart';
+import 'pip/pip_aim.dart';
 import 'sky/figure_spotlight.dart';
 import 'theme.dart';
 
@@ -101,7 +110,9 @@ class FinderTarget {
         }
         return SkyDir(event.peakAzimuthDeg, event.peakElevationDeg);
       case SkyEventType.issTransit:
-        final h = event.details['body'] == 'Moon' ? moonHorizontal(u, latDeg, lonDeg) : sunHorizontal(u, latDeg, lonDeg);
+        final h = event.details['body'] == 'Moon'
+            ? moonHorizontal(u, latDeg, lonDeg)
+            : sunHorizontal(u, latDeg, lonDeg);
         return SkyDir(h.azimuthDeg, h.altitudeDeg);
       case SkyEventType.lunarEclipse:
       case SkyEventType.occultation:
@@ -120,17 +131,25 @@ class FinderTarget {
                 if (p.label == b) planetHorizontal(p, u, latDeg, lonDeg),
         ];
         if (dirs.isEmpty) return SkyDir(event.peakAzimuthDeg, event.peakElevationDeg);
-        return SkyDir(dirs.map((d) => d.azimuthDeg).reduce((a, b) => a + b) / dirs.length,
-            dirs.map((d) => d.altitudeDeg).reduce((a, b) => a + b) / dirs.length);
+        return SkyDir(
+          dirs.map((d) => d.azimuthDeg).reduce((a, b) => a + b) / dirs.length,
+          dirs.map((d) => d.altitudeDeg).reduce((a, b) => a + b) / dirs.length,
+        );
       default:
+        // Before it starts, wait where it will appear, as for a live pass.
+        if (u.isBefore(event.start)) return SkyDir(event.riseAzimuthDeg, 2);
         return SkyDir(event.peakAzimuthDeg, event.peakElevationDeg);
     }
   }
 }
 
 class FinderScreen extends ConsumerStatefulWidget {
-  const FinderScreen({super.key, required this.event, this.orientationStream, this.camera});
+  const FinderScreen({super.key, required this.event, this.orientationStream, this.camera, this.countdown = false});
   final SkyEvent event;
+
+  /// Opened for the final countdown: Pip waits at the rise point with a
+  /// clock, no route run, and a chime when it comes up.
+  final bool countdown;
 
   /// Injected in tests; defaults to the fused rotation sensor.
   final Stream<List<double>>? orientationStream;
@@ -154,15 +173,22 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
   bool _wasOnTarget = false;
   bool _cameraOn = false;
 
+  /// For the lock-rate tally: when a compass reading first came in, and how
+  /// long until the first lock (the ghost run's demo doesn't count).
+  final Stopwatch _since = Stopwatch();
+  Duration? _toLock;
+  late final LocalStore _store;
+
   /// Whether it had appeared at the last build; null before the first.
   bool? _wasUp;
-  bool _details = false;
 
   /// The ghost run: the firefly flies the route once before the pass.
-  late final Ticker _ghost = createTicker((elapsed) => setState(() {
-        _ghostSince = elapsed;
-        if (elapsed >= ghostRunLength) _ghost.stop();
-      }));
+  late final Ticker _ghost = createTicker(
+    (elapsed) => setState(() {
+      _ghostSince = elapsed;
+      if (elapsed >= ghostRunLength) _ghost.stop();
+    }),
+  );
   Duration? _ghostSince;
   bool _ghostStarted = false;
 
@@ -177,6 +203,7 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    _store = ref.read(storeProvider);
     final s = ref.read(settingsProvider).value;
     final lat = s?.latitude ?? 0, lon = s?.longitude ?? 0;
     _declination = declinationDeg(lat, lon, DateTime.now().toUtc());
@@ -192,13 +219,17 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
         _error = '$e';
       }
     }
-    _sub = stream?.listen((r) => setState(() => _r = r), onError: (e) => setState(() => _error = '$e'));
+    _sub = stream?.listen((r) {
+      if (!_since.isRunning) _since.start();
+      setState(() => _r = r);
+    }, onError: (e) => setState(() => _error = '$e'));
     if (stream == null) _error ??= 'This device has no orientation sensor.';
   }
 
   @override
   void dispose() {
     _landmarkHold?.cancel();
+    if (_since.isRunning) _store.recordFinderSession(_toLock);
     _ghost.dispose();
     _sub?.cancel();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -223,10 +254,15 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
     final e = widget.event;
     final nowUtc = now.toUtc();
     final before = nowUtc.isBefore(e.start);
-    final over = !nowUtc.isBefore(e.end);
+    final counting = widget.countdown && before;
 
-    // Before a pass, the firefly first flies its route once.
-    if (!_ghostStarted && before && _route.length >= 2 && !MediaQuery.of(context).disableAnimations) {
+    // Before a pass, Pip first flies its route once (not in the countdown:
+    // there's no time, just point where it rises).
+    if (!_ghostStarted &&
+        before &&
+        !widget.countdown &&
+        _route.length >= 2 &&
+        !MediaQuery.of(context).disableAnimations) {
       _ghostStarted = true;
       _ghostSince = Duration.zero;
       _ghost.start();
@@ -235,7 +271,7 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
 
     // Star-hop: when the pass goes by a bright planet or star, find that
     // first, then the spot by it where the pass will go.
-    final hop = landmarkPoints(e).firstOrNull;
+    final hop = counting ? null : landmarkPoints(e).firstOrNull;
     final hopAt = hop == null
         ? null
         : landmarkDirection(hop.name, ref.watch(skyCatalogProvider).value, nowUtc, _target!.latDeg, _target!.lonDeg);
@@ -253,14 +289,20 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
       FireflyStep.target => target,
     };
     final hopName = hop == null ? '' : '${hop.name[0].toUpperCase()}${hop.name.substring(1)}';
-    final hopWhen = hop == null ? null : e.start.add(e.end.difference(e.start) * hop.f);
-    final hopHow = hop == null ? '' : (hop.close ? 'right by' : 'close to');
+    final ghosting = step == FireflyStep.ghostRun;
 
     final g = camera == null ? null : guide(camera, goal);
     if (g != null && g.onTarget != _wasOnTarget) {
       _wasOnTarget = g.onTarget;
       _landmarkHold?.cancel();
-      if (g.onTarget && step != FireflyStep.ghostRun) HapticFeedback.heavyImpact();
+      if (g.onTarget && !ghosting) _toLock ??= _since.elapsed;
+      // The first lock teaches it: the coach mark goes for good.
+      if (g.onTarget && !ghosting && !(ref.read(settingsProvider).value?.pipCoached ?? true)) {
+        // After this frame: a provider can't change while we build.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) ref.read(settingsProvider.notifier).edit((s) => s.copyWith(pipCoached: true));
+        });
+      }
     }
     // On the landmark for a moment: hop to the spot by it.
     if (step == FireflyStep.findLandmark && (g?.onTarget ?? false) && !(_landmarkHold?.isActive ?? false)) {
@@ -268,56 +310,41 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
         if (mounted) setState(() => _landmarkFound = true);
       });
     }
-    // It appears while the finder is open: one firm buzz.
-    final up = !nowUtc.isBefore(e.start);
-    if (up && _wasUp == false) HapticFeedback.heavyImpact();
+    // The countdown ends: a chime, and this screen is now the finder.
+    final up = !before;
+    if (widget.countdown && up && _wasUp == false) SystemSound.play(SystemSoundType.alert);
     _wasUp = up;
-    // The firefly's guide: where the target is on screen, and which way to
-    // turn when it isn't.
+    // Pip's guide: where the target is on screen, and which way to turn
+    // when it isn't.
     ({double x, double y})? onScreen;
     if (g != null && r != null) {
       if (_cameraOn) {
-        onScreen = projectToScreen(r, goal,
-            declinationDeg: _declination, previewHeightPx: _previewHeight ?? MediaQuery.sizeOf(context).height);
+        onScreen = projectToScreen(
+          r,
+          goal,
+          declinationDeg: _declination,
+          previewHeightPx: _previewHeight ?? MediaQuery.sizeOf(context).height,
+        );
       } else {
         onScreen = (x: g.dAzimuth * 6, y: -g.dElevation * 6);
       }
     }
-    final targetLabel = !_target!.isLive
-        ? eventTitle(e)
-        : before
-            ? 'Comes up here ${fmtTime(e.start)}'
-            : !over
-                ? '${eventTitle(e)} · now'
-                : null;
-    final ghosting = step == FireflyStep.ghostRun;
-    Widget? firefly(bool full) => g == null || _cameraOn != full
+    Widget? pip(bool full) => g == null || _cameraOn != full
         ? null
-        : FireflyLayer(
+        : PipAim(
+            mode: counting ? PipMode.countdown : PipMode.find,
             target: onScreen,
             toward: towardOnScreen(g),
-            // A lazy blink while it flies the route; no "you're on it".
-            distanceDeg: ghosting ? 40 : g.distanceDeg,
-            onTarget: !ghosting && g.onTarget,
-            label: switch (step) {
-              FireflyStep.ghostRun => null,
-              FireflyStep.findLandmark => hopName,
-              FireflyStep.meetingPoint => 'Passes here · ${fmtTime(hopWhen!)}',
-              FireflyStep.target => targetLabel,
-            },
+            distanceDeg: g.distanceDeg,
+            onTarget: g.onTarget,
+            canLock: !ghosting,
+            appeared: up,
+            ring: !full,
+            words: ghosting ? 'Watch the route' : g.words,
+            // Only a landmark's name: the rest is in the motion.
+            label: step == FireflyStep.findLandmark ? hopName : null,
           );
-    final status = switch (step) {
-      FireflyStep.ghostRun => 'Here\'s the route it will take.',
-      FireflyStep.findLandmark => 'Start from $hopName: it passes $hopHow it at ${fmtTime(hopWhen!)}.',
-      FireflyStep.meetingPoint =>
-        'It passes $hopHow ${hop!.name} here at ${fmtTime(hopWhen!)}. ${fmtAppears(e.start.difference(nowUtc))}.',
-      FireflyStep.target => before
-          ? '${fmtAppears(e.start.difference(nowUtc))}. Point where it will rise.'
-          : !over
-              ? (_target!.isLive || e.type == SkyEventType.skyObject ? 'Tracking it live' : 'Happening now')
-              : 'That one\'s over',
-    };
-    final hopping = step == FireflyStep.findLandmark || step == FireflyStep.meetingPoint;
+    final coach = g != null && !ghosting && !(ref.watch(settingsProvider).value?.pipCoached ?? true);
     final overlay = _cameraOn && r != null
         ? Positioned.fill(
             child: LayoutBuilder(
@@ -344,151 +371,82 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
         : null;
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(children: [
-        if (_cameraOn)
-          Positioned.fill(
-            child: CameraBackdrop(
-              onHeight: (h) => _previewHeight = h,
-              onError: (msg) {
-                if (!mounted) return;
-                setState(() => _cameraOn = false);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-              },
+      body: Stack(
+        children: [
+          if (_cameraOn)
+            Positioned.fill(
+              child: CameraBackdrop(
+                onHeight: (h) => _previewHeight = h,
+                onError: (msg) {
+                  if (!mounted) return;
+                  setState(() => _cameraOn = false);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                },
+              ),
+            ),
+          ?overlay,
+          if (pip(true) case final f?) Positioned.fill(child: f),
+          Starfield(
+            density: _cameraOn ? 0 : 0.0002,
+            maxOpacity: 0.5,
+            fadeBottom: false,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: ScanTopBar(
+                      title: Semantics(
+                        button: true,
+                        hint: 'Shows where and when to look',
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => showLookSheet(context, e),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            child: scanTitle(eventTitle(e)),
+                          ),
+                        ),
+                      ),
+                      trailing: CircleButton(
+                        tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
+                        icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
+                        onPressed: () => setState(() => _cameraOn = !_cameraOn),
+                      ),
+                    ),
+                  ),
+                  // The clock stands alone.
+                  if (counting)
+                    Text(
+                      LookUpNow.clock(e.start.difference(nowUtc)),
+                      style: numeric(size: 22, color: LookUpColors.white),
+                    ),
+                  if (coach) const ScanHint('Bring the light into the ring'),
+                  Expanded(child: pip(false) ?? const SizedBox.expand()),
+                  // No sensor, or none yet: the compass words are all there is.
+                  if (g == null) ScanLine('Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}'),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (step == FireflyStep.findLandmark || step == FireflyStep.meetingPoint)
+                          CircleButton(
+                            tooltip: 'Go straight to where it rises',
+                            icon: Icons.skip_next_rounded,
+                            onPressed: () => setState(() => _skipHop = true),
+                          ),
+                        if (before && !counting && _route.length >= 2)
+                          CircleButton(tooltip: 'Show the route again', icon: Icons.replay_rounded, onPressed: _replay),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ?overlay,
-        if (firefly(true) case final f?) Positioned.fill(child: f),
-        Starfield(
-        density: _cameraOn ? 0 : 0.0002,
-        maxOpacity: 0.5,
-        fadeBottom: false,
-        child: SafeArea(
-          child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(children: [
-                CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: () => Navigator.of(context).pop()),
-                const Spacer(),
-                const Text('Sky finder', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
-                const Spacer(),
-                CircleButton(
-                  tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
-                  icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
-                  onPressed: () => setState(() => _cameraOn = !_cameraOn),
-                ),
-              ]),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-              child: Column(children: [
-                Text(eventTitle(e), textAlign: TextAlign.center, style: display(28, weight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Text(status, textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.grey, fontSize: 15)),
-                if (hopping)
-                  TextButton(
-                    onPressed: () => setState(() => _skipHop = true),
-                    child: const Text('Go straight to where it rises'),
-                  ),
-                if (_route.length >= 2 && !over)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: RouteMap(
-                      route: _route,
-                      at: ghosting
-                          ? ghostAt
-                          : before
-                              ? null
-                              : nowUtc.difference(e.start).inMilliseconds / e.end.difference(e.start).inMilliseconds,
-                      facingAzimuth: camera?.azimuthDeg,
-                      onReplay: before ? _replay : null,
-                    ),
-                  ),
-              ]),
-            ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, c) => Semantics(
-                  liveRegion: true,
-                  label: g == null
-                      ? 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}'
-                      : g.words,
-                  child: _cameraOn
-                      ? const SizedBox.expand()
-                      : Stack(children: [
-                          CustomPaint(
-                            size: Size(c.maxWidth, c.maxHeight),
-                            painter: _ReticlePainter(onTarget: g?.onTarget ?? false),
-                          ),
-                          ?firefly(false),
-                        ]),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-              child: Text(
-                (ghosting ? 'Watch the route' : g?.words) ?? (_error != null ? 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}' : 'Hold your phone up toward the sky'),
-                textAlign: TextAlign.center,
-                style: display(28, weight: FontWeight.w700,
-                    color: (g?.onTarget ?? false) ? fireflyGlow : LookUpColors.white),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _details = !_details),
-                child: Semantics(
-                  button: true,
-                  label: _details ? 'Hide details' : 'Show details',
-                  excludeSemantics: true,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      _details
-                          ? '${compassAbbrev(target.azimuthDeg)} ${target.azimuthDeg.round()}°  ·  ${target.elevationDeg.round()}° up'
-                              '${camera == null ? '' : '   ·   you ${camera.azimuthDeg.round()}° / ${camera.elevationDeg.round()}°'}'
-                          : 'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}  ·  Details',
-                      textAlign: TextAlign.center,
-                      style: _details ? numeric(size: 13, color: LookUpColors.grey) : const TextStyle(fontSize: 13, color: LookUpColors.grey),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (_error != null)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(24, 0, 24, 16),
-                child: Text('No motion sensor here, so use the directions above.',
-                    textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-              child: Text(
-                  _cameraOn
-                      ? 'Cloud or a roof in the way? The line still shows where it is. '
-                          'Wave the phone in a figure-8 if it drifts.'
-                      : 'Tip: wave the phone in a figure-8 once to calibrate the compass.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12)),
-            ),
-          ]),
-        ),
+        ],
       ),
-      ]),
     );
   }
-}
-
-/// The ring in the middle (you): bring the firefly (the thing) into it.
-class _ReticlePainter extends CustomPainter {
-  _ReticlePainter({required this.onTarget});
-  final bool onTarget;
-
-  @override
-  void paint(Canvas canvas, Size size) =>
-      paintReticle(canvas, size.center(Offset.zero), onTarget: onTarget, strength: onTarget ? 1 : 0.65);
-
-  @override
-  bool shouldRepaint(_ReticlePainter o) => o.onTarget != onTarget;
 }

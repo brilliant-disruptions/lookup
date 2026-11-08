@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lookup/ui/finder_firefly.dart';
+import 'package:lookup/ui/pip/pip_aim.dart';
 
 void main() {
   // Seen on a phone: "Rocket launch at twiligh" running off the right edge.
-  testWidgets('the label under the firefly stays on screen near the edges', (t) async {
+  testWidgets('the label beside Pip stays on screen near the edges', (t) async {
     t.view.physicalSize = const Size(1179, 2556);
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
     for (final x in [-180.0, 180.0]) {
       await t.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: FireflyLayer(
+          body: PipAim(
+            mode: PipMode.find,
             target: (x: x, y: 0),
             toward: (x: x.sign, y: 0),
             distanceDeg: 0,
             onTarget: true,
+            words: "You're looking right at it",
             label: 'Rocket launch at twilight',
           ),
         ),
