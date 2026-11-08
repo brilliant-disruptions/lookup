@@ -73,8 +73,14 @@ class HomeData {
     required this.errors,
     this.recent = const [],
     this.approximate = false,
+    this.satellitesMissing = false,
   });
   final List<SkyEvent> events;
+
+  /// No orbit data for the ISS saved on this phone yet (Celestrak not
+  /// reached), so satellite passes are missing until it is. The feed's own
+  /// backoff retries it; nothing here forces a fetch.
+  final bool satellitesMissing;
 
   /// The ISS times come from the copy shipped with the app (see
   /// [RefreshReport.approximate]).
@@ -115,6 +121,7 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
       aurora: await store.loadAurora(),
       lastRefresh: await store.loadLastRefresh(),
       errors: const [],
+      satellitesMissing: await store.loadElements('iss') == null,
     );
   }
 
@@ -163,6 +170,7 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
       lastRefresh: await store.loadLastRefresh(),
       errors: report.errors,
       approximate: report.approximate,
+      satellitesMissing: !report.approximate && await store.loadElements('iss') == null,
     ));
   }
 }
