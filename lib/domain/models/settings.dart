@@ -93,6 +93,7 @@ class LookUpSettings {
     this.favourites = const [],
     this.toured = false,
     this.pipCoached = false,
+    this.skyCameraCoached = false,
     this.skyFigures = true,
     this.miles,
   });
@@ -171,6 +172,9 @@ class LookUpSettings {
   /// Seen the finder's one-time hint: bring Pip into the ring.
   final bool pipCoached;
 
+  /// Seen the sky camera's one-time hint: it draws through cloud, figure-8 if it drifts.
+  final bool skyCameraCoached;
+
   /// Draw each constellation's picture behind its lines on the Sky tab.
   final bool skyFigures;
 
@@ -244,6 +248,7 @@ class LookUpSettings {
     List<String>? favourites,
     bool? toured,
     bool? pipCoached,
+    bool? skyCameraCoached,
     bool? skyFigures,
     bool? miles,
   }) =>
@@ -287,6 +292,7 @@ class LookUpSettings {
         favourites: favourites ?? this.favourites,
         toured: toured ?? this.toured,
         pipCoached: pipCoached ?? this.pipCoached,
+        skyCameraCoached: skyCameraCoached ?? this.skyCameraCoached,
         skyFigures: skyFigures ?? this.skyFigures,
         miles: miles ?? this.miles,
       );
@@ -330,6 +336,7 @@ class LookUpSettings {
         'favourites': favourites,
         'toured': toured,
         'pipCoached': pipCoached,
+        'skyCameraCoached': skyCameraCoached,
         'skyFigures': skyFigures,
         if (miles != null) 'miles': miles,
       };
@@ -385,6 +392,7 @@ class LookUpSettings {
       favourites: [for (final f in (j['favourites'] as List? ?? const [])) if (f is String) f],
       toured: j['toured'] as bool? ?? d.toured,
       pipCoached: j['pipCoached'] as bool? ?? d.pipCoached,
+      skyCameraCoached: j['skyCameraCoached'] as bool? ?? d.skyCameraCoached,
       skyFigures: j['skyFigures'] as bool? ?? d.skyFigures,
       miles: j['miles'] as bool?,
     );

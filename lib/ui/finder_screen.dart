@@ -395,43 +395,24 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: Row(
-                      children: [
-                        CircleButton(
-                          tooltip: 'Close',
-                          icon: Icons.close_rounded,
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                        Expanded(
-                          child: Semantics(
-                            button: true,
-                            hint: 'Shows where and when to look',
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => showLookSheet(context, e),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                                child: Text(
-                                  eventTitle(e),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: LookUpColors.grey,
-                                  ),
-                                ),
-                              ),
-                            ),
+                    child: ScanTopBar(
+                      title: Semantics(
+                        button: true,
+                        hint: 'Shows where and when to look',
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => showLookSheet(context, e),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            child: scanTitle(eventTitle(e)),
                           ),
                         ),
-                        CircleButton(
-                          tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
-                          icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
-                          onPressed: () => setState(() => _cameraOn = !_cameraOn),
-                        ),
-                      ],
+                      ),
+                      trailing: CircleButton(
+                        tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
+                        icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
+                        onPressed: () => setState(() => _cameraOn = !_cameraOn),
+                      ),
                     ),
                   ),
                   // The clock stands alone.
@@ -440,26 +421,10 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
                       LookUpNow.clock(e.start.difference(nowUtc)),
                       style: numeric(size: 22, color: LookUpColors.white),
                     ),
-                  if (coach)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(24, 12, 24, 0),
-                      child: Text(
-                        'Bring the light into the ring',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: LookUpColors.grey, fontSize: 15),
-                      ),
-                    ),
+                  if (coach) const ScanHint('Bring the light into the ring'),
                   Expanded(child: pip(false) ?? const SizedBox.expand()),
                   // No sensor, or none yet: the compass words are all there is.
-                  if (g == null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                      child: Text(
-                        'Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}',
-                        textAlign: TextAlign.center,
-                        style: display(22, weight: FontWeight.w700),
-                      ),
-                    ),
+                  if (g == null) ScanLine('Look ${compassWord(target.azimuthDeg)}, ${elevationWord(target.elevationDeg)}'),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     child: Row(

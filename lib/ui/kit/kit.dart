@@ -8,6 +8,7 @@ export 'motion.dart';
 export 'navigation.dart';
 export 'pip_mark.dart';
 export 'reticle.dart';
+export 'scan_chrome.dart';
 export 'spotlight.dart';
 export 'starfield.dart';
 export 'surfaces.dart';

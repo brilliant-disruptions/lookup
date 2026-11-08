@@ -803,25 +803,20 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
   Widget _topPanel(BuildContext context) {
     final plan = _plan;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-      Row(children: [
-        CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: () => Navigator.of(context).pop()),
+      ScanTopBar(
         // Shrinks to fit when the phone is on its side and the panel is narrow.
-        Expanded(
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: _practice
-                  ? const Pill('Practice run', icon: Icons.fast_forward_rounded, color: LookUpColors.blue)
-                  : const Text('Catch it', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
-            ),
-          ),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: _practice
+              ? const Pill('Practice run', icon: Icons.fast_forward_rounded, color: LookUpColors.blue)
+              : const Text('Catch it', style: scanTitleStyle),
         ),
-        CircleButton(
+        trailing: CircleButton(
           tooltip: 'Camera settings',
           icon: Icons.tune_rounded,
           onPressed: plan != null && _phase == CatchPhase.aim ? _showPro : null,
         ),
-      ]),
+      ),
       const SizedBox(height: 14),
       Text(_headline, textAlign: TextAlign.center, style: display(26, weight: FontWeight.w700, height: 1.1)),
       const SizedBox(height: 6),
@@ -844,7 +839,9 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
       CatchPhase.opening => 'One moment.',
       CatchPhase.aim when plan != null => _practice
           ? 'The real plan for ${fmtTime(e.start)}, in fast-forward over a made-up sky.'
-          : '${plan.holdWords}. ${plan.aimWords}. ${plan.outlookWords}',
+          // Pip shows where to point; the words only say how to stand the
+          // phone, and warn when the streak will be faint.
+          : plan.outlook == StreakOutlook.strong ? '${plan.holdWords}.' : '${plan.holdWords}. ${plan.outlookWords}',
       CatchPhase.capturing => _skyShot
           ? 'Leave the phone where it is. The stars build up as it goes.'
           : 'Leave the phone where it is. The streak grows as it crosses.',
