@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/aurora/aurora_rules.dart';
 import '../domain/aurora/push_plan.dart' show PushRecord;
+import '../domain/finder/finder_stats.dart';
 import '../domain/log/sighting.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
@@ -81,6 +82,7 @@ class LocalStore {
   static String _kElements(String key) => 'elements_$key';
   static String _kCelestrakFailed(String key) => 'celestrak_failed_$key';
   static const _kCelestrakOffset = 'celestrak_offset_min';
+  static const _kFinderStats = 'finder_stats';
 
   Future<LookUpSettings> loadSettings() async {
     final raw = await _prefs.getString(_kSettings);
@@ -164,6 +166,20 @@ class LocalStore {
     await _prefs.setInt(_kCelestrakOffset, pick);
     return pick;
   }
+
+  Future<FinderStats> loadFinderStats() async {
+    final raw = await _prefs.getString(_kFinderStats);
+    if (raw == null) return const FinderStats();
+    try {
+      return FinderStats.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return const FinderStats();
+    }
+  }
+
+  /// Adds one finder session to the on-phone lock-rate tally.
+  Future<void> recordFinderSession(Duration? toLock) async =>
+      _prefs.setString(_kFinderStats, jsonEncode((await loadFinderStats()).record(toLock).toJson()));
 
   Future<CloudForecast?> loadClouds() async {
     final raw = await _prefs.getString(_kClouds);

@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:lookup/data/local_store.dart';
+import 'package:lookup/domain/finder/finder_stats.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/orbit/omm.dart';
@@ -104,6 +106,30 @@ void main() {
     expect(find.text('Bring the light into the ring'), findsNothing);
     await t.pumpWidget(const SizedBox());
     unawaited(c.close());
+  });
+
+  // The lock rate is how we know Pip works: a session that never locks must
+  // count against it, and opening without a compass can't count at all.
+  testWidgets('each finder session adds to the on-phone lock rate', (t) async {
+    Future<FinderStats> stats() async => (await t.runAsync(() => LocalStore().loadFinderStats()))!;
+    var c = await pump(t, coached: true);
+    c.add(east);
+    await t.pump();
+    c.add(north);
+    await t.pump();
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+    c = await pump(t, coached: true);
+    c.add(east);
+    await t.pump();
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+    c = await pump(t, coached: true); // no compass reading ever came
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+    final s = await stats();
+    expect((s.sessions, s.locks), (2, 1));
+    expect(s.medianLockSeconds, isNotNull);
   });
 
   testWidgets('the ring hint shows until the first lock, then never again', (t) async {

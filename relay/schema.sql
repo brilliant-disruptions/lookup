@@ -46,3 +46,12 @@ CREATE TABLE IF NOT EXISTS invites (
   expires INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS invites_expires ON invites (expires);
+
+-- Invite page views and "Get reminders" taps, counted per UTC day. Nothing
+-- about who: just how many, so get/view says whether the page persuades.
+CREATE TABLE IF NOT EXISTS invite_tally (
+  day TEXT NOT NULL,            -- 2026-11-07
+  what TEXT NOT NULL,           -- view | get
+  n INTEGER NOT NULL,
+  PRIMARY KEY (day, what)
+);

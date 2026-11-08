@@ -123,6 +123,35 @@ describe('the page', () => {
     expect(html).not.toContain('apple-itunes-app');
   });
 
+  // Pip is the app's guide; meeting it on the invite says what "Get
+  // reminders" gets you. Same colours as the app, so it reads as one thing.
+  it('Pip waits beside Get reminders, in the app\'s colours; not once it\'s over', async () => {
+    const { code } = await create();
+    const html = await (await get(`/n/${code}`)).text();
+    const remind = html.indexOf('class="remind"');
+    expect(remind).toBeGreaterThan(-1);
+    expect(remind).toBeLessThan(html.indexOf('Get reminders'));
+    expect(html).toContain('#C4F55E');
+    expect(html).toContain('#F4FFD9');
+    expect(html).toContain('Pip will tap you when it’s time to look up.');
+    now = Date.parse(END) + 60_000;
+    expect(await (await get(`/n/${code}`)).text()).not.toContain('class="remind"');
+  });
+
+  // get/view is the one number that says whether the page persuades. Counted
+  // per day and nothing else: no codes, addresses or phones.
+  it('counts page views and Get reminders taps per day, and nothing about who', async () => {
+    const { code } = await create();
+    await get(`/n/${code}`);
+    await get(`/n/${code}`);
+    await get(`/n/${code}/get`);
+    await get(`/n/${code}/card.png`); // the unfurl's picture isn't a view
+    now += 86_400_000;
+    await get(`/n/${code}`);
+    expect(await store.tallies('2026-11-03')).toEqual({ view: 3, get: 1 });
+    expect(await store.tallies('2026-11-04')).toEqual({ view: 1, get: 0 });
+  });
+
   it('offers Wallet and the App Store once they\'re set up', async () => {
     deps = make(await testPass(), '6739000000');
     const { code } = await create();

@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:satellite_observer/satellite_observer.dart';
 
+import '../data/local_store.dart';
 import '../domain/finder/firefly.dart';
 import '../domain/finder/pointing.dart';
 import '../domain/models/sky_event.dart';
@@ -172,6 +173,12 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
   bool _wasOnTarget = false;
   bool _cameraOn = false;
 
+  /// For the lock-rate tally: when a compass reading first came in, and how
+  /// long until the first lock (the ghost run's demo doesn't count).
+  final Stopwatch _since = Stopwatch();
+  Duration? _toLock;
+  late final LocalStore _store;
+
   /// Whether it had appeared at the last build; null before the first.
   bool? _wasUp;
 
@@ -196,6 +203,7 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    _store = ref.read(storeProvider);
     final s = ref.read(settingsProvider).value;
     final lat = s?.latitude ?? 0, lon = s?.longitude ?? 0;
     _declination = declinationDeg(lat, lon, DateTime.now().toUtc());
@@ -211,13 +219,17 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
         _error = '$e';
       }
     }
-    _sub = stream?.listen((r) => setState(() => _r = r), onError: (e) => setState(() => _error = '$e'));
+    _sub = stream?.listen((r) {
+      if (!_since.isRunning) _since.start();
+      setState(() => _r = r);
+    }, onError: (e) => setState(() => _error = '$e'));
     if (stream == null) _error ??= 'This device has no orientation sensor.';
   }
 
   @override
   void dispose() {
     _landmarkHold?.cancel();
+    if (_since.isRunning) _store.recordFinderSession(_toLock);
     _ghost.dispose();
     _sub?.cancel();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -283,6 +295,7 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
     if (g != null && g.onTarget != _wasOnTarget) {
       _wasOnTarget = g.onTarget;
       _landmarkHold?.cancel();
+      if (g.onTarget && !ghosting) _toLock ??= _since.elapsed;
       // The first lock teaches it: the coach mark goes for good.
       if (g.onTarget && !ghosting && !(ref.read(settingsProvider).value?.pipCoached ?? true)) {
         // After this frame: a provider can't change while we build.

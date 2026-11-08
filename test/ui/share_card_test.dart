@@ -43,7 +43,7 @@ void main() {
     details: const {'brightness': 'brighter than any star', 'past': true},
   );
 
-  Future<void> pump(WidgetTester t, LookUpSettings s) async {
+  Future<void> pump(WidgetTester t, LookUpSettings s, {ShareMode mode = ShareMode.sawIt}) async {
     // The test font is far wider than Inter, so give the poster room to lay
     // out as it does on a phone at 300 pt.
     t.view.physicalSize = const Size(1600, 2400);
@@ -56,7 +56,7 @@ void main() {
       ],
       child: MaterialApp(
         theme: buildLookUpTheme(),
-        home: Scaffold(body: Center(child: SizedBox(width: 640, child: ShareCard(event: pass, mode: ShareMode.sawIt, place: 'Nashville')))),
+        home: Scaffold(body: Center(child: SizedBox(width: 640, child: ShareCard(event: pass, mode: mode, place: 'Nashville')))),
       ),
     ));
     await t.pump();
@@ -74,5 +74,17 @@ void main() {
     await pump(t, const LookUpSettings());
     expect(find.byType(SkySnapshot), findsNothing);
     expect(find.byType(Starfield), findsOneWidget);
+  });
+
+  // An invite teaches the friend the one rule before they have the app:
+  // look where Pip is. So Pip waits at the rise; a sighting has no Pip.
+  testWidgets('an invite has Pip waiting where it rises; I saw it has none', (t) async {
+    const here = LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true);
+    await pump(t, here, mode: ShareMode.invite);
+    final pip = t.widget<SkySnapshot>(find.byType(SkySnapshot)).pip!;
+    expect(pip.azimuthDeg, pass.riseAzimuthDeg);
+    expect(pip.altitudeDeg, lessThan(5), reason: 'on the horizon, where it comes up');
+    await pump(t, here);
+    expect(t.widget<SkySnapshot>(find.byType(SkySnapshot)).pip, isNull);
   });
 }

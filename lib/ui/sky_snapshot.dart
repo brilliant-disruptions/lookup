@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../domain/sky/astro.dart';
 import '../domain/sky/backdrop.dart';
 import '../domain/sky/catalog.dart';
+import 'kit/firefly_mark.dart';
 import 'real_sky.dart';
 
 class SkySnapshot extends StatelessWidget {
@@ -24,6 +25,7 @@ class SkySnapshot extends StatelessWidget {
     required this.centerAlt,
     this.track = const [],
     this.mark,
+    this.pip,
     this.tint = const Color(0xFF5AA2FF),
     this.labels = const [],
   });
@@ -40,6 +42,10 @@ class SkySnapshot extends StatelessWidget {
 
   /// Something to ring when there's no track (a planet pairing, the Moon).
   final Horizontal? mark;
+
+  /// Where Pip waits: the rise point on an invite, so friends learn to look
+  /// where Pip is.
+  final Horizontal? pip;
   final Color tint;
 
   /// Names to write beside things in the frame ("Vega", "Jupiter").
@@ -201,6 +207,9 @@ class _SnapshotPainter extends CustomPainter {
               ..strokeWidth = 2
               ..color = w.tint);
       }
+    }
+    if (w.pip case final p?) {
+      if (o(p) case final pp?) paintFirefly(canvas, pp, blink: 1, scale: 0.55);
     }
   }
 
