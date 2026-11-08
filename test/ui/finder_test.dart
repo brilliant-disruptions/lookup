@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/orbit/omm.dart';
@@ -12,15 +14,24 @@ import 'package:lookup/domain/passes/pass_predictor.dart';
 import 'package:lookup/domain/sky/landmarks.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/finder_camera.dart';
-import 'package:lookup/ui/finder_firefly.dart';
 import 'package:lookup/ui/finder_screen.dart';
+import 'package:lookup/ui/pip/pip_aim.dart';
 
 class _Settings extends SettingsNotifier {
   @override
   Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true);
 }
 
+/// Someone who has already been shown the ring once.
+class _Coached extends SettingsNotifier {
+  @override
+  Future<LookUpSettings> build() async =>
+      const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true, pipCoached: true);
+}
+
 void main() {
+  // The first lock saves the coach mark as seen.
+  setUp(() => SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty());
   final now = DateTime.utc(2026, 10, 25, 23);
   // A target due north on the horizon (declination at Nashville is ~-4°).
   final event = SkyEvent(
@@ -40,35 +51,86 @@ void main() {
   const east = [0.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
   const west = [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
 
-  Future<StreamController<List<double>>> pump(WidgetTester t) async {
+  Future<StreamController<List<double>>> pump(WidgetTester t, {bool coached = false, bool still = false}) async {
     final c = StreamController<List<double>>(sync: true);
     await t.pumpWidget(ProviderScope(
       overrides: [
-        settingsProvider.overrideWith(_Settings.new),
+        settingsProvider.overrideWith(coached ? _Coached.new : _Settings.new),
         clockProvider.overrideWith((_) => Stream.value(now)),
       ],
-      child: MaterialApp(home: FinderScreen(event: event, orientationStream: c.stream)),
+      child: MaterialApp(
+        builder: (context, child) =>
+            still ? MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: true), child: child!) : child!,
+        home: FinderScreen(event: event, orientationStream: c.stream),
+      ),
     ));
     await t.pump();
     return c;
   }
 
-  testWidgets('guides you onto the target and confirms when you are on it', (t) async {
+  // The words go to VoiceOver, not the screen: Pip's live region carries
+  // them, so a blind user hears each change as they turn.
+  testWidgets('guides you onto the target, announcing each change to VoiceOver', (t) async {
     final c = await pump(t);
-    expect(find.text('Hold your phone up toward the sky'), findsOneWidget);
+    // No reading yet: the compass words are all there is.
+    expect(find.text('Look north, low on the horizon'), findsOneWidget);
 
     c.add(east);
     await t.pump();
-    expect(find.textContaining('Turn left'), findsOneWidget);
+    expect(find.bySemanticsLabel('Turn left'), findsOneWidget);
+    expect(find.textContaining('Turn left'), findsNothing, reason: 'motion carries it on screen, not words');
+    final live = t.getSemantics(find.byType(PipAim));
+    expect(live.flagsCollection.isLiveRegion, isTrue);
 
     c.add(west);
     await t.pump();
-    expect(find.textContaining('Turn right'), findsOneWidget);
+    expect(find.bySemanticsLabel('Turn right'), findsOneWidget);
 
     c.add(north);
     await t.pump();
-    expect(find.text('You\'re looking right at it'), findsOneWidget);
+    expect(find.bySemanticsLabel('You\'re looking right at it'), findsOneWidget);
     // Unmount first so the finder cancels its subscription.
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
+
+  // Once you know the ring, the screen is the sky: the name and nothing
+  // else to read (the clock joins it only in the countdown).
+  testWidgets('after first use, at most two pieces of text on the main path', (t) async {
+    final c = await pump(t, coached: true);
+    c.add(east);
+    await t.pump();
+    expect(find.byType(Text).evaluate().length, lessThanOrEqualTo(2));
+    expect(find.text('Bring the light into the ring'), findsNothing);
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
+
+  testWidgets('the ring hint shows until the first lock, then never again', (t) async {
+    final c = await pump(t);
+    c.add(east);
+    await t.pump();
+    expect(find.text('Bring the light into the ring'), findsOneWidget);
+    c.add(north);
+    await t.pump();
+    await t.pump();
+    expect(find.text('Bring the light into the ring'), findsNothing);
+    c.add(east);
+    await t.pump();
+    expect(find.text('Bring the light into the ring'), findsNothing, reason: 'coached for good');
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
+
+  // Reduce Motion: Pip sits on its spot instead of flying, trailing and
+  // hovering, so nothing on the finder keeps animating.
+  testWidgets('with Reduce Motion, Pip holds still', (t) async {
+    final c = await pump(t, coached: true, still: true);
+    c.add(east);
+    await t.pump();
+    final aim = t.state(find.byType(PipAim)) as TickerProvider;
+    expect(aim, isNotNull);
+    expect(t.binding.transientCallbackCount, 0, reason: 'no ticker running');
     await t.pumpWidget(const SizedBox());
     unawaited(c.close());
   });
@@ -100,15 +162,15 @@ void main() {
     unawaited(c.close());
   });
 
-  testWidgets('words on the main screen, numbers only behind Details', (t) async {
+  testWidgets('no numbers on the main screen; the name opens the Look sheet', (t) async {
     final c = await pump(t);
     c.add(east);
     await t.pump();
     expect(find.textContaining('°'), findsNothing);
-    expect(find.textContaining('Look north'), findsOneWidget);
-    await t.tap(find.textContaining('Details'));
-    await t.pump();
-    expect(find.textContaining('°'), findsWidgets);
+    expect(find.bySemanticsLabel(RegExp('Shows where and when to look')), findsNothing,
+        reason: 'the hint is a hint, not a label');
+    final name = t.getSemantics(find.text('Rocket launch').first);
+    expect(name.hint, 'Shows where and when to look');
     await t.pumpWidget(const SizedBox());
     unawaited(c.close());
   });
@@ -139,24 +201,25 @@ void main() {
       child: MaterialApp(home: FinderScreen(event: ev, orientationStream: c.stream, camera: false)),
     ));
     await t.pump();
+    c.add(north);
     await t.pump();
-    expect(find.text('Here\'s the route it will take.'), findsOneWidget);
-    expect(find.text('Watch the route'), findsOneWidget);
-    expect(find.byType(RouteMap), findsOneWidget);
+    // First Pip flies the route, and only says so to VoiceOver.
+    expect(find.bySemanticsLabel('Watch the route'), findsOneWidget);
+    expect(find.byTooltip('Show the route again'), findsOneWidget);
 
     await t.pump(const Duration(seconds: 4));
     await t.pump();
-    expect(find.textContaining('Start from'), findsOneWidget);
+    expect(find.bySemanticsLabel('Watch the route'), findsNothing);
+    // Hopping via the landmark: the way out of it is a button, not words.
+    await t.tap(find.byTooltip('Go straight to where it rises'));
+    await t.pump();
+    expect(find.byTooltip('Go straight to where it rises'), findsNothing);
 
-    await t.tap(find.text('Go straight to where it rises'));
-    await t.pump();
-    expect(find.textContaining('Point where it will rise'), findsOneWidget);
-
-    // Tap the map to fly the route again.
-    await t.tap(find.byType(RouteMap));
+    // The replay chip flies the route again.
+    await t.tap(find.byTooltip('Show the route again'));
     await t.pump();
     await t.pump();
-    expect(find.text('Here\'s the route it will take.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Watch the route'), findsOneWidget);
     await t.pump(const Duration(seconds: 4));
     await t.pumpWidget(const SizedBox());
     unawaited(c.close());

@@ -14,8 +14,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -40,6 +38,8 @@ import '../services/photo_store.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'caught_it_screen.dart';
+import '../domain/finder/firefly.dart';
+import 'pip/pip_aim.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
@@ -91,11 +91,7 @@ class CatchItScreen extends ConsumerStatefulWidget {
   ConsumerState<CatchItScreen> createState() => _CatchItState();
 }
 
-class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProviderStateMixin {
-  /// Seconds for the firefly's hover while aiming; repaints only the overlay.
-  final _hoverClock = ValueNotifier<double>(0);
-  late final Ticker _hoverTicker = createTicker((e) => _hoverClock.value = e.inMicroseconds / 1e6);
-
+class _CatchItState extends ConsumerState<CatchItScreen> {
   CaptureBackend? _backend;
   CameraCaps? _caps;
   CapturePlan? _plan;
@@ -157,8 +153,6 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
 
   @override
   void dispose() {
-    _hoverTicker.dispose();
-    _hoverClock.dispose();
     _tick?.cancel();
     _rot?.cancel();
     _frames?.cancel();
@@ -569,17 +563,8 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
   /// The live camera fills a box fixed to the phone (it turns with it).
   bool get _deviceMode => !_practice && (_phase == CatchPhase.opening || _phase == CatchPhase.aim);
 
-  /// The firefly hovers while you aim (never still over the sky), unless
-  /// the phone asks for reduced motion.
-  bool get _hovering => _phase == CatchPhase.aim && !MediaQuery.disableAnimationsOf(context);
-
   @override
   Widget build(BuildContext context) {
-    if (_hovering && !_hoverTicker.isActive) {
-      _hoverTicker.start();
-    } else if (!_hovering && _hoverTicker.isActive) {
-      _hoverTicker.stop();
-    }
     final turns = _contentTurns;
     return Scaffold(
       backgroundColor: Colors.black,
@@ -607,6 +592,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
                       else if (_practiceView case final img?)
                         RawImage(image: img, fit: BoxFit.cover),
                       if (_plan != null) CustomPaint(painter: _aimPainter(device, turns)),
+                      if (_plan != null && _phase == CatchPhase.aim) _pip(device),
                     ]),
                   ),
                 ),
@@ -647,8 +633,6 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
   CustomPainter _aimPainter(Size device, int turns) {
     final plan = _plan!;
     final r = _r ?? levelPose(plan.framing.center, quarterTurns: plan.framing.landscape ? 1 : 0);
-    final camera = cameraDirection(r, declinationDeg: _decl);
-    final on = angularDistanceDeg(camera, plan.framing.center) <= 4;
     return _PathPainter(
       at: (d) {
         final p = projectToScreen(r, d,
@@ -657,11 +641,26 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
       },
       path: _path,
       now: _now,
-      target: plan.framing.center,
-      onTarget: on,
       labelTurns: turns,
       appears: e.start,
-      hover: _hovering ? _hoverClock : null,
+    );
+  }
+
+  /// Pip on the spot to frame, the ring in the middle of the live picture:
+  /// the same Pip as the finder, so the same blinks and taps.
+  Widget _pip(Size device) {
+    final plan = _plan!;
+    final r = _r ?? levelPose(plan.framing.center, quarterTurns: plan.framing.landscape ? 1 : 0);
+    final g = guide(cameraDirection(r, declinationDeg: _decl), plan.framing.center, toleranceDeg: 4);
+    return PipAim(
+      mode: PipMode.catchIt,
+      target: projectToScreen(r, plan.framing.center,
+          declinationDeg: _decl, previewHeightPx: device.height, verticalFovDeg: plan.lens.longFovDeg),
+      toward: towardOnScreen(g),
+      distanceDeg: g.distanceDeg,
+      onTarget: g.onTarget,
+      words: g.words,
+      ringRadius: 26,
     );
   }
 
@@ -752,12 +751,9 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
             at: _pictureMapper(hole),
             path: _path,
             now: _now,
-            target: _phase == CatchPhase.aim ? plan.framing.center : null,
-            onTarget: true,
             labelTurns: 0,
             appears: e.start,
             aheadOnly: _phase != CatchPhase.aim,
-            hover: _hovering ? _hoverClock : null,
           );
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
@@ -765,6 +761,17 @@ class _CatchItState extends ConsumerState<CatchItScreen> with SingleTickerProvid
         const ColoredBox(color: Color(0xFF05070C)),
         if (img != null) RawImage(image: img, fit: BoxFit.cover),
         if (overlay != null) CustomPaint(painter: overlay),
+        if (plan != null && _phase == CatchPhase.aim)
+          if (_pictureMapper(hole)(plan.framing.center) case final t?)
+            PipAim(
+              mode: PipMode.catchIt,
+              target: (x: t.dx, y: t.dy),
+              toward: (x: 0, y: 0),
+              distanceDeg: 0,
+              onTarget: true,
+              words: 'The spot to frame',
+              ringRadius: 26,
+            ),
         if (_phase == CatchPhase.finishing) const Center(child: CircularProgressIndicator()),
       ]),
     );
@@ -983,25 +990,17 @@ class _PathPainter extends CustomPainter {
     required this.at,
     required this.path,
     required this.now,
-    required this.target,
-    required this.onTarget,
     required this.labelTurns,
     required this.appears,
     this.aheadOnly = false,
-    this.hover,
-  }) : super(repaint: hover);
+  });
 
   final Offset? Function(SkyDir) at;
   final List<PathPoint> path;
   final DateTime now;
-  final SkyDir? target;
-  final bool onTarget;
   final int labelTurns;
   final DateTime appears;
   final bool aheadOnly;
-
-  /// Seconds for the firefly's hover; null holds it still (reduced motion).
-  final ValueListenable<double>? hover;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1052,15 +1051,6 @@ class _PathPainter extends CustomPainter {
     if (!aheadOnly && first != null && first.dx >= 0 && first.dy >= 0 && first.dx <= size.width && first.dy <= size.height) {
       canvas.drawCircle(first, 5, Paint()..color = Colors.white);
       _label(canvas, 'Appears here · ${fmtTime(appears)}', first, size);
-    }
-    // The spot to aim at is the firefly (the thing); the middle of the
-    // picture is the ring (you). Bring the firefly into the ring, as in the
-    // finder; the ring lights up once it's there.
-    final t = target == null ? null : p(target!);
-    if (t != null) {
-      paintReticle(canvas, c, radius: 26, onTarget: onTarget);
-      final h = hover;
-      paintFirefly(canvas, h == null ? t : t + fireflyHover(h.value, landed: onTarget), blink: onTarget ? 1 : 0.7, scale: 0.8);
     }
   }
 

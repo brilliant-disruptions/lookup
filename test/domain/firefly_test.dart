@@ -86,4 +86,40 @@ void main() {
     expect(step(before: false, ghost: true), FireflyStep.target);
     expect(step(before: false), FireflyStep.target);
   });
+
+  group('PipCues', () {
+    test('one heavy tap when you come onto it, not again while you stay', () {
+      final c = PipCues();
+      expect(c.update(onTarget: false, appeared: true), isEmpty);
+      expect(c.update(onTarget: true, appeared: true), [PipBuzz.lock]);
+      expect(c.update(onTarget: true, appeared: true), isEmpty);
+      expect(c.update(onTarget: false, appeared: true), isEmpty);
+      expect(c.update(onTarget: true, appeared: true), [PipBuzz.lock]);
+    });
+
+    test('a tick per blink while searching, silence once locked', () {
+      final c = PipCues();
+      expect(c.update(onTarget: false, appeared: true, blinked: true), [PipBuzz.tick]);
+      expect(c.update(onTarget: false, appeared: true), isEmpty);
+      c.update(onTarget: true, appeared: true);
+      expect(c.update(onTarget: true, appeared: true, blinked: true), isEmpty);
+    });
+
+    test('a double tap only when it comes up, never just for opening early', () {
+      final c = PipCues();
+      // Opening after it's up is not an "it appeared" moment.
+      expect(PipCues().update(onTarget: false, appeared: true), isEmpty);
+      expect(c.update(onTarget: false, appeared: false), isEmpty);
+      expect(c.update(onTarget: false, appeared: true), [PipBuzz.appear]);
+      expect(c.update(onTarget: false, appeared: true), isEmpty);
+    });
+
+    test('no lock while Pip is only showing the way', () {
+      final c = PipCues();
+      c.update(onTarget: false, appeared: true);
+      expect(c.update(onTarget: true, appeared: true, canLock: false), isEmpty);
+      // The run ends on it: that's the lock.
+      expect(c.update(onTarget: true, appeared: true), [PipBuzz.lock]);
+    });
+  });
 }
