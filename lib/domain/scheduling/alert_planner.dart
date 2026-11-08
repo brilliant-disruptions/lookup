@@ -10,6 +10,7 @@ import '../units.dart';
 import '../events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../models/sky_event.dart';
 import '../sky/direction.dart';
+import '../sky/sun.dart';
 import 'alert_tuning.dart';
 
 /// [snooze] is the user's "Remind me in 5 min", never planned here.
@@ -76,21 +77,22 @@ class AlertPlanner {
 
     final out = <PlannedAlert>[];
     for (final e in chosen) {
-      final headsUpAt = e.start.subtract(Duration(minutes: settings.leadMinutes));
+      final headsUpAt = blinkAt(e, settings, nowUtc);
+      final lead = e.start.difference(headsUpAt).inMinutes;
       if (headsUpAt.isAfter(nowUtc)) {
         out.add(PlannedAlert(
           notificationId: notificationIdFor(e.id, AlertKind.headsUp),
           event: e,
           fireAt: headsUpAt,
           kind: AlertKind.headsUp,
-          title: headsUpTitle(e, settings.leadMinutes),
+          title: headsUpTitle(e, lead),
           body: headsUpBody(e, miles: settings.usesMiles),
         ));
       }
       final goNowAt = e.start.subtract(const Duration(minutes: 1));
       if (settings.goNowNudge &&
           !e.isEstimate &&
-          settings.leadMinutes > 1 &&
+          lead > 1 &&
           goNowAt.isAfter(nowUtc)) {
         out.add(PlannedAlert(
           notificationId: notificationIdFor(e.id, AlertKind.goNow),
@@ -104,6 +106,35 @@ class AlertPlanner {
     }
     out.sort((a, b) => a.fireAt.compareTo(b.fireAt));
     return out;
+  }
+
+  /// When the heads-up for [e] fires: its own "blink me" lead if set, else
+  /// the global one. At dusk falls back to the global lead when there's no
+  /// place, it isn't dark at the start, or dusk has already gone.
+  static DateTime blinkAt(SkyEvent e, LookUpSettings s, DateTime now) {
+    final fallback = e.start.subtract(Duration(minutes: s.leadMinutes));
+    final pick = s.blinkLeads[e.id];
+    if (pick == null) return fallback;
+    if (pick != blinkAtDusk) return e.start.subtract(Duration(minutes: pick));
+    final lat = s.latitude, lon = s.longitude;
+    if (lat == null || lon == null) return fallback;
+    final dusk = duskBefore(e.start, lat, lon);
+    if (dusk == null || !dusk.isAfter(now) || !dusk.isBefore(fallback)) return fallback;
+    return dusk;
+  }
+
+  /// When it got dark (sun 6° down) on the night holding [at], to 5 min.
+  /// Null when [at] is in daylight.
+  static DateTime? duskBefore(DateTime at, double lat, double lon) {
+    var t = at.toUtc();
+    if (!isDark(t, lat, lon)) return null;
+    final limit = t.subtract(const Duration(hours: 20));
+    while (t.isAfter(limit)) {
+      final prev = t.subtract(const Duration(minutes: 5));
+      if (!isDark(prev, lat, lon)) return t;
+      t = prev;
+    }
+    return null; // polar night: no dusk to wait for
   }
 
   /// "Remind me in 5 min" from a heads-up: fires [by] from [now] but never
@@ -210,7 +241,9 @@ class AlertPlanner {
     if (e.type == SkyEventType.planetHighlight) return what;
     if (e.type == SkyEventType.meteorShower) return what;
     if (e.type == SkyEventType.comet || e.type == SkyEventType.nova) return '$what tonight';
-    return '$what in $leadMinutes min';
+    if (leadMinutes < 60) return '$what in $leadMinutes min';
+    final h = leadMinutes ~/ 60, m = leadMinutes % 60;
+    return m == 0 ? '$what in $h h' : '$what in $h h $m min';
   }
 
   /// The title "Aurora now" fires with: where it's being seen, when

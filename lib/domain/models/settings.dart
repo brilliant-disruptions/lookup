@@ -54,6 +54,9 @@ class SavedPlace {
       );
 }
 
+/// A [LookUpSettings.blinkLeads] value: tap me when it gets dark that evening.
+const blinkAtDusk = -1;
+
 class LookUpSettings {
   const LookUpSettings({
     this.latitude,
@@ -79,6 +82,7 @@ class LookUpSettings {
     this.nightVisionLevel = 1,
     this.plusCardSnoozedUntil,
     this.leadMinutes = 10,
+    this.blinkLeads = const {},
     this.goNowNudge = true,
     this.quietHours = QuietHours.defaults,
     this.auroraWakeMe = false,
@@ -144,6 +148,10 @@ class LookUpSettings {
   /// "Not now" on Tonight's LookUp+ card hides it until then (UTC).
   final DateTime? plusCardSnoozedUntil;
   final int leadMinutes;
+
+  /// Per-event "blink me" lead, by event id: minutes before it starts, or
+  /// [blinkAtDusk]. Events not listed use [leadMinutes].
+  final Map<String, int> blinkLeads;
   final bool goNowNudge;
   final QuietHours quietHours;
   final bool auroraWakeMe;
@@ -230,6 +238,7 @@ class LookUpSettings {
     double? nightVisionLevel,
     DateTime? plusCardSnoozedUntil,
     int? leadMinutes,
+    Map<String, int>? blinkLeads,
     bool? goNowNudge,
     QuietHours? quietHours,
     bool? auroraWakeMe,
@@ -271,6 +280,7 @@ class LookUpSettings {
         nightVisionLevel: nightVisionLevel ?? this.nightVisionLevel,
         plusCardSnoozedUntil: plusCardSnoozedUntil ?? this.plusCardSnoozedUntil,
         leadMinutes: leadMinutes ?? this.leadMinutes,
+        blinkLeads: blinkLeads ?? this.blinkLeads,
         goNowNudge: goNowNudge ?? this.goNowNudge,
         quietHours: quietHours ?? this.quietHours,
         auroraWakeMe: auroraWakeMe ?? this.auroraWakeMe,
@@ -316,6 +326,7 @@ class LookUpSettings {
         'redLevel': nightVisionLevel,
         if (plusCardSnoozedUntil != null) 'plusCardSnoozedUntil': plusCardSnoozedUntil!.toIso8601String(),
         'leadMinutes': leadMinutes,
+        if (blinkLeads.isNotEmpty) 'blinkLeads': blinkLeads,
         'goNowNudge': goNowNudge,
         'quietHours': quietHours.toJson(),
         'auroraWakeMe': auroraWakeMe,
@@ -363,6 +374,7 @@ class LookUpSettings {
       nightVisionLevel: (j['redLevel'] as num?)?.toDouble().clamp(0.0, 1.0) ?? d.nightVisionLevel,
       plusCardSnoozedUntil: DateTime.tryParse(j['plusCardSnoozedUntil'] as String? ?? '')?.toUtc(),
       leadMinutes: j['leadMinutes'] as int? ?? d.leadMinutes,
+      blinkLeads: j['blinkLeads'] is Map ? (j['blinkLeads'] as Map).map((k, v) => MapEntry('$k', (v as num).toInt())) : d.blinkLeads,
       goNowNudge: j['goNowNudge'] as bool? ?? d.goNowNudge,
       quietHours: j['quietHours'] is Map
           ? QuietHours.fromJson((j['quietHours'] as Map).cast())
