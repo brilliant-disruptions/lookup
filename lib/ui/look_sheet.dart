@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/local_store.dart';
 import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
-import '../domain/models/settings.dart' show blinkAtDusk;
 import '../domain/models/sky_event.dart';
 import '../domain/photo/capture_plan.dart' show offerCatchIt;
 import '../domain/plus/free_plan.dart';
@@ -229,8 +228,6 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                   label: const Text('Photograph it'),
                 ),
               ),
-            if (!widget.demo && !over && !live && event.type.pushes && event.details['past'] != true)
-              _BlinkMe(event: event, now: nowUtc),
             if (widget.demo && over)
               _demoDone(context)
             else if (over || live)
@@ -505,57 +502,6 @@ Future<void> openDirections(double lat, double lon) async {
 
 /// Find it by what's there: the bright stars, planets and Moon the pass
 /// really goes near, in words and drawn on the real sky.
-/// "Blink me": this event's own heads-up lead. Tapping the picked chip again
-/// goes back to the lead in Settings.
-class _BlinkMe extends ConsumerWidget {
-  const _BlinkMe({required this.event, required this.now});
-  final SkyEvent event;
-  final DateTime now;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(settingsProvider).value;
-    if (s == null) return const SizedBox.shrink();
-    final pick = s.blinkLeads[event.id];
-    Future<void> choose(int lead) async {
-      await ref.read(settingsProvider.notifier).edit((s) {
-        final leads = {...s.blinkLeads};
-        if (leads[event.id] == lead) {
-          leads.remove(event.id);
-        } else {
-          leads[event.id] = lead;
-        }
-        return s.copyWith(blinkLeads: leads);
-      });
-      // Re-plan with the new lead; cheap, all cached.
-      await ref.read(homeProvider.notifier).refresh();
-    }
-
-    final at = AlertPlanner.blinkAt(event, s, now);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          const PipMark(key: Key('blink-me-pip'), size: 28, state: PipState.resting),
-          const SizedBox(width: 6),
-          Text('Blink me', style: Theme.of(context).textTheme.titleSmall),
-          const Spacer(),
-          Text(fmtTime(at), style: numeric(size: 13, color: LookUpColors.grey)),
-        ]),
-        const SizedBox(height: 6),
-        Wrap(spacing: 8, children: [
-          for (final (lead, label) in const [(15, '15 min'), (60, '1 hour'), (blinkAtDusk, 'At dusk')])
-            ChoiceChip(
-              label: Text(label),
-              selected: pick == lead,
-              onSelected: (_) => choose(lead),
-            ),
-        ]),
-      ]),
-    );
-  }
-}
-
 class _Landmarks extends ConsumerStatefulWidget {
   const _Landmarks({required this.event});
   final SkyEvent event;

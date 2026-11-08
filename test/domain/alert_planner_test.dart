@@ -3,7 +3,6 @@ import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/scheduling/alert_planner.dart';
 import 'package:lookup/domain/scheduling/alert_tuning.dart';
-import 'package:lookup/domain/sky/sun.dart';
 
 SkyEvent ev(String id, SkyEventType type, DateTime start,
         {double el = 60, int? clouds, bool estimate = false,
@@ -299,65 +298,6 @@ void main() {
           details: {'crowd': true, 'headline': 'Aurora being seen right around you', 'body': 'x'});
       expect(AlertPlanner.passesQuietHours(late, plus, cdt), isFalse);
       expect(AlertPlanner.passesQuietHours(late, plus.copyWith(auroraWakeMe: true), cdt), isTrue);
-    });
-  });
-
-  // "Blink me" on the Look sheet: each event can have its own lead. It only
-  // moves when the tap comes, never whether one comes.
-  group('per-event blink leads', () {
-    const austin = (lat: 30.27, lon: -97.74);
-    final evening = now.add(const Duration(hours: 5)); // 8pm CDT, dark
-
-    test('an event with its own lead keeps it; the rest use the global one', () {
-      final a = ev('iss:mine', SkyEventType.iss, evening);
-      final b = ev('iss:other', SkyEventType.iss, evening.add(const Duration(hours: 2)));
-      final s = plus.copyWith(blinkLeads: {'iss:mine': 60});
-      final heads = planner.plan(events: [a, b], settings: s, now: now, utcOffsetMinutes: cdt)
-          .where((p) => p.kind == AlertKind.headsUp).toList();
-      expect(heads[0].fireAt, a.start.subtract(const Duration(hours: 1)));
-      expect(heads[0].title, 'ISS flyover in 1 h');
-      expect(heads[1].fireAt, b.start.subtract(const Duration(minutes: 10)));
-    });
-
-    test('at dusk taps when it gets dark that evening, with a true lead in the title', () {
-      final e = ev('iss:dusk', SkyEventType.iss, evening);
-      final s = plus.copyWith(latitude: austin.lat, longitude: austin.lon, blinkLeads: {'iss:dusk': blinkAtDusk});
-      final head = planner.plan(events: [e], settings: s, now: now, utcOffsetMinutes: cdt)
-          .firstWhere((p) => p.kind == AlertKind.headsUp);
-      expect(isDark(head.fireAt, austin.lat, austin.lon), isTrue);
-      expect(isDark(head.fireAt.subtract(const Duration(minutes: 5)), austin.lat, austin.lon), isFalse,
-          reason: 'it fires as it gets dark, not later');
-      final lead = e.start.difference(head.fireAt).inMinutes;
-      expect(lead, greaterThan(10));
-      expect(head.title, AlertPlanner.headsUpTitle(e, lead));
-    });
-
-    test('at dusk falls back to the global lead with no place, in daylight, or once dusk has gone', () {
-      final e = ev('iss:dusk', SkyEventType.iss, evening);
-      final pick = {'iss:dusk': blinkAtDusk};
-      final global = e.start.subtract(const Duration(minutes: 10));
-      expect(AlertPlanner.blinkAt(e, plus.copyWith(blinkLeads: pick), now), global, reason: 'no place');
-      final placed = plus.copyWith(latitude: austin.lat, longitude: austin.lon, blinkLeads: pick);
-      final noon = ev('iss:dusk', SkyEventType.iss, DateTime.utc(2026, 10, 22, 17));
-      expect(AlertPlanner.blinkAt(noon, placed, now), noon.start.subtract(const Duration(minutes: 10)),
-          reason: 'daylight: no dusk to wait for');
-      final late = e.start.subtract(const Duration(minutes: 30)); // after dusk
-      expect(AlertPlanner.blinkAt(e, placed, late), global, reason: 'dusk already went');
-    });
-
-    test('a blink lead never adds an alert: not for unpushed or switched-off types', () {
-      final transit = ev('transit-sun:x', SkyEventType.issTransit, evening, details: {'body': 'Sun'});
-      final outlook = ev('aurora-outlook:x', SkyEventType.auroraOutlook, evening);
-      final iss = ev('iss:off', SkyEventType.iss, evening);
-      final picks = {for (final e in [transit, outlook, iss]) e.id: 60};
-      expect(planner.plan(events: [transit, outlook, iss], settings: plus.copyWith(issEnabled: false, blinkLeads: picks),
-          now: now, utcOffsetMinutes: cdt), isEmpty);
-    });
-
-    test('blink leads round-trip through JSON', () {
-      final s = plus.copyWith(blinkLeads: {'iss:a': 15, 'iss:b': blinkAtDusk});
-      expect(LookUpSettings.fromJson(s.toJson()).blinkLeads, s.blinkLeads);
-      expect(LookUpSettings.fromJson(plus.toJson()).blinkLeads, isEmpty);
     });
   });
 }
