@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import forge from 'node-forge';
@@ -83,6 +83,15 @@ describe('creating an invite', () => {
     ]) {
       expect((await post({ ...good, ...bad })).status, JSON.stringify(bad)).toBe(400);
     }
+  });
+
+  // The app shares whatever it shows (share_card.dart sends `e.type.name`), so
+  // every kind in its SkyEventType must be one the relay takes.
+  it('takes every kind of event the app can share', async () => {
+    const dart = readFileSync(join(__dirname, '../../lib/domain/models/sky_event.dart'), 'utf8');
+    const kinds = [...dart.match(/^enum SkyEventType \{[\s\S]*?^\}/m)![0].matchAll(/^  ([a-zA-Z]+)\(/gm)].map((m) => m[1]);
+    expect(kinds).toContain('fullMoonRise');
+    for (const type of kinds) expect((await post({ ...good, type })).status, type).toBe(201);
   });
 
   it('a network can make a few dozen an hour, not a flood', async () => {
