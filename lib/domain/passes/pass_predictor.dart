@@ -43,12 +43,20 @@ class PassPredictor {
       elements: record.toElements(),
       observer: observer,
     );
-    final found = sat.visiblePasses(
-      from: from.toUtc(),
-      to: to.toUtc(),
-      minElevationDeg: 10,
-      twilight: TwilightPhase.civil,
-    );
+    final List<PassVisibility> found;
+    try {
+      found = sat.visiblePasses(
+        from: from.toUtc(),
+        to: to.toUtc(),
+        minElevationDeg: 10,
+        twilight: TwilightPhase.civil,
+      );
+    } on PropagationException {
+      // SGP4 gives up on an object that is re-entering (Celestrak still
+      // publishes them, Starlinks above all). Its passes can't be trusted, so
+      // it has none, and one falling satellite never stops a whole refresh.
+      return const [];
+    }
     final events = <SkyEvent>[];
     for (final pv in found) {
       if (!pv.isVisible || pv.visibleIntervals.isEmpty) continue;

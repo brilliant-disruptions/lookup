@@ -96,6 +96,25 @@ void main() {
     expect(high.every((e) => e.peakElevationDeg >= 40), isTrue);
   });
 
+  // STARLINK-5046 in the fixture is re-entering (BSTAR 0.0035): SGP4 gives
+  // up on it around 2026-11-18. That threw out of predict and took the whole
+  // refresh down with it, alerts included, from 2026-11-11 on.
+  test('a re-entering satellite has no passes instead of throwing', () {
+    final falling = OmmRecord.listFromJson(jsonDecode(
+            File('test/fixtures/starlink_sample.json').readAsStringSync()))
+        .singleWhere((r) => r.objectName == 'STARLINK-5046');
+    final predictor = PassPredictor(latitude: 40.0, longitude: -75.0);
+    List<SkyEvent> over(DateTime from, int days) => predictor.predict(
+        record: falling,
+        type: SkyEventType.starlinkTrain,
+        from: from,
+        to: from.add(Duration(days: days)),
+        minPeakElevationDeg: 10);
+    expect(over(DateTime.utc(2026, 11, 11), 10), isEmpty);
+    // Before its decay it still propagates like any other satellite.
+    expect(() => over(DateTime.utc(2026, 10, 21), 3), returnsNormally);
+  });
+
   test('cloud forecast is attached when provided', () {
     final predictor = PassPredictor(latitude: 36.17, longitude: -86.78);
     final from = DateTime.utc(2026, 10, 20, 16);
