@@ -93,6 +93,12 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                     icons: const [Icons.view_timeline_rounded, Icons.calendar_month_rounded],
                   ),
                 ),
+                if (d.satellitesMissing)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: Text('Satellite passes will appear once we can reach the tracking data.',
+                        textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5)),
+                  ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: PageView(controller: _pages, children: [

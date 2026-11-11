@@ -40,6 +40,9 @@ SkyEvent _ev(String id, SkyEventType type, Duration from, [Map<String, Object?> 
     );
 
 class _Home extends HomeNotifier {
+  _Home({this.satellitesMissing = false});
+  final bool satellitesMissing;
+
   @override
   Future<HomeData> build() async => HomeData(
         events: [
@@ -53,20 +56,21 @@ class _Home extends HomeNotifier {
         aurora: null,
         lastRefresh: _now,
         errors: const [],
+        satellitesMissing: satellitesMissing,
       );
   @override
   Future<void> refresh({bool force = false, bool quick = false}) async {}
 }
 
 void main() {
-  Future<void> pump(WidgetTester t) async {
+  Future<void> pump(WidgetTester t, {bool satellitesMissing = false}) async {
     t.view.physicalSize = const Size(1179, 2556);
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
     await t.pumpWidget(ProviderScope(
       overrides: [
         settingsProvider.overrideWith(_Settings.new),
-        homeProvider.overrideWith(_Home.new),
+        homeProvider.overrideWith(() => _Home(satellitesMissing: satellitesMissing)),
         clockProvider.overrideWith((_) => Stream.value(DateTime.now())),
       ],
       child: MaterialApp(theme: buildLookUpTheme(), home: const UpcomingScreen()),
@@ -75,6 +79,18 @@ void main() {
       await t.pump(const Duration(milliseconds: 200));
     }
   }
+
+  // A week with no flyovers must say why when it's our missing data, not
+  // an empty sky, and stay quiet when the data is there.
+  testWidgets('says satellite passes are on their way only while orbit data is missing', (t) async {
+    const note = 'Satellite passes will appear once we can reach the tracking data.';
+    await pump(t, satellitesMissing: true);
+    expect(find.text(note), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await pump(t);
+    expect(find.text(note), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
 
   testWidgets('at a glance, each marker says what it is: which satellite, which planets', (t) async {
     await pump(t);
