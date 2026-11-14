@@ -118,11 +118,20 @@ Xcode Cloud picks it up and the next TestFlight build has all of it.
 
 - **Privacy manifest.** The app's own Swift reads `UserDefaults`
   (`LookUpIntents.swift`, the widget's app group), which Apple counts as a
-  "required reason" API. Add `PrivacyInfo.xcprivacy` to the Runner target
-  and to the widget extension (File › New › App Privacy), with *User
-  Defaults* and reason **CA92.1** (the app's own settings) for Runner and
-  **1C8F.1** (app group) for the widget. Without it App Store Connect warns
-  on upload (ITMS-91053). The plugins ship their own.
+  "required reason" API. The two files are written and waiting, in no
+  target yet (the project file isn't edited from Linux):
+  - Drag `ios/Runner/PrivacyInfo.xcprivacy` into the **Runner** group and
+    tick **Runner** under *Target Membership*. It declares *User Defaults*
+    with reason **CA92.1** (the app's own settings), no tracking, and one
+    kind of data collected: coarse location, for app functionality, not
+    linked to the user. That last part must say the same as the App
+    Privacy answers below; change both together.
+  - When the widget extension exists, give it
+    `ios/LookUpWidgets/PrivacyInfo.xcprivacy` the same way (*User Defaults*,
+    reason **1C8F.1**, the app group; nothing collected).
+
+  Without them App Store Connect warns on upload (ITMS-91053). The plugins
+  ship their own.
 
 ## Still to build: App Attest for Seen near you
 
