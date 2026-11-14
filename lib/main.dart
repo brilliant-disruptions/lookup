@@ -36,9 +36,11 @@ Future<void> main() async {
     // Background refresh is best effort (unsupported on some platforms).
   }
   // Seen near you wake-ups (iPhone): a nudge from the relay runs the usual
-  // refresh, which decides for itself whether to alert. Registration
-  // follows the settings: on, off, or a new area.
-  await PushService.init(onWake: () => container.read(homeProvider.notifier).refresh(force: true));
+  // refresh, which decides for itself whether to alert. Not forced: anyone
+  // can send the relay reports, so a nudge must not be a way to make every
+  // phone nearby fetch its feeds early (the reports themselves are always
+  // read fresh). Registration follows the settings: on, off, or a new area.
+  await PushService.init(onWake: () => container.read(homeProvider.notifier).refresh());
   container.listen(settingsProvider, (_, next) {
     if (next.value case final s?) PushService.sync(s);
   }, fireImmediately: true);

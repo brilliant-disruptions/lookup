@@ -82,6 +82,22 @@ Run on a device (⌘R) and try:
   show the path and "appears here". If it's missing, the alert text must still
   arrive (that fallback is tested, the picture itself only on a device).
 
+- **LookUp+ comes and goes with the subscription** (sandbox Apple ID, or a
+  StoreKit configuration file in Xcode; a sandbox month lasts five minutes).
+  None of this could be run on Linux, only against a stand-in for the store:
+  - Buy monthly: the paywall closes and Plus-only alerts appear.
+  - Let it lapse (cancel in Settings › App Store › Sandbox Account, wait for
+    the period to end), then relaunch: LookUp+ should still be on. A few
+    days later (`PlusGrant.doubt`; shorten it for the test) it should be
+    off, and *Restore purchases* should bring nothing back.
+  - Resubscribe: back on at the next launch, with no tap on Restore.
+  - Refund (Xcode › Debug › StoreKit › Manage Transactions › Refund) with
+    the app open: off within seconds.
+  - Launching must never show an Apple ID sign-in sheet.
+  - Leave the phone alone overnight with a renewing sandbox subscription and
+    check the Plus-only alerts are still planned in the morning (the
+    background refresh reads the renewal).
+
 ## 5. Commit and push
 
 ```
@@ -99,6 +115,26 @@ Xcode Cloud picks it up and the next TestFlight build has all of it.
   (Your rough coordinates go to Open-Meteo for the cloud forecast; nothing
   else leaves the phone.) Everything else: *Data Not Collected*.
 - **Listing copy and screenshots:** see [`app-store-listing.md`](app-store-listing.md).
+
+- **Privacy manifest.** The app's own Swift reads `UserDefaults`
+  (`LookUpIntents.swift`, the widget's app group), which Apple counts as a
+  "required reason" API. Add `PrivacyInfo.xcprivacy` to the Runner target
+  and to the widget extension (File › New › App Privacy), with *User
+  Defaults* and reason **CA92.1** (the app's own settings) for Runner and
+  **1C8F.1** (app group) for the widget. Without it App Store Connect warns
+  on upload (ITMS-91053). The plugins ship their own.
+
+## Still to build: App Attest for Seen near you
+
+Anyone can post an aurora report to the relay today; nothing proves it came
+from a real install. The phone is safe against that (reports never raise an
+alert by themselves, and a wake-up is an ordinary refresh), but a script can
+still wake phones in an area every half hour and put its own "N people, X km
+north" wording on an alert the model raises anyway. The fix is App Attest:
+`DCAppAttestService` in the app to make a key and sign each report, and the
+relay checking the attestation and counting keys, not tokens, as people. It
+needs Swift compiled against the iOS SDK and the App Attest capability, so
+it waits for a Mac (`docs/seen-near-you.md`, build order step 1).
 
 ## Catch it: manual long exposures on iPhone
 

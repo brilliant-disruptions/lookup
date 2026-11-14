@@ -1,5 +1,6 @@
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
@@ -7,6 +8,7 @@ import '../domain/log/sky_log.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/plus/plus_grant.dart';
 import '../domain/units.dart';
 import '../services/ambient_light.dart';
 import '../services/live_activity.dart';
@@ -202,15 +204,24 @@ class AlertTaps extends Notifier<AlertTap?> {
 
 final alertTapProvider = NotifierProvider<AlertTaps, AlertTap?>(AlertTaps.new);
 
-/// Store billing. Entitlement flows into settings.isPlus and triggers a
-/// re-plan so Plus-only alerts get scheduled right away.
+/// Store billing. What the store says flows into settings (isPlus and its
+/// end date, domain/plus/plus_grant.dart), and a change either way triggers
+/// a re-plan so Plus-only alerts are scheduled, or dropped, right away.
 final plusServiceProvider = Provider<PlusService>((ref) {
   final svc = PlusService(
-    onEntitlementChanged: (isPlus) async {
-      await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(isPlus: isPlus));
-      await ref.read(homeProvider.notifier).refresh();
+    onNews: (news) async {
+      final now = DateTime.now().toUtc();
+      final before = await ref.read(settingsProvider.future);
+      final after = PlusGrant.apply(before, news, now);
+      if (identical(after, before)) return;
+      await ref.read(settingsProvider.notifier).edit((s) => PlusGrant.apply(s, news, now));
+      if (after.isPlus != before.isPlus) await ref.read(homeProvider.notifier).refresh();
     },
   );
+  // Back in front after time away: a renewal, a lapse or a refund may have
+  // happened meanwhile (silent, like the check at launch).
+  final resumed = AppLifecycleListener(onResume: svc.recheck);
+  ref.onDispose(resumed.dispose);
   ref.onDispose(svc.dispose);
   return svc;
 });

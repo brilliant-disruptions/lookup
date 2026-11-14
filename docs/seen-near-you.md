@@ -40,7 +40,7 @@ No map of reports and no counts by town. Just "near you", in words.
 |---|---|---|
 | Dark where you are | `isDark` | Same as every other alert |
 | Not cloudy where you are | ≤ 60% | Never send people out into cloud |
-| The model finds it plausible here | Kp ≥ needed − 1.5 | **Reports alone never alert.** The crowd can confirm what the model calls a little short, not overrule it |
+| The model says go here by itself | `auroraNow()`: Kp ≥ needed − 1 and Ovation ≥ 20% | **Reports never raise an alert the model wouldn't.** Anyone can post one and nothing yet checks reporters are real installs (no App Attest or Play Integrity), so four made-up tokens must not be enough. The crowd only says where an aurora the model calls is being seen |
 | Different people | ≥ 4 | One person tapping twenty times counts once |
 | From more than one place | ≥ 2 cells | No single crowd or prank |
 | Close enough | ≤ 250 km | Your sky, not the region's |
@@ -69,9 +69,12 @@ not linked to you" (App Store) and the matching Play data-safety entry.
 
 Small on purpose. Two endpoints, memory measured in megabytes.
 
-- `POST /report`: rate limited per token (1 / 5 min) and per IP. Checked
-  with **App Attest** (iOS) and **Play Integrity** (Android) so scripts
-  can't flood it. Kept for 1 hour, then deleted.
+- `POST /report`: rate limited per token (1 / 5 min) and per network (an
+  IPv4 address, or an IPv6 /64: one line can't have a budget per address).
+  **Not yet checked** with App Attest (iOS) or Play Integrity (Android), so
+  a script can still post reports; that is why reports never raise an alert
+  by themselves and a wake-up is only an ordinary refresh (see The rules).
+  Kept for 1 hour, then deleted.
 - `GET /reports?cells=…`: the last 30 minutes for those cells.
 - **Push:** when a cell's count crosses the threshold, the relay wakes
   phones that have opted in for the surrounding cells. The phone then runs
@@ -135,15 +138,17 @@ Also before launch:
    - APNs and FCM senders.
 
    Tested with vitest on the real SQL. App Attest and Play Integrity
-   checks are still to come; until then the rate limits are the guard.
+   checks are still to come; until then the rate limits are the guard,
+   and a reporter token is not a person, so the phone never lets reports
+   raise an alert its own model wouldn't (see The rules).
 2. ✅ **App, reporting:** `data/aurora_reports_client.dart`, and *Can you
    see it?* (by eye / on my camera) on the aurora's Look sheet. It asks
    before the first send, and there's a switch in Settings › Tell me about.
 3. ✅ **App, alert:** when the app refreshes at night with the aurora within
-   reach, it reads nearby reports. `crowdConfirms()` can then raise the
-   usual 3-hourly aurora-now alert, worded "Aurora being seen 60 km north
-   of you". It's LookUp+, follows quiet hours (with the aurora wake-me
-   override) and keeps the same id, so it fires once. Tested.
+   reach, it reads nearby reports. When the model raises the usual
+   3-hourly aurora-now alert, `crowdConfirms()` can word it "Aurora being
+   seen 60 km north of you". It's LookUp+, follows quiet hours (with the
+   aurora wake-me override) and keeps the same id, so it fires once. Tested.
 4. ✅ **Deploy the relay** (`relay/README.md`, about 10 minutes, needs a
    Cloudflare account). Then build the app with
    `--dart-define=LOOKUP_RELAY_URL=…`.
