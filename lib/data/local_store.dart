@@ -13,6 +13,7 @@ import '../domain/log/sighting.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
+import '../domain/plus/plus_grant.dart';
 import '../domain/weather/cloud_forecast.dart';
 
 class CachedElements {
@@ -88,8 +89,10 @@ class LocalStore {
     final raw = await _prefs.getString(_kSettings);
     if (raw == null) return const LookUpSettings();
     try {
-      return LookUpSettings.fromJson(
-          (jsonDecode(raw) as Map).cast<String, Object?>());
+      // Every reader (the app, the background refresh, the alert planner)
+      // sees a subscription that has run out as free.
+      return PlusGrant.asOf(
+          LookUpSettings.fromJson((jsonDecode(raw) as Map).cast<String, Object?>()), DateTime.now().toUtc());
     } catch (_) {
       return const LookUpSettings();
     }

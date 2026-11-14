@@ -6,6 +6,7 @@ import 'package:workmanager/workmanager.dart';
 
 import '../data/local_store.dart';
 import 'notification_service.dart';
+import 'plus_service.dart';
 import 'push_service.dart';
 import 'refresh_service.dart';
 import 'shortcut_summary.dart';
@@ -34,6 +35,9 @@ Future<void> runBackgroundRefresh() async {
   await notifications.init();
   await WidgetService.init();
   final store = LocalStore();
+  // A renewal is read here too, so a subscriber who never opens the app
+  // keeps their alerts (iPhone; a few seconds at most).
+  await confirmPlusInBackground(store);
   final service = RefreshService(
     store: store,
     notifications: notifications,

@@ -154,24 +154,34 @@ void main() {
     const edinburgh = LookUpSettings(latitude: 55.95, longitude: -3.19, isPlus: true, seenNearby: true);
     final night = DateTime.utc(2026, 11, 2, 22);
     final snap = AuroraSnapshot(fetchedAt: night, kpNow: 3.5, forecast: const [], ovationProbability: 5);
+    // Kp 4.5 and Ovation 40%: the model says go there by itself.
+    final go = AuroraSnapshot(fetchedAt: night, kpNow: 4.5, forecast: const [], ovationProbability: 40);
     AuroraReport r(String who, double lat, double lon) {
       final c = reportCell(lat, lon);
       return AuroraReport(cellLat: c.lat, cellLon: c.lon, at: night.subtract(const Duration(minutes: 3)), how: SeenHow.eye, reporter: who);
     }
 
     final crowd = [r('a', 55.86, -4.25), r('b', 56.40, -3.43), r('c', 55.60, -2.73), r('d', 56.12, -3.16)];
-    List<SkyEvent> build(LookUpSettings s, List<AuroraReport> reports) => const EventPipeline()
-        .build(PipelineInputs(settings: s, now: night, aurora: snap, auroraReports: reports))
+    List<SkyEvent> build(LookUpSettings s, List<AuroraReport> reports, {AuroraSnapshot? aurora}) => const EventPipeline()
+        .build(PipelineInputs(settings: s, now: night, aurora: aurora ?? snap, auroraReports: reports))
         .where((e) => e.type == SkyEventType.auroraNow)
         .toList();
 
-    test('people nearby confirm what the model calls a little short', () {
-      expect(build(edinburgh, const []), isEmpty);
-      final e = build(edinburgh, crowd).single;
+    test('people nearby say where an aurora the model calls is being seen', () {
+      final plain = build(edinburgh, const [], aurora: go).single;
+      expect(plain.details['crowd'], isNull);
+      final e = build(edinburgh, crowd, aurora: go).single;
       expect(e.details['crowd'], isTrue);
       expect(e.details['people'], 4);
       expect(e.details['headline'], startsWith('Aurora being seen'));
-      expect(e.id, startsWith('aurora-now:'), reason: 'same 3-hour id: one aurora-now alert, whoever confirmed it');
+      expect(e.id, plain.id, reason: 'same 3-hour id: one aurora-now alert, whoever confirmed it');
+    });
+
+    test('but never raise one the model calls a little short: anyone can post a report', () {
+      expect(build(edinburgh, const []), isEmpty);
+      expect(build(edinburgh, crowd), isEmpty, reason: 'Kp 3.5 and Ovation 5%: the model alone stays quiet, so the crowd does too');
+      final shortKp = AuroraSnapshot(fetchedAt: night, kpNow: 2.7, forecast: const [], ovationProbability: 40);
+      expect(build(edinburgh, crowd, aurora: shortKp), isEmpty, reason: 'Kp within 1.5 of what\'s needed is no longer enough');
     });
 
     test('nothing without the switch, the aurora toggle, or the model\'s agreement', () {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { cellOf, cellsNear, isCell, type Cell } from '../src/cells';
 import type { Pusher, PushResult } from '../src/push';
-import { RULES, handle, sweep, wakeNear, type Deps } from '../src/relay';
+import { RULES, handle, networkOf, sweep, wakeNear, type Deps } from '../src/relay';
 import { SqlStore, type Subscriber } from '../src/store';
 import { sqliteD1 } from './sqlite_d1';
 
@@ -106,6 +106,30 @@ describe('reports', () => {
     for (let i = 0; i <= RULES.ipLimit.n; i++) last = (await report(glasgow, token(`p${i}`), 'eye', '198.51.100.1')).status;
     expect(last).toBe(429);
     expect((await report(glasgow, token('fresh'), 'eye', '198.51.100.2')).status).toBe(202);
+  });
+
+  it('nor by hopping between the addresses of one IPv6 line', async () => {
+    let last = 0;
+    for (let i = 0; i <= RULES.ipLimit.n; i++) {
+      last = (await report(glasgow, token(`v6-${i}`), 'eye', `2001:db8:1:2::${(i + 1).toString(16)}`)).status;
+    }
+    expect(last).toBe(429);
+    // The line next door (another /64) has its own budget.
+    expect((await report(glasgow, token('neighbour'), 'eye', '2001:db8:1:3::1')).status).toBe(202);
+  });
+
+  it('a network is an IPv4 address, or an IPv6 /64 however it is written', () => {
+    expect(networkOf('203.0.113.7')).toBe('203.0.113.7');
+    expect(networkOf('::ffff:203.0.113.7')).toBe('203.0.113.7');
+    expect(networkOf('unknown')).toBe('unknown');
+    const line = networkOf('2001:db8:1:2::1');
+    expect(line).toBe('2001:db8:1:2::/64');
+    for (const same of ['2001:DB8:1:2:aaaa:bbbb:cccc:dddd', '2001:0db8:0001:0002:0000:0000:0000:0009', '2001:db8:1:2::', '2001:db8:1:2:ffff::1%en0']) {
+      expect(networkOf(same), same).toBe(line);
+    }
+    expect(networkOf('2001:db8:1:3::1')).not.toBe(line);
+    expect(networkOf('2001:db8::1')).toBe('2001:db8:0:0::/64');
+    expect(networkOf('::1')).toBe('0:0:0:0::/64');
   });
 
   it('only the last twenty minutes are returned; the sweep forgets them after an hour', async () => {

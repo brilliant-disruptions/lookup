@@ -5,9 +5,12 @@
 /// yet). This file is the part that must never cry wolf, so it runs on the
 /// phone and is tested here:
 ///
-///  * Reports alone never confirm anything. The model has to find aurora
-///    plausible at your geomagnetic latitude too (Kp within [CrowdRules.kpSlack]
-///    of what's needed there), and it has to be dark and clear where you are.
+///  * Reports never raise an alert the model wouldn't raise by itself. Anyone
+///    can post one, and nothing yet checks that a reporter is a real install
+///    (no App Attest or Play Integrity), so a few made-up reporters must not
+///    be enough: the model's own aurora-now gate ([auroraNow]: Kp, Ovation,
+///    dark, clear) has to say go here, and the crowd only says where it's
+///    being seen.
 ///  * Several different people, from more than one place, recently, and not
 ///    all from much further toward the pole than you (aurora seen 250 km
 ///    nearer the pole says little about your sky).
@@ -101,8 +104,9 @@ class CrowdRules {
   /// Different cells: no single crowd (or single prankster with friends).
   final int minCells;
 
-  /// The crowd can confirm an aurora the Kp model would call a little
-  /// short (it often is, south of the oval), but only by this much.
+  /// How far short of the Kp needed here the app still asks the relay for
+  /// reports. The crowd never confirms past the model: [crowdConfirms]
+  /// needs the model's own aurora-now gate to say go.
   final double kpSlack;
 
   /// Reports count only from up to this much further toward the pole
@@ -164,6 +168,7 @@ CrowdVerdict crowdConfirms({
   required double latDeg,
   required double lonDeg,
   required double estimatedKp,
+  required int ovationProbability,
   int? cloudCoverPercent,
   CrowdRules rules = const CrowdRules(),
 }) {
@@ -173,11 +178,18 @@ CrowdVerdict crowdConfirms({
   if (cloudCoverPercent != null && cloudCoverPercent > rules.cloudyThreshold) {
     return CrowdVerdict.no('cloudy $cloudCoverPercent%');
   }
-  // The model has to agree it's possible here: reports alone never do it.
-  final needed = kpNeededAt(latDeg, lonDeg);
-  if (estimatedKp < needed - rules.kpSlack) {
-    return CrowdVerdict.no('Kp ${estimatedKp.toStringAsFixed(1)} too far below ${needed.toStringAsFixed(1)}');
-  }
+  // The model has to say go here on its own, Ovation included, exactly as
+  // for an aurora-now alert with no reports. Reporters are unauthenticated
+  // tokens anyone can mint, so the crowd may word that alert, never raise one.
+  final model = auroraNow(
+    now: u,
+    latDeg: latDeg,
+    lonDeg: lonDeg,
+    estimatedKp: estimatedKp,
+    ovationProbability: ovationProbability,
+    cloudCoverPercent: cloudCoverPercent,
+  );
+  if (!model.alert) return CrowdVerdict.no('model says no: ${model.reason}');
   final myMag = geomagneticLatitudeDeg(latDeg, lonDeg).abs();
   final latest = <String, AuroraReport>{}; // one per person: their latest
   for (final r in reports) {

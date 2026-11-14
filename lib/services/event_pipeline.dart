@@ -168,9 +168,9 @@ class EventPipeline {
           ovationProbability: a.ovationProbability,
           cloudCoverPercent: i.clouds?.coverAt(now),
         );
-        // Seen near you: people nearby can confirm what the model calls a
-        // little short; never on their own (crowdConfirms checks the model,
-        // the dark and the cloud itself).
+        // Seen near you: people nearby say where an aurora the model
+        // already calls is being seen; never one it doesn't (crowdConfirms
+        // runs the same aurora-now gate, so `seen` implies `d.alert`).
         final crowd = s.seenNearby && i.auroraReports.isNotEmpty
             ? crowdConfirms(
                 reports: i.auroraReports,
@@ -178,6 +178,7 @@ class EventPipeline {
                 latDeg: lat,
                 lonDeg: lon,
                 estimatedKp: kpNow,
+                ovationProbability: a.ovationProbability,
                 cloudCoverPercent: i.clouds?.coverAt(now),
               )
             : null;
