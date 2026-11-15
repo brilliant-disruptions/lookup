@@ -4,7 +4,7 @@
 /// hint under that, shown once; and one line of direction words at the foot.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme.dart';
 import 'controls.dart';

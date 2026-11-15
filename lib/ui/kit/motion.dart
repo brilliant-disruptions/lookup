@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A calm entrance: a transform-only rise (12 px → 0, 520 ms, ease-out),
 /// staggered by [delay]. Transform-only means content is always readable
