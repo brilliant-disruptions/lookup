@@ -122,7 +122,20 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Kicker(kicker, color: tint == LookUpColors.grey ? LookUpColors.grey : tint, live: live || v.kind == VerdictKind.go),
+          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            Expanded(
+              child: Kicker(kicker, color: tint == LookUpColors.grey ? LookUpColors.grey : tint, live: live || v.kind == VerdictKind.go),
+            ),
+            // Pip on Tonight: found it while something's up, blinking in the
+            // last two minutes, can't see when it's a night to stay in.
+            PipMark(
+              key: const Key('tonight-pip'),
+              size: 40,
+              state: live ? PipState.found : PipState.idle,
+              blinking: !live && until != null && !until.isNegative && until < const Duration(minutes: 2),
+              dim: v.kind == VerdictKind.stayIn,
+            ),
+          ]),
           const SizedBox(height: 8),
           Semantics(
             header: true,

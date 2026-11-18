@@ -19,6 +19,7 @@ import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
 import 'tour.dart';
+import 'pip/pip_intro.dart';
 
 /// [nightVision]: open scrolled to the Night vision section (from the card
 /// that pressing and holding Settings shows).
@@ -215,6 +216,13 @@ class SettingsScreen extends ConsumerWidget {
               subtitle: 'The next pass, where to look and a live countdown',
               onTap: WidgetService.pin,
             ),
+          _Row(
+            icon: Icons.blur_on_rounded,
+            color: LookUpColors.good,
+            title: 'Meet Pip',
+            subtitle: 'Your guide, and what its light means',
+            onTap: () => showPipIntro(context),
+          ),
           _Row(
             icon: Icons.play_arrow_rounded,
             color: LookUpColors.good,
