@@ -31,8 +31,21 @@ Offset fireflyHover(double seconds, {bool landed = false}) {
 
 /// Paints the firefly at [at]. [blink] 0…1 is how bright it is right now
 /// (the finder pulses it; at rest it's 0.5). [scale] sizes it for bigger
-/// canvases such as the alert picture.
-void paintFirefly(Canvas canvas, Offset at, {double blink = 0.5, double scale = 1}) {
+/// canvases such as the alert picture. [stretch] and [squash] pull it longer
+/// along [angle] and narrower across it, for Pip's squash and stretch
+/// (pip_motion.dart); left at 1 it's a plain round light.
+void paintFirefly(Canvas canvas, Offset at,
+    {double blink = 0.5, double scale = 1, double stretch = 1, double squash = 1, double angle = 0}) {
+  if (stretch != 1 || squash != 1) {
+    canvas
+      ..save()
+      ..translate(at.dx, at.dy)
+      ..rotate(angle)
+      ..scale(stretch, squash);
+    paintFirefly(canvas, Offset.zero, blink: blink, scale: scale);
+    canvas.restore();
+    return;
+  }
   canvas.drawCircle(
       at,
       30 * scale,

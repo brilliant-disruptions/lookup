@@ -249,11 +249,11 @@ void main() {
   });
 
   // Pip is the one guide from the first screen on, so it is on every step.
-  testWidgets('Pip is on every step: resting, circling, on the first sight, blinking at the ask', (t) async {
+  testWidgets('Pip is on every step: saying hello, circling, on the first sight, blinking at the ask', (t) async {
     await pump(t, grantLocation: true);
     expect(find.text('This is Pip. Pip shows you where to look.'), findsOneWidget);
     PipMark pip() => t.widget<PipMark>(find.byKey(const Key('onboarding-pip')));
-    expect(pip().state, PipState.resting);
+    expect(pip().state, PipState.hello);
     expect(pip().dim, isFalse);
 
     home.slowQuick = Completer();

@@ -86,7 +86,7 @@ void main() {
     expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.idle);
     c.add(south);
     await t.pump();
-    expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.resting, reason: 'Saturn is in the middle');
+    expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.found, reason: 'Saturn is in the middle');
     c.add(east);
     await t.pump();
     expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.idle);
