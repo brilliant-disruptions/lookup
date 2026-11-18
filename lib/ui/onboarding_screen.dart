@@ -8,6 +8,7 @@ import '../domain/models/sky_event.dart';
 import '../domain/scheduling/alert_planner.dart';
 import 'format.dart';
 import 'intro_scene.dart';
+import 'pip/pip_intro.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
@@ -24,10 +25,10 @@ class OnboardingScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingScreen> createState() => _OnboardingState();
 }
 
-enum _Step { intro, noLocation, looking, sights }
+enum _Step { pip, intro, noLocation, looking, sights }
 
 class _OnboardingState extends ConsumerState<OnboardingScreen> {
-  _Step _step = _Step.intro;
+  _Step _step = _Step.pip;
   bool _busy = false;
 
   @override
@@ -113,6 +114,12 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
     final t = Theme.of(context).textTheme;
     if (_step == _Step.looking || _step == _Step.sights) {
       return _SightsPage(looking: _step == _Step.looking, busy: _busy, onFinish: _finish);
+    }
+    if (_step == _Step.pip) {
+      // Meet Pip first: the guide the rest of the app is built around.
+      return Scaffold(
+        body: SkyBackdrop(child: SafeArea(child: PipIntro(onDone: () => setState(() => _step = _Step.intro)))),
+      );
     }
     return Scaffold(
       body: SkyBackdrop(

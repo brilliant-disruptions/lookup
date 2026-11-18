@@ -115,7 +115,7 @@ void main() {
   late _Notifications notifications;
   late _Refresh refresh;
 
-  Future<void> pump(WidgetTester t, {required bool grantLocation}) async {
+  Future<void> pump(WidgetTester t, {required bool grantLocation, bool skipPip = true}) async {
     t.view.physicalSize = const Size(1179, 2556);
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
@@ -138,6 +138,12 @@ void main() {
     ));
     for (var i = 0; i < 6; i++) {
       await t.pump(const Duration(milliseconds: 300));
+    }
+    if (skipPip) {
+      await t.tap(find.text('Skip'));
+      for (var i = 0; i < 4; i++) {
+        await t.pump(const Duration(milliseconds: 300));
+      }
     }
   }
 
@@ -233,6 +239,31 @@ void main() {
     }
     expect(find.text('ISS flyover'), findsOneWidget);
     expect(find.textContaining('Times may be off'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Pip introduces itself first: hello, flying there, lighting up, then the ask', (t) async {
+    await pump(t, grantLocation: true, skipPip: false);
+    PipMark pip() => t.widget<PipMark>(find.byType(PipMark));
+    expect(find.text('Hi! I\'m Pip.'), findsOneWidget);
+    expect(pip().state, PipState.hello);
+    await t.tap(find.text('Next'));
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('I fly there first.'), findsOneWidget);
+    expect(pip().flyFrom, isNotNull, reason: 'it flies in');
+    await t.tap(find.text('Next'));
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('Then I light up.'), findsOneWidget);
+    expect(pip().state, PipState.found);
+    await t.tap(find.text('Nice to meet you'));
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('Show me what\'s over me'), findsOneWidget, reason: 'then the location ask');
     await t.pumpWidget(const SizedBox());
   });
 

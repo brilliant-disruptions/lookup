@@ -104,7 +104,19 @@ class CaughtItScreen extends ConsumerWidget {
                         children: [
                           SizedBox(
                             height: 170,
-                            child: _Burst(tint: tint, animate: animate, child: EventGlyph.of(event, size: 68)),
+                            child: _Burst(
+                              tint: tint,
+                              animate: animate,
+                              // Pip found it with you: its ring and hop, by the sight.
+                              child: Stack(clipBehavior: Clip.none, children: [
+                                EventGlyph.of(event, size: 68),
+                                const Positioned(
+                                  right: -30,
+                                  top: -30,
+                                  child: PipMark(key: Key('caught-pip'), size: 44, state: PipState.found),
+                                ),
+                              ]),
+                            ),
                           ),
                           Rise(
                             index: 0,
