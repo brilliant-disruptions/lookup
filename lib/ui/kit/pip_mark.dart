@@ -1,20 +1,16 @@
-/// Pip off the finder: the same firefly [paintFirefly] draws in alerts and on
-/// the sky, as a widget for every other screen. Kept out of
+/// Pip off the finder: the same light [paintFirefly] draws in alerts and on
+/// the sky, as a widget for every other screen. Pip has no face or body; its
+/// character is how it moves (pip_motion.dart). Kept out of
 /// firefly_mark.dart, which must stay `dart:ui` only for the alert isolate.
 library;
-
-import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'firefly_mark.dart';
+import 'pip_motion.dart';
 
-/// What Pip is doing.
-/// - [idle]: hovering, blinking slowly.
-/// - [searching]: circling, waiting on something.
-/// - [resting]: landed on something, a gentle hover and a steady glow.
-enum PipState { idle, searching, resting }
+export 'pip_motion.dart' show PipState;
 
 class PipMark extends StatefulWidget {
   const PipMark({
@@ -26,19 +22,22 @@ class PipMark extends StatefulWidget {
     this.flyFrom,
   });
 
+  /// What Pip is doing. [PipState.hello] and [PipState.found] play once
+  /// each time Pip changes to them, then Pip rests.
   final PipState state;
 
   /// The square Pip hovers in; Pip itself is drawn at a scale of size / 48.
   final double size;
 
-  /// Dimmed, as when you said no to location.
+  /// Can't see: as when you said no to location, or there's no sensor.
+  /// Smaller and dimmer, and it looks one way, then the other.
   final bool dim;
 
   /// Blinking quickly, as it does before a tap.
   final bool blinking;
 
   /// When set, Pip flies in from this offset (relative to its own place)
-  /// trailing sparks, then settles.
+  /// trailing sparks, stretched by the speed, and lands with a squash.
   final Offset? flyFrom;
 
   @override
@@ -51,6 +50,7 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
   );
   double _t = 0;
   double _flewAt = 0;
+  double _stateAt = 0;
   bool _still = false;
 
   @override
@@ -68,6 +68,7 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
   void didUpdateWidget(PipMark old) {
     super.didUpdateWidget(old);
     if (widget.flyFrom != old.flyFrom) _flewAt = _t;
+    if (widget.state != old.state) _stateAt = _t;
   }
 
   @override
@@ -84,6 +85,7 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
         painter: PipMarkPainter(
           state: widget.state,
           seconds: _t,
+          sinceState: _t - _stateAt,
           still: _still,
           dim: widget.dim,
           blinking: widget.blinking,
@@ -102,6 +104,7 @@ class PipMarkPainter extends CustomPainter {
   PipMarkPainter({
     required this.state,
     required this.seconds,
+    this.sinceState = 1e9,
     this.still = false,
     this.dim = false,
     this.blinking = false,
@@ -109,7 +112,7 @@ class PipMarkPainter extends CustomPainter {
     this.sinceFlew,
   });
   final PipState state;
-  final double seconds;
+  final double seconds, sinceState;
   final bool still, dim, blinking;
   final Offset? flyFrom;
   final double? sinceFlew;
@@ -118,47 +121,33 @@ class PipMarkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final scale = size.shortestSide / 48;
     final home = size.center(Offset.zero);
-    var at = home;
-    if (!still) {
-      switch (state) {
-        case PipState.idle:
-          at += fireflyHover(seconds) * scale;
-        case PipState.resting:
-          at += fireflyHover(seconds, landed: true) * scale;
-        case PipState.searching:
-          final a = seconds * 2.4;
-          at += Offset(math.cos(a), math.sin(a)) * size.shortestSide * 0.3;
-      }
-    }
+    var pose = pipPose(state, seconds, since: sinceState, dim: dim, blinking: blinking, still: still);
+    var at = home + pose.offset * scale;
     final from = flyFrom;
     final f = sinceFlew;
-    if (from != null && f != null && f < pipFlight) {
-      final k = Curves.easeInOutCubic.transform(f / pipFlight);
-      final start = home + from;
-      at = Offset.lerp(start, at, k)!;
-      paintSparkTrail(
-        canvas,
-        fireflyCurl(at, start),
-        scale: scale,
-        strength: 1 - k,
-      );
+    if (from != null && f != null) {
+      pose = pipFlightPose(pose, from, f, pipFlight);
+      if (f < pipFlight) {
+        final k = Curves.easeInOutCubic.transform(f / pipFlight);
+        final start = home + from;
+        at = Offset.lerp(start, at, k)!;
+        paintSparkTrail(canvas, fireflyCurl(at, start), scale: scale, strength: 1 - k);
+      }
     }
-    double blink;
-    if (still) {
-      blink = 1;
-    } else if (blinking) {
-      blink = 0.55 + 0.45 * math.cos(seconds * 2 * math.pi * 2.5);
-    } else if (state == PipState.resting) {
-      blink = 0.85;
-    } else {
-      blink = 0.55 + 0.45 * math.cos(seconds * 2 * math.pi / 1.6);
+    // The lock ring and burst when it's found something.
+    if (state == PipState.found && !dim) {
+      paintFireflyLanding(canvas, home, still ? 1 : sinceState, scale: scale * 0.9);
     }
-    if (dim) {
-      canvas.saveLayer(null, Paint()..color = const Color(0x59000000));
-      paintFirefly(canvas, at, blink: blink * 0.6, scale: scale);
+    final s = scale * pose.size;
+    void draw(Canvas c, double blink) => paintFirefly(c, at,
+        blink: blink, scale: s, stretch: pose.stretch, squash: pose.squash, angle: pose.angle);
+    if (dim || pose.opacity < 1) {
+      final a = (dim ? 0.35 : 1) * pose.opacity;
+      canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, a));
+      draw(canvas, pose.blink);
       canvas.restore();
     } else {
-      paintFirefly(canvas, at, blink: blink, scale: scale);
+      draw(canvas, pose.blink);
     }
   }
 

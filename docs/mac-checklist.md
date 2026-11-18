@@ -35,16 +35,30 @@ address, iOS declines, and nothing else changes.
 2. Follow [`ios-widgets.md`](ios-widgets.md) to add the widget extension
    (sources are already in `ios/LookUpWidgets/`). Give the extension the same
    App Group.
-3. **Pip on the Lock Screen (not built yet: needs Xcode to compile).** The
-   Live Activity and widgets should carry the same firefly as the app and the
-   alerts: glow `#C4F55E`, core `#F4FFD9`, drawn as in `paintFirefly`
-   (`lib/ui/kit/firefly_mark.dart`): a soft glow, a smaller bright ring, and a
-   core. In SwiftUI, three stacked `Circle()`s with `.blur` (radius 16/5/0 at
-   scale 1) in `ios/LookUpWidgets/`. The Live Activity shows Pip blinking
-   (`.symbolEffect`-style opacity pulse, 2.5 Hz) in the last minute before
-   it rises, and still once it's up. Keep the text factual ("ISS in 2 min ·
-   look west-southwest"); Pip is the only flourish. Keep both
-   `LookUpActivityAttributes` structs identical if a field is added.
+3. **Check the widgets and the Dynamic Island** (written from Linux and
+   only `swiftc -parse`d, so expect a few compile fixes). Pip is the light
+   (`PipLight`, `PipFound` in `ios/LookUpWidgets/LookUpWidgets.swift`), the
+   pass is a little arc labelled in words (`PassArc`), never degrees.
+   - Home Screen: small, medium (with the arc) and large (the next three);
+     Lock Screen: inline, circular, rectangular. The small one turns into
+     "It's up" at rise on its own (timeline entries at each rise and set).
+   - Live Activity: compact is Pip and the countdown; long-press shows the
+     arc with Pip where it rises; minimal is Pip. At rise the app's
+     `update` call lights the island up once with the LookUp chime
+     (`AlertConfiguration` in `AppDelegate.swift`), and a bar shows how far
+     along the pass is. Keep both `LookUpActivityAttributes` structs
+     identical if a field is added.
+   - The pass without the app: the activity starts stale-dated at the rise,
+     so iOS redraws it then and it flips to "It's up" with the app closed.
+     Then a **Saw it** button (iOS 17, `SawItIntent.swift`, in both
+     targets) leaves the event in the app group; the app logs it on its
+     next refresh (`lib/services/lock_screen_catches.dart`). Try it with
+     the app closed: tap Saw it, open LookUp, check the Log.
+   - Any button on the heads-up alert now starts the countdown too.
+   - Smart Stack: the widget scores itself relevant from an hour before a
+     pass until it sets. StandBy uses the small widget.
+   - Mockups: the "Island and widgets" and "An even better pass" rows on
+     the design canvas.
 
 ## 3. "Hey Siri, when's the next pass in LookUp?"
 

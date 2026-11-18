@@ -3,6 +3,7 @@
 /// and in the background refresh.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:home_widget/home_widget.dart';
@@ -31,7 +32,8 @@ class WidgetService {
 
   /// Plain strings and numbers so both native widgets stay dumb.
   /// [artPath] is the "where to look" picture for a pass ('' for none).
-  static Map<String, Object?> payloadFor(SkyEvent? e, {String artPath = ''}) {
+  /// [upcoming] is the next few (the large widget's list); the first is [e].
+  static Map<String, Object?> payloadFor(SkyEvent? e, {String artPath = '', List<SkyEvent>? upcoming}) {
     if (e == null) {
       return {
         'next_title': 'A quiet sky',
@@ -41,6 +43,12 @@ class WidgetService {
         'next_kicker': 'Nothing over you yet',
         'next_tint': eventStyle(null).color.toARGB32(),
         'next_art': '',
+        'next_end_ms': 0,
+        'next_rise': '',
+        'next_set': '',
+        'next_peak': '',
+        'next_rise_word': '',
+        'upcoming_json': '[]',
       };
     }
     return {
@@ -51,8 +59,37 @@ class WidgetService {
       'next_kicker': 'Next up · ${fmtDay(e.start)}',
       'next_tint': eventStyle(e.type, details: e.details).color.toARGB32(),
       'next_art': artPath,
+      'next_end_ms': e.end.millisecondsSinceEpoch,
+      // The arc on the medium widget and in the Dynamic Island, in words.
+      // Only for things that cross the sky; '' hides the arc.
+      'next_rise': _crosses(e.type) ? compassAbbrev(e.riseAzimuthDeg) : '',
+      'next_set': _crosses(e.type) ? compassAbbrev(e.setAzimuthDeg) : '',
+      'next_peak': elevationShort(e.peakElevationDeg).toLowerCase(),
+      'next_rise_word': compassWord(_crosses(e.type) ? e.riseAzimuthDeg : e.peakAzimuthDeg),
+      'upcoming_json': jsonEncode([for (final u in (upcoming ?? [e]).take(3)) _row(u)]),
     };
   }
+
+  /// One line of the large widget, and what the small one moves on to when
+  /// a pass is over: the widget picks the first row that hasn't ended.
+  static Map<String, Object?> _row(SkyEvent e) => {
+        'title': eventTitle(e),
+        'where': whereShort(e),
+        'time': fmtTime(e.start),
+        'day': fmtDay(e.start),
+        'start_ms': e.start.millisecondsSinceEpoch,
+        'end_ms': e.end.millisecondsSinceEpoch,
+        'sky': e.cloudCoverPercent == null ? '' : cloudWord(e.cloudCoverPercent),
+        'rise': _crosses(e.type) ? compassAbbrev(e.riseAzimuthDeg) : '',
+        'set': _crosses(e.type) ? compassAbbrev(e.setAzimuthDeg) : '',
+        'peak': elevationShort(e.peakElevationDeg).toLowerCase(),
+        'rise_word': compassWord(_crosses(e.type) ? e.riseAzimuthDeg : e.peakAzimuthDeg),
+      };
+
+  /// "from the west-southwest, high" for a pass; "south, high" for the rest.
+  static String whereShort(SkyEvent e) => _crosses(e.type)
+      ? 'from the ${compassWord(e.riseAzimuthDeg)}, ${elevationShort(e.peakElevationDeg).toLowerCase()}'
+      : '${compassWord(e.peakAzimuthDeg)}, ${elevationShort(e.peakElevationDeg).toLowerCase()}';
 
   /// The next pass's picture, written where the native widget can read it.
   static Future<String> _art(SkyEvent? e) async {
@@ -91,9 +128,10 @@ class WidgetService {
   }
 
   Future<void> update(List<SkyEvent> events) async {
-    final next = events.where((e) => e.type.pushes && e.details['past'] != true).firstOrNull;
+    final coming = events.where((e) => e.type.pushes && e.details['past'] != true).take(3).toList();
+    final next = coming.firstOrNull;
     try {
-      for (final entry in payloadFor(next, artPath: await _art(next)).entries) {
+      for (final entry in payloadFor(next, artPath: await _art(next), upcoming: coming).entries) {
         await HomeWidget.saveWidgetData(entry.key, entry.value);
       }
       await HomeWidget.updateWidget(androidName: 'NextEventWidget', iOSName: 'LookUpWidget');

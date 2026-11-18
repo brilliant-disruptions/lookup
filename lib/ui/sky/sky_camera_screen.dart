@@ -207,10 +207,10 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
               const ScanHint('Cloud or a roof in the way? Everything is still drawn where it is. '
                   'Wave the phone in a figure-8 if it drifts.'),
             const Spacer(),
-            // Pip, as on every screen you hold up: settling when there's
-            // something named in the middle, dimmed with no sensor.
+            // Pip, as on every screen you hold up: found it when there's
+            // something named in the middle, can't see with no sensor.
             PipMark(
-              state: centred != null ? PipState.resting : PipState.idle,
+              state: centred != null ? PipState.found : PipState.idle,
               dim: camera == null && _error != null,
             ),
             ScanLine(

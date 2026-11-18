@@ -5,6 +5,7 @@ library;
 import 'package:workmanager/workmanager.dart';
 
 import '../data/local_store.dart';
+import 'lock_screen_catches.dart';
 import 'notification_service.dart';
 import 'plus_service.dart';
 import 'push_service.dart';
@@ -45,6 +46,7 @@ Future<void> runBackgroundRefresh() async {
     onRefreshed: (settings, events) async {
       await const WidgetService().update(events);
       await saveShortcutSummary(events);
+      await importLockScreenCatchesFromAppGroup(store, notifications);
     },
   );
   await service.run();

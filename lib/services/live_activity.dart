@@ -30,13 +30,24 @@ class LiveActivityService {
     if (until.isNegative || until > const Duration(minutes: 30)) return;
     try {
       await _channel.invokeMethod('start', {
+        'eventId': e.id,
         'title': eventTitle(e),
         'startMs': e.start.millisecondsSinceEpoch.toDouble(),
         'endMs': e.end.millisecondsSinceEpoch.toDouble(),
         'direction': 'Look ${compassWord(e.riseAzimuthDeg)}, ${elevationWord(e.peakElevationDeg)}',
+        ...arcWords(e),
       });
     } catch (_) {}
   }
+
+  /// The words on the island's little arc: where it rises, how high, where
+  /// it sets, and the rise direction in full. Never numbers.
+  static Map<String, String> arcWords(SkyEvent e) => {
+        'rise': compassAbbrev(e.riseAzimuthDeg),
+        'set': compassAbbrev(e.setAzimuthDeg),
+        'peak': elevationShort(e.peakElevationDeg).toLowerCase(),
+        'riseWord': compassWord(e.riseAzimuthDeg),
+      };
 
   Future<void> markLive() => _call('update', {'phase': 'live'});
   Future<void> end() => _call('end');

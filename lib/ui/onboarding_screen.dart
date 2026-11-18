@@ -166,13 +166,13 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
                     ),
                   ),
                   const Spacer(flex: 2),
-                  // Pip rests on the ask, circles while it looks, and dims
-                  // if the answer is no.
+                  // Pip says hello on the ask, circles while it looks, and
+                  // can't see if the answer is no.
                   Row(children: [
                     PipMark(
                       key: const Key('onboarding-pip'),
                       size: 40,
-                      state: _busy ? PipState.searching : PipState.resting,
+                      state: _busy ? PipState.searching : PipState.hello,
                       dim: _step == _Step.noLocation,
                     ),
                     const SizedBox(width: 8),

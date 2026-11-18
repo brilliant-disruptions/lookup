@@ -161,12 +161,18 @@ final class LookUpPush {
 @available(iOS 16.1, *)
 struct LookUpActivityAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
-    var phase: String       // "countdown" | "live" | "over"
+    var phase: String       // "countdown" | "live" | "logged" | "over"
     var direction: String   // "Look west-southwest, high in the sky"
   }
+  var eventId: String
   var title: String
   var start: Date
   var end: Date
+  // The little arc, in words: "WSW", "high", "E", "west-southwest".
+  var rise: String
+  var peak: String
+  var set: String
+  var riseWord: String
 }
 #endif
 
@@ -202,9 +208,14 @@ enum LookUpLiveActivityChannel {
         Task { await activity.end(nil, dismissalPolicy: .immediate) }
       }
       let attributes = LookUpActivityAttributes(
+        eventId: args["eventId"] as? String ?? "",
         title: title,
         start: Date(timeIntervalSince1970: startMs / 1000),
-        end: Date(timeIntervalSince1970: endMs / 1000)
+        end: Date(timeIntervalSince1970: endMs / 1000),
+        rise: args["rise"] as? String ?? "",
+        peak: args["peak"] as? String ?? "",
+        set: args["set"] as? String ?? "",
+        riseWord: args["riseWord"] as? String ?? ""
       )
       let state = LookUpActivityAttributes.ContentState(
         phase: "countdown",
@@ -213,7 +224,9 @@ enum LookUpLiveActivityChannel {
       do {
         let activity = try Activity<LookUpActivityAttributes>.request(
           attributes: attributes,
-          content: ActivityContent(state: state, staleDate: attributes.end),
+          // Stale at the rise: iOS redraws it then, so it flips to "It's
+          // up" on time even with the app closed (LookUpWidgets.swift).
+          content: ActivityContent(state: state, staleDate: attributes.start),
           pushType: nil
         )
         result(activity.id)
@@ -221,12 +234,17 @@ enum LookUpLiveActivityChannel {
         result(FlutterError(code: "start_failed", message: error.localizedDescription, details: nil))
       }
     case "update":
-      let state = LookUpActivityAttributes.ContentState(
-        phase: args["phase"] as? String ?? "live",
-        direction: args["direction"] as? String ?? ""
-      )
       for activity in Activity<LookUpActivityAttributes>.activities {
-        Task { await activity.update(ActivityContent(state: state, staleDate: activity.attributes.end)) }
+        // Keep the direction it started with unless a new one is sent.
+        let state = LookUpActivityAttributes.ContentState(
+          phase: args["phase"] as? String ?? "live",
+          direction: args["direction"] as? String ?? activity.content.state.direction
+        )
+        // "It's up" lights the island up once, with the alert sound.
+        let alert = state.phase == "live"
+          ? AlertConfiguration(title: "It's up", body: "\(activity.attributes.title): \(state.direction)", sound: .named("lookup_chime.wav"))
+          : nil
+        Task { await activity.update(ActivityContent(state: state, staleDate: activity.attributes.end), alertConfiguration: alert) }
       }
       result(true)
     case "end":

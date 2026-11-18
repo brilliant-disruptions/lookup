@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -94,6 +96,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     await ref.read(homeProvider.future);
     final event = await findStoredEvent(store, t.eventId);
     if (event == null || !mounted) return;
+    // Any tap on the heads-up puts the countdown on the Lock Screen, so you
+    // can lock the phone and head out (the Look sheet starts it too).
+    if (t.action != null) unawaited(ref.read(liveActivityProvider).startIfSoon(event));
     if (t.action == AlertAction.find) {
       await openFinder(context, event);
     } else if (t.action == AlertAction.photo) {

@@ -11,6 +11,7 @@ import '../domain/models/sky_event.dart';
 import '../domain/plus/plus_grant.dart';
 import '../domain/units.dart';
 import '../services/ambient_light.dart';
+import '../services/lock_screen_catches.dart';
 import '../services/live_activity.dart';
 import '../services/location_service.dart';
 import '../services/widget_service.dart';
@@ -40,6 +41,10 @@ final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(
       onRefreshed: (settings, events) async {
         await ref.read(widgetServiceProvider).update(events);
         await saveShortcutSummary(events);
+        // "Saw it" pressed on the Lock Screen while the app was closed.
+        final caught = await importLockScreenCatchesFromAppGroup(
+            ref.read(storeProvider), ref.read(notificationServiceProvider));
+        if (caught > 0) ref.invalidate(skyLogProvider);
       },
     ));
 
