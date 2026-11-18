@@ -57,12 +57,19 @@ Store setup:
 1. **Time-sensitive notifications** on iOS (`docs/mac-checklist.md`):
    without the entitlement, Focus modes can silence the one thing people pay
    for.
-2. **Receipt validation.** Entitlement is trusted from the store's purchase
-   stream and cached on the phone (`plus_service.dart`). Fine for launch;
-   before spending on ads, validate server-side. That means either a tiny
-   serverless check (App Store Server API / Play Developer API) or a service
-   like RevenueCat, both of which break today's "no backend, no third-party
-   SDK" rule: decide deliberately.
+2. **Receipt validation.** LookUp+ is no longer a flag that stays on for
+   good: the phone asks the store what the account owns on every launch and
+   in the background refresh, saves LookUp+ with its end date and lets it
+   run out (`plus_service.dart`, `domain/plus/plus_grant.dart`). A cancelled
+   trial, a lapsed month and a refund all end it; an offline phone keeps it
+   for a few days past the date. StoreKit checks each transaction's
+   signature on the phone, and that is all the checking there is: a
+   jailbroken phone can still fake it. Fine for launch; before spending on
+   ads, validate server-side. That means either a tiny serverless check
+   (App Store Server API / Play Developer API) or a service like RevenueCat,
+   both of which break today's "no backend, no third-party SDK" rule: decide
+   deliberately. Android only has the launch check so far (no end dates from
+   Play): finish it before shipping there.
 3. **iOS widget and Live Activity** (Mac checklist): part of what LookUp+
    feels like on iPhone.
 

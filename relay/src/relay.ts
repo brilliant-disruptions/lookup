@@ -68,6 +68,24 @@ export async function dailyHash(secret: string, value: string, now: number): Pro
   return [...sig.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * The network a request came from, for the per-network limits: an IPv4
+ * address as it is, an IPv6 address down to its /64. One line or phone holds
+ * a whole /64 (or more) and can use any address in it, so counting full
+ * IPv6 addresses would let one sender have as many budgets as it likes.
+ */
+export function networkOf(ip: string): string {
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
+  if (mapped) return mapped[1];
+  if (!ip.includes(':')) return ip;
+  const [head, tail = ''] = ip.toLowerCase().split('%')[0].split('::');
+  const left = head ? head.split(':') : [];
+  const right = ip.includes('::') && tail ? tail.split(':') : [];
+  const gap = ip.includes('::') ? Math.max(0, 8 - left.length - right.length) : 0;
+  const groups = [...left, ...Array<string>(gap).fill('0'), ...right];
+  return `${groups.slice(0, 4).map((g) => (parseInt(g, 16) || 0).toString(16)).join(':')}::/64`;
+}
+
 async function body(req: Request, max: number = RULES.maxBody): Promise<Record<string, unknown> | null> {
   const text = await req.text();
   if (text.length > max) return null;
@@ -105,7 +123,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const url = new URL(req.url);
   const now = deps.now();
   const ip = req.headers.get('cf-connecting-ip') ?? 'unknown';
-  const net = `ip:${await dailyHash(deps.secret, ip, now)}`;
+  const net = `ip:${await dailyHash(deps.secret, networkOf(ip), now)}`;
 
   if (url.pathname === '/v1/health') return json(200, { ok: true });
 

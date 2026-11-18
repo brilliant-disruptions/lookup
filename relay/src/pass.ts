@@ -55,7 +55,8 @@ export function passJson(cfg: Pick<PassConfig, 'passTypeId' | 'teamId'>, code: s
         ...(forecast ? [{ key: 'sky', label: 'FORECAST', value: forecast.replace(/[.:].*$/, '') }] : []),
       ],
       backFields: [
-        { key: 'look', label: 'Where to look', value: inv.look },
+        // The sender's words: Wallet must never turn any of them into a link or a number to call.
+        { key: 'look', label: 'Where to look', value: inv.look, dataDetectorTypes: [] },
         ...(forecast ? [{ key: 'forecast', label: 'Forecast', value: forecast }] : []),
         { key: 'link', label: 'The invite', value: url, attributedValue: `<a href="${url}">Open in LookUp</a>` },
       ],

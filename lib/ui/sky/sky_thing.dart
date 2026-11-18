@@ -3,7 +3,7 @@
 /// can track it.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../domain/models/sky_event.dart';
 import '../../domain/plan/night_plan.dart';

@@ -74,6 +74,26 @@ describe('creating an invite', () => {
       { place: 'Visit http://spam.example' },
       { look: 'Free prizes at www.example.com' },
       { title: 'Go to example.com/win' },
+      // Any ending, not a list of them; however it's dressed up.
+      { look: 'Claim your free telescope at telescope-prize.shop/claim before it starts!' },
+      { look: 'See goo.gl/abc' },
+      { place: 'example.dev' },
+      { title: 'Example.TOP' },
+      { look: 'Prizes at example.com这里' },
+      { look: 'Prizes at telescope-prize.shop¹' },
+      { look: 'пример.рф' },
+      { look: 'example.xn--p1ai' },
+      { look: 'ｅｘａｍｐｌｅ．ｃｏｍ' },
+      { look: 'example.ⅽⅽ' },
+      { look: 'Claim at जड़.com/claim' },
+      { look: 'Open 1.2.3.4/x' },
+      // Nothing to call either.
+      { look: 'Call +1 (900) 555-0100 before it starts' },
+      { look: 'Call 900.555.0100' },
+      { look: 'Call 555-0100' },
+      { look: 'Call 9005550100' },
+      { place: '+44 20 7946 0958' },
+      { place: 'Home 2026-11-03 555 0100' },
       { start: new Date(NOW - 3600e3).toISOString(), end: new Date(NOW - 3000e3).toISOString() },
       { start: new Date(NOW + 40 * 86400e3).toISOString(), end: new Date(NOW + 40 * 86400e3 + 60e3).toISOString() },
       { end: new Date(Date.parse(START) + 13 * 3600e3).toISOString() },
@@ -82,6 +102,35 @@ describe('creating an invite', () => {
       { image: Buffer.from('not a png').toString('base64') },
     ]) {
       expect((await post({ ...good, ...bad })).status, JSON.stringify(bad)).toBe(400);
+    }
+  });
+
+  it('still takes ordinary words: names with full stops, decimals, dates and times', async () => {
+    for (const fine of [
+      { place: 'St. John’s, NL' },
+      { place: 'Washington, D.C.' },
+      { place: 'Mt. Hood' },
+      { place: 'Home 2026-11-03' },
+      { place: 'Camp 03/11/2026' },
+      { place: 'Dark site 44.12345, -71.23456' },
+      { place: 'Lat 51.47781' },
+      { place: 'Site 12, mile 23.5' },
+      { look: 'Meet 2026-11-03 21:05. Look 12° above the horizon at 9.30 p.m., magnitude -3.9.' },
+      { look: 'Use eclipse glasses (ISO 12312-2) until the Sun is fully covered.' },
+      { title: 'Comet C/2026 O1' },
+      { look: 'About 1,000,000 km away, e.g. three times the Moon’s distance.' },
+    ]) {
+      expect((await post({ ...good, ...fine })).status, JSON.stringify(fine)).toBe(201);
+    }
+  });
+
+  it('an invite saved under the old, looser rules has gone: page, calendar, pass and card', async () => {
+    const lure = { ...good, look: 'Claim your free telescope at telescope-prize.shop/claim before it starts!' };
+    await store.addInvite('oldlureabc', JSON.stringify(lure), null, Date.parse(END) + INVITE_RULES.keepAfterMs, NOW);
+    for (const part of ['', '/invite.ics', '/pass.pkpass', '/card.png', '/get']) {
+      const res = await get(`/n/oldlureabc${part}`);
+      expect(res.status, part).toBe(404);
+      expect(await res.text(), part).not.toContain('telescope-prize');
     }
   });
 
@@ -110,6 +159,8 @@ describe('the page', () => {
     const html = await res.text();
     expect(html).toContain('<meta property="og:title" content="ISS flyover · Tonight at 9:05 PM">');
     expect(html).toContain('og:description" content="Near Nashville. Face west-southwest.');
+    // The sender's words are never something to tap.
+    expect(html).toContain('<meta name="format-detection" content="telephone=no">');
     expect(html).toContain('Clear skies forecast.');
     expect(html).toContain(`og:image" content="https://lookup.test/n/${code}/card.png"`);
     expect(html).toContain('name="robots" content="noindex"');
@@ -298,6 +349,8 @@ describe('the Wallet pass', () => {
       eventTicket: { primaryFields: [{ value: 'ISS flyover' }] },
     });
     expect(pass.eventTicket.secondaryFields.find((f: { key: string }) => f.key === 'face').value).toBe('west-southwest');
+    // Wallet turns nothing in the sender's words into a link or a number to call.
+    expect(pass.eventTicket.backFields.find((f: { key: string }) => f.key === 'look').dataDetectorTypes).toEqual([]);
   }, 60_000);
 
   it('isn\'t offered without the certificate', async () => {

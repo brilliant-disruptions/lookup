@@ -22,12 +22,13 @@ final _crowd = [
   _r('e', 55.86, -4.25, minsAgo: 12), // Glasgow again, someone else
 ];
 
-CrowdVerdict _check(List<AuroraReport> reports, {double kp = 5, int? clouds = 10, DateTime? now}) => crowdConfirms(
+CrowdVerdict _check(List<AuroraReport> reports, {double kp = 5, int ovation = 40, int? clouds = 10, DateTime? now}) => crowdConfirms(
       reports: reports,
       now: now ?? _now,
       latDeg: _lat,
       lonDeg: _lon,
       estimatedKp: kp,
+      ovationProbability: ovation,
       cloudCoverPercent: clouds,
     );
 
@@ -57,12 +58,56 @@ void main() {
     expect(v.body(const CrowdRules().window), contains('5 people'));
   });
 
-  test('reports alone never do it: the Kp model has to find it plausible here', () {
+  test('reports never alert where the model alone wouldn\'t: anyone can post them', () {
     final needed = kpNeededAt(_lat, _lon);
-    expect(_check(_crowd, kp: needed - 1.4).confirmed, isTrue, reason: 'a little short is the crowd\'s to call');
-    final v = _check(_crowd, kp: needed - 2);
-    expect(v.confirmed, isFalse);
-    expect(v.reason, contains('Kp'));
+    expect(_check(_crowd, kp: needed - 0.5).confirmed, isTrue, reason: 'the model says go: the crowd says where');
+    // A little short for the model is no longer the crowd's to call...
+    final short = _check(_crowd, kp: needed - 1.4);
+    expect(short.confirmed, isFalse);
+    expect(short.reason, contains('Kp'));
+    expect(_check(_crowd, kp: needed - 2).reason, contains('Kp'));
+    // ...and nor is a quiet Ovation, however many say they can see it.
+    final quiet = _check(_crowd, ovation: 5);
+    expect(quiet.confirmed, isFalse);
+    expect(quiet.reason, contains('ovation'));
+  });
+
+  test('a made-up crowd (fresh tokens, two cells near a city) can\'t raise an alert the model wouldn\'t', () {
+    // The finding's attack: four self-chosen reporter tokens split across two
+    // adjacent cells by Edinburgh, Kp within 1.5 of what's needed, dark and
+    // clear. The relay counts them as four people; the phone mustn't alert.
+    final forged = [
+      for (var i = 0; i < 4; i++) _r('made-up-token-$i-xxxxxxxx', 55.80, i.isEven ? -3.30 : -2.80, minsAgo: 1),
+    ];
+    final needed = kpNeededAt(_lat, _lon);
+    for (final kp in [needed - 1.5, needed - 1.2, needed - 0.5, needed + 2]) {
+      for (final ovation in [0, 5, 19]) {
+        expect(_check(forged, kp: kp, ovation: ovation).confirmed, isFalse, reason: 'Kp $kp, Ovation $ovation%');
+      }
+    }
+    expect(_check(forged, kp: needed - 1.2, ovation: 80).confirmed, isFalse, reason: 'Kp a little short');
+  });
+
+  test('whatever the reports, the crowd confirms only when the model alone would alert', () {
+    // Kp, Ovation, cloud and time of day across the gates; the full crowd every time.
+    final noon = DateTime.utc(2026, 11, 2, 12);
+    for (final at in [_now, noon]) {
+      final reports = [
+        for (final r in _crowd) AuroraReport(cellLat: r.cellLat, cellLon: r.cellLon, at: at.subtract(_now.difference(r.at)), how: r.how, reporter: r.reporter),
+      ];
+      for (var kp = 0.0; kp <= 9; kp += 0.25) {
+        for (final ovation in [0, 5, 19, 20, 40, 80]) {
+          for (final clouds in <int?>[null, 0, 30, 60, 61, 90]) {
+            final crowd = crowdConfirms(
+                reports: reports, now: at, latDeg: _lat, lonDeg: _lon, estimatedKp: kp, ovationProbability: ovation, cloudCoverPercent: clouds);
+            final model = auroraNow(
+                now: at, latDeg: _lat, lonDeg: _lon, estimatedKp: kp, ovationProbability: ovation, cloudCoverPercent: clouds);
+            if (crowd.confirmed) expect(model.alert, isTrue, reason: '$at Kp $kp, Ovation $ovation%, cloud $clouds%');
+            if (model.alert) expect(crowd.confirmed, isTrue, reason: 'a real crowd still words it: $at Kp $kp, Ovation $ovation%, cloud $clouds%');
+          }
+        }
+      }
+    }
   });
 
   test('never through cloud, never in daylight', () {
@@ -94,11 +139,12 @@ void main() {
 
   test('far away or much nearer the pole doesn\'t count for your sky', () {
     // London hears from Scotland: too far, and the aurora is easier up there.
-    final v = crowdConfirms(reports: _crowd, now: _now, latDeg: 51.5, lonDeg: -0.12, estimatedKp: 7, cloudCoverPercent: 0);
+    final v = crowdConfirms(
+        reports: _crowd, now: _now, latDeg: 51.5, lonDeg: -0.12, estimatedKp: 7, ovationProbability: 40, cloudCoverPercent: 0);
     expect(v.confirmed, isFalse);
     // Even with a huge radius, reports from well toward the pole are left out.
     final wide = crowdConfirms(
-        reports: _crowd, now: _now, latDeg: 51.5, lonDeg: -0.12, estimatedKp: 7, cloudCoverPercent: 0,
+        reports: _crowd, now: _now, latDeg: 51.5, lonDeg: -0.12, estimatedKp: 7, ovationProbability: 40, cloudCoverPercent: 0,
         rules: const CrowdRules(radiusKm: 800));
     expect(wide.confirmed, isFalse);
     expect(wide.reason, contains('0 people'));

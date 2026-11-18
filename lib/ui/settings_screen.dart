@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../data/aurora_reports_client.dart' show relayConfigured;
 import '../domain/aurora/seen_nearby.dart' show seenNearbyOffered;

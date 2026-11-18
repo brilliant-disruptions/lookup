@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../domain/models/sky_event.dart';
 import '../domain/photo/capture_plan.dart' show catchItEnabled;

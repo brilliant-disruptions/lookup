@@ -3,7 +3,7 @@
 /// Open-Meteo, Stellarium); the full notes live in assets/sky/SOURCES-*.txt.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'kit/kit.dart';
 import 'theme.dart';

@@ -85,6 +85,8 @@ class LookUpSettings {
     this.clearSkyOnly = true,
     this.maxAlertsPerNight = 2,
     this.isPlus = false,
+    this.plusUntil,
+    this.plusSeenAt,
     this.minIssPeakElevationDeg = 25,
     this.minStarlinkPeakElevationDeg = 20,
     this.onboarded = false,
@@ -151,6 +153,14 @@ class LookUpSettings {
   final bool clearSkyOnly;
   final int maxAlertsPerNight;
   final bool isPlus;
+
+  /// When the paid period the store last vouched for ends. Null for the
+  /// lifetime purchase, and for a LookUp+ saved before this was recorded.
+  /// The rules are in domain/plus/plus_grant.dart.
+  final DateTime? plusUntil;
+
+  /// When the store last vouched for LookUp+ on this phone.
+  final DateTime? plusSeenAt;
   final double minIssPeakElevationDeg;
   final double minStarlinkPeakElevationDeg;
   final bool onboarded;
@@ -240,6 +250,9 @@ class LookUpSettings {
     bool? clearSkyOnly,
     int? maxAlertsPerNight,
     bool? isPlus,
+    DateTime? plusUntil,
+    bool forgetPlusUntil = false,
+    DateTime? plusSeenAt,
     double? minIssPeakElevationDeg,
     double? minStarlinkPeakElevationDeg,
     bool? onboarded,
@@ -282,6 +295,8 @@ class LookUpSettings {
         clearSkyOnly: clearSkyOnly ?? this.clearSkyOnly,
         maxAlertsPerNight: maxAlertsPerNight ?? this.maxAlertsPerNight,
         isPlus: isPlus ?? this.isPlus,
+        plusUntil: forgetPlusUntil ? null : plusUntil ?? this.plusUntil,
+        plusSeenAt: plusSeenAt ?? this.plusSeenAt,
         minIssPeakElevationDeg:
             minIssPeakElevationDeg ?? this.minIssPeakElevationDeg,
         minStarlinkPeakElevationDeg:
@@ -328,6 +343,8 @@ class LookUpSettings {
         'clearSkyOnly': clearSkyOnly,
         'maxAlertsPerNight': maxAlertsPerNight,
         'isPlus': isPlus,
+        if (plusUntil != null) 'plusUntil': plusUntil!.toIso8601String(),
+        if (plusSeenAt != null) 'plusSeenAt': plusSeenAt!.toIso8601String(),
         'minIssPeakElevationDeg': minIssPeakElevationDeg,
         'minStarlinkPeakElevationDeg': minStarlinkPeakElevationDeg,
         'onboarded': onboarded,
@@ -378,6 +395,8 @@ class LookUpSettings {
       clearSkyOnly: j['clearSkyOnly'] as bool? ?? d.clearSkyOnly,
       maxAlertsPerNight: j['maxAlertsPerNight'] as int? ?? d.maxAlertsPerNight,
       isPlus: j['isPlus'] as bool? ?? d.isPlus,
+      plusUntil: DateTime.tryParse(j['plusUntil'] as String? ?? '')?.toUtc(),
+      plusSeenAt: DateTime.tryParse(j['plusSeenAt'] as String? ?? '')?.toUtc(),
       minIssPeakElevationDeg: (j['minIssPeakElevationDeg'] as num?)?.toDouble() ??
           d.minIssPeakElevationDeg,
       minStarlinkPeakElevationDeg:

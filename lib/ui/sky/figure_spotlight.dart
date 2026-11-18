@@ -3,7 +3,7 @@
 /// sky finder so both behave the same.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'constellation_glow.dart' show figureFade;

@@ -47,6 +47,9 @@ GET    /v1/health
   - one report per person per 5 minutes;
   - 30 reports or subscriptions per network per hour;
   - 240 reads per network per hour.
+
+  A network is an IPv4 address or an IPv6 /64 (`networkOf`), so one line
+  can't claim a budget for each of its addresses.
 - **Wake-up:** when a report makes it 4+ people from 2+ cells within
   250 km in the last 20 minutes, every phone subscribed to a cell in that
   area gets a silent push, at most once per 30 minutes. The push carries no
@@ -82,7 +85,14 @@ GET  /n/:code/pass.pkpass  an Apple Wallet event pass (only once set up, below)
   sender's app shows, the forecast and the picture. It's kept until two
   days after the event, then the 10-minute sweep deletes it.
 - **What's refused:** links of any kind, markup, unknown event kinds, past
-  events and events more than 35 days away.
+  events and events more than 35 days away. "Links" means anything a phone
+  or calendar would make tappable (`linkish` in `src/invite.ts`): a web
+  address, anything shaped like a domain, an IP address, a phone number.
+  The same check runs again when an invite is served, the Wallet pass turns
+  its data detectors off for the sender's words, and the page tells Safari
+  not to link phone numbers. The picture isn't checked: it can carry text
+  or a QR code, though only on the page and its preview, never in the pass
+  or the calendar file.
 - **Rate limit:** 30 invites per network per hour.
 - **Without the relay:** the app sends the poster and a calendar file, as
   it always could.

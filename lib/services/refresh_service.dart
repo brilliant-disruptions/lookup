@@ -232,7 +232,9 @@ class RefreshService {
     }
     if (settings.locationMode == LocationMode.auto &&
         (settings.latitude != fix.lat || settings.longitude != fix.lon)) {
-      settings = settings.copyWith(latitude: fix.lat, longitude: fix.lon);
+      // Read again before saving: the fix can take seconds, and whatever was
+      // saved meanwhile (a purchase, LookUp+ ending) must not be undone.
+      settings = (await store.loadSettings()).copyWith(latitude: fix.lat, longitude: fix.lon);
       await store.saveSettings(settings);
     }
 

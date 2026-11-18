@@ -2,7 +2,7 @@
 /// the way it was written at the time (Julian before 1582, BC years).
 library;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../../domain/sky/calendar.dart';

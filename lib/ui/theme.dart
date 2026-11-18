@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Night glass: a deep-navy sky, translucent surfaces, one sans (Inter) with
 /// tabular figures, one blue accent plus a tint per kind of event.

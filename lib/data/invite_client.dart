@@ -44,9 +44,15 @@ class InviteClient {
 
 /// Keeps a place name to what the invite page accepts (letters, digits,
 /// spaces and simple punctuation, 48 characters); null when nothing's left.
+/// The page takes nothing shaped like a web address, so a full stop run
+/// straight into a word ("St.Kilda") gets its space.
 String? invitePlace(String? place) {
   if (place == null) return null;
-  final clean = place.replaceAll(RegExp(r"[^\p{L}\p{N} .,'’()\-]", unicode: true), '').replaceAll(RegExp(r'\s+'), ' ').trim();
+  final clean = place
+      .replaceAll(RegExp(r"[^\p{L}\p{N} .,'’()\-]", unicode: true), '')
+      .replaceAllMapped(RegExp(r'\.(?=\p{L}{2})', unicode: true), (_) => '. ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
   if (clean.isEmpty) return null;
   return clean.length <= 48 ? clean : clean.substring(0, 48).trim();
 }

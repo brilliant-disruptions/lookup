@@ -59,10 +59,42 @@ const TYPES = new Set([
   'occultation', 'occultationNear', 'comet', 'nova', 'fullMoonRise',
 ]);
 const TEXT = /^[\p{L}\p{N} .,;:'’()°%\-–—!?&/+]+$/u;
-/** No links of any kind: this page only ever says what's up there. */
-const LINKISH = /:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|app|co|ly|me|xyz|info|biz|link|click|us|uk|ru|cn)\b/i;
+const DIGIT = String.raw`\p{Nd}`;
+/** What joins the groups of a phone number. */
+const SEP = String.raw`[ .()/+\-–—]`;
+const DATE = new RegExp(
+  String.raw`(?<!${DIGIT})(?:${DIGIT}{4}[-/.]${DIGIT}{1,2}[-/.]${DIGIT}{1,2}|${DIGIT}{1,2}[-/.]${DIGIT}{1,2}[-/.]${DIGIT}{4})(?!${DIGIT})`,
+  'gu',
+);
+const NUMBERS = new RegExp(String.raw`${DIGIT}(?:${SEP}*${DIGIT})*`, 'gu');
+const DECIMAL = new RegExp(String.raw`^${DIGIT}+\.${DIGIT}+$`, 'u');
+const digits = (s: string) => (s.match(/\p{Nd}/gu) ?? []).length;
+
+/** Seven digits or more that read as one number: a phone number. A date, a time after it and a decimal don't. */
+const phoneLike = (s: string) =>
+  (s.match(NUMBERS) ?? []).some((run) => !DECIMAL.test(run) && digits(run.replace(DATE, ' ')) >= 7);
+
+/**
+ * No links of any kind: this page only ever says what's up there, and the
+ * calendar event and the Wallet pass carry the same words to apps that turn
+ * anything address-shaped into something to tap. So no web address, nothing
+ * shaped like a domain (a dot straight into two letters, whatever comes
+ * before or after: every ending there is, not a list of them), no IP
+ * address and no phone number. Checked as written and as it folds
+ * (full-width and look-alike letters).
+ */
+export function linkish(text: string): boolean {
+  return [text, text.normalize('NFKC')].some(
+    (s) => /:\/\/|www\./i.test(s) || /\.\p{L}{2}/u.test(s) || /\p{Nd}{1,3}(?:\.\p{Nd}{1,3}){3}/u.test(s) || phoneLike(s),
+  );
+}
+
 const ok = (s: unknown, max: number): s is string =>
-  typeof s === 'string' && s.length > 0 && s.length <= max && TEXT.test(s) && !LINKISH.test(s);
+  typeof s === 'string' && s.length > 0 && s.length <= max && TEXT.test(s) && !linkish(s);
+
+/** An invite saved under older, looser rules is treated as gone. */
+const stillOk = (inv: Invite) =>
+  [inv.title, inv.look, inv.face, inv.place].every((s) => s === undefined || (typeof s === 'string' && !linkish(s)));
 
 /** Checks what the app sent; null when anything is off. */
 export function parseInvite(b: Record<string, unknown>, now: number): Invite | null {
@@ -185,6 +217,7 @@ export function invitePage(code: string, inv: Invite, base: string, deps: Pick<I
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
+<meta name="format-detection" content="telephone=no">
 <meta name="theme-color" content="#04060B">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
@@ -302,6 +335,7 @@ export async function serveInvite(path: string, base: string, deps: InviteDeps, 
   const row = await deps.store.getInvite(code, deps.now());
   if (!row) return notFound(base, deps.appStoreId);
   const inv = JSON.parse(row.data) as Invite;
+  if (!stillOk(inv)) return notFound(base, deps.appStoreId);
   const url = `${base}/n/${code}`;
   const cache = { 'cache-control': 'public, max-age=300' };
   switch (part) {
