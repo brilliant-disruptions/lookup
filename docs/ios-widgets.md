@@ -10,7 +10,11 @@ this is ~5 minutes of clicking.
    - Activate the scheme when asked.
 2. Delete the Swift files Xcode generated in the new `LookUpWidgets` group, then
    drag in `ios/LookUpWidgets/LookUpWidgets.swift` and
-   `ios/LookUpWidgets/LookUpActivityAttributes.swift` (target: **LookUpWidgets** only).
+   `ios/LookUpWidgets/LookUpActivityAttributes.swift` (target: **LookUpWidgets** only),
+   and `ios/LookUpWidgets/SawItIntent.swift` with **both Runner and LookUpWidgets**
+   ticked: it's the Lock Screen's "Saw it" button, a `LiveActivityIntent`, which iOS
+   runs in the app's process. While the app supports iOS 15, set
+   `AppIntents.framework` to *Optional* in Runner → Build Phases → Link Binary.
 3. **App Group** on both targets: select *Runner* → Signing & Capabilities →
    **+ Capability → App Groups** → add `group.com.brilliantdisruptions.lookup`.
    Repeat for *LookUpWidgets* with the same group.

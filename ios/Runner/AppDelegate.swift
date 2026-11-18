@@ -161,9 +161,10 @@ final class LookUpPush {
 @available(iOS 16.1, *)
 struct LookUpActivityAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
-    var phase: String       // "countdown" | "live" | "over"
+    var phase: String       // "countdown" | "live" | "logged" | "over"
     var direction: String   // "Look west-southwest, high in the sky"
   }
+  var eventId: String
   var title: String
   var start: Date
   var end: Date
@@ -207,6 +208,7 @@ enum LookUpLiveActivityChannel {
         Task { await activity.end(nil, dismissalPolicy: .immediate) }
       }
       let attributes = LookUpActivityAttributes(
+        eventId: args["eventId"] as? String ?? "",
         title: title,
         start: Date(timeIntervalSince1970: startMs / 1000),
         end: Date(timeIntervalSince1970: endMs / 1000),
@@ -222,7 +224,9 @@ enum LookUpLiveActivityChannel {
       do {
         let activity = try Activity<LookUpActivityAttributes>.request(
           attributes: attributes,
-          content: ActivityContent(state: state, staleDate: attributes.end),
+          // Stale at the rise: iOS redraws it then, so it flips to "It's
+          // up" on time even with the app closed (LookUpWidgets.swift).
+          content: ActivityContent(state: state, staleDate: attributes.start),
           pushType: nil
         )
         result(activity.id)

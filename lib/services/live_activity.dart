@@ -30,6 +30,7 @@ class LiveActivityService {
     if (until.isNegative || until > const Duration(minutes: 30)) return;
     try {
       await _channel.invokeMethod('start', {
+        'eventId': e.id,
         'title': eventTitle(e),
         'startMs': e.start.millisecondsSinceEpoch.toDouble(),
         'endMs': e.end.millisecondsSinceEpoch.toDouble(),

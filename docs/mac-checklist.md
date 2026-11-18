@@ -48,7 +48,17 @@ address, iOS declines, and nothing else changes.
      (`AlertConfiguration` in `AppDelegate.swift`), and a bar shows how far
      along the pass is. Keep both `LookUpActivityAttributes` structs
      identical if a field is added.
-   - Mockups: the "Island and widgets" row on the design canvas.
+   - The pass without the app: the activity starts stale-dated at the rise,
+     so iOS redraws it then and it flips to "It's up" with the app closed.
+     Then a **Saw it** button (iOS 17, `SawItIntent.swift`, in both
+     targets) leaves the event in the app group; the app logs it on its
+     next refresh (`lib/services/lock_screen_catches.dart`). Try it with
+     the app closed: tap Saw it, open LookUp, check the Log.
+   - Any button on the heads-up alert now starts the countdown too.
+   - Smart Stack: the widget scores itself relevant from an hour before a
+     pass until it sets. StandBy uses the small widget.
+   - Mockups: the "Island and widgets" and "An even better pass" rows on
+     the design canvas.
 
 ## 3. "Hey Siri, when's the next pass in LookUp?"
 

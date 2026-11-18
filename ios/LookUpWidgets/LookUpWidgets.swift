@@ -3,6 +3,7 @@
 // Setup: docs/ios-widgets.md. Design: Pip is the light, the only flourish;
 // directions stay in words, never degrees.
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -33,6 +34,7 @@ struct PipLight: View {
     }
     .frame(width: size, height: size)
     .opacity(dim ? 0.55 : 1)
+    .widgetAccentable()  // tinted Home Screens: Pip takes the accent
   }
 }
 
@@ -143,6 +145,8 @@ struct Sight: Codable, Hashable {
 struct NextEntry: TimelineEntry {
   let date: Date
   let sights: [Sight]
+  /// Smart Stack: near the top from an hour before a sight until it sets.
+  var relevance: TimelineEntryRelevance? = nil
 
   /// The first sight that hasn't ended by this entry's time.
   var current: Sight? { sights.first { $0.end > date } }
@@ -184,9 +188,19 @@ struct NextProvider: TimelineProvider {
       if s.start > now { times.insert(s.start) }
       times.insert(s.end)
     }
-    let entries = times.sorted().map { NextEntry(date: $0, sights: sights) }
+    let entries = times.sorted().map { t in
+      NextEntry(date: t, sights: sights, relevance: Self.relevance(at: t, sights))
+    }
     // The app pushes fresh data on every refresh; this is just a safety net.
     completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(3 * 3600))))
+  }
+
+  static func relevance(at t: Date, _ sights: [Sight]) -> TimelineEntryRelevance {
+    guard let s = sights.first(where: { $0.end > t }), s.start.addingTimeInterval(-3600) <= t else {
+      return TimelineEntryRelevance(score: 0)
+    }
+    // Most relevant while it's up, a little less in the hour before.
+    return TimelineEntryRelevance(score: s.start <= t ? 100 : 60, duration: s.end.timeIntervalSince(t))
   }
 
   private func read() -> [Sight] {
@@ -262,6 +276,7 @@ struct NextWidgetView: View {
       Text(s.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(ink).lineLimit(1).padding(.top, 14)
       Text(shortUntil(s.start, from: entry.date))
         .font(.system(size: 30, weight: .heavy)).tracking(-1).foregroundStyle(glow).lineLimit(1).minimumScaleFactor(0.7)
+        .widgetAccentable()
       Spacer(minLength: 4)
       Text(s.time).font(.system(size: 12)).foregroundStyle(grey)
       Text(s.rise_word).font(.system(size: 12)).foregroundStyle(grey).lineLimit(1)
@@ -407,15 +422,60 @@ typealias LookUpContext = ActivityViewContext<LookUpActivityAttributes>
 /// Seconds to the rise, or to the set while it's up; never a reversed range.
 @ViewBuilder
 private func timer(_ context: LookUpContext) -> some View {
-  let target = context.state.phase == "countdown" ? context.attributes.start : context.attributes.end
-  if target > .now {
+  let target = isUp(context) ? context.attributes.end : context.attributes.start
+  if isLogged(context) {
+    Text("Logged")
+  } else if target > .now {
     Text(timerInterval: Date.now...target, countsDown: true)
   } else {
     Text(context.state.phase == "over" ? "Done" : "Now")
   }
 }
 
-private func isUp(_ context: LookUpContext) -> Bool { context.state.phase == "live" }
+/// Up: the app said so, or the countdown went stale at the rise (the
+/// activity is started with staleDate = start, and iOS redraws it then).
+private func isUp(_ context: LookUpContext) -> Bool {
+  context.state.phase == "live" || (context.state.phase == "countdown" && context.isStale)
+}
+private func isLogged(_ context: LookUpContext) -> Bool { context.state.phase == "logged" }
+
+/// "Saw it": one tap logs the catch, no unlocking (iOS 17).
+@available(iOS 17.0, *)
+struct SawItButton: View {
+  let eventId: String
+
+  var body: some View {
+    Button(intent: SawItIntent(eventId: eventId)) {
+      Text("Saw it").font(.system(size: 15, weight: .bold)).frame(maxWidth: .infinity)
+    }
+    .buttonStyle(.borderedProminent)
+    .buttonBorderShape(.capsule)
+    .tint(glow)
+    .foregroundStyle(Color(red: 0.039, green: 0.063, blue: 0.133))
+  }
+}
+
+@ViewBuilder
+private func sawIt(_ context: LookUpContext) -> some View {
+  if isUp(context), !context.attributes.eventId.isEmpty {
+    if #available(iOS 17.0, *) {
+      SawItButton(eventId: context.attributes.eventId)
+    }
+  }
+}
+
+struct LoggedView: View {
+  var body: some View {
+    HStack(spacing: 12) {
+      PipFound(size: 12)
+      VStack(alignment: .leading, spacing: 1) {
+        Text("Logged. Nice one.").font(.system(size: 16, weight: .bold)).foregroundStyle(glow)
+        Text("It's in your Log.").font(.system(size: 12.5)).foregroundStyle(grey)
+      }
+      Spacer()
+    }
+  }
+}
 private func hasArc(_ context: LookUpContext) -> Bool { !context.attributes.rise.isEmpty && !context.attributes.set.isEmpty }
 
 /// While it's up: how far along the pass, moved by the system on its own.
@@ -429,6 +489,14 @@ struct LookUpLockScreenView: View {
   let context: LookUpContext
 
   var body: some View {
+    if isLogged(context) {
+      LoggedView().padding(16)
+    } else {
+      live
+    }
+  }
+
+  private var live: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .center, spacing: 12) {
         Group { if isUp(context) { PipFound(size: 12) } else { PipLight(size: 13) } }.frame(width: 30, height: 30)
@@ -454,7 +522,10 @@ struct LookUpLockScreenView: View {
           .frame(height: 70)
         if isUp(context) { passBar(context) }
       }
-      Text(context.state.direction).font(.system(size: 13.5)).foregroundStyle(ink.opacity(0.82)).lineLimit(2)
+      // Before: getting ready, not just the time. While up: where to look.
+      Text(isUp(context) ? context.state.direction : "Head out now. Your eyes need a few minutes in the dark.")
+        .font(.system(size: 13.5)).foregroundStyle(ink.opacity(0.82)).lineLimit(2)
+      sawIt(context)
     }
     .padding(16)
   }
@@ -474,7 +545,7 @@ struct LookUpLiveActivity: Widget {
         }
         DynamicIslandExpandedRegion(.center) {
           VStack(alignment: .leading, spacing: 1) {
-            Text(isUp(context) ? "It's up" : context.attributes.title)
+            Text(isLogged(context) ? "Logged. Nice one." : isUp(context) ? "It's up" : context.attributes.title)
               .font(.system(size: 16, weight: .semibold)).foregroundStyle(isUp(context) ? glow : ink).lineLimit(1)
             Text(isUp(context) ? "Look \(context.attributes.riseWord), climbing \(context.attributes.peak)" : "Rises in the \(context.attributes.riseWord)")
               .font(.system(size: 12.5)).foregroundStyle(grey).lineLimit(1)
@@ -489,12 +560,15 @@ struct LookUpLiveActivity: Widget {
             .frame(maxWidth: 84, alignment: .trailing)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          if hasArc(context) {
+          if isLogged(context) {
+            Text("It's in your Log.").font(.system(size: 13)).foregroundStyle(grey)
+          } else if hasArc(context) {
             VStack(spacing: 6) {
               PassArc(rise: context.attributes.rise, peak: context.attributes.peak, set: context.attributes.set,
                       pip: isUp(context) ? nil : 0)
                 .frame(height: 58)
               if isUp(context) { passBar(context) }
+              sawIt(context)
             }
           } else {
             Text(context.state.direction).font(.system(size: 13)).foregroundStyle(grey)

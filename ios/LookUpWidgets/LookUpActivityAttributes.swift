@@ -4,9 +4,10 @@ import Foundation
 // Must match the struct in ios/Runner/AppDelegate.swift exactly.
 struct LookUpActivityAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
-    var phase: String       // "countdown" | "live" | "over"
+    var phase: String       // "countdown" | "live" | "logged" | "over"
     var direction: String   // "Look west-southwest, high in the sky"
   }
+  var eventId: String
   var title: String
   var start: Date
   var end: Date
