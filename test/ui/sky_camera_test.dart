@@ -84,8 +84,8 @@ void main() {
   });
 
   // Pip guides: it leaves the shutter, flies out over the sky to what it's
-  // leading you to, and waves once you've brought it to the middle.
-  testWidgets('Pip flies out of the shutter to guide, and waves once you are on it', (t) async {
+  // leading you to, and lands on it, as the plain light, in the middle.
+  testWidgets('Pip flies out of the shutter to guide, and lands on it as the dot', (t) async {
     final c = StreamController<List<double>>(sync: true);
     addTearDown(c.close);
     await t.pumpWidget(ProviderScope(
@@ -116,7 +116,6 @@ void main() {
     await t.pump();
     final on = t.widget<PipAim>(pip);
     expect(on.onTarget, isTrue, reason: 'Saturn is in the middle');
-    expect(on.waveOnLock, isTrue);
     expect(find.bySemanticsLabel('Catch Saturn'), findsWidgets);
     expect(find.byKey(const Key('pip-on-target')), findsOneWidget, reason: 'tap Pip itself to catch it');
     await t.pumpWidget(const SizedBox());

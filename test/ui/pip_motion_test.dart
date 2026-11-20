@@ -178,18 +178,4 @@ void main() {
       expect(pipPose(PipState.wave, 7, since: pipWaveLength + 1).offset, pipPose(PipState.resting, 7).offset);
     });
   });
-
-  test('landed on the target: the burst first, then waves again and again while you stay on it', () {
-    expect(pipLockedFigure(0.1).dot, isTrue, reason: 'the landing burst has the moment');
-    var waves = 0;
-    var was = false;
-    for (var t = 0.0; t < 13; t += 1 / 60) {
-      final out = !pipLockedFigure(t).dot;
-      if (out && !was) waves++;
-      was = out;
-    }
-    expect(waves, 3, reason: 'a wave every 4.4 s');
-    expect(pipLockedFigure(2, still: true).grown, 1);
-  });
 }
-

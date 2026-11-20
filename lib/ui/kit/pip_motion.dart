@@ -270,13 +270,3 @@ double _backOut(double k) {
   final x = k.clamp(0.0, 1.0) - 1;
   return 1 + (c + 1) * x * x * x + c * x * x;
 }
-
-/// When Pip has led you onto something: a beat for the landing burst, then
-/// it waves, rests a moment as the dot, and waves again for as long as you
-/// stay on it. [sinceLanded] is seconds since it lined up.
-PipFigure pipLockedFigure(double sinceLanded, {bool still = false}) {
-  const settle = 0.35, rest = 1.2;
-  if (sinceLanded < settle) return const PipFigure();
-  if (still) return const PipFigure(grown: 1);
-  return pipFigure((sinceLanded - settle) % (pipWaveLength + rest));
-}

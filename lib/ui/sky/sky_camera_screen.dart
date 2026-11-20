@@ -3,7 +3,7 @@
 /// when cloud, haze or a roof hides the real thing. Nothing points a
 /// direction but Pip: it leaves the shutter and leads you to the best thing
 /// up (or whatever you ask it to find), waits at the edge on the side to
-/// turn, and waves once you've brought it to the middle; tap Pip to catch it. A catch is the only way into the Log: the picture
+/// turn, and lands on it once you've brought it to the middle; tap Pip to catch it. A catch is the only way into the Log: the picture
 /// goes to your Photos and the sighting to the Log. The next sight counts
 /// down in the top right.
 library;
@@ -323,7 +323,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
           ),
         // Pip, out over the sky: it sets off from the shutter, flies to what
         // it's leading you to (or waits at the edge on the side to turn),
-        // and waves once you've brought it to the middle.
+        // and lands on it, as the plain light, once it's in the middle.
         if (g != null && target != null)
           Positioned.fill(
             child: PipAim(
@@ -337,7 +337,6 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
               // The sky already names it; and no ring: Pip is all there is.
               ring: false,
               launchFrom: (x: 0, y: screen.height / 2 - MediaQuery.paddingOf(context).bottom - 60),
-              waveOnLock: true,
             ),
           ),
         // On it: tap Pip itself (where it sits, on the thing) to catch it.
