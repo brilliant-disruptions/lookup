@@ -8,7 +8,6 @@ import '../services/notification_service.dart';
 import '../state/providers.dart';
 import 'catch_it_screen.dart';
 import 'caught_it_screen.dart';
-import 'demo.dart';
 import 'finder_screen.dart';
 import 'kit/navigation.dart';
 import 'log_screen.dart';
@@ -16,8 +15,6 @@ import 'look_sheet.dart';
 import 'now_screen.dart';
 import 'share_card.dart';
 import 'sky/sky_screen.dart';
-import 'tour.dart';
-import 'upcoming_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -53,20 +50,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         _openAlert(pending);
         return;
       }
-      _firstRun();
     });
-  }
-
-  /// First run: play a pass so they see the whole experience, not an empty
-  /// sky, then show them round. Anyone who hasn't had the tour gets it once.
-  Future<void> _firstRun() async {
-    if (ref.read(playIntroProvider)) {
-      ref.read(playIntroProvider.notifier).set(false);
-      await showDemo(context, ref);
-    }
-    final s = await ref.read(settingsProvider.future);
-    if (!mounted || s.toured || !s.onboarded) return;
-    await startTour(context, ref);
   }
 
   /// A tapped alert opens its Look sheet; "Find it" goes straight to the
@@ -117,9 +101,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     ref.listen(alertTapProvider, (_, t) {
       if (t != null) _openAlert(t);
     });
-    ref.listen(tourRequestProvider, (_, _) => startTour(context, ref));
     final tab = ref.watch(homeTabProvider);
-    const pages = [NowScreen(), SkyScreen(), UpcomingScreen(), LogScreen()];
+    const pages = [NowScreen(), SkyScreen(), LogScreen()];
     return Scaffold(
       extendBody: true,
       body: IndexedStack(index: tab, children: pages),
@@ -127,9 +110,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         index: tab,
         onSelect: ref.read(homeTabProvider.notifier).set,
         tabs: [
-          const TabItem(Icons.nightlight_outlined, 'Tonight', activeIcon: Icons.nightlight_round),
-          TabItem(Icons.explore_outlined, 'Sky', activeIcon: Icons.explore_rounded, key: TourKeys.skyTab),
-          TabItem(Icons.view_agenda_outlined, 'Week', activeIcon: Icons.view_agenda_rounded, key: TourKeys.weekTab),
+          const TabItem(Icons.schedule_outlined, 'Next', activeIcon: Icons.schedule_rounded),
+          const TabItem(Icons.explore_outlined, 'Sky', activeIcon: Icons.explore_rounded),
           const TabItem(Icons.auto_awesome_outlined, 'Log', activeIcon: Icons.auto_awesome_rounded),
         ],
       ),
