@@ -623,7 +623,15 @@ class _ProCameraState extends ConsumerState<ProCameraScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
-        if (preview != null) Positioned.fill(child: FittedBox(fit: BoxFit.cover, clipBehavior: Clip.hardEdge, child: SizedBox(width: screen.width, child: preview))),
+        // The camera's own shape, filling the screen and cropped at the edges.
+        if (preview != null)
+          Positioned.fill(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox(width: screen.width, height: screen.width / (_backend?.portraitAspect ?? 3 / 4), child: preview),
+            ),
+          ),
         if (guiding)
           Positioned.fill(
             child: PipAim(

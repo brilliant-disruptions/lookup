@@ -45,7 +45,7 @@ class FirstBadgeSheet extends StatelessWidget {
             ]),
             const SizedBox(height: 18),
             const Text(
-              'Next badge: point your phone up, and when Pip waves at something, tap Pip to catch it.',
+              'Next badge: point your phone up, follow Pip, and when it lands on something, tap Pip to catch it.',
               style: TextStyle(fontSize: 15, height: 1.4),
             ),
             const SizedBox(height: 20),

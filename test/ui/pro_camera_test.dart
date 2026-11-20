@@ -47,8 +47,9 @@ class _Camera extends CaptureBackend {
 
   @override
   Future<CameraCaps> open() async => caps;
+  /// A real camera's preview fills whatever it's given, like a Texture.
   @override
-  Widget? preview() => null;
+  Widget? preview() => const ColoredBox(color: Color(0xFF0B1328), child: SizedBox.expand());
   @override
   Future<void> start(CapturePlan plan) async {}
   @override
