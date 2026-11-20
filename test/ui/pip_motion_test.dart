@@ -119,14 +119,14 @@ void main() {
     expect(pipFlightPose(rest, from, 2, 0.9).stretch, rest.stretch, reason: 'then it rests');
   });
 
-  group('greet: a drop of light that opens its eyes, then is the dot again', () {
-    List<PipGreeting> over(double from, double to) => [for (var t = from; t < to; t += 1 / 60) pipGreeting(t)];
+  group('greet, as the light in a sky picture: it opens its eyes, then is the dot again', () {
+    List<PipGreeting> over(double from, double to) => [for (var t = from; t < to; t += 1 / 60) pipGreeting(t, fromDot: true)];
 
     test('starts and ends as the plain dot', () {
-      expect(pipGreeting(-1).dot, isTrue);
-      expect(pipGreeting(pipGreetLength).dot, isTrue);
-      expect(pipGreeting(pipGreetLength + 5).dot, isTrue);
-      expect(pipGreeting(0.02).grown, 0, reason: 'it ripples before it opens');
+      expect(pipGreeting(-1, fromDot: true).dot, isTrue);
+      expect(pipGreeting(pipGreetLength, fromDot: true).dot, isTrue);
+      expect(pipGreeting(pipGreetLength + 5, fromDot: true).dot, isTrue);
+      expect(pipGreeting(0.02, fromDot: true).grown, 0, reason: 'it ripples before it opens');
     });
 
     test('like water: it wobbles and rings spread out as it wakes', () {
@@ -145,8 +145,8 @@ void main() {
       for (final g in over(0, pipGreetLength)) {
         if (g.open > 0) expect(g.grown, greaterThan(0.7));
       }
-      expect(pipGreeting(1.2).open, 1);
-      expect(pipGreeting(2.8).open, 0);
+      expect(pipGreeting(1.2, fromDot: true).open, 1);
+      expect(pipGreeting(2.8, fromDot: true).open, 0);
     });
 
     test('no mouth, no hands: just eyes, which glance aside and then follow the droplet up', () {
@@ -175,20 +175,103 @@ void main() {
 
     test('Reduce Motion: the orb and open eyes, without ripples or a droplet', () {
       for (final t in [0.0, 0.4, 1.7, 3.0]) {
-        final g = pipGreeting(t, still: true);
+        final g = pipGreeting(t, still: true, fromDot: true);
         expect(g.grown, 1, reason: '$t');
         expect(g.open, 1);
         expect(g.ripples, isEmpty);
         expect(g.drop, isNull);
         expect(g.wobble, 0);
       }
-      expect(pipGreeting(pipGreetLength + 0.1, still: true).dot, isTrue);
+      expect(pipGreeting(pipGreetLength + 0.1, still: true, fromDot: true).dot, isTrue);
     });
 
     test('the light only hovers under it, and rests after', () {
       final p = pipPose(PipState.greet, 4, since: 1);
       expect(p.offset.distance, lessThan(4));
       expect(pipPose(PipState.greet, 7, since: pipGreetLength + 1).offset, pipPose(PipState.resting, 7).offset);
+    });
+  });
+
+  group('greet, as the character: the same hello without ever being the dot', () {
+    List<PipGreeting> over(double from, double to) => [for (var t = from; t < to; t += 1 / 60) pipGreeting(t)];
+
+    test('eyes and body there from the first frame', () {
+      for (final g in over(0, pipGreetLength)) {
+        expect(g.grown, 1);
+        expect(g.dot, isFalse);
+      }
+      expect(pipGreeting(0).open, greaterThan(0.9));
+    });
+
+    test('still ripples, still lifts the droplet', () {
+      final all = over(0, pipGreetLength);
+      expect(all.any((g) => g.ripples.isNotEmpty), isTrue);
+      expect(all.any((g) => g.drop != null), isTrue);
+    });
+  });
+
+  group('the character at rest', () {
+    List<PipGreeting> over(double from, double to, {double poke = 1e9}) =>
+        [for (var t = from; t < to; t += 1 / 60) pipCharacter(t, sincePoke: poke + (t - from))];
+
+    test('always a character, never the dot, with no droplet or rings', () {
+      for (final g in over(0, 30)) {
+        expect(g.grown, 1);
+        expect(g.dot, isFalse);
+        expect(g.drop, isNull);
+        expect(g.ripples, isEmpty);
+      }
+    });
+
+    test('eyes open most of the time, with a blink every few seconds', () {
+      final e = over(0, 30).map((g) => g.open).toList();
+      final open = e.where((o) => o > 0.9).length / e.length;
+      expect(open, greaterThan(0.85));
+      var dips = 0;
+      for (var i = 1; i < e.length; i++) {
+        if (e[i] < 0.3 && e[i - 1] >= 0.3) dips++;
+      }
+      expect(dips, inInclusiveRange(6, 14), reason: 'about one every 3.7 s, sometimes a double');
+    });
+
+    test('glances around: the eyes go to several places, and stay in the eye', () {
+      final looks = over(0, 30);
+      final xs = looks.map((g) => g.lookX).toList();
+      expect(xs.reduce(math.max), greaterThan(0.5));
+      expect(xs.reduce(math.min), lessThan(-0.5));
+      expect(looks.map((g) => g.lookY).reduce(math.min), lessThan(-0.3));
+      for (final g in looks) {
+        expect(g.lookX.abs(), lessThanOrEqualTo(1));
+        expect(g.lookY.abs(), lessThanOrEqualTo(1));
+      }
+    });
+
+    test('a little jiggle now and then, and breathes, but mostly sits calm', () {
+      final all = over(0, 21);
+      expect(all.map((g) => g.wobble.abs()).reduce(math.max), greaterThan(0.2));
+      final calm = all.where((g) => g.wobble.abs() < 0.05).length / all.length;
+      expect(calm, greaterThan(0.75));
+      final sizes = all.map((g) => g.size);
+      expect(sizes.reduce(math.max) - sizes.reduce(math.min), inInclusiveRange(0.02, 0.08));
+    });
+
+    test('a touch squishes it, wobbles it and makes it squint, then it settles', () {
+      final touched = over(5, 5.8, poke: 0);
+      expect(touched.map((g) => g.wobble.abs()).reduce(math.max), greaterThan(0.6));
+      expect(touched.first.open, lessThan(0.6), reason: 'a happy squint');
+      expect(touched.map((g) => (g.size - 1).abs()).reduce(math.max), greaterThan(0.05));
+      final later = pipCharacter(5.9, sincePoke: 0.9);
+      expect(later.size, closeTo(pipCharacter(5.9).size, 1e-9));
+    });
+
+    test('Reduce Motion: open eyes, looking ahead, still', () {
+      for (final t in [0.0, 1.3, 7.2]) {
+        final g = pipCharacter(t, still: true, sincePoke: 0.1);
+        expect(g.open, 1);
+        expect(g.wobble, 0);
+        expect(g.lookX, 0);
+        expect(g.size, 1);
+      }
     });
   });
 }

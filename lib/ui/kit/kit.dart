@@ -7,6 +7,7 @@ export 'firefly_mark.dart';
 export 'motion.dart';
 export 'navigation.dart';
 export 'pip_mark.dart';
+export 'pressable.dart';
 export 'reticle.dart';
 export 'scan_chrome.dart';
 export 'spotlight.dart';

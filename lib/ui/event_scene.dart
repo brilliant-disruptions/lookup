@@ -82,7 +82,9 @@ class _EventSceneState extends State<EventScene> with SingleTickerProviderStateM
             ),
             Align(
               alignment: pip,
+              // Pip marks where to look in the picture: the dot of light.
               child: PipMark(
+                asDot: true,
                 size: 64,
                 state: widget.over ? PipState.resting : (widget.live ? PipState.found : PipState.idle),
                 blinking: !widget.live && !widget.over && p != null && p > 0.93,

@@ -419,6 +419,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
                   distanceDeg: _leaving ? 40 : g.distanceDeg,
                   onTarget: !_leaving && g.onTarget,
                   canLock: !_leaving,
+              homeward: _leaving,
                   words: _leaving ? 'Pip is heading home' : '${g.words} for ${target.name}',
                   // The sky already names it; and no ring: Pip is all there is.
                   ring: false,

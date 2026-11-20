@@ -37,6 +37,9 @@ class ObjectSheet extends ConsumerStatefulWidget {
 }
 
 class _ObjectSheetState extends ConsumerState<ObjectSheet> {
+  /// Touches on the big Pip: each one squishes it.
+  int _pokes = 0;
+
   SkyThing get t => widget.thing;
 
   @override
@@ -134,7 +137,13 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
             ),
           const SizedBox(height: 18),
           if (then != null ? upThen : t.whyNot == null && (upNow || sight != null)) ...[
-            Center(child: PipMark(size: 112)),
+            Center(
+              child: GestureDetector(
+                key: const Key('object-pip'),
+                onTapDown: (_) => setState(() => _pokes++),
+                child: PipMark(size: 112, poke: _pokes),
+              ),
+            ),
             const SizedBox(height: 10),
             Text(
               '${then != null ? 'At ${fmtSkyMoment(then, away?.$2 ?? s?.longitude ?? 0)}' : upNow ? 'Now' : 'At ${fmtTime(sight!.best)}'}: look ${compassWord(az)}, ${elevationWord(alt)}.',

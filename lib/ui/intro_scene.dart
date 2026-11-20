@@ -98,7 +98,7 @@ class _IntroSceneState extends State<IntroScene> with SingleTickerProviderStateM
               top: pip.dy - 18,
               child: Opacity(
                 opacity: pipShown,
-                child: PipMark(size: 36, state: p > 0.09 || still ? PipState.resting : PipState.idle),
+                child: PipMark(asDot: true, size: 36, state: p > 0.09 || still ? PipState.resting : PipState.idle),
               ),
             ),
           if (widget.chrome)

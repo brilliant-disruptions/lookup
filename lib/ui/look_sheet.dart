@@ -204,12 +204,8 @@ class _LookSheetState extends ConsumerState<LookSheet> {
             const SizedBox(height: 22),
             if (!over && event.details['past'] != true)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: FilledButton.icon(
-                  onPressed: () => openFinder(context, event),
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text('Let Pip show you'),
-                ),
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _PipShowsYou(live: live, onTap: () => openFinder(context, event)),
               ),
             // Seen near you: "Can you see it?" while an aurora could be out.
             if (!widget.demo &&
@@ -219,33 +215,22 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                     now: now))
               const SeenItRow(),
             // The Pro camera (LookUp+): Catch it for a pass, the right settings
-            // and a timelapse for everything else. Never for the Sun.
-            if (!over && event.details['past'] != true && !widget.demo && _photographable(event, settings: ref.watch(settingsProvider).value))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: OutlinedButton.icon(
-                  key: const Key('photograph-it'),
-                  onPressed: () {
-                    final s = ref.read(settingsProvider).value;
-                    final target = ShotTarget.ofEvent(event, s?.latitude ?? 0, s?.longitude ?? 0);
-                    if (target != null) openProCamera(context, ref, target);
-                  },
-                  icon: const Icon(Icons.camera_rounded),
-                  label: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Text('Photograph it'),
-                    if (!(ref.watch(settingsProvider).value?.isPlus ?? false)) ...[
-                      const SizedBox(width: 8),
-                      const Pill('LookUp+', color: LookUpColors.blue),
-                    ],
-                  ]),
-                ),
-              ),
+            // and a timelapse for everything else. Never for the Sun. Before
+            // it starts, Calendar and Invite sit beside it as tiles.
+            ..._actionTiles(context, place,
+                live: live,
+                over: over,
+                photo: !over && event.details['past'] != true && !widget.demo && _photographable(event, settings: ref.watch(settingsProvider).value)),
             if (widget.demo && over)
               _demoDone(context)
             else if (over || live)
               _feedbackRow(context, place)
-            else
-              _plainRow(context, place),
+            else if (widget.demo)
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Got it'),
+              ),
             if (!widget.demo) _details(context, now, isPass: isPass, showArc: !live, isTransit: isTransit),
           ],
         ),
@@ -262,32 +247,57 @@ class _LookSheetState extends ConsumerState<LookSheet> {
         FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it')),
       ]);
 
-  /// Before the event: quiet secondary actions (the demo just needs a way out).
-  Widget _plainRow(BuildContext context, String? place) {
-    if (widget.demo) {
-      return FilledButton.icon(
-        onPressed: () => Navigator.of(context).pop(),
-        icon: const Icon(Icons.check_rounded),
-        label: const Text('Got it'),
-      );
-    }
-    return Row(children: [
-      Expanded(
-        child: OutlinedButton.icon(
-          onPressed: () => addToCalendar(event, place: place),
-          icon: const Icon(Icons.event_rounded, size: 18),
-          label: const Text('Calendar'),
+  /// The things you can do besides look: photograph it (LookUp+), and
+  /// before it starts, put it in the calendar or invite someone. One row of
+  /// tiles that sink when pressed.
+  List<Widget> _actionTiles(BuildContext context, String? place, {required bool live, required bool over, required bool photo}) {
+    final plain = !widget.demo && !live && !over;
+    final plus = ref.watch(settingsProvider).value?.isPlus ?? false;
+    final tiles = <Widget>[
+      if (photo)
+        _ActionTile(
+          key: const Key('photograph-it'),
+          icon: Icons.camera_rounded,
+          label: 'Photograph it',
+          color: LookUpColors.violet,
+          tag: plus ? null : 'LookUp+',
+          onTap: () {
+            final s = ref.read(settingsProvider).value;
+            final target = ShotTarget.ofEvent(event, s?.latitude ?? 0, s?.longitude ?? 0);
+            if (target != null) openProCamera(context, ref, target);
+          },
+        ),
+      if (plain) ...[
+        _ActionTile(
+          key: const Key('add-to-calendar'),
+          icon: Icons.event_rounded,
+          label: 'Calendar',
+          color: LookUpColors.blue,
+          onTap: () => addToCalendar(event, place: place),
+        ),
+        _ActionTile(
+          key: const Key('invite'),
+          icon: Icons.person_add_alt_rounded,
+          label: 'Invite',
+          color: LookUpColors.gold,
+          onTap: () => showShareCard(context, event, mode: ShareMode.invite),
+        ),
+      ],
+    ];
+    if (tiles.isEmpty) return const [];
+    return [
+      Padding(
+        padding: EdgeInsets.only(bottom: plain ? 0 : 14),
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(child: tiles[i]),
+            ],
+          ]),
         ),
       ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: OutlinedButton.icon(
-          onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
-          icon: const Icon(Icons.person_add_alt_rounded, size: 18),
-          label: const Text('Invite'),
-        ),
-      ),
-    ]);
+    ];
   }
 
   /// Everything that isn't "where and when", folded away: the arc or the
@@ -429,6 +439,117 @@ double _lookWord0(SkyEvent e, {required bool isAurora, required bool isPass}) =>
 
 String _lookWord(SkyEvent e, {required bool isAurora, required bool isPass}) =>
     compassWord(_lookWord0(e, isAurora: isAurora, isPass: isPass));
+
+/// The way into the live sky camera: Pip itself, awake, on a card that
+/// says what it'll do. Pip squishes the moment you touch it.
+class _PipShowsYou extends StatefulWidget {
+  const _PipShowsYou({required this.live, required this.onTap});
+  final bool live;
+  final VoidCallback onTap;
+
+  @override
+  State<_PipShowsYou> createState() => _PipShowsYouState();
+}
+
+class _PipShowsYouState extends State<_PipShowsYou> {
+  int _pokes = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = BorderRadius.circular(Radii.lg);
+    return Pressable(
+      key: const Key('pip-show-you'),
+      semanticLabel: 'Let Pip show you',
+      pressedScale: 0.97,
+      onDown: () => setState(() => _pokes++),
+      onTap: widget.onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: r,
+          border: Border.all(color: LookUpColors.good.withValues(alpha: 0.35)),
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [LookUpColors.good.withValues(alpha: 0.22), LookUpColors.good.withValues(alpha: 0.06)],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
+          child: Row(children: [
+            ExcludeSemantics(child: PipMark(size: 76, poke: _pokes)),
+            const SizedBox(width: 2),
+            Expanded(
+              child: ExcludeSemantics(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Let Pip show you', style: display(18, weight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.live ? 'It\'s up. Hold your phone up and follow Pip to it.' : 'Hold your phone up. Pip leads you to the spot.',
+                    style: const TextStyle(color: LookUpColors.grey, fontSize: 13.5, height: 1.3),
+                  ),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(color: LookUpColors.good, shape: BoxShape.circle),
+              child: const Icon(Icons.arrow_forward_rounded, size: 20, color: LookUpColors.black),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// One thing to do, as a tile: a tinted circle with the icon, the word
+/// under it, and a small tag (LookUp+) when it's a paid one.
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({super.key, required this.icon, required this.label, required this.color, required this.onTap, this.tag});
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final String? tag;
+
+  @override
+  Widget build(BuildContext context) => Pressable(
+        semanticLabel: tag == null ? label : '$label, $tag',
+        onTap: onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: LookUpColors.glass,
+            borderRadius: BorderRadius.circular(Radii.md),
+            border: Border.all(color: LookUpColors.line),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+            child: ExcludeSemantics(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.16), shape: BoxShape.circle),
+                  child: Icon(icon, size: 22, color: color),
+                ),
+                const SizedBox(height: 8),
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                if (tag != null) ...[
+                  const SizedBox(height: 3),
+                  Text(tag!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: LookUpColors.blue)),
+                ],
+              ]),
+            ),
+          ),
+        ),
+      );
+}
 
 /// Pip is the guide: hovering in the countdown ring, with the direction as
 /// words. No dial; the compass lives behind Details for anyone who wants it.

@@ -18,6 +18,8 @@ import 'package:flutter/services.dart';
 
 import '../../domain/finder/firefly.dart';
 import '../kit/firefly_mark.dart';
+import '../kit/pip_greeting.dart';
+import '../kit/pip_motion.dart' show PipGreeting;
 import '../kit/reticle.dart';
 
 export '../kit/firefly_mark.dart' show fireflyGlow, fireflyCore;
@@ -62,6 +64,8 @@ class PipAim extends StatefulWidget {
     this.ring = true,
     this.ringRadius = 44,
     this.launchFrom,
+    this.homeward = false,
+    this.homeScale = 1.25,
   });
 
   final PipMode mode;
@@ -95,6 +99,13 @@ class PipAim extends StatefulWidget {
   /// it visibly leaves home to lead you); null starts it on its goal.
   final ({double x, double y})? launchFrom;
 
+  /// Flying back to where it set off from (Close): it grows back into the
+  /// character as it nears home.
+  final bool homeward;
+
+  /// How big the character is at home, in 48-pixel Pips (the button's).
+  final double homeScale;
+
   @override
   State<PipAim> createState() => _PipAimState();
 }
@@ -110,6 +121,9 @@ class _PipAimState extends State<PipAim> with SingleTickerProviderStateMixin {
   double _phase = 0; // 0…1 through the current blink
   Size _size = Size.zero;
   bool _placed = false;
+
+  /// When it set off from [PipAim.launchFrom], on [_clock].
+  double? _launchedAt;
   bool _still = false;
   int _ticks = 0;
 
@@ -177,6 +191,7 @@ class _PipAimState extends State<PipAim> with SingleTickerProviderStateMixin {
     if (!_placed) {
       _motion.jumpTo(widget.launchFrom ?? (x: g.x, y: g.y));
       _placed = true;
+      _launchedAt = _seconds;
     }
     _motion.step((x: g.x, y: g.y), dt);
     // A spark every other frame: about half a second of trail.
@@ -229,6 +244,10 @@ class _PipAimState extends State<PipAim> with SingleTickerProviderStateMixin {
                     wobble: _still ? Offset.zero : fireflyHover(_seconds, landed: _locked),
                     // Still (reduced motion): the ring is simply there.
                     sinceLanded: !_locked ? null : (_still || _landedAt == null ? 1.0 : _seconds - _landedAt!),
+                    character: _character(),
+                    seconds: _seconds,
+                    homeScale: widget.homeScale,
+                    look: _look(),
                   ),
                 ),
               ),
@@ -252,6 +271,28 @@ class _PipAimState extends State<PipAim> with SingleTickerProviderStateMixin {
       );
 
   double get _seconds => _clock.inMicroseconds / 1e6;
+
+  /// How much of the character is showing, 0 (the guiding dot) to 1: all of
+  /// it as it leaves home, shrinking to the dot over half a second; and
+  /// growing back as it nears home on the way back. Only when it came from
+  /// somewhere ([PipAim.launchFrom]).
+  double _character() {
+    if (widget.launchFrom == null || _still) return 0;
+    final out = _launchedAt == null ? 1.0 : (1 - (_seconds - _launchedAt!) / 0.45).clamp(0.0, 1.0);
+    var back = 0.0;
+    if (widget.homeward && widget.target != null) {
+      final d = math.sqrt(math.pow(_motion.x - widget.target!.x, 2) + math.pow(_motion.y - widget.target!.y, 2));
+      back = (1 - d / 140).clamp(0.0, 1.0);
+    }
+    return math.max(out, back);
+  }
+
+  /// Which way the character's eyes look: where it's flying.
+  ({double x, double y}) _look() {
+    final v = math.sqrt(_motion.vx * _motion.vx + _motion.vy * _motion.vy);
+    if (v < 20) return (x: 0, y: 0);
+    return (x: _motion.vx / v, y: _motion.vy / v);
+  }
 }
 
 class _PipPainter extends CustomPainter {
@@ -261,7 +302,11 @@ class _PipPainter extends CustomPainter {
       required this.trail,
       required this.blink,
       required this.wobble,
-      required this.sinceLanded});
+      required this.sinceLanded,
+      this.character = 0,
+      this.seconds = 0,
+      this.homeScale = 1.25,
+      this.look = (x: 0, y: 0)});
   final Offset at;
   final ({double radius, bool on})? ring;
   final List<Offset> trail;
@@ -270,6 +315,11 @@ class _PipPainter extends CustomPainter {
 
   /// Seconds since it lined up; null while searching.
   final double? sinceLanded;
+
+  /// 0 the guiding dot, 1 the character (leaving home or coming back).
+  final double character;
+  final double seconds, homeScale;
+  final ({double x, double y}) look;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -280,7 +330,17 @@ class _PipPainter extends CustomPainter {
     final landed = sinceLanded;
     paintSparkTrail(canvas, trail, strength: landed == null ? 1 : (1 - landed / 0.3).clamp(0.0, 1.0));
     final p = at + wobble;
-    paintFirefly(canvas, p, blink: blink);
+    if (character > 0) {
+      paintPipGreeting(
+        canvas,
+        p,
+        PipGreeting(grown: character, open: character, lookX: look.x, lookY: look.y, t: seconds),
+        blink: blink,
+        scale: 1 + (homeScale - 1) * character,
+      );
+    } else {
+      paintFirefly(canvas, p, blink: blink);
+    }
     if (landed != null) paintFireflyLanding(canvas, p, landed);
   }
 

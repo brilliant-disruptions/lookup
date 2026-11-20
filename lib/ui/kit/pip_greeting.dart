@@ -35,7 +35,7 @@ void paintPipGreeting(Canvas canvas, Offset at, PipGreeting g, {double blink = 0
           ..color = fireflyGlow.withValues(alpha: 0.5 * a * (1 - k)));
   }
   final grown = g.grown.clamp(0.0, 1.0);
-  final r = (4.5 + 5.5 * grown) * scale;
+  final r = (4.5 + 5.5 * grown) * scale * g.size;
   canvas.drawCircle(
       at,
       r + 22 * scale,

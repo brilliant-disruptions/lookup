@@ -1,11 +1,13 @@
-/// How Pip moves. Most of the time Pip is just the light: a green dot whose
-/// character is all in how it moves, squashes and flashes. When it says hi
-/// ([PipState.greet], [pipGreeting]) it behaves like a drop of water: it
-/// wobbles and sends out a ripple, opens into a soft orb with two eyes,
-/// glances aside, lifts a droplet off its top and watches it fall back in
-/// with a splash, blinks, and closes back into the dot. Eyes only: no mouth,
-/// no hands. This file is the whole vocabulary, as plain maths over time, so
-/// it can be tested without a widget and stays `dart:ui` only.
+/// How Pip moves. Pip is a character: a soft orb of green light with two
+/// eyes ([pipCharacter]). At rest it breathes, glances about, blinks now and
+/// then and gives the odd jiggle; touched, it squishes and wobbles. When it
+/// says hi ([PipState.greet], [pipGreeting]) it behaves like a drop of
+/// water: it sends out a ripple, glances aside, lifts a droplet off its top
+/// and watches it fall back in with a splash, and blinks. Only when it leads
+/// you across the sky does it become the plain dot of light (the finder and
+/// cameras; pip_aim.dart). Eyes only: no mouth, no hands. This file is the
+/// whole vocabulary, as plain maths over time, so it can be tested without a
+/// widget and stays `dart:ui` only.
 ///
 /// Offsets are in the units of a 48-pixel Pip (the painter multiplies by
 /// size / 48). [PipPose.stretch] is along [PipPose.angle]: 1.2 is 20% longer
@@ -235,6 +237,7 @@ class PipGreeting {
     this.ripples = const [],
     this.drop,
     this.t = 0,
+    this.size = 1,
   });
 
   /// 0 is the dot, 1 the soft orb the eyes sit in.
@@ -258,18 +261,26 @@ class PipGreeting {
   /// Seconds in, for the wobble's phase.
   final double t;
 
+  /// Overall size: Pip breathing, or squished by a touch.
+  final double size;
+
   /// Nothing but the plain light.
   bool get dot => grown <= 0 && wobble == 0 && ripples.isEmpty && drop == null;
 }
 
-/// Pip's hello [since] seconds in. Past [pipGreetLength] it's the dot again.
-/// [still] is Reduce Motion: the orb and open eyes are simply there for the
-/// length of the hello, with no ripples, wobble or droplet.
-PipGreeting pipGreeting(double since, {bool still = false}) {
+/// Pip's hello [since] seconds in: the ripple, the glance, the droplet and
+/// a blink, the character throughout. [fromDot] is the hello of Pip as the
+/// plain light (in a picture of the sky): it grows out of the dot first and
+/// closes back into it. Past [pipGreetLength] it returns the dot, and the
+/// caller goes back to [pipCharacter]. [still] is Reduce Motion: the orb and
+/// open eyes are simply there, with no ripples, wobble or droplet.
+PipGreeting pipGreeting(double since, {bool still = false, bool fromDot = false}) {
   if (since < 0 || since >= pipGreetLength) return const PipGreeting();
   if (still) return const PipGreeting(grown: 1, open: 1);
   final t = since;
-  final grown = t < 0.15
+  final grown = !fromDot
+      ? 1.0
+      : t < 0.15
       ? 0.0
       : t < 0.6
           ? _smooth((t - 0.15) / 0.45)
@@ -277,7 +288,9 @@ PipGreeting pipGreeting(double since, {bool still = false}) {
               ? 1.0
               : 1 - _smooth((t - 2.6) / 0.6);
   // The eyes come once it's an orb and go before it closes.
-  final seen = t < 0.6
+  final seen = !fromDot
+      ? 1.0
+      : t < 0.6
       ? 0.0
       : t < 0.85
           ? _smooth((t - 0.6) / 0.25)
@@ -318,3 +331,39 @@ double _smooth(double k) {
   final x = k.clamp(0.0, 1.0);
   return x * x * (3 - 2 * x);
 }
+
+/// Pip at rest, [t] seconds into its life: it breathes, its eyes wander
+/// (a new place every couple of seconds, eased), it blinks every few
+/// seconds (now and then twice), and it gives a small jiggle every seven.
+/// [sincePoke] is seconds since it was touched: a squish, a wobble and a
+/// happy squint. [still] is Reduce Motion: eyes open, looking ahead.
+PipGreeting pipCharacter(double t, {double sincePoke = 1e9, bool still = false}) {
+  if (still) return const PipGreeting(grown: 1, open: 1);
+  // Where the eyes look: one of a few places, chosen by the moment.
+  const spots = [(0.0, 0.0), (0.8, 0.0), (-0.8, 0.1), (0.5, -0.6), (-0.5, -0.5), (0.0, 0.4), (0.0, 0.0)];
+  const glance = 2.6;
+  final k = (t / glance).floor();
+  (double, double) spot(int i) => spots[((i * 5 + 3) % spots.length + spots.length) % spots.length];
+  final (fx, fy) = spot(k - 1);
+  final (tx, ty) = spot(k);
+  final e = _smooth((t - k * glance) / 0.3);
+  var lookX = fx + (tx - fx) * e, lookY = fy + (ty - fy) * e;
+  // Blinks: every 3.7 s, and a double blink every third time.
+  final b = t % 3.7;
+  var open = _blinks(b, (t ~/ 3.7) % 3 == 2 ? const [0.1, 0.35] : const [0.1]).clamp(0.0, 1.0);
+  // A small jiggle every 7 s, like water nudged.
+  final j = t % 7;
+  var wobble = j < 1.2 ? 0.5 * math.exp(-j * 3) * math.sin(j * 14) : 0.0;
+  var size = 1 + 0.025 * math.sin(t * 1.7);
+  if (sincePoke >= 0 && sincePoke < 0.8) {
+    final p = sincePoke;
+    // Squished, then springs back with a wobble; eyes squint shut, then pop open looking up.
+    size *= 1 - 0.14 * math.exp(-p * 7) * math.cos(p * 18);
+    wobble += 1.4 * math.exp(-p * 4) * math.sin(p * 16);
+    open = p < 0.25 ? 0.25 : open;
+    lookX *= 0.3;
+    lookY = p < 0.5 ? -0.5 : lookY;
+  }
+  return PipGreeting(grown: 1, open: open, lookX: lookX, lookY: lookY, wobble: wobble, t: t, size: size);
+}
+

@@ -1,7 +1,8 @@
 /// Pip beside the tab bar: the way into the camera from anywhere in the app.
-/// It sits there as the green light, says hi now and then (a ripple, two
-/// eyes, a droplet, back to the dot), and a tap opens the live sky through
-/// the camera. Holding it down just makes it say hi.
+/// It sits there as the character (breathing, glancing, blinking), says hi
+/// now and then (a ripple and a droplet), squishes when touched, and a tap
+/// opens the live sky through the camera, where it becomes the dot that
+/// leads the way. Holding it down just makes it say hi.
 library;
 
 import 'dart:async';
@@ -44,6 +45,9 @@ class _PipButtonState extends State<PipButton> {
   /// What Pip last did, and a count so doing it again replays it.
   PipState _state = PipState.idle;
   int _replay = 0;
+
+  /// Touches: each one squishes Pip.
+  int _pokes = 0;
   Timer? _first, _again;
 
   @override
@@ -86,6 +90,7 @@ class _PipButtonState extends State<PipButton> {
         child: GestureDetector(
           key: const Key('pip-button'),
           behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => setState(() => _pokes++),
           onTap: () {
             HapticFeedback.lightImpact();
             widget.onTap();
@@ -108,6 +113,7 @@ class _PipButtonState extends State<PipButton> {
               size: 60,
               state: _state,
               replay: _replay,
+              poke: _pokes,
             ),
           ),
         ),
