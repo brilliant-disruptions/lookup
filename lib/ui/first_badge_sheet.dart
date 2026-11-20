@@ -14,6 +14,8 @@ Future<void> showFirstBadge(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
+    // As tall as it needs (big text, small phones), scrolling past that.
+    isScrollControlled: true,
     backgroundColor: LookUpColors.panel,
     builder: (context) => const FirstBadgeSheet(),
   );
@@ -24,7 +26,7 @@ class FirstBadgeSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const Center(child: PipMark(key: Key('first-badge-pip'), size: 120, state: PipState.greet)),
