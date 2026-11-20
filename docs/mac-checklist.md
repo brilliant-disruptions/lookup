@@ -187,3 +187,40 @@ On the first Mac or TestFlight build:
      not "Auto exposure";
    - frames arrive about once per shutter;
    - the picture is upright, both with the phone upright and on its side.
+
+## Pro camera: timelapse video on iPhone
+
+`ios/Runner/LookUpTimelapse.swift` encodes a timelapse's kept frames into an
+H.264 .mp4 (AVAssetWriter) on the `lookup/timelapse` channel, the same
+contract as `android/.../LookUpTimelapse.kt` (which CI compiles). It was
+written on Linux and only syntax-checked (`swiftc -parse`), so it is **not in
+the Runner target**. Until it is, an iPhone timelapse saves its trail picture
+(every frame's brightest) instead of a video.
+
+On a Mac:
+
+1. Add `LookUpTimelapse.swift` to the Runner target and build (⌘B).
+2. Register it in `AppDelegate.swift`'s `didInitializeImplicitFlutterEngine`,
+   next to `LookUpCapture`:
+   ```swift
+   if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpTimelapse") {
+     LookUpTimelapse.register(with: registrar)
+   }
+   ```
+3. On a device: Explore → the Moon → *Photograph it* → *Timelapse* →
+   *Start the timelapse* → *Start now*, wait a minute, *Stop*. Check a clip
+   lands in Photos, upright, with the dark sky not crushed to black.
+
+## Pro camera: first checks on a phone
+
+The Pro camera (LookUp+, `lib/ui/pro_camera_screen.dart`) drives the same
+native capture as Catch it. On the first device build, for each of the Moon,
+a planet and a dark-sky star field:
+
+- the detail line shows a real shutter and ISO (not "Auto exposure");
+- pointing at the Moon, the frames start too bright or too dark and LookUp
+  corrects them within a few seconds, saying so;
+- *Take it* counts down three seconds, then counts frames, and the picture
+  lands in Photos and the Log;
+- the zoom lens is chosen for the Moon and planets where the phone has one.
+

@@ -48,13 +48,15 @@ Future<Uint8List?> composeSkyPicture({
   overlay.paint(c, screen);
   c.restore();
 
-  _caption(c, out, title, line);
+  paintCaption(c, out, title, line);
   final picture = await rec.endRecording().toImage(out.width.round(), out.height.round());
   final bytes = await picture.toByteData(format: ui.ImageByteFormat.png);
   return bytes?.buffer.asUint8List();
 }
 
-void _caption(Canvas c, Size size, String title, String line) {
+/// The caption along a picture's foot: what, then when and where, and
+/// "LookUp" on the right, over a soft dark fade.
+void paintCaption(Canvas c, Size size, String title, String line) {
   final w = size.width, h = size.height;
   final unit = math.min(w, h) / 30;
   c.drawRect(
@@ -75,4 +77,18 @@ void _caption(Canvas c, Size size, String title, String line) {
   text(title, Offset(unit, h - unit * 3.4), unit * 1.15, FontWeight.w700, Colors.white);
   text(line, Offset(unit, h - unit * 1.9), unit * 0.8, FontWeight.w500, const Color(0xCCFFFFFF));
   text('LookUp', Offset(w - unit, h - unit * 1.9), unit * 0.8, FontWeight.w700, const Color(0xCCFFFFFF), right: true);
+}
+
+/// [rgba] ([width]×[height]) with the caption along its foot, as PNG.
+Future<Uint8List?> captionedPng(Uint8List rgba, int width, int height, {required String title, required String line}) async {
+  final buffer = await ui.ImmutableBuffer.fromUint8List(rgba);
+  final desc = ui.ImageDescriptor.raw(buffer, width: width, height: height, pixelFormat: ui.PixelFormat.rgba8888);
+  final img = (await (await desc.instantiateCodec()).getNextFrame()).image;
+  final rec = ui.PictureRecorder();
+  final c = Canvas(rec);
+  c.drawImage(img, Offset.zero, Paint());
+  paintCaption(c, Size(width.toDouble(), height.toDouble()), title, line);
+  final out = await rec.endRecording().toImage(width, height);
+  final bytes = await out.toByteData(format: ui.ImageByteFormat.png);
+  return bytes?.buffer.asUint8List();
 }

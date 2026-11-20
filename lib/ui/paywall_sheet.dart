@@ -119,6 +119,8 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
                   PlusFeature.planAhead => 'Plan any of the next 14 nights, here or at any saved place.',
                   PlusFeature.places => 'Save the cabin, the coast and next month\'s trip, as many as you like.',
                   PlusFeature.transits => 'Catch the station crossing the Sun or Moon, with where to stand.',
+                  PlusFeature.camera =>
+                    'The Pro camera: the right settings for the Moon, stars, meteors and aurora, and timelapses that start by themselves.',
                   _ => preview == null ? 'Never miss anything up there.' : 'Don\'t find out tomorrow that it went over.',
                 },
                 style: t.bodyLarge?.copyWith(color: LookUpColors.grey, fontSize: 17),

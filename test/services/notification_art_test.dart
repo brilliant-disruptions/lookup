@@ -1,6 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lookup/domain/photo/capture_plan.dart' show catchItEnabled;
+import 'package:lookup/domain/photo/capture_plan.dart' show catchItOnAlerts;
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/scheduling/alert_planner.dart';
 import 'package:lookup/services/alert_art.dart';
@@ -148,8 +148,8 @@ void main() {
     expect([for (final a in go.android!.actions!) a.id], [AlertAction.find, AlertAction.catchIt]);
   });
 
-  test('while Catch it is switched off, alerts never offer Photograph it', () {
-    expect(catchItEnabled, isFalse, reason: 'switched off until it\'s reworked');
+  test('until Catch it is proven on phones, alerts never offer Photograph it', () {
+    expect(catchItOnAlerts, isFalse, reason: 'in the app for LookUp+, not on alerts yet');
     for (final type in [SkyEventType.iss, SkyEventType.starlinkTrain, SkyEventType.meteorShower]) {
       final d = NotificationService.detailsForAlert(_alert(type));
       expect([for (final a in d.android!.actions!) a.id], isNot(contains(AlertAction.photo)), reason: type.name);

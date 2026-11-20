@@ -32,6 +32,7 @@ import '../format.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import '../pip/pip_aim.dart';
+import '../pro_camera_screen.dart';
 import '../pip/pip_button.dart' show pipCameHome, pipHomeOffset;
 import 'figure_spotlight.dart';
 import 'sky_capture.dart';
@@ -325,6 +326,13 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
     }
     final aim = widget.time != null ? null : guideTarget(candidates, chosen: _guideId);
     final target = aim == null ? null : guides[aim.id];
+    // The Pro camera (LookUp+) on whatever Pip is leading you to.
+    ShotTarget? proTarget;
+    if (aim != null && lat != null && lon != null) {
+      final thing = mapped.where((m) => m.thing.id == aim.id).firstOrNull?.thing;
+      final track = widget.tracks.where((tr) => tr.event.id == aim.id).firstOrNull;
+      proTarget = thing != null ? ShotTarget.ofThing(thing) : (track == null ? null : ShotTarget.ofEvent(track.event, lat, lon));
+    }
     final g = camera == null || target == null ? null : guide(camera, target.d, toleranceDeg: _lockDeg);
     final screen = MediaQuery.sizeOf(context);
     final onScreen = r == null || target == null
@@ -543,7 +551,12 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 44),
+                            CircleButton(
+                              key: const Key('pro-camera'),
+                              tooltip: 'Pro camera',
+                              icon: Icons.tune_rounded,
+                              onPressed: proTarget == null ? null : () => openProCamera(context, ref, proTarget!),
+                            ),
                           ],
                         ),
                       ),

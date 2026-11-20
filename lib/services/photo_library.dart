@@ -19,6 +19,9 @@ abstract class PhotoLibrary {
   /// Saves [png] to the phone's photos. False when access was refused or
   /// saving failed; the caller still keeps LookUp's own copy.
   Future<bool> save(Uint8List png, {required String name});
+
+  /// Saves the video at [path] (a timelapse) to the phone's photos.
+  Future<bool> saveVideo(String path);
 }
 
 class GalPhotoLibrary extends PhotoLibrary {
@@ -29,6 +32,17 @@ class GalPhotoLibrary extends PhotoLibrary {
     try {
       if (!await Gal.hasPermission() && !await Gal.requestPermission()) return false;
       await Gal.putImageBytes(png, name: name);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> saveVideo(String path) async {
+    try {
+      if (!await Gal.hasPermission() && !await Gal.requestPermission()) return false;
+      await Gal.putVideo(path);
       return true;
     } catch (_) {
       return false;

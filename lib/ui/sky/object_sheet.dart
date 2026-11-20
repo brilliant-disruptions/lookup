@@ -9,6 +9,7 @@ import '../finder_screen.dart';
 import '../format.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
+import '../pro_camera_screen.dart';
 import 'sky_camera_screen.dart';
 import 'sky_thing.dart';
 
@@ -172,15 +173,23 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
               icon: const Icon(Icons.auto_awesome_rounded),
               label: const Text('Let Pip show you'),
             ),
-          // Into the Log by catching it with Pip in the camera, nowhere else.
-          if (upNow)
-            Center(
-              child: TextButton.icon(
-                onPressed: () => openLiveSkyCamera(context, ref),
-                icon: const Icon(Icons.photo_camera_rounded, size: 18),
-                label: const Text('Catch it with Pip'),
+          // Into the Log by catching it with Pip in the camera, nowhere else;
+          // or the Pro camera (LookUp+) for a proper photograph or a timelapse.
+          if (upNow || t.rise != null)
+            Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
+              if (upNow)
+                TextButton.icon(
+                  onPressed: () => openLiveSkyCamera(context, ref),
+                  icon: const Icon(Icons.photo_camera_rounded, size: 18),
+                  label: const Text('Catch it with Pip'),
+                ),
+              TextButton.icon(
+                key: const Key('photograph-it'),
+                onPressed: () => openProCamera(context, ref, ShotTarget.ofThing(t)),
+                icon: const Icon(Icons.camera_rounded, size: 18),
+                label: Text((s?.isPlus ?? false) ? 'Photograph it' : 'Photograph it · LookUp+'),
               ),
-            ),
+            ]),
         ]),
       ),
     );

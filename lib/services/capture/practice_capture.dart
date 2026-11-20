@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../domain/photo/camera.dart';
 import '../../domain/photo/capture_plan.dart';
+import '../../domain/photo/exposure.dart';
 import '../../domain/photo/framing.dart';
 import '../../domain/photo/practice_sky.dart';
 import '../../domain/sky/catalog.dart';
@@ -118,6 +119,21 @@ class PracticeCapture extends CaptureBackend {
         _out.close();
         return;
       }
+      final f = s.frameAt(t);
+      _out.add(CaptureFrame(width: s.width, height: s.height, y: f.y, u: f.u, v: f.v));
+      t = t.add(shutter);
+      _simNow = t;
+    });
+  }
+
+  @override
+  Future<void> startWith({required String lensId, Exposure? exposure}) async {
+    final s = _sky;
+    if (s == null) return;
+    final shutter = Duration(microseconds: ((exposure?.shutterS ?? 1 / 30) * 1e6).round());
+    var t = _simNow ?? DateTime.now().toUtc();
+    _timer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+      if (_out.isClosed) return;
       final f = s.frameAt(t);
       _out.add(CaptureFrame(width: s.width, height: s.height, y: f.y, u: f.u, v: f.v));
       t = t.add(shutter);

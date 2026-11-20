@@ -4,7 +4,7 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/models/sky_event.dart';
-import '../domain/photo/capture_plan.dart' show offerCatchIt;
+import '../domain/photo/capture_plan.dart' show catchItOnAlerts, offerCatchIt;
 import '../domain/scheduling/alert_planner.dart';
 import 'alert_art.dart';
 
@@ -152,7 +152,7 @@ class NotificationService {
       countdownTo: countdown,
       timeoutAfterMs: clearAt > 0 ? clearAt : null,
       thread: e.id,
-      photographable: offerCatchIt(e.type),
+      photographable: catchItOnAlerts && offerCatchIt(e.type),
     );
   }
 

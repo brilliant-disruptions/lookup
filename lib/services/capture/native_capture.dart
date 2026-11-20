@@ -12,6 +12,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../domain/photo/camera.dart';
 import '../../domain/photo/capture_plan.dart';
+import '../../domain/photo/exposure.dart';
 import 'capture_backend.dart';
 
 class NativeCapture extends CaptureBackend {
@@ -78,6 +79,16 @@ class NativeCapture extends CaptureBackend {
     await _methods.invokeMethod<void>('start', {
       if (plan.manual) 'shutterS': plan.exposure.shutterS,
       if (plan.manual) 'iso': plan.exposure.iso,
+      'longPx': captureLongPx,
+    });
+  }
+
+  @override
+  Future<void> startWith({required String lensId, Exposure? exposure}) async {
+    await useLens(lensId);
+    await _methods.invokeMethod<void>('start', {
+      if (exposure != null) 'shutterS': exposure.shutterS,
+      if (exposure != null) 'iso': exposure.iso,
       'longPx': captureLongPx,
     });
   }

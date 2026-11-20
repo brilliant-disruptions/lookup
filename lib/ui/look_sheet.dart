@@ -8,7 +8,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/local_store.dart';
 import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
+import '../domain/models/settings.dart';
 import '../domain/photo/capture_plan.dart' show offerCatchIt;
+import '../domain/photo/shot_plan.dart' show ShotSubject, subjectForEvent;
 import '../domain/plus/free_plan.dart';
 import '../domain/scheduling/alert_planner.dart' show AlertPlanner;
 import '../domain/sky/direction.dart';
@@ -17,11 +19,11 @@ import '../services/photo_store.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'calendar.dart';
-import 'catch_it_screen.dart';
 import 'caught_it_screen.dart';
 import 'finder_screen.dart';
 import 'paywall_sheet.dart';
 import 'photo_tips.dart';
+import 'pro_camera_screen.dart';
 import 'share_card.dart';
 import 'sky/sky_camera_screen.dart';
 import 'sky/sky_track.dart';
@@ -216,14 +218,26 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                     lon: ref.watch(settingsProvider).value?.longitude,
                     now: now))
               const SeenItRow(),
-            // Catch it: the phone photographs the pass by itself.
-            if (isPass && offerCatchIt(event.type) && !over && event.details['past'] != true && !widget.demo)
+            // The Pro camera (LookUp+): Catch it for a pass, the right settings
+            // and a timelapse for everything else. Never for the Sun.
+            if (!over && event.details['past'] != true && !widget.demo && _photographable(event, settings: ref.watch(settingsProvider).value))
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: OutlinedButton.icon(
-                  onPressed: () => openCatchIt(context, event),
+                  key: const Key('photograph-it'),
+                  onPressed: () {
+                    final s = ref.read(settingsProvider).value;
+                    final target = ShotTarget.ofEvent(event, s?.latitude ?? 0, s?.longitude ?? 0);
+                    if (target != null) openProCamera(context, ref, target);
+                  },
                   icon: const Icon(Icons.camera_rounded),
-                  label: const Text('Photograph it'),
+                  label: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Text('Photograph it'),
+                    if (!(ref.watch(settingsProvider).value?.isPlus ?? false)) ...[
+                      const SizedBox(width: 8),
+                      const Pill('LookUp+', color: LookUpColors.blue),
+                    ],
+                  ]),
                 ),
               ),
             if (widget.demo && over)
@@ -687,4 +701,14 @@ class _LandmarksState extends ConsumerState<_Landmarks> {
       ]),
     );
   }
+}
+
+/// Whether the Pro camera has something to photograph for [e]: a pass when
+/// Catch it is on, anything else with a subject (never the Sun), once the
+/// app knows where you are.
+bool _photographable(SkyEvent e, {LookUpSettings? settings}) {
+  if (settings?.latitude == null) return false;
+  final s = subjectForEvent(e.type);
+  if (s == null) return false;
+  return s != ShotSubject.pass || offerCatchIt(e.type);
 }

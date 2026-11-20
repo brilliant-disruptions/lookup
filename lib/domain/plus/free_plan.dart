@@ -25,6 +25,12 @@ enum PlusFeature {
 
   /// The station crossing the Sun or Moon (photo planning).
   transits,
+
+  /// The Pro camera: the right lens, shutter and ISO for the Moon, planets,
+  /// stars, meteors and aurora, stacked long exposures, Catch it for passes,
+  /// and timelapses that start and stop by themselves. Pip's quick catch
+  /// (point, tap, logged) stays free: it's how anyone fills their Log.
+  camera,
 }
 
 abstract final class FreePlan {
@@ -42,7 +48,7 @@ abstract final class FreePlan {
   static bool canUse(PlusFeature f, {required bool isPlus}) =>
       isPlus ||
       switch (f) {
-        PlusFeature.whereToGo || PlusFeature.transits || PlusFeature.alerts => false,
+        PlusFeature.whereToGo || PlusFeature.transits || PlusFeature.alerts || PlusFeature.camera => false,
         // Limited rather than locked; see canPlanNight / canAddPlace.
         PlusFeature.planAhead || PlusFeature.places => true,
       };

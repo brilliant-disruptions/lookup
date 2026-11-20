@@ -20,6 +20,8 @@ class MainActivity : FlutterActivity() {
       .setStreamHandler(AmbientLightHandler(getSystemService(Context.SENSOR_SERVICE) as SensorManager))
     // Catch it: manual long exposures (lib/services/capture/native_capture.dart).
     capture = LookUpCapture(this, flutterEngine.dartExecutor.binaryMessenger, flutterEngine.renderer)
+    // Timelapse: kept frames encoded as an H.264 .mp4 (lib/services/capture/).
+    LookUpTimelapse(flutterEngine.dartExecutor.binaryMessenger)
   }
 
   override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
