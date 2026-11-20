@@ -18,6 +18,8 @@ import 'package:flutter/services.dart';
 
 import '../../domain/finder/firefly.dart';
 import '../kit/firefly_mark.dart';
+import '../kit/pip_figure.dart';
+import '../kit/pip_motion.dart';
 import '../kit/reticle.dart';
 
 export '../kit/firefly_mark.dart' show fireflyGlow, fireflyCore;
@@ -61,6 +63,8 @@ class PipAim extends StatefulWidget {
     this.canLock = true,
     this.ring = true,
     this.ringRadius = 44,
+    this.launchFrom,
+    this.waveOnLock = false,
   });
 
   final PipMode mode;
@@ -89,6 +93,13 @@ class PipAim extends StatefulWidget {
   /// Draw the ring in the middle. Off where the camera overlay has its own.
   final bool ring;
   final double ringRadius;
+
+  /// Where Pip sets off from, from the centre (the sky camera's shutter, so
+  /// it visibly leaves home to lead you); null starts it on its goal.
+  final ({double x, double y})? launchFrom;
+
+  /// Once you're on it, Pip grows its face and waves ([pipLockedFigure]).
+  final bool waveOnLock;
 
   @override
   State<PipAim> createState() => _PipAimState();
@@ -170,7 +181,7 @@ class _PipAimState extends State<PipAim> with SingleTickerProviderStateMixin {
     if (_size.isEmpty) return;
     final g = _goal();
     if (!_placed) {
-      _motion.jumpTo((x: g.x, y: g.y));
+      _motion.jumpTo(widget.launchFrom ?? (x: g.x, y: g.y));
       _placed = true;
     }
     _motion.step((x: g.x, y: g.y), dt);
@@ -202,12 +213,17 @@ class _PipAimState extends State<PipAim> with SingleTickerProviderStateMixin {
         excludeSemantics: true,
         child: LayoutBuilder(builder: (context, c) {
           _size = c.biggest;
-          if (_still || !_placed) {
+          if (_still) {
             final g = _goal();
             _motion.jumpTo((x: g.x, y: g.y));
+          } else if (!_placed) {
+            final g = _goal();
+            _motion.jumpTo(widget.launchFrom ?? (x: g.x, y: g.y));
           }
           final at = _size.center(Offset(_motion.x, _motion.y));
           final label = _locked || (widget.target != null && !_goal().waiting) ? widget.label : null;
+          // Under a grown Pip, the name sits a little lower.
+          final below = _locked && widget.waveOnLock ? 34.0 : 24.0;
           return Stack(clipBehavior: Clip.none, children: [
             Positioned.fill(
               child: IgnorePointer(
@@ -221,6 +237,9 @@ class _PipAimState extends State<PipAim> with SingleTickerProviderStateMixin {
                     wobble: _still ? Offset.zero : fireflyHover(_seconds, landed: _locked),
                     // Still (reduced motion): the ring is simply there.
                     sinceLanded: !_locked ? null : (_still || _landedAt == null ? 1.0 : _seconds - _landedAt!),
+                    figure: _locked && widget.waveOnLock
+                        ? pipLockedFigure(_still || _landedAt == null ? 1.0 : _seconds - _landedAt!, still: _still)
+                        : const PipFigure(),
                   ),
                 ),
               ),
@@ -230,7 +249,7 @@ class _PipAimState extends State<PipAim> with SingleTickerProviderStateMixin {
                 // Beside Pip, but kept on screen near the edges.
                 left: (at.dx - 90).clamp(8.0, math.max(8.0, _size.width - 188)),
                 width: 180,
-                top: at.dy + 24,
+                top: at.dy + below,
                 child: Text(label,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -253,7 +272,8 @@ class _PipPainter extends CustomPainter {
       required this.trail,
       required this.blink,
       required this.wobble,
-      required this.sinceLanded});
+      required this.sinceLanded,
+      this.figure = const PipFigure()});
   final Offset at;
   final ({double radius, bool on})? ring;
   final List<Offset> trail;
@@ -262,6 +282,9 @@ class _PipPainter extends CustomPainter {
 
   /// Seconds since it lined up; null while searching.
   final double? sinceLanded;
+
+  /// Pip grown out of the dot, waving; [PipFigure.dot] draws the plain light.
+  final PipFigure figure;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -272,8 +295,12 @@ class _PipPainter extends CustomPainter {
     final landed = sinceLanded;
     paintSparkTrail(canvas, trail, strength: landed == null ? 1 : (1 - landed / 0.3).clamp(0.0, 1.0));
     final p = at + wobble;
-    paintFirefly(canvas, p, blink: blink);
     if (landed != null) paintFireflyLanding(canvas, p, landed);
+    if (figure.dot) {
+      paintFirefly(canvas, p, blink: blink);
+    } else {
+      paintPipFigure(canvas, p, figure, blink: 0.75, scale: 1.3);
+    }
   }
 
   @override

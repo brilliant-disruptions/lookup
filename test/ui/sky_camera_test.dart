@@ -10,6 +10,7 @@ import 'package:lookup/domain/sky/catalog.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/state/sky_state.dart';
 import 'package:lookup/ui/kit/kit.dart';
+import 'package:lookup/ui/pip/pip_aim.dart';
 import 'package:lookup/ui/sky/sky_camera_screen.dart';
 import 'package:lookup/ui/sky/sky_thing.dart';
 
@@ -77,14 +78,14 @@ void main() {
 
     c.add(east);
     await t.pump();
-    expect(find.textContaining('Looking east'), findsOneWidget);
+    // Facing east, Saturn is to the right and a little up: Pip says so.
+    expect(find.text('Turn right, tilt up a little for Saturn'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
 
-  // Every screen you hold up to the sky has Pip in it and reads the same, so
-  // the sky camera can't be the one without. Here Pip is the shutter, and
-  // it waves at whatever is in the middle.
-  testWidgets('Pip is there, and waves at what the camera is pointing at', (t) async {
+  // Pip guides: it leaves the shutter, flies out over the sky to what it's
+  // leading you to, and waves once you've brought it to the middle.
+  testWidgets('Pip flies out of the shutter to guide, and waves once you are on it', (t) async {
     final c = StreamController<List<double>>(sync: true);
     addTearDown(c.close);
     await t.pumpWidget(ProviderScope(
@@ -99,14 +100,57 @@ void main() {
     ));
     await t.pump();
     expect(find.byType(ScanTopBar), findsOneWidget);
-    expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.idle);
-    c.add(south);
-    await t.pump();
-    expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.wave, reason: 'Saturn is in the middle');
-    expect(find.bySemanticsLabel('Catch Saturn'), findsOneWidget);
     c.add(east);
     await t.pump();
-    expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.idle);
+    final pip = find.byKey(const Key('sky-pip'));
+    final out = t.widget<PipAim>(pip);
+    expect(out.onTarget, isFalse);
+    expect(out.words, contains('Saturn'));
+    expect(out.ring, isFalse, reason: 'nothing on screen but Pip');
+    expect(out.launchFrom!.y, greaterThan(200), reason: 'sets off from the shutter at the foot');
+    expect(out.toward.x, greaterThan(0), reason: 'Saturn is to the right');
+    expect(find.byKey(const Key('pip-on-target')), findsNothing);
+    expect(find.byType(PipMark), findsNothing, reason: 'Pip is out guiding, not sitting in the shutter');
+
+    c.add(south);
+    await t.pump();
+    final on = t.widget<PipAim>(pip);
+    expect(on.onTarget, isTrue, reason: 'Saturn is in the middle');
+    expect(on.waveOnLock, isTrue);
+    expect(find.bySemanticsLabel('Catch Saturn'), findsWidgets);
+    expect(find.byKey(const Key('pip-on-target')), findsOneWidget, reason: 'tap Pip itself to catch it');
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('"Pip, find something else" leads to the next thing', (t) async {
+    final c = StreamController<List<double>>(sync: true);
+    addTearDown(c.close);
+    final jupiter = SkyThing(
+      id: 'planet:jupiter',
+      name: 'Jupiter',
+      kind: 'Planet',
+      position: (_) => const Horizontal(100, 30),
+      mag: -2.6,
+      finder: const {'planet': 'Jupiter'},
+    );
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(_Settings.new),
+        clockProvider.overrideWith((_) => Stream.value(now)),
+        skyCatalogProvider.overrideWith((_) async => SkyCatalog.empty),
+      ],
+      child: MaterialApp(
+        home: SkyCameraScreen(things: [saturn, jupiter], tracks: const [], orientationStream: c.stream, camera: false),
+      ),
+    ));
+    await t.pump();
+    c.add(south);
+    await t.pump();
+    // The brighter planet first.
+    expect(t.widget<PipAim>(find.byKey(const Key('sky-pip'))).words, endsWith('for Jupiter'));
+    await t.tap(find.byKey(const Key('find-something-else')));
+    await t.pump();
+    expect(t.widget<PipAim>(find.byKey(const Key('sky-pip'))).words, endsWith('for Saturn'));
     await t.pumpWidget(const SizedBox());
   });
 
@@ -175,7 +219,7 @@ void main() {
 
   // A catch needs a picture: with the camera off, tapping Pip turns it on
   // and logs nothing.
-  testWidgets('tapping Pip with the camera off turns it on rather than logging', (t) async {
+  testWidgets('tapping Pip on the target with the camera off turns it on rather than logging', (t) async {
     final c = StreamController<List<double>>(sync: true);
     addTearDown(c.close);
     await t.pumpWidget(ProviderScope(
@@ -193,7 +237,7 @@ void main() {
     c.add(south);
     await t.pump();
     expect(find.byTooltip('Show camera'), findsOneWidget);
-    await t.tap(find.byKey(const Key('pip-shutter')));
+    await t.tap(find.byKey(const Key('pip-on-target')));
     await t.pump();
     expect(find.textContaining('Camera on'), findsOneWidget);
     expect(find.byTooltip('Hide camera'), findsOneWidget);
@@ -230,7 +274,7 @@ void main() {
     await open(_Nerd.new);
     expect(find.byKey(const Key('nerd-numbers')), findsOneWidget);
     expect(find.textContaining(RegExp(r'^Az \d+\.\d° · Alt')), findsOneWidget);
-    expect(find.textContaining('Looking east'), findsOneWidget, reason: 'the words stay');
+    expect(find.textContaining('Turn right'), findsOneWidget, reason: 'the words stay');
     await t.pumpWidget(const SizedBox());
   });
 }

@@ -1,8 +1,9 @@
 /// The whole sky over the camera: stars, constellation figures, planets, the
 /// Moon, showpieces and any pass coming over, painted where they are even
 /// when cloud, haze or a roof hides the real thing. Nothing points a
-/// direction but Pip: bring something to the middle and Pip waves at it;
-/// tap Pip to catch it. A catch is the only way into the Log: the picture
+/// direction but Pip: it leaves the shutter and leads you to the best thing
+/// up (or whatever you ask it to find), waits at the edge on the side to
+/// turn, and waves once you've brought it to the middle; tap Pip to catch it. A catch is the only way into the Log: the picture
 /// goes to your Photos and the sighting to the Log. The next sight counts
 /// down in the top right.
 library;
@@ -14,6 +15,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local_store.dart';
+import '../../domain/finder/firefly.dart' show towardOnScreen;
+import '../../domain/finder/guide_target.dart';
 import '../../domain/finder/pointing.dart';
 import '../../domain/models/sky_event.dart';
 import '../../domain/plan/next_up.dart';
@@ -28,6 +31,7 @@ import '../finder_camera.dart';
 import '../format.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
+import '../pip/pip_aim.dart';
 import 'figure_spotlight.dart';
 import 'sky_capture.dart';
 import 'sky_thing.dart';
@@ -127,6 +131,12 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
   final _camera = GlobalKey<CameraBackdropState>();
   bool _catching = false;
 
+  /// How close to the middle counts as "on it", for naming and for Pip.
+  static const _lockDeg = 10.0;
+
+  /// What you asked Pip to find ("Find something else"); null is Pip's pick.
+  String? _guideId;
+
   /// The overlay as it was last drawn, without its live hooks, for a catch.
   SkyOverlayPainter Function()? _still;
 
@@ -208,7 +218,9 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
     // pass going over now first, then the Moon, planets and showpieces.
     _Centred? centred;
     if (camera != null) {
-      double best = 12;
+      // The same reach as Pip's lock below, so "That's Saturn" and Pip
+      // landing on it happen together.
+      double best = _lockDeg;
       for (final tr in widget.tracks) {
         if (tr.at(utc) case final h?) {
           final d = angularDistanceDeg(camera, SkyDir(h.azimuthDeg, h.altitudeDeg));
@@ -226,6 +238,36 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
         }
       }
     }
+    // Pip's guide: the thing it leads you to (a pass going over now, else
+    // the brightest planet, else the Moon...), where it is, and which way to
+    // turn. Pip flies out to it; you bring it to the middle.
+    final guides = <String, ({String name, SkyDir d})>{};
+    final candidates = <GuideCandidate>[
+      for (final tr in widget.tracks)
+        if (tr.at(utc) case final h?)
+          GuideCandidate(id: tr.event.id, kind: 'pass', mag: -3, altitudeDeg: h.altitudeDeg, live: true),
+      for (final m in mapped)
+        GuideCandidate(
+          id: m.thing.id,
+          kind: m.thing.id == 'moon' ? 'moon' : (m.thing.kind == 'Planet' ? 'planet' : 'other'),
+          mag: m.thing.mag,
+          altitudeDeg: m.mark.d.elevationDeg,
+        ),
+    ];
+    for (final tr in widget.tracks) {
+      if (tr.at(utc) case final h?) guides[tr.event.id] = (name: eventTitle(tr.event), d: SkyDir(h.azimuthDeg, h.altitudeDeg));
+    }
+    for (final m in mapped) {
+      guides[m.thing.id] = (name: m.mark.label == 'Moon' ? 'the Moon' : m.mark.label, d: m.mark.d);
+    }
+    final aim = widget.time != null ? null : guideTarget(candidates, chosen: _guideId);
+    final target = aim == null ? null : guides[aim.id];
+    final g = camera == null || target == null ? null : guide(camera, target.d, toleranceDeg: _lockDeg);
+    final screen = MediaQuery.sizeOf(context);
+    final onScreen = r == null || target == null
+        ? null
+        : projectToScreen(r, target.d, declinationDeg: _declination, previewHeightPx: _previewHeight ?? screen.height);
+    final others = guideOrder(candidates).length > 1;
     final passing = widget.tracks.where((tr) => tr.liveAt(utc)).map((tr) => eventTitle(tr.event)).toList();
     final status = widget.time != null
         ? 'The sky at ${fmtSkyMoment(utc, lon ?? 0)}'
@@ -279,6 +321,42 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
               return CustomPaint(painter: overlay(height: height, labelStyle: labels));
             }),
           ),
+        // Pip, out over the sky: it sets off from the shutter, flies to what
+        // it's leading you to (or waits at the edge on the side to turn),
+        // and waves once you've brought it to the middle.
+        if (g != null && target != null)
+          Positioned.fill(
+            child: PipAim(
+              key: const Key('sky-pip'),
+              mode: PipMode.find,
+              target: onScreen,
+              toward: towardOnScreen(g),
+              distanceDeg: g.distanceDeg,
+              onTarget: g.onTarget,
+              words: '${g.words} for ${target.name}',
+              // The sky already names it; and no ring: Pip is all there is.
+              ring: false,
+              launchFrom: (x: 0, y: screen.height / 2 - MediaQuery.paddingOf(context).bottom - 60),
+              waveOnLock: true,
+            ),
+          ),
+        // On it: tap Pip itself (where it sits, on the thing) to catch it.
+        if (g != null && g.onTarget)
+          Positioned(
+            left: screen.width / 2 + (onScreen?.x ?? 0) - 70,
+            top: screen.height / 2 + (onScreen?.y ?? 0) - 70,
+            child: Semantics(
+              button: true,
+              label: 'Catch ${centred?.name ?? target!.name}',
+              excludeSemantics: true,
+              child: GestureDetector(
+                key: const Key('pip-on-target'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _catch(centred, place: place),
+                child: const SizedBox.square(dimension: 140),
+              ),
+            ),
+          ),
         SafeArea(
           child: Column(children: [
             Padding(
@@ -293,6 +371,14 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
               const ScanHint('Cloud or a roof in the way? Everything is still drawn where it is. '
                   'Wave the phone in a figure-8 if it drifts.'),
             const Spacer(),
+            if (others && camera != null && widget.time == null)
+              TextButton.icon(
+                key: const Key('find-something-else'),
+                onPressed: () => setState(() => _guideId = nextGuideTarget(candidates, aim?.id)?.id),
+                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                label: const Text('Pip, find something else'),
+                style: TextButton.styleFrom(foregroundColor: LookUpColors.white, backgroundColor: Colors.black.withValues(alpha: 0.45)),
+              ),
             // Nerd mode: exactly where the phone points.
             if ((s?.nerdMode ?? false) && camera != null)
               Padding(
@@ -306,7 +392,9 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
                   ? (_error != null ? 'No motion sensor here, so this view can\'t follow the phone.' : 'Hold your phone up to the sky')
                   : centred != null
                       ? 'That\'s ${centred.name}. Tap Pip to catch it!'
-                      : 'Looking ${compassWord(camera.azimuthDeg)}, ${elevationWord(camera.elevationDeg)}',
+                      : g != null
+                          ? '${g.words} for ${target!.name}'
+                          : 'Looking ${compassWord(camera.azimuthDeg)}, ${elevationWord(camera.elevationDeg)}',
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -318,18 +406,19 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
                 ),
                 Expanded(
                   child: Center(
-                    // Pip is the shutter: it waves at whatever's in the
-                    // middle, and a tap catches it.
+                    // The shutter: Pip's home, which it leaves to guide you.
+                    // Green once something is in the middle; a tap here or
+                    // on Pip catches it.
                     child: Semantics(
                       button: true,
                       label: centred != null ? 'Catch ${centred.name}' : 'Take a picture of the sky',
                       excludeSemantics: true,
                       child: GestureDetector(
-                        key: const Key('pip-shutter'),
+                        key: const Key('shutter'),
                         onTap: () => _catch(centred, place: place),
                         child: Container(
-                          width: 88,
-                          height: 88,
+                          width: 80,
+                          height: 80,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.black.withValues(alpha: 0.35),
@@ -338,13 +427,13 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
                                 width: 3),
                           ),
                           alignment: Alignment.center,
-                          child: PipMark(
-                            size: 76,
-                            state: centred != null ? PipState.wave : PipState.idle,
-                            // A new thing in the middle: wave again.
-                            replay: centred?.name.hashCode ?? 0,
-                            dim: (camera == null && _error != null) || _catching,
-                          ),
+                          child: Icon(Icons.camera_rounded,
+                              size: 34,
+                              color: _catching
+                                  ? LookUpColors.greyDim
+                                  : centred != null
+                                      ? fireflyGlow
+                                      : LookUpColors.white),
                         ),
                       ),
                     ),
