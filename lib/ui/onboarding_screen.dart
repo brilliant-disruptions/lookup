@@ -5,12 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
 import '../domain/models/sky_event.dart';
-import '../domain/scheduling/alert_planner.dart';
 import 'format.dart';
 import 'intro_scene.dart';
-import 'pip/pip_intro.dart';
 import 'kit/kit.dart';
-import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
 
@@ -25,10 +22,10 @@ class OnboardingScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingScreen> createState() => _OnboardingState();
 }
 
-enum _Step { pip, intro, noLocation, looking, sights }
+enum _Step { intro, noLocation, looking, sights, ask }
 
 class _OnboardingState extends ConsumerState<OnboardingScreen> {
-  _Step _step = _Step.pip;
+  _Step _step = _Step.intro;
   bool _busy = false;
 
   @override
@@ -92,20 +89,9 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
             await home.refresh();
           } catch (_) {}
         }
-        // Taps are on. If something Plus-only really is coming over them,
-        // this is the moment to show the tap they'd get for it too (the
-        // paywall only ever appears for a real coming event, spec §7).
-        final s = ref.read(settingsProvider).value;
-        final events = ref.read(homeProvider).value?.events ?? const <SkyEvent>[];
-        final plus = AlertPlanner.plusOnlyAhead(events, DateTime.now());
-        if (!(s?.isPlus ?? false) && plus.isNotEmpty) {
-          if (!mounted) return;
-          await showPaywall(context, reason: plus.first);
-        }
       }
     }
     if (!mounted) return;
-    ref.read(playIntroProvider.notifier).set(true);
     await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(onboarded: true));
   }
 
@@ -113,14 +99,10 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     if (_step == _Step.looking || _step == _Step.sights) {
-      return _SightsPage(looking: _step == _Step.looking, busy: _busy, onFinish: _finish);
+      return _SightsPage(
+          looking: _step == _Step.looking, onContinue: () => setState(() => _step = _Step.ask));
     }
-    if (_step == _Step.pip) {
-      // Meet Pip first: the guide the rest of the app is built around.
-      return Scaffold(
-        body: SkyBackdrop(child: SafeArea(child: PipIntro(onDone: () => setState(() => _step = _Step.intro)))),
-      );
-    }
+    if (_step == _Step.ask) return _AskPage(busy: _busy, onFinish: _finish);
     return Scaffold(
       body: SkyBackdrop(
         stars: false,
@@ -173,22 +155,6 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
                     ),
                   ),
                   const Spacer(flex: 2),
-                  // Pip says hello on the ask, circles while it looks, and
-                  // can't see if the answer is no.
-                  Row(children: [
-                    PipMark(
-                      key: const Key('onboarding-pip'),
-                      size: 40,
-                      state: _busy ? PipState.searching : PipState.hello,
-                      dim: _step == _Step.noLocation,
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text('This is Pip. Pip shows you where to look.',
-                          style: TextStyle(color: LookUpColors.grey, height: 1.4)),
-                    ),
-                  ]),
-                  const SizedBox(height: 12),
                   if (_step == _Step.noLocation) ...[
                     const Text(
                       'No problem. Tell us your town instead: a rough place is all LookUp needs.',
@@ -242,26 +208,25 @@ class _FillOrScroll extends StatelessWidget {
       );
 }
 
-/// "Here's what's coming over you": the real next sights, then the one ask
-/// that makes them worth anything, a tap before each.
+/// Moment 2: where you are, and the one thing coming over you next, with
+/// Pip introduced as the guide who shows you where to look.
 class _SightsPage extends ConsumerWidget {
-  const _SightsPage({required this.looking, required this.busy, required this.onFinish});
+  const _SightsPage({required this.looking, required this.onContinue});
   final bool looking;
-  final bool busy;
-  final Future<void> Function({required bool alerts}) onFinish;
+  final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider).value;
     final place = (s?.placeName?.isNotEmpty ?? false) ? s!.placeName! : 'you';
     final now = DateTime.now().toUtc();
-    // What free alerts are really for: pushed, not Plus-only, this week.
-    final sights = [
-      for (final e in ref.watch(homeProvider).value?.events ?? const <SkyEvent>[])
+    final home = ref.watch(homeProvider).value;
+    // What free alerts are really for: pushed, not Plus-only, this fortnight.
+    final first = [
+      for (final e in home?.events ?? const <SkyEvent>[])
         if (e.type.pushes && !e.plusOnly && e.start.isAfter(now) && e.start.isBefore(now.add(const Duration(days: 14)))) e,
-    ].take(3).toList();
-    final lead = s?.leadMinutes ?? 10;
-    final approximate = ref.watch(homeProvider).value?.approximate ?? false;
+    ].firstOrNull;
+    final approximate = home?.approximate ?? false;
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
@@ -269,108 +234,154 @@ class _SightsPage extends ConsumerWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               const Spacer(),
               if (looking) ...[
-                // The page as it will be, cards still empty: no spinner to wait on.
                 const PipMark(key: Key('onboarding-pip'), size: 48, state: PipState.searching),
-                Kicker('Coming over $place', color: LookUpColors.blue),
+                const SizedBox(height: 8),
+                Kicker('Over $place', color: LookUpColors.blue),
                 const SizedBox(height: 10),
                 Text('Looking at your sky…', style: display(32, weight: FontWeight.w700, height: 1.1)),
                 const SizedBox(height: 18),
-                for (var i = 0; i < 3; i++)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 10),
-                    child: GlassCard(padding: EdgeInsets.zero, child: SizedBox(key: Key('sight-placeholder'), height: 72)),
-                  ),
+                const GlassCard(padding: EdgeInsets.zero, child: SizedBox(key: Key('sight-placeholder'), height: 96)),
                 const Spacer(flex: 2),
               ] else ...[
-                Rise(index: 0, child: Kicker('Coming over $place', color: LookUpColors.blue)),
+                Rise(index: 0, child: Kicker('Over $place', color: LookUpColors.blue)),
                 const SizedBox(height: 10),
                 Rise(
                   index: 1,
-                  child: Text(
-                    sights.isEmpty
-                        ? 'A quiet sky for now'
-                        : sights.length == 1
-                            ? 'Your next sight'
-                            : 'Your next ${sights.length} sights',
-                    style: display(32, weight: FontWeight.w700, height: 1.1),
-                  ),
+                  child: Text(first == null ? 'A quiet sky for now' : 'Your next sight',
+                      style: display(32, weight: FontWeight.w700, height: 1.1)),
                 ),
                 const SizedBox(height: 18),
-                if (sights.isEmpty)
+                if (first == null)
                   const Text(
                     'Nothing bright is passing over in the next fortnight, or we couldn\'t load the sky just now. '
                     'LookUp keeps watching and taps you when that changes.',
                     style: TextStyle(color: LookUpColors.grey, height: 1.45),
                   )
                 else
-                  for (final (i, e) in sights.indexed)
-                    Rise(
-                      index: 2 + i,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Stack(clipBehavior: Clip.none, children: [
-                        GlassCard(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                          child: Row(children: [
-                            EventGlyph.of(e),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(eventTitle(e), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 2),
-                                Text(eventSubtitle(e),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13.5, color: LookUpColors.grey, height: 1.3)),
-                              ]),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                              Text(fmtDay(e.start), style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
-                              Text(fmtTime(e.start), style: numeric(size: 15, weight: FontWeight.w700)),
+                  Rise(
+                    index: 2,
+                    child: Stack(clipBehavior: Clip.none, children: [
+                      GlassCard(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        child: Row(children: [
+                          EventGlyph.of(first),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(eventTitle(first), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 2),
+                              Text(eventSubtitle(first),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13.5, color: LookUpColors.grey, height: 1.3)),
                             ]),
-                          ]),
-                        ),
-                        // Pip flies down from "Looking at your sky…" to the first sight.
-                        if (i == 0)
-                          const Positioned(
-                            right: -10,
-                            top: -18,
-                            child: PipMark(
-                                key: Key('onboarding-pip'), size: 36, state: PipState.resting, flyFrom: Offset(-140, -120)),
                           ),
+                          const SizedBox(width: 10),
+                          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                            Text(fmtDay(first.start), style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
+                            Text(fmtTime(first.start), style: numeric(size: 16, weight: FontWeight.w700)),
+                          ]),
                         ]),
                       ),
-                    ),
-                if (approximate && sights.isNotEmpty)
+                      const Positioned(
+                        right: -10,
+                        top: -18,
+                        child: PipMark(
+                            key: Key('onboarding-pip'), size: 36, state: PipState.resting, flyFrom: Offset(-140, -120)),
+                      ),
+                    ]),
+                  ),
+                if (approximate && first != null) ...[
+                  const SizedBox(height: 12),
                   const Text(
                     'Times may be off by a few minutes until we can reach the satellite tracker.',
                     style: TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.4),
                   ),
+                ],
                 const Spacer(flex: 2),
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // Blinking, as it will before each tap.
-                  const PipMark(key: Key('onboarding-pip-blink'), size: 32, blinking: true),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Easy to miss: these last a few minutes. LookUp taps you $lead minutes before, '
-                      'with which way to face, and stays quiet when it\'s cloudy.',
-                      style: const TextStyle(color: LookUpColors.grey, height: 1.45),
-                    ),
-                  ),
-                ]),
+                const Text(
+                  'That\'s Pip. Pip points you the right way when something\'s coming, so you never have to work out where to look.',
+                  style: TextStyle(color: LookUpColors.grey, height: 1.45),
+                ),
                 const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: busy ? null : () => onFinish(alerts: true),
-                  icon: const Icon(Icons.notifications_active_rounded),
-                  label: Text('Tap me $lead minutes before'),
-                ),
-                TextButton(
-                  onPressed: busy ? null : () => onFinish(alerts: false),
-                  child: const Text('Not now'),
-                ),
+                FilledButton(onPressed: onContinue, child: const Text('Continue')),
               ],
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Moment 3: the one ask, with the tap it buys shown first.
+class _AskPage extends ConsumerWidget {
+  const _AskPage({required this.busy, required this.onFinish});
+  final bool busy;
+  final Future<void> Function({required bool alerts}) onFinish;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider).value;
+    final lead = s?.leadMinutes ?? 10;
+    final now = DateTime.now().toUtc();
+    final first = [
+      for (final e in ref.watch(homeProvider).value?.events ?? const <SkyEvent>[])
+        if (e.type.pushes && !e.plusOnly && e.start.isAfter(now)) e,
+    ].firstOrNull;
+    final title = first == null ? 'Something bright is coming' : eventTitle(first);
+    return Scaffold(
+      body: SkyBackdrop(
+        child: SafeArea(
+          child: _FillOrScroll(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Spacer(),
+              Rise(index: 0, child: const Kicker('One tap', color: LookUpColors.blue)),
+              const SizedBox(height: 10),
+              Rise(
+                index: 1,
+                child: Text('Then we\'ll tap you $lead minutes before.',
+                    style: display(32, weight: FontWeight.w700, height: 1.1)),
+              ),
+              const SizedBox(height: 20),
+              // What the tap will look like.
+              Rise(
+                index: 2,
+                child: GlassCard(
+                  key: const Key('tap-preview'),
+                  padding: const EdgeInsets.all(14),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const PipMark(key: Key('onboarding-pip-blink'), size: 34, blinking: true),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('LookUp · now', style: const TextStyle(fontSize: 12, color: LookUpColors.grey)),
+                        const SizedBox(height: 2),
+                        Text('$title in $lead min',
+                            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 2),
+                        const Text('Face south-west and look up. Clear skies.',
+                            style: TextStyle(fontSize: 13.5, color: LookUpColors.grey, height: 1.3)),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'These last a few minutes, so they\'re easy to miss. LookUp stays quiet when it\'s cloudy.',
+                style: TextStyle(color: LookUpColors.grey, height: 1.45),
+              ),
+              const Spacer(flex: 2),
+              FilledButton.icon(
+                onPressed: busy ? null : () => onFinish(alerts: true),
+                icon: const Icon(Icons.notifications_active_rounded),
+                label: Text('Tap me $lead minutes before'),
+              ),
+              TextButton(
+                onPressed: busy ? null : () => onFinish(alerts: false),
+                child: const Text('Not now'),
+              ),
             ]),
           ),
         ),

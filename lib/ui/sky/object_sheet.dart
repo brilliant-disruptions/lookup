@@ -11,7 +11,6 @@ import '../finder_screen.dart';
 import '../format.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
-import '../widgets/compass_arrow.dart';
 import 'sky_thing.dart';
 
 Future<void> showObjectSheet(BuildContext context, SkyThing thing, {DateTime? at, (double, double)? place}) =>
@@ -148,7 +147,7 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
             ),
           const SizedBox(height: 18),
           if (then != null ? upThen : t.whyNot == null && (upNow || sight != null)) ...[
-            Center(child: CompassArrow(azimuthDeg: az, size: 150)),
+            Center(child: PipMark(size: 112)),
             const SizedBox(height: 10),
             Text(
               '${then != null ? 'At ${fmtSkyMoment(then, away?.$2 ?? s?.longitude ?? 0)}' : upNow ? 'Now' : 'At ${fmtTime(sight!.best)}'}: look ${compassWord(az)}, ${elevationWord(alt)}.',
@@ -170,8 +169,8 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
           if (s?.latitude != null && t.whyNot == null)
             FilledButton.icon(
               onPressed: () => openFinder(context, t.asEvent(DateTime.now(), s!.latitude!, s.longitude!)),
-              icon: const Icon(Icons.explore_rounded),
-              label: const Text('Find it in the sky'),
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text('Let Pip show you'),
             ),
           if (upNow)
             Center(

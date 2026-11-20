@@ -18,7 +18,10 @@ import 'week_views.dart';
 /// The week ahead, two ways: every night at a glance, or two weeks as a
 /// calendar, with a glider between them. The week behind is one tap away.
 class UpcomingScreen extends ConsumerStatefulWidget {
-  const UpcomingScreen({super.key});
+  const UpcomingScreen({super.key, this.pushed = false});
+
+  /// Opened from the Next tab: gets a back button.
+  final bool pushed;
   @override
   ConsumerState<UpcomingScreen> createState() => _UpcomingScreenState();
 }
@@ -48,9 +51,18 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppHeader(
         title: const Text('The week'),
-        place: (place?.isNotEmpty ?? false) ? place! : 'Near you',
-        onPlaceTap: () => openPlaces(context),
-        actions: const [SettingsButton()],
+        // Pushed from Next, the back button needs the room; the place is one step back.
+        place: widget.pushed ? null : ((place?.isNotEmpty ?? false) ? place! : 'Near you'),
+        onPlaceTap: widget.pushed ? null : () => openPlaces(context),
+        actions: [
+          if (widget.pushed)
+            CircleButton(
+              tooltip: 'Back',
+              icon: Icons.arrow_back_rounded,
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          const SettingsButton(),
+        ],
       ),
       body: SkyBackdrop(
         stars: false,

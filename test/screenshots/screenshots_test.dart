@@ -26,7 +26,7 @@ import 'package:lookup/ui/plus_card.dart';
 import 'package:lookup/ui/look_up_now_screen.dart';
 import 'package:lookup/services/alert_art.dart';
 import 'package:lookup/ui/starter_card.dart';
-import 'package:lookup/ui/kit/kit.dart' show SkyBackdrop;
+import 'package:lookup/ui/kit/kit.dart' show FloatingTabBar, SkyBackdrop;
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
 import 'package:lookup/ui/demo.dart';
@@ -67,6 +67,8 @@ import 'package:lookup/ui/sky/object_sheet.dart';
 import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/sky/sky_thing.dart';
 import 'package:lookup/ui/theme.dart';
+import 'package:lookup/services/location_service.dart';
+import 'package:lookup/services/notification_service.dart';
 import 'package:lookup/ui/kit/starfield.dart';
 import 'package:lookup/ui/upcoming_screen.dart';
 
@@ -248,7 +250,7 @@ class _FakeHome extends HomeNotifier {
 }
 
 Future<void> _loadFonts() async {
-  final cache = Directory('/opt/flutter/bin/cache/artifacts/material_fonts');
+  final cache = Directory('${Platform.environment['FLUTTER_ROOT'] ?? '/opt/flutter'}/bin/cache/artifacts/material_fonts');
   Future<void> load(String family, List<String> files) async {
     final loader = FontLoader(family);
     for (final f in files) {
@@ -396,6 +398,20 @@ void _silentRotationSensor() {
   m.setMockStreamHandler(const EventChannel('native_device_orientation_events'), MockStreamHandler.inline(onListen: (_, _) {}));
 }
 
+class _GrantLocation implements LocationService {
+  @override
+  Future<bool> requestPermission() async => true;
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+class _GrantNotifications implements NotificationService {
+  @override
+  Future<bool> requestPermission() async => true;
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
@@ -451,17 +467,41 @@ void main() {
     await t.pump(const Duration(minutes: 5));
   });
 
-  testWidgets('tour', (t) async {
-    await mount(t, const HomeShell(),
-        settings: const LookUpSettings(
-            latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true));
-    await t.pump(const Duration(seconds: 1));
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/22-tour-1.png'));
-    await t.tap(find.text('Next'));
-    for (var i = 0; i < 3; i++) {
-      await t.pump(const Duration(milliseconds: 400));
+  // The redesign's three moments, then the three tabs.
+  testWidgets('onboarding moments', (t) async {
+    await mount(t, const OnboardingScreen(),
+        settings: const LookUpSettings(),
+        extra: [
+          locationServiceProvider.overrideWithValue(_GrantLocation()),
+          notificationServiceProvider.overrideWithValue(_GrantNotifications()),
+        ]);
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/40-onboarding-1-welcome.png'));
+    await t.tap(find.text("Show me what's over me"));
+    for (var i = 0; i < 8; i++) {
+      await t.pump(const Duration(milliseconds: 500));
     }
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/22-tour-2.png'));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/40-onboarding-2-sight.png'));
+    await t.tap(find.text('Continue'));
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 500));
+    }
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/40-onboarding-3-tap.png'));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 5));
+  });
+
+  testWidgets('sky and log tabs', (t) async {
+    await mount(t, const HomeShell());
+    Finder tab(String l) => find.descendant(of: find.byType(FloatingTabBar), matching: find.text(l));
+    await t.tap(tab('Sky'));
+    await t.pump(const Duration(seconds: 2));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/41-tab-sky.png'));
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -900));
+    await t.pump(const Duration(seconds: 1));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/41-tab-sky-more.png'));
+    await t.tap(tab('Log'));
+    await t.pump(const Duration(seconds: 2));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/42-tab-log.png'));
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 5));
   });
@@ -508,7 +548,10 @@ void main() {
 
   testWidgets('upcoming', (t) async {
     await mount(t, const HomeShell());
-    await t.tap(find.text('Week'));
+    await t.scrollUntilVisible(find.text('See the full week'), 300, scrollable: find.byType(Scrollable).first);
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -150));
+    await t.pump(const Duration(milliseconds: 500));
+    await t.tap(find.text('See the full week'));
     await t.pump(const Duration(milliseconds: 600));
     await t.pump(const Duration(milliseconds: 1200));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/3-upcoming.png'));

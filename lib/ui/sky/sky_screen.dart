@@ -20,6 +20,7 @@ import 'object_sheet.dart';
 import 'sky_camera_screen.dart';
 import 'sky_dome.dart';
 import 'sky_panorama.dart';
+import 'sky_shortcuts.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 import 'time_travel_sheet.dart';
@@ -274,6 +275,8 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
               ],
               const SizedBox(height: 12),
               GroupedList(children: [_Row(moon, onTap: () => open(moon))]),
+              const SizedBox(height: 12),
+              const SkyShortcuts(),
               const SizedBox(height: 24),
               SegmentedTabs(
                 labels: const ['Planets', 'Constellations', 'Showpieces'],

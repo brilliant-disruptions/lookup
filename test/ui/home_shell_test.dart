@@ -15,6 +15,7 @@ import 'package:lookup/ui/kit/surfaces.dart' show ListRow;
 import 'package:lookup/state/sky_state.dart';
 import 'package:lookup/state/night_state.dart';
 import 'package:lookup/ui/night_vision_controls.dart';
+import 'package:lookup/ui/now_screen.dart';
 import 'package:lookup/ui/settings_screen.dart';
 import 'package:lookup/ui/sky/sky_camera_screen.dart';
 import 'package:lookup/ui/sky/sky_screen.dart';
@@ -118,19 +119,29 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('four tabs; settings live behind the gear', (t) async {
+  testWidgets('three tabs: Next, Sky, Log; settings live behind the gear', (t) async {
     await pump(t);
     Finder tab(String label) => find.descendant(of: find.byType(FloatingTabBar), matching: find.text(label));
-    for (final label in ['Tonight', 'Sky', 'Week', 'Log']) {
+    for (final label in ['Next', 'Sky', 'Log']) {
       expect(tab(label), findsOneWidget);
     }
     expect(find.text('Settings'), findsNothing);
     expect(find.text('Nashville'), findsWidgets);
 
-    await t.tap(find.text('Week'));
+    expect(find.text('Week'), findsNothing, reason: 'the week is a step inside Next, not a tab');
+    expect(find.text('Coming up'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('See the full week'), 300,
+        scrollable: find.descendant(of: find.byType(NowScreen), matching: find.byType(Scrollable)).first);
+    await t.drag(find.byType(NowScreen), const Offset(0, -150));
+    await t.pump(const Duration(milliseconds: 500));
+    await t.tap(find.text('See the full week'));
+    await t.pump(const Duration(seconds: 1));
     await t.pump(const Duration(seconds: 1));
     expect(find.text('The week'), findsOneWidget);
     expect(find.text('At a glance'), findsOneWidget);
+    await t.tap(find.byTooltip('Back'));
+    await settle(t);
+    expect(find.text('The week'), findsNothing);
 
     await t.tap(find.text('Sky'));
     await t.pump(const Duration(seconds: 1));
@@ -141,7 +152,7 @@ void main() {
     expect(find.text('Planets'), findsOneWidget);
     expect(find.text('Saturn'), findsOneWidget);
 
-    await t.tap(tab('Tonight'));
+    await t.tap(tab('Next'));
     await t.pump(const Duration(seconds: 1));
     await t.tap(find.byTooltip('Settings'));
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
@@ -153,7 +164,7 @@ void main() {
   testWidgets('every tab has the Settings gear, and it opens Settings', (t) async {
     await pump(t);
     Finder tab(String label) => find.descendant(of: find.byType(FloatingTabBar), matching: find.text(label));
-    for (final label in ['Tonight', 'Sky', 'Week', 'Log']) {
+    for (final label in ['Next', 'Sky', 'Log']) {
       await t.tap(tab(label));
       await t.pump(const Duration(seconds: 1));
       expect(find.descendant(of: find.byType(AppHeader), matching: find.byTooltip('Settings')), findsOneWidget,
@@ -221,79 +232,51 @@ void main() {
     await t.pump(const Duration(minutes: 1));
   });
 
-  testWidgets('the camera on Tonight opens the live sky through the camera, from Tonight', (t) async {
+  testWidgets('the camera lives on Sky, not on Next', (t) async {
     await pump(t);
-    expect(find.byType(SkyCameraScreen), findsNothing);
-    // Where the eye used to be: one tap from the home screen to the camera view.
+    expect(find.byTooltip('Sky through your camera'), findsNothing, reason: 'Next is about the next thing, nothing else');
+    await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Sky')));
+    await t.pump(const Duration(seconds: 1));
     await t.tap(find.descendant(of: find.byType(AppHeader), matching: find.byTooltip('Sky through your camera')).first);
     await t.pump();
     await t.pump(const Duration(seconds: 1));
     final camera = t.widget<SkyCameraScreen>(find.byType(SkyCameraScreen));
-    expect(camera.time, isNull, reason: 'from Tonight it follows the clock');
+    expect(camera.time, isNull, reason: 'it follows the clock');
     expect(camera.things, isNotEmpty, reason: 'the Moon and planets the live Sky map shows');
-    expect(container.read(homeTabProvider), 0, reason: 'closing it goes back to Tonight');
+    expect(container.read(homeTabProvider), 1, reason: 'closing it goes back to Sky');
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
   });
 
-  testWidgets('Tonight keeps to the next thing; the rest is one row each', (t) async {
+  // Next is the hero, a timeline under it, and one line on where to go.
+  // Favourites and the 20-second story moved to Sky, where you go looking.
+  testWidgets('Next keeps to the next thing: hero, Coming up, one where-to-go row', (t) async {
     await pump(t);
-    expect(find.text('More tonight'), findsOneWidget);
-    expect(find.text('Your favourites'), findsOneWidget);
-    expect(find.textContaining('Sky tab to follow it'), findsOneWidget);
+    expect(find.text('Coming up'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('Where to go tonight'), 300,
+        scrollable: find.descendant(of: find.byType(NowScreen), matching: find.byType(Scrollable)).first);
     expect(find.text('Where to go tonight'), findsOneWidget);
+    expect(find.text('More tonight'), findsNothing);
+    expect(find.text('Your favourites'), findsNothing);
+    expect(find.text('Tonight in 20 seconds'), findsNothing);
+    await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Sky')));
+    await t.pump(const Duration(seconds: 1));
+    await t.scrollUntilVisible(find.text('Your favourites'), 300,
+        scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+    expect(find.text('Your favourites'), findsOneWidget);
+    expect(find.textContaining('Tap \u2665 on anything'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
   });
 
-  testWidgets('first time in, a five-stop tour; done once, then remembered', (t) async {
+  // The five-stop spotlight tour and the auto-played demo are gone from first
+  // run: onboarding already showed the product working.
+  testWidgets('first time in: no tour or demo over the home screen', (t) async {
     await pump(t, toured: false);
-    await settle(t);
-    expect(find.text('1 of 5'), findsOneWidget);
-    expect(find.text('The next thing worth stepping out for'), findsOneWidget);
-
-    await t.tap(find.text('Next'));
-    await settle(t);
-    expect(find.text('2 of 5'), findsOneWidget);
-    expect(find.text('Everything up there now'), findsOneWidget);
-    // Tapping anywhere goes on too.
-    await t.tapAt(const Offset(20, 20));
-    await settle(t);
-    expect(find.text('Plan ahead'), findsOneWidget);
-    await t.tap(find.text('Next'));
-    await settle(t);
-    expect(find.text('Red light after dark'), findsOneWidget);
-    expect(find.byIcon(Icons.remove_red_eye_rounded), findsNothing, reason: 'Settings has the switch now, not an eye');
-    await t.tap(find.text('Next'));
-    await settle(t);
-    expect(find.text('5 of 5'), findsOneWidget);
-    expect(find.text('Skip'), findsNothing);
-    await t.tap(find.text('Got it'));
-    await settle(t);
-    expect(find.text('5 of 5'), findsNothing);
-    expect(container.read(settingsProvider).value!.toured, isTrue);
-    await t.pumpWidget(const SizedBox());
-    await t.pump(const Duration(minutes: 1));
-  });
-
-  testWidgets('skipping the tour counts as seen; Settings can replay it', (t) async {
-    await pump(t, toured: false);
-    await settle(t);
-    await t.tap(find.text('Skip'));
     await settle(t);
     expect(find.text('1 of 5'), findsNothing);
-    expect(container.read(settingsProvider).value!.toured, isTrue);
-
-    await t.tap(find.byTooltip('Settings'));
-    await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
-    await t.scrollUntilVisible(find.text('Show me around'), 300, scrollable: find.byType(Scrollable).last);
-    await t.pump(const Duration(milliseconds: 400));
-    await t.tap(find.text('Show me around'));
-    await settle(t);
-    await settle(t);
-    expect(find.text('1 of 5'), findsOneWidget);
-    expect(find.text('The week'), findsNothing, reason: 'the tour starts on Tonight');
-    await t.tap(find.text('Skip'));
+    expect(find.text('Skip'), findsNothing);
+    expect(find.text('Coming up'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
   });

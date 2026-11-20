@@ -29,6 +29,7 @@ import 'format.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
 import 'widgets/compass_arrow.dart';
+import 'event_scene.dart';
 import 'widgets/countdown_ring.dart';
 import 'widgets/station_facts.dart';
 import 'widgets/pass_timeline.dart';
@@ -169,22 +170,15 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                       : CountdownText('in ${fmtCountdown(event.start.difference(nowUtc))}', size: 52),
             ),
             const SizedBox(height: 22),
-            Center(
-              child: Semantics(
-                label: 'Compass arrow pointing ${compassWord(isAurora ? 0 : (isPass ? event.riseAzimuthDeg : event.peakAzimuthDeg))}',
-                child: CountdownRing(
-                  progress: event.details['past'] == true ? null : ringProgress(event, now),
-                  live: live,
-                  child: CompassArrow(azimuthDeg: isAurora ? 0 : (isPass ? event.riseAzimuthDeg : event.peakAzimuthDeg)),
-                ),
-              ),
+            _PipGuide(
+              event: event,
+              progress: event.details['past'] == true ? null : ringProgress(event, now),
+              live: live,
+              over: over,
+              word: _lookWord(event, isAurora: isAurora, isPass: isPass),
             ),
-            const SizedBox(height: 10),
-            Text(
-              lookLine(event),
-              textAlign: TextAlign.center,
-              style: t.bodyLarge,
-            ),
+            const SizedBox(height: 14),
+            Text(lookLine(event), textAlign: TextAlign.center, style: t.bodyLarge),
             if (isPass) _Landmarks(event: event),
             if (isTransit && ((event.details['travelKm'] as num?) ?? 0) >= 0.5 && !over)
               Padding(
@@ -207,8 +201,8 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: FilledButton.icon(
                   onPressed: () => openFinder(context, event),
-                  icon: const Icon(Icons.explore_rounded),
-                  label: const Text('Find it in the sky'),
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  label: const Text('Let Pip show you'),
                 ),
               ),
             // Seen near you: "Can you see it?" while an aurora could be out.
@@ -298,6 +292,8 @@ class _LookSheetState extends ConsumerState<LookSheet> {
           children: [
             const Divider(),
             const SizedBox(height: 18),
+            _DirectionDetail(event: event, isPass: isPass),
+            const SizedBox(height: 18),
             if (isPass && showArc)
               Semantics(
                 label: 'Rises ${compassWord(event.riseAzimuthDeg)} at ${fmtTime(event.start)}, '
@@ -386,6 +382,79 @@ class _LookSheetState extends ConsumerState<LookSheet> {
         const SizedBox(width: 12),
         Expanded(child: FilledButton(onPressed: () => _answer(true), child: const Text('Yes!'))),
       ]),
+    ]);
+  }
+}
+
+/// Which way to look, in words: the rise point for a pass, north for aurora.
+double _lookWord0(SkyEvent e, {required bool isAurora, required bool isPass}) =>
+    isAurora ? 0 : (isPass ? e.riseAzimuthDeg : e.peakAzimuthDeg);
+
+String _lookWord(SkyEvent e, {required bool isAurora, required bool isPass}) =>
+    compassWord(_lookWord0(e, isAurora: isAurora, isPass: isPass));
+
+/// Pip is the guide: hovering in the countdown ring, with the direction as
+/// words. No dial; the compass lives behind Details for anyone who wants it.
+class _PipGuide extends StatelessWidget {
+  const _PipGuide({required this.event, required this.progress, required this.live, required this.over, required this.word});
+  final SkyEvent event;
+  final double? progress;
+  final bool live, over;
+  final String word;
+
+  @override
+  Widget build(BuildContext context) {
+    final past = event.details['past'] == true;
+    final high = elevationWord(event.peakElevationDeg);
+    final showWhere = !over && !past;
+    return Semantics(
+      label: showWhere ? 'Pip says: look $word, $high' : 'Pip',
+      child: DecoratedBox(
+        decoration: const BoxDecoration(),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
+          child: Column(children: [
+            EventScene(event: event, live: live, over: over, progress: progress),
+            if (showWhere) ...[
+              const SizedBox(height: 14),
+              Text('Look $word', textAlign: TextAlign.center, style: display(26, weight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(_capitalised(high), textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: LookUpColors.grey)),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// The compass, for people who like one: bearings in words and degrees.
+class _DirectionDetail extends StatelessWidget {
+  const _DirectionDetail({required this.event, required this.isPass});
+  final SkyEvent event;
+  final bool isPass;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAurora = event.type == SkyEventType.auroraNow || event.type == SkyEventType.auroraOutlook;
+    final az = isAurora ? 0.0 : (isPass ? event.riseAzimuthDeg : event.peakAzimuthDeg);
+    String deg(double a) => '${((a % 360) + 360) % 360 ~/ 1}°';
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Semantics(
+        label: 'Compass pointing ${compassWord(az)}',
+        child: CompassArrow(azimuthDeg: az, size: 96),
+      ),
+      const SizedBox(width: 20),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          StatTile(k: isPass ? 'Rises' : 'Direction', v: '${compassAbbrev(az)} · ${deg(az)}'),
+          const SizedBox(height: 10),
+          if (isPass)
+            StatTile(k: 'Sets', v: '${compassAbbrev(event.setAzimuthDeg)} · ${deg(event.setAzimuthDeg)}')
+          else if (!isAurora)
+            StatTile(k: 'Height', v: '${event.peakElevationDeg.round()}° up'),
+        ]),
+      ),
     ]);
   }
 }

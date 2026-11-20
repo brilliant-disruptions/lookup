@@ -12,19 +12,14 @@ import '../state/providers.dart';
 import '../state/plan_state.dart';
 import '../state/sky_state.dart';
 import 'demo.dart';
-import 'favourites_screen.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'places_screen.dart';
-import 'plus_card.dart';
 import 'settings_screen.dart';
-import 'sky/sky_camera_screen.dart';
-import 'sky/sky_thing.dart';
-import 'starter_card.dart';
 import 'theme.dart';
-import 'tonight_story.dart';
 import 'tour.dart';
+import 'upcoming_screen.dart';
 import 'verdict_card.dart';
 import 'where_to_go_screen.dart';
 
@@ -46,11 +41,6 @@ class NowScreen extends ConsumerWidget {
         placeKey: TourKeys.place,
         onPlaceTap: () => openPlaces(context),
         actions: [
-          CircleButton(
-            tooltip: 'Sky through your camera',
-            icon: Icons.photo_camera_rounded,
-            onPressed: () => openLiveSkyCamera(context, ref),
-          ),
           KeyedSubtree(
             key: TourKeys.settings,
             child: const SettingsButton(),
@@ -83,20 +73,11 @@ class NowScreen extends ConsumerWidget {
                               : VerdictCard(home: d),
                   ),
                 ),
-                // New users: three things to find, so there's something to do tonight.
-                if (!d.needsLocation) const Rise(index: 1, child: StarterSkyCard()),
-                // Free users: what LookUp+ would add here, quietly, in the list.
-                if (!d.needsLocation) const Rise(index: 1, child: PlusNearYouCard()),
-                // Seen near you replaces the outlook while its count is current.
-                if (seenNearYouLine(d.events, DateTime.now(), relayConfigured: relayConfigured) case final seen?) ...[
+                if (!d.needsLocation && !d.noData) ..._comingUp(context, ref, d),
+                if (!d.needsLocation && !d.noData) ...[
                   const SizedBox(height: 12),
-                  Rise(index: 1, child: _SeenNearYouCard(seen)),
-                ] else if (d.auroraOutlook != null) ...[
-                  const SizedBox(height: 12),
-                  Rise(index: 1, child: _OutlookCard(d.auroraOutlook!)),
+                  const Rise(index: 4, child: _WhereRow()),
                 ],
-                if (!d.needsLocation) const _MoreTonight(),
-                if (d.next?.details['lookahead'] != true) ..._later(context, ref, d),
                 if (d.errors.isNotEmpty && !d.needsLocation)
                   const Padding(
                     padding: EdgeInsets.only(top: 20),
@@ -111,26 +92,62 @@ class NowScreen extends ConsumerWidget {
     );
   }
 
-  /// The next two things after the hero, as rows, and a way to the week.
-  List<Widget> _later(BuildContext context, WidgetRef ref, HomeData d) {
-    final rest = d.events.where((e) => e.id != d.next?.id && e.type.pushes).take(2).toList();
-    if (rest.isEmpty) return const [];
+  /// The timeline under the hero: what comes after it, soonest first. Rows
+  /// that won't be worth stepping out for (cloud, no alert) fade back.
+  List<Widget> _comingUp(BuildContext context, WidgetRef ref, HomeData d) {
+    final now = DateTime.now().toUtc();
+    final horizon = now.add(const Duration(days: 7));
+    final seen = seenNearYouLine(d.events, DateTime.now(), relayConfigured: relayConfigured);
+    final outlook = seen == null ? d.auroraOutlook : null;
+    // The outlook has its own row at the top; don't list it twice.
+    final rest = d.events
+        .where((e) => e.id != d.next?.id && e.id != outlook?.id && e.end.isAfter(now) && e.start.isBefore(horizon))
+        .take(5)
+        .toList();
     return [
-      SectionHeader('Later', action: 'See all', onAction: () => ref.read(homeTabProvider.notifier).set(2)),
+      const SectionHeader('Coming up'),
       Rise(
         index: 3,
         child: GroupedList(indent: 64, children: [
-          for (final e in rest)
-            ListRow(
-              leading: EventGlyph.of(e),
-              title: eventTitle(e),
-              subtitle: '${fmtDay(e.start)}, ${fmtTime(e.start)}',
-              trailing: CloudPill(e.cloudCoverPercent),
-              onTap: () => showLookSheet(context, e),
+          if (seen != null) _row(context, seen, kicker: 'Seen near you'),
+          if (outlook != null && outlook.id != d.next?.id) _row(context, outlook),
+          for (final e in rest) _row(context, e),
+          if (rest.isEmpty && seen == null && outlook == null)
+            const ListRow(
+              leading: EventGlyph(icon: Icons.bedtime_rounded, color: LookUpColors.greyDim),
+              title: 'Nothing else this week',
+              subtitle: 'LookUp keeps watching and taps you when that changes',
             ),
+          ListRow(
+            leading: const EventGlyph(icon: Icons.view_agenda_rounded, color: LookUpColors.blue),
+            title: 'See the full week',
+            subtitle: 'Every night, and what you missed',
+            subtitleLines: 1,
+            chevron: true,
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const UpcomingScreen(pushed: true))),
+          ),
         ]),
       ),
     ];
+  }
+
+  Widget _row(BuildContext context, SkyEvent e, {String? kicker}) {
+    final quiet = !e.type.pushes;
+    final cloudy = (e.cloudCoverPercent ?? 0) >= 80;
+    return Opacity(
+      opacity: quiet || cloudy ? 0.6 : 1,
+      child: ListRow(
+        leading: EventGlyph.of(e, dim: quiet || cloudy),
+        title: kicker ?? eventTitle(e),
+        subtitle: kicker != null ? eventTitle(e) : (quiet ? '${fmtDay(e.start)} · No alert' : fmtDay(e.start)),
+        subtitleLines: 1,
+        trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+          Text(fmtTime(e.start), style: numeric(size: 14, weight: FontWeight.w600)),
+          if (e.type.pushes && !quiet) ...[const SizedBox(height: 4), CloudPill(e.cloudCoverPercent)],
+        ]),
+        onTap: () => showLookSheet(context, e),
+      ),
+    );
   }
 }
 
@@ -139,50 +156,6 @@ class _Wordmark extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text.rich(TextSpan(text: 'LookUp', children: [TextSpan(text: '.', style: TextStyle(color: LookUpColors.blue))]));
-}
-
-class _OutlookCard extends StatelessWidget {
-  const _OutlookCard(this.e);
-  final SkyEvent e;
-  @override
-  Widget build(BuildContext context) => GlassCard(
-        onTap: () => showLookSheet(context, e),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            EventGlyph.of(e),
-            const Spacer(),
-            CloudPill(e.cloudCoverPercent),
-          ]),
-          const SizedBox(height: 14),
-          Text(eventTitle(e), style: display(19, weight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(eventSubtitle(e), style: const TextStyle(color: LookUpColors.grey, fontSize: 14, height: 1.4)),
-        ]),
-      );
-}
-
-/// Other LookUp users nearby can see the aurora right now.
-class _SeenNearYouCard extends StatelessWidget {
-  const _SeenNearYouCard(this.e);
-  final SkyEvent e;
-  @override
-  Widget build(BuildContext context) => GlassCard(
-        tint: LookUpColors.violet,
-        onTap: () => showLookSheet(context, e),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            EventGlyph.of(e),
-            const SizedBox(width: 12),
-            const Kicker('Seen near you', color: LookUpColors.violet),
-            const Spacer(),
-            CloudPill(e.cloudCoverPercent),
-          ]),
-          const SizedBox(height: 14),
-          Text(e.details['headline'] as String, style: display(19, weight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(e.details['body'] as String, style: const TextStyle(color: LookUpColors.grey, fontSize: 14, height: 1.4)),
-        ]),
-      );
 }
 
 /// Nothing alert-worthy in the next 7 nights. Says when the next pass is,
@@ -333,68 +306,24 @@ class _AlertsOffCard extends ConsumerWidget {
       );
 }
 
-/// Tonight's clouds and what's up at a glance. Opens the Sky tab.
-/// Everything else worth a look tonight, one row each, so the screen stays
-/// about the next thing to see.
-class _MoreTonight extends ConsumerWidget {
-  const _MoreTonight();
+/// One line on where to go for a better sky tonight; the full compare is a tap away.
+class _WhereRow extends ConsumerWidget {
+  const _WhereRow();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const SectionHeader('More tonight'),
-        Rise(
-          index: 3,
-          child: GroupedList(indent: 64, children: [
-            ListRow(
-              leading: const EventGlyph(icon: Icons.play_arrow_rounded, color: LookUpColors.blue),
-              title: 'Tonight in 20 seconds',
-              subtitle: 'The whole night as a short story',
-              subtitleLines: 1,
-              onTap: () => showTonightStory(context),
-            ),
-            ListRow(
-              leading: const EventGlyph(icon: Icons.favorite_rounded, color: LookUpColors.red),
-              title: 'Your favourites',
-              subtitle: _favouritesLine(ref),
-              subtitleLines: 1,
-              onTap: () => openFavourites(context),
-            ),
-            () {
-              final (line, go) = _whereLine(ref);
-              return ListRow(
-                leading: const EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.violet),
-                title: 'Where to go tonight',
-                subtitle: line,
-                subtitleLines: 1,
-                trailing: go ? const Pill('Clearer', dot: true, color: LookUpColors.violet) : null,
-                chevron: true,
-                onTap: () => openWhereToGo(context),
-              );
-            }(),
-          ]),
-        ),
-      ]);
-
-  /// "Saturn tonight", "Saturn, Thursday", or how to start.
-  static String _favouritesLine(WidgetRef ref) {
-    final favourites = ref.watch(favouritesAheadProvider).value ?? const <FavouriteOutlook>[];
-    if (favourites.isEmpty) return 'Tap \u2665 on anything in the Sky tab to follow it';
-    final catalog = ref.watch(skyCatalogProvider).value;
-    final nights = ref.watch(nightsAheadProvider).value;
-    final up = [for (final f in favourites) if (f.night != null) f]..sort((a, b) => a.night!.compareTo(b.night!));
-    if (up.isEmpty) return 'None well placed in the next two weeks';
-    String name(String id) => catalog == null ? 'One' : skyName(id, catalog);
-    final tonight = up.where((f) => f.night == 0).toList();
-    if (tonight.isNotEmpty) {
-      return tonight.length == 1 ? '${name(tonight.first.id)} tonight' : '${name(tonight.first.id)} and ${tonight.length - 1} more tonight';
-    }
-    final next = up.first;
-    final when = next.night == 1
-        ? 'tomorrow night'
-        : nights?[next.night!].window == null
-            ? 'in ${next.night} nights'
-            : fmtDay(nights![next.night!].window!.start);
-    return 'Next: ${name(next.id)}, $when';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final (line, go) = _whereLine(ref);
+    return GroupedList(indent: 64, children: [
+      ListRow(
+        leading: const EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.violet),
+        title: 'Where to go tonight',
+        subtitle: line,
+        subtitleLines: 1,
+        trailing: go ? const Pill('Clearer', dot: true, color: LookUpColors.violet) : null,
+        chevron: true,
+        onTap: () => openWhereToGo(context),
+      ),
+    ]);
   }
 
   /// The recommendation's headline, a darker sky nearby, or what it does.

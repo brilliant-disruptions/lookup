@@ -115,7 +115,7 @@ void main() {
   late _Notifications notifications;
   late _Refresh refresh;
 
-  Future<void> pump(WidgetTester t, {required bool grantLocation, bool skipPip = true}) async {
+  Future<void> pump(WidgetTester t, {required bool grantLocation}) async {
     t.view.physicalSize = const Size(1179, 2556);
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
@@ -139,11 +139,11 @@ void main() {
     for (var i = 0; i < 6; i++) {
       await t.pump(const Duration(milliseconds: 300));
     }
-    if (skipPip) {
-      await t.tap(find.text('Skip'));
-      for (var i = 0; i < 4; i++) {
-        await t.pump(const Duration(milliseconds: 300));
-      }
+  }
+
+  Future<void> settle(WidgetTester t, [int n = 6]) async {
+    for (var i = 0; i < n; i++) {
+      await t.pump(const Duration(milliseconds: 300));
     }
   }
 
@@ -162,21 +162,17 @@ void main() {
     expect(find.text('ISS flyover'), findsOneWidget);
     expect(find.text('Starlink train'), findsNothing);
 
+    // Moment 3: the ask, with the tap it buys shown first.
+    await t.tap(find.text('Continue'));
+    await settle(t, 4);
+    expect(find.byKey(const Key('tap-preview')), findsOneWidget);
+    expect(notifications.asked, 0, reason: 'shown the tap before being asked');
     await t.tap(find.text('Tap me 10 minutes before'));
-    for (var i = 0; i < 4; i++) {
-      await t.pump(const Duration(milliseconds: 300));
-    }
+    await settle(t, 4);
     expect(notifications.asked, 1);
     expect(home.refreshes, 3); // alerts planned again now they can land
-
-    // A Plus-only train really is coming, so the paywall shows its tap now;
-    // closing it finishes onboarding.
-    expect(find.text('Restore purchases'), findsOneWidget);
-    expect(container.read(settingsProvider).value?.onboarded, isNot(true));
-    Navigator.of(t.element(find.text('Restore purchases'))).pop();
-    for (var i = 0; i < 4; i++) {
-      await t.pump(const Duration(milliseconds: 300));
-    }
+    // No paywall in first run, even with a Plus-only train coming.
+    expect(find.text('Restore purchases'), findsNothing);
     expect(container.read(settingsProvider).value?.onboarded, isTrue);
     await t.pumpWidget(const SizedBox());
   });
@@ -194,14 +190,13 @@ void main() {
     expect(find.text('Your next sight'), findsOneWidget);
     expect(find.text('ISS flyover'), findsOneWidget);
 
+    await t.tap(find.text('Continue'));
+    await settle(t, 4);
     await t.tap(find.text('Tap me 10 minutes before'));
-    for (var i = 0; i < 4; i++) {
-      await t.pump(const Duration(milliseconds: 300));
-    }
+    await settle(t, 4);
     expect(notifications.asked, 1);
     // The running full refresh plans alerts at its end; no second one queued.
     expect(home.quick, [true, false]);
-    expect(find.text('Restore purchases'), findsOneWidget);
     home.slowFull!.complete();
     await t.pumpWidget(const SizedBox());
   });
@@ -217,7 +212,7 @@ void main() {
     for (var i = 0; i < 6; i++) {
       await t.pump(const Duration(milliseconds: 300));
     }
-    expect(find.byKey(const Key('sight-placeholder')), findsNWidgets(3));
+    expect(find.byKey(const Key('sight-placeholder')), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
     home.slowQuick!.complete();
@@ -242,28 +237,11 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('Pip introduces itself first: hello, flying there, lighting up, then the ask', (t) async {
-    await pump(t, grantLocation: true, skipPip: false);
-    PipMark pip() => t.widget<PipMark>(find.byType(PipMark));
-    expect(find.text('Hi! I\'m Pip.'), findsOneWidget);
-    expect(pip().state, PipState.hello);
-    await t.tap(find.text('Next'));
-    for (var i = 0; i < 4; i++) {
-      await t.pump(const Duration(milliseconds: 200));
-    }
-    expect(find.text('I fly there first.'), findsOneWidget);
-    expect(pip().flyFrom, isNotNull, reason: 'it flies in');
-    await t.tap(find.text('Next'));
-    for (var i = 0; i < 4; i++) {
-      await t.pump(const Duration(milliseconds: 200));
-    }
-    expect(find.text('Then I light up.'), findsOneWidget);
-    expect(pip().state, PipState.found);
-    await t.tap(find.text('Nice to meet you'));
-    for (var i = 0; i < 4; i++) {
-      await t.pump(const Duration(milliseconds: 200));
-    }
-    expect(find.text('Show me what\'s over me'), findsOneWidget, reason: 'then the location ask');
+  testWidgets('three moments, no Pip tour or demo: the promise opens on the location ask', (t) async {
+    await pump(t, grantLocation: true);
+    expect(find.text('Hi! I\'m Pip.'), findsNothing);
+    expect(find.text('Skip'), findsNothing);
+    expect(find.text('Show me what\'s over me'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
 
@@ -273,35 +251,31 @@ void main() {
     await t.pump();
     await t.pump();
     expect(find.text('Choose your town'), findsOneWidget);
-    expect(t.widget<PipMark>(find.byKey(const Key('onboarding-pip'))).dim, isTrue, reason: 'Pip dims at a no');
     expect(container.read(settingsProvider).value?.onboarded ?? false, isFalse);
     expect(notifications.asked, 0);
     await t.pumpWidget(const SizedBox());
   });
 
-  // Pip is the one guide from the first screen on, so it is on every step.
-  testWidgets('Pip is on every step: saying hello, circling, on the first sight, blinking at the ask', (t) async {
+  // Pip is introduced on the first real sight, circles while it looks, and
+  // blinks on the preview of the tap.
+  testWidgets('Pip: circling while it looks, on the first sight, blinking on the tap preview', (t) async {
     await pump(t, grantLocation: true);
-    expect(find.text('This is Pip. Pip shows you where to look.'), findsOneWidget);
     PipMark pip() => t.widget<PipMark>(find.byKey(const Key('onboarding-pip')));
-    expect(pip().state, PipState.hello);
-    expect(pip().dim, isFalse);
-
     home.slowQuick = Completer();
     await t.tap(find.text('Show me what\'s over me'));
-    for (var i = 0; i < 6; i++) {
-      await t.pump(const Duration(milliseconds: 300));
-    }
+    await settle(t);
     expect(find.text('Looking at your sky…'), findsOneWidget);
     expect(pip().state, PipState.searching);
 
     home.slowQuick!.complete();
-    for (var i = 0; i < 6; i++) {
-      await t.pump(const Duration(milliseconds: 300));
-    }
+    await settle(t);
     expect(pip().state, PipState.resting);
     expect(pip().flyFrom, isNotNull, reason: 'it flies to the first sight');
     expect(find.descendant(of: find.byType(GlassCard).first, matching: find.text('ISS flyover')), findsOneWidget);
+    expect(find.textContaining('That\'s Pip'), findsOneWidget);
+
+    await t.tap(find.text('Continue'));
+    await settle(t, 4);
     expect(t.widget<PipMark>(find.byKey(const Key('onboarding-pip-blink'))).blinking, isTrue);
     expect(find.text('Tap me 10 minutes before'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
@@ -310,9 +284,9 @@ void main() {
   testWidgets('"Not now" finishes without the notification prompt', (t) async {
     await pump(t, grantLocation: true);
     await t.tap(find.text('Show me what\'s over me'));
-    for (var i = 0; i < 6; i++) {
-      await t.pump(const Duration(milliseconds: 300));
-    }
+    await settle(t);
+    await t.tap(find.text('Continue'));
+    await settle(t, 4);
     await t.tap(find.text('Not now'));
     await t.pump();
     await t.pump();
