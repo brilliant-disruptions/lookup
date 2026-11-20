@@ -14,13 +14,11 @@ import 'settings_screen.dart';
 import 'theme.dart';
 import 'week_views.dart';
 
-/// Every night at a glance, in one list: last week above, tonight in view,
-/// two weeks ahead below.
+/// The Week tab: every night at a glance, in one list: last week above,
+/// tonight in view, the nights ahead below.
 class UpcomingScreen extends ConsumerStatefulWidget {
-  const UpcomingScreen({super.key, this.pushed = false});
+  const UpcomingScreen({super.key});
 
-  /// Opened from Home: gets a back button.
-  final bool pushed;
   @override
   ConsumerState<UpcomingScreen> createState() => _UpcomingScreenState();
 }
@@ -41,19 +39,10 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppHeader(
-        title: const Text('Every night'),
-        // Pushed from Home, the back button needs the room; the place is one step back.
-        place: widget.pushed ? null : ((place?.isNotEmpty ?? false) ? place! : 'Near you'),
-        onPlaceTap: widget.pushed ? null : () => openPlaces(context),
-        actions: [
-          if (widget.pushed)
-            CircleButton(
-              tooltip: 'Back',
-              icon: Icons.arrow_back_rounded,
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          const SettingsButton(),
-        ],
+        title: const Text('Week'),
+        place: (place?.isNotEmpty ?? false) ? place! : 'Near you',
+        onPlaceTap: () => openPlaces(context),
+        actions: const [SettingsButton()],
       ),
       body: SkyBackdrop(
         stars: false,

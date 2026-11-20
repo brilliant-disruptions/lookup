@@ -265,12 +265,20 @@ class FloatingTabBar extends StatelessWidget {
                               Icon(i == index ? (t.activeIcon ?? t.icon) : t.icon,
                                   size: 22, color: i == index ? LookUpColors.blue : LookUpColors.grey),
                               const SizedBox(height: 3),
-                              Text(t.label,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: i == index ? LookUpColors.white : LookUpColors.grey,
-                                  )),
+                              // One line, shrunk to fit four tabs beside Pip, even with big text.
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(t.label,
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: i == index ? LookUpColors.white : LookUpColors.grey,
+                                      )),
+                                ),
+                              ),
                             ]),
                           ),
                         ),

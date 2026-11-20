@@ -119,42 +119,53 @@ void main() {
     expect(pipFlightPose(rest, from, 2, 0.9).stretch, rest.stretch, reason: 'then it rests');
   });
 
-  group('wave: a dot that grows a face and hands, waves, and is a dot again', () {
-    List<PipFigure> over(double from, double to) => [for (var t = from; t < to; t += 1 / 60) pipFigure(t)];
+  group('greet: a drop of light that opens its eyes, then is the dot again', () {
+    List<PipGreeting> over(double from, double to) => [for (var t = from; t < to; t += 1 / 60) pipGreeting(t)];
 
     test('starts and ends as the plain dot', () {
-      expect(pipFigure(0).dot, isTrue);
-      expect(pipFigure(pipWaveLength).dot, isTrue);
-      expect(pipFigure(pipWaveLength + 5).dot, isTrue);
-      expect(pipFigure(-1).dot, isTrue);
+      expect(pipGreeting(-1).dot, isTrue);
+      expect(pipGreeting(pipGreetLength).dot, isTrue);
+      expect(pipGreeting(pipGreetLength + 5).dot, isTrue);
+      expect(pipGreeting(0.02).grown, 0, reason: 'it ripples before it opens');
     });
 
-    test('pops out with a little overshoot, then holds the whole figure', () {
-      final grow = over(0, 0.7).map((f) => f.grown).toList();
-      expect(grow.reduce(math.max), greaterThan(1.02), reason: 'like a drop landing');
-      expect(grow.reduce(math.max), lessThan(1.2));
-      for (final f in over(0.75, 2.45)) {
-        expect(f.grown, 1);
+    test('like water: it wobbles and rings spread out as it wakes', () {
+      final early = over(0.05, 0.5);
+      expect(early.map((g) => g.wobble.abs()).reduce(math.max), greaterThan(0.5));
+      expect(early.any((g) => g.ripples.isNotEmpty), isTrue);
+      for (final g in over(0, pipGreetLength)) {
+        for (final (k, a) in g.ripples) {
+          expect(k, inInclusiveRange(0, 1));
+          expect(a, inInclusiveRange(0, 1));
+        }
       }
     });
 
-    test('melts back smoothly, never jumping', () {
-      final g = over(2.4, pipWaveLength).map((f) => f.grown).toList();
-      for (var i = 1; i < g.length; i++) {
-        expect(g[i], lessThanOrEqualTo(g[i - 1] + 1e-9));
-        expect(g[i - 1] - g[i], lessThan(0.08));
+    test('the eyes open only once it is an orb, and close before it shrinks', () {
+      for (final g in over(0, pipGreetLength)) {
+        if (g.open > 0) expect(g.grown, greaterThan(0.7));
       }
+      expect(pipGreeting(1.2).open, 1);
+      expect(pipGreeting(2.8).open, 0);
     });
 
-    test('waves its hand both ways while it is out, and not before', () {
-      expect(over(0, 0.7).every((f) => f.hand == 0), isTrue, reason: 'grows first, then waves');
-      final hands = over(0.7, 2.5).map((f) => f.hand).toList();
-      expect(hands.reduce(math.max), greaterThan(0.4));
-      expect(hands.reduce(math.min), lessThan(-0.4));
+    test('no mouth, no hands: just eyes, which glance aside and then follow the droplet up', () {
+      expect(over(0.9, 1.4).map((g) => g.lookX).reduce(math.max), greaterThan(0.9));
+      final withDrop = over(1.45, 2.15).where((g) => g.drop != null).toList();
+      expect(withDrop, isNotEmpty);
+      final top = withDrop.reduce((a, b) => a.drop!.height > b.drop!.height ? a : b);
+      expect(top.drop!.height, greaterThan(18));
+      expect(top.lookY, lessThan(-0.8), reason: 'looking up at it');
     });
 
-    test('blinks once, mid-wave', () {
-      final e = over(0, pipWaveLength).map((f) => f.eyes).toList();
+    test('the droplet lands back with a splash: a second wobble and a ring', () {
+      final after = over(2.16, 2.5);
+      expect(after.map((g) => g.wobble.abs()).reduce(math.max), greaterThan(0.3));
+      expect(after.any((g) => g.ripples.isNotEmpty), isTrue);
+    });
+
+    test('blinks once', () {
+      final e = over(0.9, 2.4).map((g) => g.open).toList();
       var dips = 0;
       for (var i = 1; i < e.length; i++) {
         if (e[i] < 0.3 && e[i - 1] >= 0.3) dips++;
@@ -162,20 +173,22 @@ void main() {
       expect(dips, 1);
     });
 
-    test('Reduce Motion: the face is just there for the wave, without moving', () {
-      for (final t in [0.0, 0.4, 1.5, 3.0]) {
-        final f = pipFigure(t, still: true);
-        expect(f.grown, 1, reason: '$t');
-        expect(f.hand, 0);
-        expect(f.eyes, 1);
+    test('Reduce Motion: the orb and open eyes, without ripples or a droplet', () {
+      for (final t in [0.0, 0.4, 1.7, 3.0]) {
+        final g = pipGreeting(t, still: true);
+        expect(g.grown, 1, reason: '$t');
+        expect(g.open, 1);
+        expect(g.ripples, isEmpty);
+        expect(g.drop, isNull);
+        expect(g.wobble, 0);
       }
-      expect(pipFigure(pipWaveLength + 0.1, still: true).dot, isTrue);
+      expect(pipGreeting(pipGreetLength + 0.1, still: true).dot, isTrue);
     });
 
-    test('the light only hovers under the figure, and rests after', () {
-      final p = pipPose(PipState.wave, 4, since: 1);
+    test('the light only hovers under it, and rests after', () {
+      final p = pipPose(PipState.greet, 4, since: 1);
       expect(p.offset.distance, lessThan(4));
-      expect(pipPose(PipState.wave, 7, since: pipWaveLength + 1).offset, pipPose(PipState.resting, 7).offset);
+      expect(pipPose(PipState.greet, 7, since: pipGreetLength + 1).offset, pipPose(PipState.resting, 7).offset);
     });
   });
 }

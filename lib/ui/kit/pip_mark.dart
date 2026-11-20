@@ -1,7 +1,7 @@
 /// Pip off the finder: the same light [paintFirefly] draws in alerts and on
 /// the sky, as a widget for every other screen. Mostly Pip is the light, its
-/// character in how it moves (pip_motion.dart); in [PipState.wave] it grows
-/// a face and hands, waves, and goes back to the dot (pip_figure.dart). Kept out of
+/// character in how it moves (pip_motion.dart); in [PipState.greet] it
+/// ripples, opens its eyes, and goes back to the dot (pip_greeting.dart). Kept out of
 /// firefly_mark.dart, which must stay `dart:ui` only for the alert isolate.
 library;
 
@@ -9,7 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'firefly_mark.dart';
-import 'pip_figure.dart';
+import 'pip_greeting.dart';
 import 'pip_motion.dart';
 
 export 'pip_motion.dart' show PipState;
@@ -26,7 +26,7 @@ class PipMark extends StatefulWidget {
   });
 
   /// What Pip is doing. [PipState.hello], [PipState.found] and
-  /// [PipState.wave] play once each time Pip changes to them, then Pip rests.
+  /// [PipState.greet] play once each time Pip changes to them, then Pip rests.
   final PipState state;
 
   /// The square Pip hovers in; Pip itself is drawn at a scale of size / 48.
@@ -145,10 +145,10 @@ class PipMarkPainter extends CustomPainter {
       paintFireflyLanding(canvas, home, still ? 1 : sinceState, scale: scale * 0.9);
     }
     final s = scale * pose.size;
-    final figure = state == PipState.wave ? pipFigure(sinceState, still: still) : const PipFigure();
-    void draw(Canvas c, double blink) => figure.dot
+    final hi = state == PipState.greet ? pipGreeting(sinceState, still: still) : const PipGreeting();
+    void draw(Canvas c, double blink) => hi.dot
         ? paintFirefly(c, at, blink: blink, scale: s, stretch: pose.stretch, squash: pose.squash, angle: pose.angle)
-        : paintPipFigure(c, at, figure, blink: blink, scale: s);
+        : paintPipGreeting(c, at, hi, blink: blink, scale: s);
     if (dim || pose.opacity < 1) {
       final a = (dim ? 0.35 : 1) * pose.opacity;
       canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, a));

@@ -1,9 +1,11 @@
 /// How Pip moves. Most of the time Pip is just the light: a green dot whose
-/// character is all in how it moves, squashes and flashes. Now and then it
-/// grows out of the dot into a little glowing figure (two eyes, a smile,
-/// two soft hands), waves, and melts back into the dot ([PipState.wave],
-/// [pipFigure]). This file is the whole vocabulary, as plain maths over
-/// time, so it can be tested without a widget and stays `dart:ui` only.
+/// character is all in how it moves, squashes and flashes. When it says hi
+/// ([PipState.greet], [pipGreeting]) it behaves like a drop of water: it
+/// wobbles and sends out a ripple, opens into a soft orb with two eyes,
+/// glances aside, lifts a droplet off its top and watches it fall back in
+/// with a splash, blinks, and closes back into the dot. Eyes only: no mouth,
+/// no hands. This file is the whole vocabulary, as plain maths over time, so
+/// it can be tested without a widget and stays `dart:ui` only.
 ///
 /// Offsets are in the units of a 48-pixel Pip (the painter multiplies by
 /// size / 48). [PipPose.stretch] is along [PipPose.angle]: 1.2 is 20% longer
@@ -24,9 +26,9 @@ import 'firefly_mark.dart';
 ///   bounce, blinks twice, then rests.
 /// - [found]: you lined up. A flare, a ring and a little hop, then it rests
 ///   inside the ring.
-/// - [wave]: hi. Grows a face and hands out of the dot, waves, then goes
-///   back to being a dot ([pipFigure]), and rests.
-enum PipState { idle, searching, resting, hello, found, wave }
+/// - [greet]: hi. The ripple and the eyes ([pipGreeting]), then back to the
+///   dot, and rests.
+enum PipState { idle, searching, resting, hello, found, greet }
 
 /// Where Pip is and what shape it has at one moment.
 class PipPose {
@@ -88,8 +90,8 @@ PipPose pipPose(
     PipState.resting => _resting(seconds),
     PipState.hello => since < pipHelloLength ? _hello(seconds, since) : _resting(seconds),
     PipState.found => since < pipFoundLength ? _found(seconds, since) : _resting(seconds),
-    // The figure does the moving; the light only hovers gently under it.
-    PipState.wave => since < pipWaveLength ? PipPose(offset: fireflyHover(seconds, landed: true)) : _resting(seconds),
+    // The greeting does the moving; the light only hovers gently under it.
+    PipState.greet => since < pipGreetLength ? PipPose(offset: fireflyHover(seconds, landed: true)) : _resting(seconds),
   };
   if (blinking) p = _with(p, blink: 0.55 + 0.45 * math.cos(seconds * 2 * math.pi * 2.5));
   if (dim) p = _cantSee(p, seconds);
@@ -219,54 +221,100 @@ double _blinks(double t, List<double> at) {
   return b;
 }
 
-/// How long a wave takes: growing out of the dot, waving, melting back.
-const pipWaveLength = 3.2;
+/// How long Pip's hello takes, from the dot back to the dot.
+const pipGreetLength = 3.2;
 
-/// When, inside a wave, Pip is fully grown, and when it starts to melt.
-const _grownBy = 0.7, _meltFrom = 2.5;
+/// Pip saying hi, at one moment. Lengths are in 48-pixel Pip units.
+class PipGreeting {
+  const PipGreeting({
+    this.grown = 0,
+    this.open = 0,
+    this.lookX = 0,
+    this.lookY = 0,
+    this.wobble = 0,
+    this.ripples = const [],
+    this.drop,
+    this.t = 0,
+  });
 
-/// Pip as a figure for a moment. [grown] is how far it has come out of the
-/// dot: 0 is the plain light, 1 is the whole figure (it overshoots a little
-/// as it pops out, like a drop landing). [hand] is how far the waving hand
-/// is tipped from upright, in radians; [eyes] is 1 open, 0 shut; [lean] is
-/// how the body sways with the wave, in radians.
-class PipFigure {
-  const PipFigure({this.grown = 0, this.hand = 0, this.eyes = 1, this.lean = 0});
-  final double grown, hand, eyes, lean;
+  /// 0 is the dot, 1 the soft orb the eyes sit in.
+  final double grown;
 
-  /// Just the dot: nothing to draw but the light.
-  bool get dot => grown <= 0;
+  /// The eyes: 0 not there (or shut), 1 open.
+  final double open;
+
+  /// Where the eyes look: x −1 left … 1 right, y −1 up … 1 down.
+  final double lookX, lookY;
+
+  /// How much the surface wobbles, like water just touched.
+  final double wobble;
+
+  /// Rings spreading out: (how far out, 0…1; how strong).
+  final List<(double, double)> ripples;
+
+  /// The droplet lifted off the top: how high above the rim, and its size.
+  final ({double height, double size})? drop;
+
+  /// Seconds in, for the wobble's phase.
+  final double t;
+
+  /// Nothing but the plain light.
+  bool get dot => grown <= 0 && wobble == 0 && ripples.isEmpty && drop == null;
 }
 
-/// The figure [since] seconds into a [PipState.wave]. Past [pipWaveLength]
-/// it's a dot again. [still] is Reduce Motion: the face is simply there for
-/// the length of the wave, with no growing, waving or blinking.
-PipFigure pipFigure(double since, {bool still = false}) {
-  if (since < 0 || since >= pipWaveLength) return const PipFigure();
-  if (still) return const PipFigure(grown: 1);
-  final double grown;
-  if (since < _grownBy) {
-    grown = _backOut(since / _grownBy);
-  } else if (since < _meltFrom) {
-    grown = 1;
-  } else {
-    final k = (since - _meltFrom) / (pipWaveLength - _meltFrom);
-    grown = 1 - k * k * (3 - 2 * k); // smoothstep down to the dot
+/// Pip's hello [since] seconds in. Past [pipGreetLength] it's the dot again.
+/// [still] is Reduce Motion: the orb and open eyes are simply there for the
+/// length of the hello, with no ripples, wobble or droplet.
+PipGreeting pipGreeting(double since, {bool still = false}) {
+  if (since < 0 || since >= pipGreetLength) return const PipGreeting();
+  if (still) return const PipGreeting(grown: 1, open: 1);
+  final t = since;
+  final grown = t < 0.15
+      ? 0.0
+      : t < 0.6
+          ? _smooth((t - 0.15) / 0.45)
+          : t < 2.6
+              ? 1.0
+              : 1 - _smooth((t - 2.6) / 0.6);
+  // The eyes come once it's an orb and go before it closes.
+  final seen = t < 0.6
+      ? 0.0
+      : t < 0.85
+          ? _smooth((t - 0.6) / 0.25)
+          : t < 2.45
+              ? 1.0
+              : t < 2.65
+                  ? 1 - _smooth((t - 2.45) / 0.2)
+                  : 0.0;
+  // A glance to one side, then up after the droplet and back down with it.
+  final (lookX, _) = _keys(t, const [(0.9, 0, 0), (1.15, 1, 0), (1.35, 1, 0), (1.55, 0, 0)]);
+  ({double height, double size})? drop;
+  var lookY = 0.0;
+  if (t > 1.45 && t < 2.15) {
+    final k = (t - 1.45) / 0.7;
+    final up = math.sin(k * math.pi);
+    drop = (height: 22 * up, size: 2.2 * math.min(1.0, k / 0.15));
+    lookY = -up;
   }
-  // Waves twice a second while it's out, easing in and out with the growing.
-  final out = since < _grownBy ? 0.0 : (since < _meltFrom ? 1.0 : grown);
-  final swing = math.sin((since - _grownBy) * 2 * math.pi * 2) * out;
-  return PipFigure(
+  // Touched like water: as it wakes, and again as the droplet lands back.
+  double kick(double t0, double a) => t > t0 ? a * math.exp(-(t - t0) * 2.6) * math.sin((t - t0) * 15) : 0.0;
+  final ripples = <(double, double)>[
+    for (final (t0, a) in const [(0.1, 1.0), (0.45, 0.6), (2.15, 0.7)])
+      if (t > t0 && t < t0 + 1.0) ((t - t0) / 1.0, a),
+  ];
+  return PipGreeting(
     grown: grown,
-    hand: 0.55 * swing,
-    lean: 0.07 * swing,
-    eyes: _blinks(since, const [1.75]).clamp(0.0, 1.0),
+    open: seen * _blinks(t, const [2.3]).clamp(0.0, 1.0),
+    lookX: lookX,
+    lookY: lookY,
+    wobble: kick(0.05, 1.6) + kick(2.15, 1.2),
+    ripples: ripples,
+    drop: drop,
+    t: t,
   );
 }
 
-/// Overshoots to about 1.1 before settling on 1: popping out of the dot.
-double _backOut(double k) {
-  const c = 1.7;
-  final x = k.clamp(0.0, 1.0) - 1;
-  return 1 + (c + 1) * x * x * x + c * x * x;
+double _smooth(double k) {
+  final x = k.clamp(0.0, 1.0);
+  return x * x * (3 - 2 * x);
 }

@@ -11,6 +11,7 @@ import 'package:lookup/state/providers.dart';
 import 'package:lookup/state/sky_state.dart';
 import 'package:lookup/ui/kit/kit.dart';
 import 'package:lookup/ui/pip/pip_aim.dart';
+import 'package:lookup/ui/pip/pip_button.dart';
 import 'package:lookup/ui/sky/sky_camera_screen.dart';
 import 'package:lookup/ui/sky/sky_thing.dart';
 
@@ -276,4 +277,62 @@ void main() {
     expect(find.textContaining('Turn right'), findsOneWidget, reason: 'the words stay');
     await t.pumpWidget(const SizedBox());
   });
+
+  // Pip came from its button beside the tabs, and goes back down into it.
+  testWidgets('Close: Pip flies back down to its button, then the camera goes and the button lands', (t) async {
+    final c = StreamController<List<double>>(sync: true);
+    addTearDown(c.close);
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(_Settings.new),
+        clockProvider.overrideWith((_) => Stream.value(now)),
+        skyCatalogProvider.overrideWith((_) async => SkyCatalog.empty),
+        homeProvider.overrideWith(() => _Home(const [])),
+      ],
+      child: MaterialApp(
+        home: Scaffold(
+          body: Stack(children: [
+            Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) =>
+                        SkyCameraScreen(things: [saturn], tracks: const [], orientationStream: c.stream, camera: false))),
+                child: const Text('open'),
+              ),
+            ),
+            Align(alignment: Alignment.bottomRight, child: PipButton(onTap: () {}, waveEvery: null)),
+          ]),
+        ),
+      ),
+    ));
+    await t.tap(find.text('open'));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+    c.add(east);
+    await t.pump();
+    final screen = t.getSize(find.byType(SkyCameraScreen));
+    final home = pipHomeOffset(screen, EdgeInsets.zero);
+    expect(t.widget<PipAim>(find.byKey(const Key('sky-pip'))).launchFrom, home, reason: 'it set off from its button');
+    expect(home.x, greaterThan(screen.width / 2 - 60), reason: 'bottom right, beside the tabs');
+
+    final before = pipCameHome.value;
+    await t.tap(find.byTooltip('Close'));
+    await t.pump(const Duration(milliseconds: 100));
+    final going = t.widget<PipAim>(find.byKey(const Key('sky-pip')));
+    expect(going.target, home, reason: 'heading home first');
+    expect(going.canLock, isFalse);
+    expect(find.byType(SkyCameraScreen), findsOneWidget, reason: 'the camera waits for Pip');
+
+    await t.pump(const Duration(milliseconds: 700));
+    expect(pipCameHome.value, before + 1, reason: 'home');
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(SkyCameraScreen), findsNothing);
+    await t.pump();
+    expect(t.widget<PipMark>(find.descendant(of: find.byType(PipButton), matching: find.byType(PipMark))).state,
+        PipState.found, reason: 'lands in its button with a flare');
+    await t.pumpWidget(const SizedBox());
+  });
 }
+

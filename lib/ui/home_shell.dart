@@ -17,6 +17,7 @@ import 'pip/pip_button.dart';
 import 'share_card.dart';
 import 'sky/sky_camera_screen.dart';
 import 'sky/sky_screen.dart';
+import 'upcoming_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -111,7 +112,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       if (t != null) _openAlert(t);
     });
     final tab = ref.watch(homeTabProvider);
-    const pages = [NowScreen(), SkyScreen(), LogScreen()];
+    const pages = [NowScreen(), UpcomingScreen(), SkyScreen(), LogScreen()];
     return Scaffold(
       extendBody: true,
       body: IndexedStack(index: tab, children: pages),
@@ -122,6 +123,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         trailing: PipButton(onTap: () => openLiveSkyCamera(context, ref)),
         tabs: [
           const TabItem(Icons.home_outlined, 'Home', activeIcon: Icons.home_rounded),
+          const TabItem(Icons.view_week_outlined, 'Week', activeIcon: Icons.view_week_rounded),
           const TabItem(Icons.explore_outlined, 'Explore', activeIcon: Icons.explore_rounded),
           const TabItem(Icons.auto_awesome_outlined, 'Log', activeIcon: Icons.auto_awesome_rounded),
         ],

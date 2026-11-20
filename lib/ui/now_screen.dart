@@ -14,7 +14,6 @@ import 'places_screen.dart';
 import 'settings_screen.dart';
 import 'theme.dart';
 import 'tour.dart';
-import 'upcoming_screen.dart';
 import 'verdict_card.dart';
 
 class NowScreen extends ConsumerWidget {
@@ -115,7 +114,7 @@ class NowScreen extends ConsumerWidget {
             subtitle: 'What\'s coming, and what went by',
             subtitleLines: 1,
             chevron: true,
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const UpcomingScreen(pushed: true))),
+            onTap: () => ref.read(homeTabProvider.notifier).set(HomeTab.week),
           ),
         ]),
       ),

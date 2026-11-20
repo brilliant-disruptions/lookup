@@ -548,10 +548,7 @@ void main() {
 
   testWidgets('upcoming', (t) async {
     await mount(t, const HomeShell());
-    await t.scrollUntilVisible(find.text('See every night'), 300, scrollable: find.byType(Scrollable).first);
-    await t.drag(find.byType(Scrollable).first, const Offset(0, -150));
-    await t.pump(const Duration(milliseconds: 500));
-    await t.tap(find.text('See every night'));
+    await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Week')));
     await t.pump(const Duration(milliseconds: 600));
     await t.pump(const Duration(milliseconds: 1200));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/3-upcoming.png'));

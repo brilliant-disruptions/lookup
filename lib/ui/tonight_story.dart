@@ -461,7 +461,7 @@ class _EndWords extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final u = upsell;
     void openSky() {
-      ref.read(homeTabProvider.notifier).set(1);
+      ref.read(homeTabProvider.notifier).set(HomeTab.explore);
       Navigator.of(context).maybePop();
     }
 

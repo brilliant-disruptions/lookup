@@ -61,7 +61,7 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
       ref.read(liveActivityProvider).markLive();
     }
     _wasLive = live;
-    if (e != null && (ModalRoute.of(context)?.isCurrent ?? false) && ref.read(homeTabProvider) == 0) {
+    if (e != null && (ModalRoute.of(context)?.isCurrent ?? false) && ref.read(homeTabProvider) == HomeTab.home) {
       maybeOpenLookUpNow(context, e, now);
     }
 
@@ -164,7 +164,7 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
             )
           else if (v.kind == VerdictKind.clearNight)
             FilledButton.icon(
-              onPressed: () => ref.read(homeTabProvider.notifier).set(1),
+              onPressed: () => ref.read(homeTabProvider.notifier).set(HomeTab.explore),
               icon: const Icon(Icons.explore_rounded),
               label: Text('Find ${planet!.planet.label}'),
             ),

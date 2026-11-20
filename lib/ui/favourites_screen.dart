@@ -51,7 +51,7 @@ class FavouritesScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: () {
-                    ref.read(homeTabProvider.notifier).set(1);
+                    ref.read(homeTabProvider.notifier).set(HomeTab.explore);
                     Navigator.of(context).popUntil((r) => r.isFirst);
                   },
                   icon: const Icon(Icons.explore_rounded, size: 18),

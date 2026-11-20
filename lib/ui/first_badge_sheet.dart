@@ -1,4 +1,4 @@
-/// The first badge, the moment setting up is done: Pip waves, "Looked up"
+/// The first badge, the moment setting up is done: Pip says hi, "Looked up"
 /// goes on the shelf, and the next one is named (catch something with Pip).
 /// Shown once, the first time Home opens after onboarding.
 library;
@@ -27,7 +27,7 @@ class FirstBadgeSheet extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Center(child: PipMark(key: Key('first-badge-pip'), size: 120, state: PipState.wave)),
+            const Center(child: PipMark(key: Key('first-badge-pip'), size: 120, state: PipState.greet)),
             const SizedBox(height: 4),
             const Kicker('Your first badge', color: LookUpColors.gold),
             const SizedBox(height: 10),

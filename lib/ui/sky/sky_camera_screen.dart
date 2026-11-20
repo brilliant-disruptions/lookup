@@ -32,16 +32,29 @@ import '../format.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import '../pip/pip_aim.dart';
+import '../pip/pip_button.dart' show pipCameHome, pipHomeOffset;
 import 'figure_spotlight.dart';
 import 'sky_capture.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 
-Future<void> openSkyCamera(BuildContext context,
-        {required List<SkyThing> things, required List<SkyTrack> tracks, DateTime? time, double? lat, double? lon}) =>
-    Navigator.of(context).push(MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => SkyCameraScreen(things: things, tracks: tracks, time: time, lat: lat, lon: lon)));
+/// Opens with a fade, so Pip can be seen leaving its button beside the tabs
+/// and, on Close, flying back down into it.
+Future<void> openSkyCamera(
+  BuildContext context, {
+  required List<SkyThing> things,
+  required List<SkyTrack> tracks,
+  DateTime? time,
+  double? lat,
+  double? lon,
+}) => Navigator.of(context).push(
+  PageRouteBuilder<void>(
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: const Duration(milliseconds: 280),
+    pageBuilder: (_, _, _) => SkyCameraScreen(things: things, tracks: tracks, time: time, lat: lat, lon: lon),
+    transitionsBuilder: (_, a, _, child) => FadeTransition(opacity: a, child: child),
+  ),
+);
 
 /// The camera view of the sky as it is now, from outside Explore (Pip beside the
 /// tab bar): the Moon, planets, showpieces and passes the live map shows.
@@ -55,20 +68,30 @@ Future<void> openLiveSkyCamera(BuildContext context, WidgetRef ref) async {
     return;
   }
   final events = ref.read(homeProvider).value?.events ?? const <SkyEvent>[];
-  return openSkyCamera(context,
-      things: [
-        SkyThing.moon(t.moon, lat, lon),
-        for (final p in t.planets) SkyThing.planet(p, lat, lon),
-        for (final x in t.showpieces) SkyThing.showpiece(x, lat, lon),
-      ],
-      tracks: [for (final e in upcomingPasses(events, DateTime.now().toUtc())) passTrack(e, lat, lon)],
-      lat: lat,
-      lon: lon);
+  return openSkyCamera(
+    context,
+    things: [
+      SkyThing.moon(t.moon, lat, lon),
+      for (final p in t.planets) SkyThing.planet(p, lat, lon),
+      for (final x in t.showpieces) SkyThing.showpiece(x, lat, lon),
+    ],
+    tracks: [for (final e in upcomingPasses(events, DateTime.now().toUtc())) passTrack(e, lat, lon)],
+    lat: lat,
+    lon: lon,
+  );
 }
 
 class SkyCameraScreen extends ConsumerStatefulWidget {
-  const SkyCameraScreen(
-      {super.key, required this.things, required this.tracks, this.time, this.lat, this.lon, this.orientationStream, this.camera = true});
+  const SkyCameraScreen({
+    super.key,
+    required this.things,
+    required this.tracks,
+    this.time,
+    this.lat,
+    this.lon,
+    this.orientationStream,
+    this.camera = true,
+  });
   final List<SkyThing> things;
   final List<SkyTrack> tracks;
 
@@ -137,6 +160,32 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
   /// What you asked Pip to find ("Find something else"); null is Pip's pick.
   String? _guideId;
 
+  /// Closing: Pip is flying back down to its button; then the screen goes.
+  bool _leaving = false, _left = false;
+
+  /// How long Pip takes to fly home before the camera fades away.
+  static const _flyHome = Duration(milliseconds: 650);
+
+  /// Close: Pip flies back to its button beside the tabs, then the camera
+  /// fades out and the button's Pip lands. Straight away with Reduce Motion
+  /// or when Pip isn't out.
+  void _leave({required bool pipOut}) {
+    if (_leaving) return;
+    void go() {
+      if (!mounted) return;
+      setState(() => _left = true);
+      pipCameHome.value++;
+      // Once the rebuild lets this screen go.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+    }
+
+    if (!pipOut || MediaQuery.disableAnimationsOf(context)) return go();
+    setState(() => _leaving = true);
+    Timer(_flyHome, go);
+  }
+
   /// The overlay as it was last drawn, without its live hooks, for a catch.
   SkyOverlayPainter Function()? _still;
 
@@ -171,9 +220,11 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
       final saved = await ref.read(photoLibraryProvider).save(png, name: 'LookUp-${now.millisecondsSinceEpoch}');
       if (!mounted) return;
       if (e == null) {
-        return say(saved
-            ? 'Saved to Photos. Bring something to the middle to catch it for your Log.'
-            : 'Couldn\'t save to Photos. Allow LookUp to add photos in Settings.');
+        return say(
+          saved
+              ? 'Saved to Photos. Bring something to the middle to catch it for your Log.'
+              : 'Couldn\'t save to Photos. Allow LookUp to add photos in Settings.',
+        );
       }
       final store = ref.read(storeProvider);
       final name = await const PhotoStore().saveBytes(e.id, png);
@@ -201,7 +252,14 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
     final mapped = [
       for (final t in widget.things)
         if (t.position(utc) case final h when h.altitudeDeg > -1)
-          (thing: t, mark: (label: t.id == 'moon' ? 'Moon' : t.name, d: SkyDir(h.azimuthDeg, h.altitudeDeg), bright: t.id == 'moon' || t.kind == 'Planet')),
+          (
+            thing: t,
+            mark: (
+              label: t.id == 'moon' ? 'Moon' : t.name,
+              d: SkyDir(h.azimuthDeg, h.altitudeDeg),
+              bright: t.id == 'moon' || t.kind == 'Planet',
+            ),
+          ),
     ];
     final marks = <OverlayMark>[for (final m in mapped) m.mark];
     final tracks = <OverlayTrack>[
@@ -209,7 +267,10 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
         (
           label: eventTitle(tr.event),
           path: [for (final p in tr.points) (t: p.t, d: SkyDir(p.h.azimuthDeg, p.h.altitudeDeg))],
-          now: switch (tr.at(utc)) { final h? => SkyDir(h.azimuthDeg, h.altitudeDeg), null => null },
+          now: switch (tr.at(utc)) {
+            final h? => SkyDir(h.azimuthDeg, h.altitudeDeg),
+            null => null,
+          },
           color: tr.color,
         ),
     ];
@@ -255,7 +316,9 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
         ),
     ];
     for (final tr in widget.tracks) {
-      if (tr.at(utc) case final h?) guides[tr.event.id] = (name: eventTitle(tr.event), d: SkyDir(h.azimuthDeg, h.altitudeDeg));
+      if (tr.at(utc) case final h?) {
+        guides[tr.event.id] = (name: eventTitle(tr.event), d: SkyDir(h.azimuthDeg, h.altitudeDeg));
+      }
     }
     for (final m in mapped) {
       guides[m.thing.id] = (name: m.mark.label == 'Moon' ? 'the Moon' : m.mark.label, d: m.mark.d);
@@ -268,12 +331,14 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
         ? null
         : projectToScreen(r, target.d, declinationDeg: _declination, previewHeightPx: _previewHeight ?? screen.height);
     final others = guideOrder(candidates).length > 1;
+    // Pip's home: the button beside the tabs it came from.
+    final home = pipHomeOffset(screen, MediaQuery.paddingOf(context));
     final passing = widget.tracks.where((tr) => tr.liveAt(utc)).map((tr) => eventTitle(tr.event)).toList();
     final status = widget.time != null
         ? 'The sky at ${fmtSkyMoment(utc, lon ?? 0)}'
         : passing.isNotEmpty
-            ? '${passing.join(' and ')} going over now'
-            : 'Live sky';
+        ? '${passing.join(' and ')} going over now'
+        : 'Live sky';
     // The next sight, counting down in the top right; not when looking at
     // another time.
     final next = widget.time != null ? null : nextUp(ref.watch(homeProvider).value?.events ?? const [], utc);
@@ -297,153 +362,199 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
           onSpotlit: live ? onFigureSpotlit : null,
           twinkle: live && figureFadeOn ? figureTwinkle : null,
         );
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(children: [
-        if (_cameraOn)
-          Positioned.fill(
-            child: CameraBackdrop(
-              key: _camera,
-              onHeight: (h) => _previewHeight = h,
-              onError: (msg) {
-                if (!mounted) return;
-                setState(() => _cameraOn = false);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-              },
-            ),
-          ),
-        if (r != null && lat != null && lon != null)
-          Positioned.fill(
-            child: LayoutBuilder(builder: (context, c) {
-              final labels = Theme.of(context).textTheme.labelSmall ?? const TextStyle();
-              final height = _previewHeight ?? c.maxHeight;
-              _still = () => overlay(live: false, height: height, labelStyle: labels);
-              return CustomPaint(painter: overlay(height: height, labelStyle: labels));
-            }),
-          ),
-        // Pip, out over the sky: it sets off from the shutter, flies to what
-        // it's leading you to (or waits at the edge on the side to turn),
-        // and lands on it, as the plain light, once it's in the middle.
-        if (g != null && target != null)
-          Positioned.fill(
-            child: PipAim(
-              key: const Key('sky-pip'),
-              mode: PipMode.find,
-              target: onScreen,
-              toward: towardOnScreen(g),
-              distanceDeg: g.distanceDeg,
-              onTarget: g.onTarget,
-              words: '${g.words} for ${target.name}',
-              // The sky already names it; and no ring: Pip is all there is.
-              ring: false,
-              launchFrom: (x: 0, y: screen.height / 2 - MediaQuery.paddingOf(context).bottom - 60),
-            ),
-          ),
-        // On it: tap Pip itself (where it sits, on the thing) to catch it.
-        if (g != null && g.onTarget)
-          Positioned(
-            left: screen.width / 2 + (onScreen?.x ?? 0) - 70,
-            top: screen.height / 2 + (onScreen?.y ?? 0) - 70,
-            child: Semantics(
-              button: true,
-              label: 'Catch ${centred?.name ?? target!.name}',
-              excludeSemantics: true,
-              child: GestureDetector(
-                key: const Key('pip-on-target'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _catch(centred, place: place),
-                child: const SizedBox.square(dimension: 140),
-              ),
-            ),
-          ),
-        SafeArea(
-          child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: ScanTopBar(
-                title: scanTitle(status),
-                // The next sight's countdown: easy to find, top right.
-                trailing: next == null ? const SizedBox(width: 44) : _Countdown(next, now: utc),
-              ),
-            ),
-            if (_hint)
-              const ScanHint('Cloud or a roof in the way? Everything is still drawn where it is. '
-                  'Wave the phone in a figure-8 if it drifts.'),
-            const Spacer(),
-            if (others && camera != null && widget.time == null)
-              TextButton.icon(
-                key: const Key('find-something-else'),
-                onPressed: () => setState(() => _guideId = nextGuideTarget(candidates, aim?.id)?.id),
-                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                label: const Text('Pip, find something else'),
-                style: TextButton.styleFrom(foregroundColor: LookUpColors.white, backgroundColor: Colors.black.withValues(alpha: 0.45)),
-              ),
-            // Nerd mode: exactly where the phone points.
-            if ((s?.nerdMode ?? false) && camera != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(nerdPosition(camera.azimuthDeg, camera.elevationDeg),
-                    key: const Key('nerd-numbers'),
-                    style: numeric(size: 13, color: LookUpColors.grey).copyWith(shadows: const [Shadow(blurRadius: 6)])),
-              ),
-            ScanLine(
-              camera == null
-                  ? (_error != null ? 'No motion sensor here, so this view can\'t follow the phone.' : 'Hold your phone up to the sky')
-                  : centred != null
-                      ? 'That\'s ${centred.name}. Tap Pip to catch it!'
-                      : g != null
-                          ? '${g.words} for ${target!.name}'
-                          : 'Looking ${compassWord(camera.azimuthDeg)}, ${elevationWord(camera.elevationDeg)}',
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-              child: Row(children: [
-                CircleButton(
-                  tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
-                  icon: _cameraOn ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-                  onPressed: () => setState(() => _cameraOn = !_cameraOn),
+    final pipOut = g != null && target != null;
+    return PopScope(
+      canPop: _left,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave(pipOut: pipOut);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            if (_cameraOn)
+              Positioned.fill(
+                child: CameraBackdrop(
+                  key: _camera,
+                  onHeight: (h) => _previewHeight = h,
+                  onError: (msg) {
+                    if (!mounted) return;
+                    setState(() => _cameraOn = false);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                  },
                 ),
-                Expanded(
-                  child: Center(
-                    // The shutter: Pip's home, which it leaves to guide you.
-                    // Green once something is in the middle; a tap here or
-                    // on Pip catches it.
-                    child: Semantics(
-                      button: true,
-                      label: centred != null ? 'Catch ${centred.name}' : 'Take a picture of the sky',
-                      excludeSemantics: true,
-                      child: GestureDetector(
-                        key: const Key('shutter'),
-                        onTap: () => _catch(centred, place: place),
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withValues(alpha: 0.35),
-                            border: Border.all(
-                                color: centred != null ? fireflyGlow.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.35),
-                                width: 3),
-                          ),
-                          alignment: Alignment.center,
-                          child: Icon(Icons.camera_rounded,
-                              size: 34,
-                              color: _catching
-                                  ? LookUpColors.greyDim
-                                  : centred != null
-                                      ? fireflyGlow
-                                      : LookUpColors.white),
-                        ),
-                      ),
-                    ),
+              ),
+            if (r != null && lat != null && lon != null)
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    final labels = Theme.of(context).textTheme.labelSmall ?? const TextStyle();
+                    final height = _previewHeight ?? c.maxHeight;
+                    _still = () => overlay(live: false, height: height, labelStyle: labels);
+                    return CustomPaint(
+                      painter: overlay(height: height, labelStyle: labels),
+                    );
+                  },
+                ),
+              ),
+            // Pip, out over the sky: it sets off from the shutter, flies to what
+            // it's leading you to (or waits at the edge on the side to turn),
+            // and lands on it, as the plain light, once it's in the middle.
+            if (g != null && target != null)
+              Positioned.fill(
+                child: PipAim(
+                  key: const Key('sky-pip'),
+                  mode: PipMode.find,
+                  // Leaving: Pip heads home, to its button beside the tabs.
+                  target: _leaving ? home : onScreen,
+                  toward: towardOnScreen(g),
+                  distanceDeg: _leaving ? 40 : g.distanceDeg,
+                  onTarget: !_leaving && g.onTarget,
+                  canLock: !_leaving,
+                  words: _leaving ? 'Pip is heading home' : '${g.words} for ${target.name}',
+                  // The sky already names it; and no ring: Pip is all there is.
+                  ring: false,
+                  // Sets off from its button beside the tabs.
+                  launchFrom: home,
+                ),
+              ),
+            // On it: tap Pip itself (where it sits, on the thing) to catch it.
+            if (g != null && g.onTarget && !_leaving)
+              Positioned(
+                left: screen.width / 2 + (onScreen?.x ?? 0) - 70,
+                top: screen.height / 2 + (onScreen?.y ?? 0) - 70,
+                child: Semantics(
+                  button: true,
+                  label: 'Catch ${centred?.name ?? target!.name}',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    key: const Key('pip-on-target'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _catch(centred, place: place),
+                    child: const SizedBox.square(dimension: 140),
                   ),
                 ),
-                const SizedBox(width: 44),
-              ]),
+              ),
+            // The controls fade as Pip flies home.
+            AnimatedOpacity(
+              opacity: _leaving ? 0 : 1,
+              duration: const Duration(milliseconds: 220),
+              child: IgnorePointer(
+                ignoring: _leaving,
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: ScanTopBar(
+                          onClose: () => _leave(pipOut: pipOut),
+                          title: scanTitle(status),
+                          // The next sight's countdown: easy to find, top right.
+                          trailing: next == null ? const SizedBox(width: 44) : _Countdown(next, now: utc),
+                        ),
+                      ),
+                      if (_hint)
+                        const ScanHint(
+                          'Cloud or a roof in the way? Everything is still drawn where it is. '
+                          'Wave the phone in a figure-8 if it drifts.',
+                        ),
+                      const Spacer(),
+                      if (others && camera != null && widget.time == null)
+                        TextButton.icon(
+                          key: const Key('find-something-else'),
+                          onPressed: () => setState(() => _guideId = nextGuideTarget(candidates, aim?.id)?.id),
+                          icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                          label: const Text('Pip, find something else'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: LookUpColors.white,
+                            backgroundColor: Colors.black.withValues(alpha: 0.45),
+                          ),
+                        ),
+                      // Nerd mode: exactly where the phone points.
+                      if ((s?.nerdMode ?? false) && camera != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            nerdPosition(camera.azimuthDeg, camera.elevationDeg),
+                            key: const Key('nerd-numbers'),
+                            style: numeric(
+                              size: 13,
+                              color: LookUpColors.grey,
+                            ).copyWith(shadows: const [Shadow(blurRadius: 6)]),
+                          ),
+                        ),
+                      ScanLine(
+                        camera == null
+                            ? (_error != null
+                                  ? 'No motion sensor here, so this view can\'t follow the phone.'
+                                  : 'Hold your phone up to the sky')
+                            : centred != null
+                            ? 'That\'s ${centred.name}. Tap Pip to catch it!'
+                            : g != null
+                            ? '${g.words} for ${target!.name}'
+                            : 'Looking ${compassWord(camera.azimuthDeg)}, ${elevationWord(camera.elevationDeg)}',
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                        child: Row(
+                          children: [
+                            CircleButton(
+                              tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
+                              icon: _cameraOn ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                              onPressed: () => setState(() => _cameraOn = !_cameraOn),
+                            ),
+                            Expanded(
+                              child: Center(
+                                // The shutter: Pip's home, which it leaves to guide you.
+                                // Green once something is in the middle; a tap here or
+                                // on Pip catches it.
+                                child: Semantics(
+                                  button: true,
+                                  label: centred != null ? 'Catch ${centred.name}' : 'Take a picture of the sky',
+                                  excludeSemantics: true,
+                                  child: GestureDetector(
+                                    key: const Key('shutter'),
+                                    onTap: () => _catch(centred, place: place),
+                                    child: Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.black.withValues(alpha: 0.35),
+                                        border: Border.all(
+                                          color: centred != null
+                                              ? fireflyGlow.withValues(alpha: 0.9)
+                                              : Colors.white.withValues(alpha: 0.35),
+                                          width: 3,
+                                        ),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        Icons.camera_rounded,
+                                        size: 34,
+                                        color: _catching
+                                            ? LookUpColors.greyDim
+                                            : centred != null
+                                            ? fireflyGlow
+                                            : LookUpColors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 44),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ]),
+          ],
         ),
-      ]),
+      ),
     );
   }
 }
@@ -478,12 +589,25 @@ class _Countdown extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: live ? LookUpColors.good : LookUpColors.line),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(eventStyle(e.type, details: e.details).icon ?? Icons.circle, size: 16, color: eventStyle(e.type, details: e.details).color),
-          const SizedBox(width: 6),
-          Text('${eventShortName(e)} ', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
-          Text(words, style: numeric(size: 15, weight: FontWeight.w700, color: live ? LookUpColors.good : LookUpColors.white)),
-        ]),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              eventStyle(e.type, details: e.details).icon ?? Icons.circle,
+              size: 16,
+              color: eventStyle(e.type, details: e.details).color,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${eventShortName(e)} ',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: LookUpColors.grey),
+            ),
+            Text(
+              words,
+              style: numeric(size: 15, weight: FontWeight.w700, color: live ? LookUpColors.good : LookUpColors.white),
+            ),
+          ],
+        ),
       ),
     );
   }
