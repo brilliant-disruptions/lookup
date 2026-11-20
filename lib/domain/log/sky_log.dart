@@ -30,7 +30,9 @@ class SkyLog {
   int get earnedCount => badges.where((b) => b.earned).length;
 
   static const _defs = <Badge>[
-    Badge('first-light', 'First light', 'Saw your first thing LookUp tapped you for.'),
+    // The first one, earned by setting up: something on the shelf from day one.
+    Badge('looked-up', 'Looked up', 'Set LookUp up to watch your sky.'),
+    Badge('first-light', 'First light', 'Caught your first thing in the sky with Pip.'),
     Badge('station-spotter', 'Station spotter', 'Saw the space station 5 times.'),
     Badge('regular', 'Regular', 'Saw 10 events.'),
     Badge('overhead', 'Straight overhead', 'Saw a pass that climbed above 75°.'),
@@ -46,7 +48,8 @@ class SkyLog {
     Badge('transit', 'Silhouette', 'Caught the station crossing the Sun or Moon.'),
   ];
 
-  factory SkyLog.from(List<Sighting> all) {
+  /// [onboardedAt] is when setting up finished: the "Looked up" badge.
+  factory SkyLog.from(List<Sighting> all, {DateTime? onboardedAt}) {
     final seen = [...all.where((s) => s.seen)]..sort((a, b) => b.at.compareTo(a.at));
     final counts = <SkyEventType, int>{};
     for (final s in seen) {
@@ -55,7 +58,7 @@ class SkyLog {
     }
     // Earned at the moment the condition first became true (chronological).
     final chrono = seen.reversed.toList();
-    final earned = <String, DateTime>{};
+    final earned = <String, DateTime>{'looked-up': ?onboardedAt};
     final running = <SkyEventType, int>{};
     for (var i = 0; i < chrono.length; i++) {
       final s = chrono[i];

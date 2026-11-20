@@ -16,11 +16,15 @@ import '../services/live_activity.dart';
 import '../services/location_service.dart';
 import '../services/widget_service.dart';
 import '../services/notification_service.dart';
+import '../services/photo_library.dart';
 import '../services/plus_service.dart';
 import '../services/refresh_service.dart';
 import '../services/shortcut_summary.dart';
 
 final storeProvider = Provider<LocalStore>((_) => LocalStore());
+
+/// The phone's own Photos, for caught pictures; tests swap in a fake.
+final photoLibraryProvider = Provider<PhotoLibrary>((_) => const GalPhotoLibrary());
 final notificationServiceProvider =
     Provider<NotificationService>((_) => NotificationService());
 final locationServiceProvider =
@@ -231,10 +235,12 @@ final plusServiceProvider = Provider<PlusService>((ref) {
   return svc;
 });
 
-/// The user's sky log (badges, counts) from stored "did you see it?" answers.
+/// The user's sky log (badges, counts) from stored catches, with the
+/// "Looked up" badge from setting up ([LookUpSettings.onboardedAt]).
 final skyLogProvider = FutureProvider<SkyLog>((ref) async {
   final f = await ref.watch(storeProvider).loadFeedback();
-  return SkyLog.from([for (final x in f) x.toSighting()]);
+  final onboardedAt = await ref.watch(settingsProvider.selectAsync((s) => s.onboardedAt));
+  return SkyLog.from([for (final x in f) x.toSighting()], onboardedAt: onboardedAt);
 });
 
 /// What the app has learned from "what got in the way?" answers.

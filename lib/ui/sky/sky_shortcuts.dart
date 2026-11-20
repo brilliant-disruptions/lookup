@@ -41,7 +41,7 @@ class SkyShortcuts extends ConsumerWidget {
   /// "Saturn tonight", "Saturn, Thursday", or how to start.
   static String _favouritesLine(WidgetRef ref) {
     final favourites = ref.watch(favouritesAheadProvider).value ?? const <FavouriteOutlook>[];
-    if (favourites.isEmpty) return 'Tap \u2665 on anything in the Sky tab to follow it';
+    if (favourites.isEmpty) return 'Tap \u2665 on anything in Explore to follow it';
     final catalog = ref.watch(skyCatalogProvider).value;
     final nights = ref.watch(nightsAheadProvider).value;
     final up = [for (final f in favourites) if (f.night != null) f]..sort((a, b) => a.night!.compareTo(b.night!));

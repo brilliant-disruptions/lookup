@@ -151,7 +151,7 @@ SkyEvent _londonPass() {
   );
 }
 
-const _london = LookUpSettings(latitude: 51.5, longitude: -0.12, placeName: 'London', onboarded: true, toured: true);
+const _london = LookUpSettings(latitude: 51.5, longitude: -0.12, placeName: 'London', onboarded: true, firstBadgeShown: true, toured: true);
 
 /// A good evening for the verdict: a clear pass an hour out going right by
 /// Saturn, clear until late, the Moon setting before midnight. Times follow
@@ -273,7 +273,7 @@ Future<void> _loadFonts() async {
 }
 
 Widget _app(Widget home, {LookUpSettings settings = const LookUpSettings(
-  latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true, toured: true,
+  latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, firstBadgeShown: true, isPlus: true, toured: true,
   favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus']), List<Override> extra = const []}) {
   final base = LookUpApp.theme;
   final theme = base.copyWith(
@@ -446,13 +446,13 @@ void main() {
 
   testWidgets('plan a night', (t) => shot(t, const PlanScreen(), '19-plan',
       settings: const LookUpSettings(
-          latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true,
+          latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, firstBadgeShown: true, isPlus: true,
           favourites: ['planet:saturn', 'm31', 'con:Ori', 'planet:venus'],
           places: [SavedPlace(name: 'The cabin', latitude: 35.61, longitude: -83.49, skyDarkness: SkyDarkness.dark)])));
 
   testWidgets('where to go', (t) => shot(t, const WhereToGoScreen(), '20-where-to-go',
       settings: const LookUpSettings(
-          latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, isPlus: true,
+          latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, firstBadgeShown: true, isPlus: true,
           places: [
             SavedPlace(name: 'The cabin', latitude: 35.61, longitude: -83.49, skyDarkness: SkyDarkness.dark),
             SavedPlace(name: 'Percy Priest Lake', latitude: 36.06, longitude: -86.51),
@@ -493,7 +493,7 @@ void main() {
   testWidgets('sky and log tabs', (t) async {
     await mount(t, const HomeShell());
     Finder tab(String l) => find.descendant(of: find.byType(FloatingTabBar), matching: find.text(l));
-    await t.tap(tab('Sky'));
+    await t.tap(tab('Explore'));
     await t.pump(const Duration(seconds: 2));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/41-tab-sky.png'));
     await t.drag(find.byType(Scrollable).first, const Offset(0, -900));
@@ -548,10 +548,10 @@ void main() {
 
   testWidgets('upcoming', (t) async {
     await mount(t, const HomeShell());
-    await t.scrollUntilVisible(find.text('See the full week'), 300, scrollable: find.byType(Scrollable).first);
+    await t.scrollUntilVisible(find.text('See every night'), 300, scrollable: find.byType(Scrollable).first);
     await t.drag(find.byType(Scrollable).first, const Offset(0, -150));
     await t.pump(const Duration(milliseconds: 500));
-    await t.tap(find.text('See the full week'));
+    await t.tap(find.text('See every night'));
     await t.pump(const Duration(milliseconds: 600));
     await t.pump(const Duration(milliseconds: 1200));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/3-upcoming.png'));
@@ -598,7 +598,7 @@ void main() {
         ),
       ),
       '25-starter-sky',
-      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
+      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, firstBadgeShown: true, toured: true)));
 
   testWidgets('alert art', (t) async {
     t.view.physicalSize = const Size(1024, 512);
@@ -688,7 +688,7 @@ void main() {
         ),
       ),
       '30-plus-card',
-      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, toured: true)));
+      settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, firstBadgeShown: true, toured: true)));
 
   testWidgets('paywall', (t) async {
     final sheet = Scaffold(
@@ -709,7 +709,7 @@ void main() {
       ]),
     );
     await shot(t, sheet, '6-paywall',
-        settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true));
+        settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville', onboarded: true, firstBadgeShown: true));
   });
 
   testWidgets('settings', (t) async {
@@ -792,7 +792,7 @@ void main() {
   testWidgets('satellites tonight', (t) => shot(t, const SatellitesTonightScreen(), '12-satellites'));
 
   testWidgets('places', (t) => shot(t, const PlacesScreen(), '13-places',
-      settings: const LookUpSettings(onboarded: true, isPlus: true)
+      settings: const LookUpSettings(onboarded: true, firstBadgeShown: true, isPlus: true)
           .usePlace(const SavedPlace(name: 'Home', latitude: 36.1659, longitude: -86.7844))
           .usePlace(const SavedPlace(name: 'Cabin in the Smokies', latitude: 35.6118, longitude: -83.4895, skyDarkness: SkyDarkness.dark))
           .usePlace(const SavedPlace(name: 'Home', latitude: 36.1659, longitude: -86.7844))));

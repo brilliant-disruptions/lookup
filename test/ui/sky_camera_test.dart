@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/domain/models/settings.dart';
+import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/domain/sky/astro.dart';
 import 'package:lookup/domain/sky/catalog.dart';
 import 'package:lookup/state/providers.dart';
@@ -17,6 +18,11 @@ class _Settings extends SettingsNotifier {
   Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true);
 }
 
+class _Nerd extends SettingsNotifier {
+  @override
+  Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true, nerdMode: true);
+}
+
 /// New to the sky camera; edits stay in memory.
 class _New extends SettingsNotifier {
   @override
@@ -24,6 +30,15 @@ class _New extends SettingsNotifier {
 
   @override
   Future<void> edit(LookUpSettings Function(LookUpSettings) f) async => state = AsyncData(f(state.value!));
+}
+
+class _Home extends HomeNotifier {
+  _Home(this.events);
+  final List<SkyEvent> events;
+  @override
+  Future<HomeData> build() async => HomeData(events: events, aurora: null, lastRefresh: DateTime.now(), errors: const []);
+  @override
+  Future<void> refresh({bool force = false, bool quick = false}) async {}
 }
 
 void main() {
@@ -58,7 +73,7 @@ void main() {
 
     c.add(south);
     await t.pump();
-    expect(find.text('That\'s Saturn'), findsOneWidget);
+    expect(find.text('That\'s Saturn. Tap Pip to catch it!'), findsOneWidget);
 
     c.add(east);
     await t.pump();
@@ -67,8 +82,9 @@ void main() {
   });
 
   // Every screen you hold up to the sky has Pip in it and reads the same, so
-  // the sky camera can't be the one without.
-  testWidgets('Pip is there, and settles on what the camera is pointing at', (t) async {
+  // the sky camera can't be the one without. Here Pip is the shutter, and
+  // it waves at whatever is in the middle.
+  testWidgets('Pip is there, and waves at what the camera is pointing at', (t) async {
     final c = StreamController<List<double>>(sync: true);
     addTearDown(c.close);
     await t.pumpWidget(ProviderScope(
@@ -86,7 +102,8 @@ void main() {
     expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.idle);
     c.add(south);
     await t.pump();
-    expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.found, reason: 'Saturn is in the middle');
+    expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.wave, reason: 'Saturn is in the middle');
+    expect(find.bySemanticsLabel('Catch Saturn'), findsOneWidget);
     c.add(east);
     await t.pump();
     expect(t.widget<PipMark>(find.byType(PipMark)).state, PipState.idle);
@@ -118,6 +135,102 @@ void main() {
     await t.pumpWidget(screen());
     await t.pump();
     expect(find.byType(ScanHint), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the next sight counts down in the top right', (t) async {
+    final pass = SkyEvent(
+      id: 'iss:1',
+      type: SkyEventType.iss,
+      start: now.add(const Duration(minutes: 12)),
+      peak: now.add(const Duration(minutes: 15)),
+      end: now.add(const Duration(minutes: 18)),
+      peakElevationDeg: 60,
+      riseAzimuthDeg: 250,
+      peakAzimuthDeg: 180,
+      setAzimuthDeg: 90,
+    );
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(_Settings.new),
+        clockProvider.overrideWith((_) => Stream.value(now)),
+        skyCatalogProvider.overrideWith((_) async => SkyCatalog.empty),
+        homeProvider.overrideWith(() => _Home([pass])),
+      ],
+      child: MaterialApp(
+        home: SkyCameraScreen(things: [saturn], tracks: const [], orientationStream: const Stream.empty(), camera: false),
+      ),
+    ));
+    await t.pump();
+    await t.pump();
+    final chip = find.byKey(const Key('camera-countdown'));
+    expect(chip, findsOneWidget);
+    expect(find.descendant(of: chip, matching: find.text('12m 00s')), findsOneWidget);
+    final box = t.getRect(chip);
+    final screen = t.getRect(find.byType(SkyCameraScreen));
+    expect(box.right, greaterThan(screen.width * 0.85), reason: 'top right');
+    expect(box.top, lessThan(screen.height * 0.15));
+    await t.pumpWidget(const SizedBox());
+  });
+
+  // A catch needs a picture: with the camera off, tapping Pip turns it on
+  // and logs nothing.
+  testWidgets('tapping Pip with the camera off turns it on rather than logging', (t) async {
+    final c = StreamController<List<double>>(sync: true);
+    addTearDown(c.close);
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(_Settings.new),
+        clockProvider.overrideWith((_) => Stream.value(now)),
+        skyCatalogProvider.overrideWith((_) async => SkyCatalog.empty),
+        homeProvider.overrideWith(() => _Home(const [])),
+      ],
+      child: MaterialApp(
+        home: SkyCameraScreen(things: [saturn], tracks: const [], orientationStream: c.stream, camera: false),
+      ),
+    ));
+    await t.pump();
+    c.add(south);
+    await t.pump();
+    expect(find.byTooltip('Show camera'), findsOneWidget);
+    await t.tap(find.byKey(const Key('pip-shutter')));
+    await t.pump();
+    expect(find.textContaining('Camera on'), findsOneWidget);
+    expect(find.byTooltip('Hide camera'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  // Words on the main path; the numbers only for someone who asked for them.
+  testWidgets('nerd mode adds exact numbers; off (the default) there is no degree sign anywhere', (t) async {
+    Future<void> open(SettingsNotifier Function() settings) async {
+      final c = StreamController<List<double>>(sync: true);
+      addTearDown(c.close);
+      await t.pumpWidget(ProviderScope(
+        overrides: [
+          settingsProvider.overrideWith(settings),
+          clockProvider.overrideWith((_) => Stream.value(now)),
+          skyCatalogProvider.overrideWith((_) async => SkyCatalog.empty),
+          homeProvider.overrideWith(() => _Home(const [])),
+        ],
+        child: MaterialApp(
+          home: SkyCameraScreen(things: [saturn], tracks: const [], orientationStream: c.stream, camera: false),
+        ),
+      ));
+      await t.pump();
+      c.add(east);
+      await t.pump();
+    }
+
+    expect(const LookUpSettings().nerdMode, isFalse);
+    await open(_Settings.new);
+    expect(find.byKey(const Key('nerd-numbers')), findsNothing);
+    expect(find.textContaining('°'), findsNothing);
+    await t.pumpWidget(const SizedBox());
+
+    await open(_Nerd.new);
+    expect(find.byKey(const Key('nerd-numbers')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^Az \d+\.\d° · Alt')), findsOneWidget);
+    expect(find.textContaining('Looking east'), findsOneWidget, reason: 'the words stay');
     await t.pumpWidget(const SizedBox());
   });
 }

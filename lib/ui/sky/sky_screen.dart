@@ -112,7 +112,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppHeader(
-        title: const Text('Sky'),
+        title: const Text('Explore'),
         place: _night?.place ?? place,
         onPlaceTap: () => openPlaces(context),
         actions: [

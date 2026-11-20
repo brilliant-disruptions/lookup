@@ -4,13 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/aurora_reports_client.dart' show relayConfigured;
 import '../domain/aurora/seen_nearby.dart' show seenNearYouLine;
 import '../domain/models/sky_event.dart';
-import '../domain/plan/where_to_go.dart';
-import '../domain/sky/skyglow.dart';
-import '../domain/sky/visibility.dart';
 import '../services/location_service.dart';
 import '../state/providers.dart';
-import '../state/plan_state.dart';
-import '../state/sky_state.dart';
 import 'demo.dart';
 import 'format.dart';
 import 'kit/kit.dart';
@@ -21,7 +16,6 @@ import 'theme.dart';
 import 'tour.dart';
 import 'upcoming_screen.dart';
 import 'verdict_card.dart';
-import 'where_to_go_screen.dart';
 
 class NowScreen extends ConsumerWidget {
   const NowScreen({super.key});
@@ -74,10 +68,6 @@ class NowScreen extends ConsumerWidget {
                   ),
                 ),
                 if (!d.needsLocation && !d.noData) ..._comingUp(context, ref, d),
-                if (!d.needsLocation && !d.noData) ...[
-                  const SizedBox(height: 12),
-                  const Rise(index: 4, child: _WhereRow()),
-                ],
                 if (d.errors.isNotEmpty && !d.needsLocation)
                   const Padding(
                     padding: EdgeInsets.only(top: 20),
@@ -92,8 +82,9 @@ class NowScreen extends ConsumerWidget {
     );
   }
 
-  /// The timeline under the hero: what comes after it, soonest first. Rows
-  /// that won't be worth stepping out for (cloud, no alert) fade back.
+  /// The next three things after the hero, soonest first, each in one
+  /// line. Rows that won't be worth stepping out for (cloud, no alert) fade
+  /// back; everything else is a tap away in "See every night".
   List<Widget> _comingUp(BuildContext context, WidgetRef ref, HomeData d) {
     final now = DateTime.now().toUtc();
     final horizon = now.add(const Duration(days: 7));
@@ -102,7 +93,7 @@ class NowScreen extends ConsumerWidget {
     // The outlook has its own row at the top; don't list it twice.
     final rest = d.events
         .where((e) => e.id != d.next?.id && e.id != outlook?.id && e.end.isAfter(now) && e.start.isBefore(horizon))
-        .take(5)
+        .take(3)
         .toList();
     return [
       const SectionHeader('Coming up'),
@@ -120,8 +111,8 @@ class NowScreen extends ConsumerWidget {
             ),
           ListRow(
             leading: const EventGlyph(icon: Icons.view_agenda_rounded, color: LookUpColors.blue),
-            title: 'See the full week',
-            subtitle: 'Every night, and what you missed',
+            title: 'See every night',
+            subtitle: 'What\'s coming, and what went by',
             subtitleLines: 1,
             chevron: true,
             onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const UpcomingScreen(pushed: true))),
@@ -136,15 +127,17 @@ class NowScreen extends ConsumerWidget {
     final cloudy = (e.cloudCoverPercent ?? 0) >= 80;
     return Opacity(
       opacity: quiet || cloudy ? 0.6 : 1,
+      // Day and time on one line under the name; cloud as a small icon, not
+      // a pill, so nothing crowds the right-hand edge.
       child: ListRow(
         leading: EventGlyph.of(e, dim: quiet || cloudy),
         title: kicker ?? eventTitle(e),
-        subtitle: kicker != null ? eventTitle(e) : (quiet ? '${fmtDay(e.start)} · No alert' : fmtDay(e.start)),
+        subtitle: kicker != null
+            ? eventTitle(e)
+            : '${fmtDay(e.start)}, ${fmtTime(e.start)}${quiet ? ' · No alert' : cloudy ? ' · Cloudy' : ''}',
         subtitleLines: 1,
-        trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-          Text(fmtTime(e.start), style: numeric(size: 14, weight: FontWeight.w600)),
-          if (e.type.pushes && !quiet) ...[const SizedBox(height: 4), CloudPill(e.cloudCoverPercent)],
-        ]),
+        trailing: cloudy && !quiet ? const Icon(Icons.cloud_rounded, size: 18, color: LookUpColors.greyDim) : null,
+        chevron: true,
         onTap: () => showLookSheet(context, e),
       ),
     );
@@ -304,41 +297,4 @@ class _AlertsOffCard extends ConsumerWidget {
           ),
         ]),
       );
-}
-
-/// One line on where to go for a better sky tonight; the full compare is a tap away.
-class _WhereRow extends ConsumerWidget {
-  const _WhereRow();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final (line, go) = _whereLine(ref);
-    return GroupedList(indent: 64, children: [
-      ListRow(
-        leading: const EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.violet),
-        title: 'Where to go tonight',
-        subtitle: line,
-        subtitleLines: 1,
-        trailing: go ? const Pill('Clearer', dot: true, color: LookUpColors.violet) : null,
-        chevron: true,
-        onTap: () => openWhereToGo(context),
-      ),
-    ]);
-  }
-
-  /// The recommendation's headline, a darker sky nearby, or what it does.
-  static (String, bool) _whereLine(WidgetRef ref) {
-    final w = ref.watch(whereToGoProvider).value;
-    if (w != null && w.result.kind != WhereToGoKind.noForecast) {
-      return (whereToGoWords(w.result).headline, w.result.kind == WhereToGoKind.go);
-    }
-    if (w == null) {
-      final d = ref.watch(darkSpotsProvider).value;
-      final spot = d?.spots.where((s) => darknessForSqm(s.sqm) == SkyDarkness.dark).firstOrNull;
-      if (spot != null && (d!.here == null || darknessForSqm(d.here!) != SkyDarkness.dark)) {
-        return ('A dark sky ${spotName(spot)}', false);
-      }
-    }
-    return ('Compare clouds at your places, find darker skies', false);
-  }
 }

@@ -80,18 +80,20 @@ void main() {
 
   testWidgets('on free, the week shows what clear skies you really missed', (t) async {
     await pump(t, plus: false);
-    // The clouded-out Tiangong pass doesn't count.
-    expect(find.text('Last 7 nights · You missed 2'), findsOneWidget);
-    // The train coming tomorrow is Plus-only.
-    await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')).first);
+    // The train coming tomorrow is Plus-only (the last one: last week's
+    // trains sit above it).
+    await t.ensureVisible(find.bySemanticsLabel(RegExp(r'^Starlink train, ')).last);
+    await t.pump();
+    await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')).last);
     await t.pump();
     expect(find.text('Alert with LookUp+'), findsOneWidget);
 
-    await t.tap(find.text('Last 7 nights · You missed 2'));
-    for (var i = 0; i < 5; i++) {
-      await t.pump(const Duration(milliseconds: 300));
-    }
+    // Last week is a scroll up, with what was missed at its top. The
+    // clouded-out Tiangong pass doesn't count.
+    await t.scrollUntilVisible(find.text('You missed 2'), -300, scrollable: find.byType(Scrollable).first);
     expect(find.text('You missed 2'), findsOneWidget);
+    await t.ensureVisible(find.text('Don\'t miss the next one'));
+    await t.pump();
     await t.tap(find.text('Don\'t miss the next one'));
     for (var i = 0; i < 5; i++) {
       await t.pump(const Duration(milliseconds: 300));
@@ -103,7 +105,9 @@ void main() {
   testWidgets('on Plus there is nothing to have missed', (t) async {
     await pump(t, plus: true);
     expect(find.textContaining('You missed'), findsNothing);
-    await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')).first);
+    await t.ensureVisible(find.bySemanticsLabel(RegExp(r'^Starlink train, ')).last);
+    await t.pump();
+    await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')).last);
     await t.pump();
     expect(find.text('Alert with LookUp+'), findsNothing);
     await t.pumpWidget(const SizedBox());

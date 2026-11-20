@@ -1,6 +1,8 @@
-/// What the buttons on an alert do. "Saw it!" and "Remind me" run without
-/// opening the app (a background isolate on both platforms), so everything
-/// here works from the store alone.
+/// What the buttons on an alert do without opening the app (a background
+/// isolate on both platforms), so everything here works from the store
+/// alone. Only "Remind me" does anything here now: a sighting goes in the
+/// Log only when it's caught with the camera, so the old "Saw it!" logs
+/// nothing ("Catch it" opens the app instead).
 library;
 
 import 'dart:ui';
@@ -26,7 +28,7 @@ Future<void> onAlertActionInBackground(NotificationResponse r) async {
   );
 }
 
-enum AlertActionResult { logged, reminderSet, nothing }
+enum AlertActionResult { reminderSet, nothing }
 
 Future<AlertActionResult> handleAlertAction({
   required String? actionId,
@@ -39,10 +41,6 @@ Future<AlertActionResult> handleAlertAction({
   final event = await findStoredEvent(store, eventId);
   if (event == null) return AlertActionResult.nothing;
   switch (actionId) {
-    case AlertAction.seen:
-      final place = (await store.loadSettings()).placeName;
-      await store.addFeedback(SeenFeedback.forEvent(event, seen: true, place: place));
-      return AlertActionResult.logged;
     case AlertAction.snooze:
       final reminder = AlertPlanner.snooze(event, now ?? DateTime.now(), miles: (await store.loadSettings()).usesMiles);
       if (reminder == null) return AlertActionResult.nothing;

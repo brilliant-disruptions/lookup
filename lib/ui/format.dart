@@ -238,3 +238,20 @@ String transitWhere(SkyEvent e) {
   if (km < 0.5) return 'Visible from right here at $when · lasts $lasts';
   return 'Go ${fmtDistance(km)} ${compassWord((e.details['travelBearingDeg'] as num?)?.toDouble() ?? 0)} · $when · lasts $lasts';
 }
+
+// Nerd mode: the numbers beside the words. Only ever shown when it's on.
+
+/// "Az 182.4° · Alt 24.1°": where something is, to a tenth of a degree.
+String nerdPosition(double azimuthDeg, double altitudeDeg) =>
+    'Az ${(((azimuthDeg % 360) + 360) % 360).toStringAsFixed(1)}° · Alt ${altitudeDeg.toStringAsFixed(1).replaceFirst('-', '\u2212')}°';
+
+/// "Mag −3.1", with a true minus sign.
+String nerdMagnitude(num mag) => 'Mag ${mag.toStringAsFixed(1).replaceFirst('-', '−')}';
+
+/// "RA 5h 35.3m · Dec −5.4°" from degrees.
+String nerdRaDec(num raDeg, num decDeg) {
+  final hours = ((raDeg % 360) + 360) % 360 / 15;
+  final h = hours.floor();
+  final m = (hours - h) * 60;
+  return 'RA ${h}h ${m.toStringAsFixed(1)}m · Dec ${decDeg.toStringAsFixed(1).replaceFirst('-', '−')}°';
+}

@@ -171,7 +171,15 @@ class SettingsScreen extends ConsumerWidget {
             value: s.skyFigures,
             onChanged: (v) => set((s) => s.copyWith(skyFigures: v)),
             title: 'Constellation pictures',
-            subtitle: 'The old star-map figures, faint behind the lines on Sky',
+            subtitle: 'The old star-map figures, faint behind the lines in Explore',
+          ),
+          _Switch(
+            icon: Icons.calculate_rounded,
+            color: LookUpColors.violet,
+            value: s.nerdMode,
+            onChanged: (v) => set((s) => s.copyWith(nerdMode: v)),
+            title: 'Nerd mode',
+            subtitle: 'Degrees, magnitudes and sky coordinates beside the words',
           ),
           _ScrollHere(
             when: focusNightVision,

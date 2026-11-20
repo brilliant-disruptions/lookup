@@ -129,12 +129,13 @@ void main() {
     });
   });
 
-  test('the heads-up offers Find it, Tell a friend and a reminder; go-now offers Saw it!', () {
+  test('the heads-up offers Find it, Tell a friend and a reminder; go-now offers Catch it', () {
     final heads = NotificationService.detailsFor(AlertKind.headsUp).android!.actions!;
     expect([for (final a in heads) a.id], [AlertAction.find, AlertAction.invite, AlertAction.snooze]);
     expect(heads[1].showsUserInterface, isTrue); // opens the app, straight to the invite
     final go = NotificationService.detailsFor(AlertKind.goNow).android!.actions!;
-    expect([for (final a in go) a.id], [AlertAction.find, AlertAction.seen]);
+    expect([for (final a in go) a.id], [AlertAction.find, AlertAction.catchIt]);
+    expect(go[1].showsUserInterface, isTrue, reason: 'a catch needs the camera, so it opens the app');
   });
 
   test('Photograph it fits a pass heads-up in three Android buttons, when Catch it is on', () {
@@ -144,7 +145,7 @@ void main() {
     expect(pass.android!.actions![1].showsUserInterface, isTrue);
     expect(pass.iOS!.categoryIdentifier, 'lookup_heads_up_pass');
     final go = NotificationService.detailsFor(AlertKind.goNow, photographable: true);
-    expect([for (final a in go.android!.actions!) a.id], [AlertAction.find, AlertAction.seen]);
+    expect([for (final a in go.android!.actions!) a.id], [AlertAction.find, AlertAction.catchIt]);
   });
 
   test('while Catch it is switched off, alerts never offer Photograph it', () {

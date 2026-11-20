@@ -39,21 +39,13 @@ void main() {
     waiting = null;
   });
 
-  test('"Saw it" on the Lock Screen lands in the Log next time the app runs', () async {
-    waiting = jsonEncode([event.id]);
-    expect(await import(), 1);
-    final f = (await store.loadFeedback()).single;
-    expect(f.seen, isTrue);
-    expect(f.type, SkyEventType.iss);
-    expect(waiting, isNull, reason: 'cleared, so it is logged once');
-    expect(await import(), 0);
-    expect(await store.loadFeedback(), hasLength(1));
-  });
-
-  test('a double tap is one catch', () async {
+  // A sighting goes in the Log only when it's caught with the camera, so
+  // the Lock Screen's list is cleared without logging anything.
+  test('"Saw it" on the Lock Screen is cleared, and logs nothing without a picture', () async {
     waiting = jsonEncode([event.id, event.id]);
-    expect(await import(), 1);
-    expect(await store.loadFeedback(), hasLength(1));
+    expect(await import(), 0);
+    expect(waiting, isNull, reason: 'cleared, so it is not looked at again');
+    expect(await store.loadFeedback(), isEmpty);
   });
 
   test('nothing waiting, an unknown event or junk logs nothing', () async {

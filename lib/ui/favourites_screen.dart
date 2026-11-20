@@ -27,9 +27,9 @@ class FavouritesScreen extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
       child: Text(
         favourites.isEmpty
-            ? 'Open the Sky tab, tap a planet, the Moon or a constellation, and tap the heart. '
+            ? 'Open Explore, tap a planet, the Moon or a constellation, and tap the heart. '
                   'It shows up here with its next good night.'
-            : 'Tap the heart on anything in the Sky tab to add or remove it. Following something never sends alerts.',
+            : 'Tap the heart on anything in Explore to add or remove it. Following something never sends alerts.',
         textAlign: TextAlign.center,
         style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
       ),
@@ -55,7 +55,7 @@ class FavouritesScreen extends ConsumerWidget {
                     Navigator.of(context).popUntil((r) => r.isFirst);
                   },
                   icon: const Icon(Icons.explore_rounded, size: 18),
-                  label: const Text('Open the Sky tab'),
+                  label: const Text('Open Explore'),
                 ),
               ],
             ),

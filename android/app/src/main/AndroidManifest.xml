@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- The finder's camera view and Catch it's long exposures. -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Saving caught pictures to the gallery; newer Android needs nothing. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
     <application
         android:label="LookUp"
         android:name="${applicationName}"

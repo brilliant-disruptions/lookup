@@ -51,9 +51,12 @@ address, iOS declines, and nothing else changes.
    - The pass without the app: the activity starts stale-dated at the rise,
      so iOS redraws it then and it flips to "It's up" with the app closed.
      Then a **Saw it** button (iOS 17, `SawItIntent.swift`, in both
-     targets) leaves the event in the app group; the app logs it on its
-     next refresh (`lib/services/lock_screen_catches.dart`). Try it with
-     the app closed: tap Saw it, open LookUp, check the Log.
+     targets) leaves the event in the app group. **Change it before
+     shipping:** a sighting now goes in the Log only when it's caught with
+     Pip in the camera, so the app clears that list without logging
+     (`lib/services/lock_screen_catches.dart`). Make the button "Catch it"
+     and have it open the app (a `Link`/`widgetURL` to the camera, the same
+     as the alert's *Catch it*), then drop the intent.
    - Any button on the heads-up alert now starts the countdown too.
    - Smart Stack: the widget scores itself relevant from an hour before a
      pass until it sets. StandBy uses the small widget.
@@ -75,8 +78,12 @@ from what the app last worked out, so open LookUp once after installing.
 Run on a device (⌘R) and try:
 
 - **Alert buttons.** Settings → *Preview an alert*. Long-press the
-  notification: *Find it*, *Remind me in 5 min*, *Saw it!*. Lock the phone
-  and press *Saw it!*: the Log tab should show it next time you open the app.
+  notification: *Find it*, *Remind me in 5 min*, and on the go-now alert
+  *Catch it*, which opens LookUp straight into the camera with Pip.
+- **Saving to Photos.** In the camera, point at the Moon or a planet until
+  Pip waves, tap Pip: iOS asks once to *add* photos (not read them), the
+  picture lands in Photos with its caption along the foot, and the Log
+  shows it. `gal` resolves through SPM with no remote packages.
 - **Chime.** The preview alert should play the two-note LookUp chime, not
   the default tri-tone (`lookup_chime.wav` is already in *Copy Bundle
   Resources*).

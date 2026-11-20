@@ -64,7 +64,7 @@ class CaughtItScreen extends ConsumerWidget {
     final alertsOn = ref.watch(alertsEnabledProvider).value != false;
     final CatchMoment? m;
     if (demo) {
-      m = CatchMoment(nth: 1, nthOfType: 1, newBadges: [SkyLog.from(const []).badges.first], next: null, nextPlus: null);
+      m = CatchMoment(nth: 1, nthOfType: 1, newBadges: [SkyLog.from(const []).badges.firstWhere((b) => b.id == 'first-light')], next: null, nextPlus: null);
     } else {
       final log = ref.watch(skyLogProvider).value;
       m = log == null ? null : CatchMoment.of(log: log, eventId: event.id, upcoming: events, now: DateTime.now(), isPlus: isPlus);

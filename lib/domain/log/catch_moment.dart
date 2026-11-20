@@ -62,7 +62,8 @@ class CatchMoment {
     final nthOfType = type == null ? 1 : chrono.take(i + 1).where((x) => x.inferredType == type).length;
     final newBadges = [
       for (final b in log.badges)
-        if (b.earnedAt == s.at) b,
+        // "Looked up" is setting up, never something a catch earns.
+        if (b.earnedAt == s.at && b.id != 'looked-up') b,
     ];
 
     final u = now.toUtc();

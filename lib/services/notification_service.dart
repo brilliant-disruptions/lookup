@@ -16,7 +16,12 @@ typedef AlertArtMaker = Future<String?> Function(PlannedAlert alert);
 abstract final class AlertAction {
   static const find = 'find';
   static const snooze = 'snooze';
+  /// "Saw it!" from alerts sent before catching took over: no longer logs
+  /// anything on its own; tapped with the app open it opens the camera.
   static const seen = 'seen';
+
+  /// "Catch it": opens the camera with Pip, where a catch logs it.
+  static const catchIt = 'catch';
 
   /// "Tell a friend": opens the app straight to the invite.
   static const invite = 'invite';
@@ -51,7 +56,7 @@ class NotificationService {
   static const _findAndroid =
       AndroidNotificationAction(AlertAction.find, 'Find it', showsUserInterface: true);
   static const _snoozeAndroid = AndroidNotificationAction(AlertAction.snooze, 'In 5 min');
-  static const _seenAndroid = AndroidNotificationAction(AlertAction.seen, 'Saw it!');
+  static const _catchAndroid = AndroidNotificationAction(AlertAction.catchIt, 'Catch it', showsUserInterface: true);
   static const _inviteAndroid = AndroidNotificationAction(AlertAction.invite, 'Tell a friend', showsUserInterface: true);
   static const _photoAndroid = AndroidNotificationAction(AlertAction.photo, 'Photograph it', showsUserInterface: true);
 
@@ -87,7 +92,7 @@ class NotificationService {
             ? [_findAndroid, _photoAndroid, _inviteAndroid]
             : withSnooze
                 ? [_findAndroid, _inviteAndroid, _snoozeAndroid]
-                : [_findAndroid, _seenAndroid],
+                : [_findAndroid, _catchAndroid],
         // Nothing private in a sky alert: show it in full on the lock screen,
         // even on phones that hide notification text there by default.
         visibility: NotificationVisibility.public,
@@ -168,7 +173,8 @@ class NotificationService {
               options: {DarwinNotificationActionOption.foreground}),
           DarwinNotificationAction.plain(AlertAction.snooze, 'Remind me in 5 min'),
         ] else
-          DarwinNotificationAction.plain(AlertAction.seen, 'Saw it!'),
+          DarwinNotificationAction.plain(AlertAction.catchIt, 'Catch it',
+              options: {DarwinNotificationActionOption.foreground}),
       ]),
   ];
 

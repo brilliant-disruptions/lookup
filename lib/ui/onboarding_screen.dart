@@ -92,7 +92,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
       }
     }
     if (!mounted) return;
-    await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(onboarded: true));
+    await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(onboarded: true, onboardedAt: DateTime.now().toUtc()));
   }
 
   @override

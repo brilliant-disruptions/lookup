@@ -1,7 +1,9 @@
-/// How Pip moves. Pip has no face and no body: it's the light, and its
-/// character is all in how that light moves, squashes and flashes. This file
-/// is the whole vocabulary, as plain maths over time, so it can be tested
-/// without a widget and stays `dart:ui` only.
+/// How Pip moves. Most of the time Pip is just the light: a green dot whose
+/// character is all in how it moves, squashes and flashes. Now and then it
+/// grows out of the dot into a little glowing figure (two eyes, a smile,
+/// two soft hands), waves, and melts back into the dot ([PipState.wave],
+/// [pipFigure]). This file is the whole vocabulary, as plain maths over
+/// time, so it can be tested without a widget and stays `dart:ui` only.
 ///
 /// Offsets are in the units of a 48-pixel Pip (the painter multiplies by
 /// size / 48). [PipPose.stretch] is along [PipPose.angle]: 1.2 is 20% longer
@@ -22,7 +24,9 @@ import 'firefly_mark.dart';
 ///   bounce, blinks twice, then rests.
 /// - [found]: you lined up. A flare, a ring and a little hop, then it rests
 ///   inside the ring.
-enum PipState { idle, searching, resting, hello, found }
+/// - [wave]: hi. Grows a face and hands out of the dot, waves, then goes
+///   back to being a dot ([pipFigure]), and rests.
+enum PipState { idle, searching, resting, hello, found, wave }
 
 /// Where Pip is and what shape it has at one moment.
 class PipPose {
@@ -84,6 +88,8 @@ PipPose pipPose(
     PipState.resting => _resting(seconds),
     PipState.hello => since < pipHelloLength ? _hello(seconds, since) : _resting(seconds),
     PipState.found => since < pipFoundLength ? _found(seconds, since) : _resting(seconds),
+    // The figure does the moving; the light only hovers gently under it.
+    PipState.wave => since < pipWaveLength ? PipPose(offset: fireflyHover(seconds, landed: true)) : _resting(seconds),
   };
   if (blinking) p = _with(p, blink: 0.55 + 0.45 * math.cos(seconds * 2 * math.pi * 2.5));
   if (dim) p = _cantSee(p, seconds);
@@ -211,4 +217,56 @@ double _blinks(double t, List<double> at) {
     if (d < 0.1) b = math.min(b, 0.1 + 0.9 * d / 0.1);
   }
   return b;
+}
+
+/// How long a wave takes: growing out of the dot, waving, melting back.
+const pipWaveLength = 3.2;
+
+/// When, inside a wave, Pip is fully grown, and when it starts to melt.
+const _grownBy = 0.7, _meltFrom = 2.5;
+
+/// Pip as a figure for a moment. [grown] is how far it has come out of the
+/// dot: 0 is the plain light, 1 is the whole figure (it overshoots a little
+/// as it pops out, like a drop landing). [hand] is how far the waving hand
+/// is tipped from upright, in radians; [eyes] is 1 open, 0 shut; [lean] is
+/// how the body sways with the wave, in radians.
+class PipFigure {
+  const PipFigure({this.grown = 0, this.hand = 0, this.eyes = 1, this.lean = 0});
+  final double grown, hand, eyes, lean;
+
+  /// Just the dot: nothing to draw but the light.
+  bool get dot => grown <= 0;
+}
+
+/// The figure [since] seconds into a [PipState.wave]. Past [pipWaveLength]
+/// it's a dot again. [still] is Reduce Motion: the face is simply there for
+/// the length of the wave, with no growing, waving or blinking.
+PipFigure pipFigure(double since, {bool still = false}) {
+  if (since < 0 || since >= pipWaveLength) return const PipFigure();
+  if (still) return const PipFigure(grown: 1);
+  final double grown;
+  if (since < _grownBy) {
+    grown = _backOut(since / _grownBy);
+  } else if (since < _meltFrom) {
+    grown = 1;
+  } else {
+    final k = (since - _meltFrom) / (pipWaveLength - _meltFrom);
+    grown = 1 - k * k * (3 - 2 * k); // smoothstep down to the dot
+  }
+  // Waves twice a second while it's out, easing in and out with the growing.
+  final out = since < _grownBy ? 0.0 : (since < _meltFrom ? 1.0 : grown);
+  final swing = math.sin((since - _grownBy) * 2 * math.pi * 2) * out;
+  return PipFigure(
+    grown: grown,
+    hand: 0.55 * swing,
+    lean: 0.07 * swing,
+    eyes: _blinks(since, const [1.75]).clamp(0.0, 1.0),
+  );
+}
+
+/// Overshoots to about 1.1 before settling on 1: popping out of the dot.
+double _backOut(double k) {
+  const c = 1.7;
+  final x = k.clamp(0.0, 1.0) - 1;
+  return 1 + (c + 1) * x * x * x + c * x * x;
 }

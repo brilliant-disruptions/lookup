@@ -23,6 +23,7 @@ import 'finder_screen.dart';
 import 'paywall_sheet.dart';
 import 'photo_tips.dart';
 import 'share_card.dart';
+import 'sky/sky_camera_screen.dart';
 import 'sky/sky_track.dart';
 import 'sky_snapshot.dart';
 import 'format.dart';
@@ -91,7 +92,10 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     }
   }
 
+  /// "No" (and why), to tune the alerts. A "yes" is a catch in the camera,
+  /// except in the demo, which only shows what a catch looks like.
   Future<void> _answer(bool seen, {String? reason}) async {
+    assert(!seen || widget.demo, 'a sighting is logged by catching it with Pip');
     if (widget.demo) {
       setState(() {
         _seen = seen;
@@ -276,11 +280,14 @@ class _LookSheetState extends ConsumerState<LookSheet> {
   /// numbers, brightness and cloud, who's aboard, photo tips.
   Widget _details(BuildContext context, DateTime now,
       {required bool isPass, required bool showArc, required bool isTransit}) {
+    // Nerd mode opens the details and adds the exact numbers.
+    final nerd = ref.watch(settingsProvider).value?.nerdMode ?? false;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          initiallyExpanded: nerd,
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(bottom: 4),
           title: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -293,6 +300,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
             const Divider(),
             const SizedBox(height: 18),
             _DirectionDetail(event: event, isPass: isPass),
+            if (nerd) ...[const SizedBox(height: 14), _NerdNumbers(event)],
             const SizedBox(height: 18),
             if (isPass && showArc)
               Semantics(
@@ -374,14 +382,29 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     if (_seen == false) {
       return const Text('Thanks. We\'ll be pickier next time.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey));
     }
+    // A sighting goes in the Log by catching it with Pip in the camera, so
+    // "yes" opens the camera; "no" is still asked, to tune the alerts.
+    final over = !DateTime.now().toUtc().isBefore(event.end);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Did you see it?', textAlign: TextAlign.center, style: display(22, weight: FontWeight.w700)),
+      Text(over ? 'Did you see it?' : 'Is it up?', textAlign: TextAlign.center, style: display(22, weight: FontWeight.w700)),
       const SizedBox(height: 12),
       Row(children: [
-        Expanded(child: OutlinedButton(onPressed: () => _answer(false), child: const Text('No'))),
-        const SizedBox(width: 12),
-        Expanded(child: FilledButton(onPressed: () => _answer(true), child: const Text('Yes!'))),
+        Expanded(child: OutlinedButton(onPressed: () => _answer(false), child: Text(over ? 'No' : 'Can\'t see it'))),
+        if (!over || widget.demo) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton(
+              onPressed: () => widget.demo ? _answer(true) : openLiveSkyCamera(context, ref),
+              child: const Text('Catch it with Pip'),
+            ),
+          ),
+        ],
       ]),
+      if (over && !widget.demo) ...[
+        const SizedBox(height: 10),
+        const Text('Saw it? Next time, catch it with Pip while it\'s up to keep it in your Log.',
+            textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey, fontSize: 13.5, height: 1.4)),
+      ],
     ]);
   }
 }
@@ -425,6 +448,28 @@ class _PipGuide extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Nerd mode's exact numbers: positions to a tenth of a degree, times to
+/// the second, the magnitude.
+class _NerdNumbers extends StatelessWidget {
+  const _NerdNumbers(this.e);
+  final SkyEvent e;
+
+  @override
+  Widget build(BuildContext context) {
+    final mag = e.details['magnitude'];
+    final style = numeric(size: 13, color: LookUpColors.grey);
+    return Column(key: const Key('nerd-numbers'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final line in [
+        'Start ${fmtTimeSeconds(e.start)} · ${nerdPosition(e.riseAzimuthDeg, 0).split(' · ').first}',
+        'Peak ${fmtTimeSeconds(e.peak)} · ${nerdPosition(e.peakAzimuthDeg, e.peakElevationDeg)}',
+        'End ${fmtTimeSeconds(e.end)} · ${nerdPosition(e.setAzimuthDeg, 0).split(' · ').first}',
+        'Lasts ${e.end.difference(e.start).inSeconds} s${mag is num ? ' · ${nerdMagnitude(mag)}' : ''}',
+      ])
+        Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(line, textAlign: TextAlign.center, style: style)),
+    ]);
   }
 }
 

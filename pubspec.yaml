@@ -39,6 +39,7 @@ dependencies:
   image_picker: ^1.2.4
   url_launcher: ^6.3.3
   material_ui: ^1.11.0
+  gal: ^3.0.1
 
 dev_dependencies:
   flutter_test:

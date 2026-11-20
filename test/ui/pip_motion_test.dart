@@ -118,4 +118,64 @@ void main() {
     expect(land.stretch, lessThan(1));
     expect(pipFlightPose(rest, from, 2, 0.9).stretch, rest.stretch, reason: 'then it rests');
   });
+
+  group('wave: a dot that grows a face and hands, waves, and is a dot again', () {
+    List<PipFigure> over(double from, double to) => [for (var t = from; t < to; t += 1 / 60) pipFigure(t)];
+
+    test('starts and ends as the plain dot', () {
+      expect(pipFigure(0).dot, isTrue);
+      expect(pipFigure(pipWaveLength).dot, isTrue);
+      expect(pipFigure(pipWaveLength + 5).dot, isTrue);
+      expect(pipFigure(-1).dot, isTrue);
+    });
+
+    test('pops out with a little overshoot, then holds the whole figure', () {
+      final grow = over(0, 0.7).map((f) => f.grown).toList();
+      expect(grow.reduce(math.max), greaterThan(1.02), reason: 'like a drop landing');
+      expect(grow.reduce(math.max), lessThan(1.2));
+      for (final f in over(0.75, 2.45)) {
+        expect(f.grown, 1);
+      }
+    });
+
+    test('melts back smoothly, never jumping', () {
+      final g = over(2.4, pipWaveLength).map((f) => f.grown).toList();
+      for (var i = 1; i < g.length; i++) {
+        expect(g[i], lessThanOrEqualTo(g[i - 1] + 1e-9));
+        expect(g[i - 1] - g[i], lessThan(0.08));
+      }
+    });
+
+    test('waves its hand both ways while it is out, and not before', () {
+      expect(over(0, 0.7).every((f) => f.hand == 0), isTrue, reason: 'grows first, then waves');
+      final hands = over(0.7, 2.5).map((f) => f.hand).toList();
+      expect(hands.reduce(math.max), greaterThan(0.4));
+      expect(hands.reduce(math.min), lessThan(-0.4));
+    });
+
+    test('blinks once, mid-wave', () {
+      final e = over(0, pipWaveLength).map((f) => f.eyes).toList();
+      var dips = 0;
+      for (var i = 1; i < e.length; i++) {
+        if (e[i] < 0.3 && e[i - 1] >= 0.3) dips++;
+      }
+      expect(dips, 1);
+    });
+
+    test('Reduce Motion: the face is just there for the wave, without moving', () {
+      for (final t in [0.0, 0.4, 1.5, 3.0]) {
+        final f = pipFigure(t, still: true);
+        expect(f.grown, 1, reason: '$t');
+        expect(f.hand, 0);
+        expect(f.eyes, 1);
+      }
+      expect(pipFigure(pipWaveLength + 0.1, still: true).dot, isTrue);
+    });
+
+    test('the light only hovers under the figure, and rests after', () {
+      final p = pipPose(PipState.wave, 4, since: 1);
+      expect(p.offset.distance, lessThan(4));
+      expect(pipPose(PipState.wave, 7, since: pipWaveLength + 1).offset, pipPose(PipState.resting, 7).offset);
+    });
+  });
 }

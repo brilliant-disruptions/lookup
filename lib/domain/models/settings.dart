@@ -97,6 +97,9 @@ class LookUpSettings {
     this.pipCoached = false,
     this.skyCameraCoached = false,
     this.skyFigures = true,
+    this.onboardedAt,
+    this.firstBadgeShown = false,
+    this.nerdMode = false,
     this.miles,
   });
 
@@ -164,6 +167,16 @@ class LookUpSettings {
   final double minIssPeakElevationDeg;
   final double minStarlinkPeakElevationDeg;
   final bool onboarded;
+
+  /// When onboarding finished: the "Looked up" badge's date.
+  final DateTime? onboardedAt;
+
+  /// The first badge has had its moment on screen (once, after onboarding).
+  final bool firstBadgeShown;
+
+  /// Nerd mode: the numbers (degrees, magnitudes, coordinates) shown beside
+  /// the words. Off by default; the main path always speaks in words.
+  final bool nerdMode;
 
   /// Saved places to switch between. The active one is the pinned
   /// [latitude]/[longitude] when [locationMode] is pinned.
@@ -263,6 +276,9 @@ class LookUpSettings {
     bool? pipCoached,
     bool? skyCameraCoached,
     bool? skyFigures,
+    DateTime? onboardedAt,
+    bool? firstBadgeShown,
+    bool? nerdMode,
     bool? miles,
   }) =>
       LookUpSettings(
@@ -309,6 +325,9 @@ class LookUpSettings {
         pipCoached: pipCoached ?? this.pipCoached,
         skyCameraCoached: skyCameraCoached ?? this.skyCameraCoached,
         skyFigures: skyFigures ?? this.skyFigures,
+        onboardedAt: onboardedAt ?? this.onboardedAt,
+        firstBadgeShown: firstBadgeShown ?? this.firstBadgeShown,
+        nerdMode: nerdMode ?? this.nerdMode,
         miles: miles ?? this.miles,
       );
 
@@ -355,6 +374,9 @@ class LookUpSettings {
         'pipCoached': pipCoached,
         'skyCameraCoached': skyCameraCoached,
         'skyFigures': skyFigures,
+        if (onboardedAt != null) 'onboardedAt': onboardedAt!.toIso8601String(),
+        'firstBadgeShown': firstBadgeShown,
+        'nerdMode': nerdMode,
         if (miles != null) 'miles': miles,
       };
 
@@ -413,6 +435,9 @@ class LookUpSettings {
       pipCoached: j['pipCoached'] as bool? ?? d.pipCoached,
       skyCameraCoached: j['skyCameraCoached'] as bool? ?? d.skyCameraCoached,
       skyFigures: j['skyFigures'] as bool? ?? d.skyFigures,
+      onboardedAt: DateTime.tryParse(j['onboardedAt'] as String? ?? '')?.toUtc(),
+      firstBadgeShown: j['firstBadgeShown'] as bool? ?? d.firstBadgeShown,
+      nerdMode: j['nerdMode'] as bool? ?? d.nerdMode,
       miles: j['miles'] as bool?,
     );
   }

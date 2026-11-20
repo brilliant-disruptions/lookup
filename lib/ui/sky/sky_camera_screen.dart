@@ -1,6 +1,10 @@
 /// The whole sky over the camera: stars, constellation figures, planets, the
 /// Moon, showpieces and any pass coming over, painted where they are even
-/// when cloud, haze or a roof hides the real thing.
+/// when cloud, haze or a roof hides the real thing. Nothing points a
+/// direction but Pip: bring something to the middle and Pip waves at it;
+/// tap Pip to catch it. A catch is the only way into the Log: the picture
+/// goes to your Photos and the sighting to the Log. The next sight counts
+/// down in the top right.
 library;
 
 import 'dart:async';
@@ -9,17 +13,23 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/local_store.dart';
 import '../../domain/finder/pointing.dart';
 import '../../domain/models/sky_event.dart';
+import '../../domain/plan/next_up.dart';
 import '../../domain/sky/direction.dart';
 import '../../domain/sky/wmm.dart';
 import '../../services/orientation.dart';
+import '../../services/photo_store.dart';
 import '../../state/providers.dart';
 import '../../state/sky_state.dart';
+import '../caught_it_screen.dart';
 import '../finder_camera.dart';
 import '../format.dart';
 import '../kit/kit.dart';
+import '../theme.dart';
 import 'figure_spotlight.dart';
+import 'sky_capture.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 
@@ -29,8 +39,8 @@ Future<void> openSkyCamera(BuildContext context,
         fullscreenDialog: true,
         builder: (_) => SkyCameraScreen(things: things, tracks: tracks, time: time, lat: lat, lon: lon)));
 
-/// The camera view of the sky as it is now, from outside the Sky tab (Tonight's
-/// header): the Moon, planets, showpieces and passes the live map shows.
+/// The camera view of the sky as it is now, from outside Explore (Pip beside the
+/// tab bar): the Moon, planets, showpieces and passes the live map shows.
 Future<void> openLiveSkyCamera(BuildContext context, WidgetRef ref) async {
   final s = ref.read(settingsProvider).value;
   final lat = s?.latitude, lon = s?.longitude;
@@ -114,6 +124,60 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
     super.dispose();
   }
 
+  final _camera = GlobalKey<CameraBackdropState>();
+  bool _catching = false;
+
+  /// The overlay as it was last drawn, without its live hooks, for a catch.
+  SkyOverlayPainter Function()? _still;
+
+  /// Takes the picture and, with something in the middle, logs it: the
+  /// picture to Photos (and LookUp's copy to the Log), then the celebration.
+  Future<void> _catch(_Centred? c, {String? place}) async {
+    void say(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    if (_catching) return;
+    if (widget.time != null) return say('Back to now to catch something: this is the sky at another time.');
+    if (!_cameraOn) {
+      setState(() => _cameraOn = true);
+      return say('Camera on. Point at it and tap Pip again.');
+    }
+    setState(() => _catching = true);
+    try {
+      HapticFeedback.mediumImpact();
+      final shot = await _camera.currentState?.takePicture();
+      final still = _still;
+      if (!mounted) return;
+      if (shot == null || still == null) return say('Couldn\'t take the picture.');
+      final now = DateTime.now();
+      final png = await composeSkyPicture(
+        photo: shot,
+        screen: MediaQuery.sizeOf(context),
+        overlay: still(),
+        title: c?.name ?? 'The night sky',
+        line: '${fmtDay(now.toUtc())} · ${fmtTime(now.toUtc())}${place == null ? '' : ' · $place'}',
+      );
+      if (!mounted) return;
+      if (png == null) return say('Couldn\'t take the picture.');
+      final e = c?.event(now);
+      final saved = await ref.read(photoLibraryProvider).save(png, name: 'LookUp-${now.millisecondsSinceEpoch}');
+      if (!mounted) return;
+      if (e == null) {
+        return say(saved
+            ? 'Saved to Photos. Bring something to the middle to catch it for your Log.'
+            : 'Couldn\'t save to Photos. Allow LookUp to add photos in Settings.');
+      }
+      final store = ref.read(storeProvider);
+      final name = await const PhotoStore().saveBytes(e.id, png);
+      await store.addFeedback(SeenFeedback.forEvent(e, seen: true, place: place));
+      await store.setPhoto(e.id, name);
+      ref.invalidate(skyLogProvider);
+      if (!mounted) return;
+      if (!saved) say('In your Log. Allow LookUp to add photos in Settings to keep a copy in Photos too.');
+      await showCaughtIt(context, e);
+    } finally {
+      if (mounted) setState(() => _catching = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(settingsProvider).value;
@@ -123,11 +187,13 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
     final now = widget.time ?? ref.watch(clockProvider).value ?? DateTime.now();
     final utc = now.toUtc();
     final r = _r;
-    final marks = <OverlayMark>[
+    // Each mark with the thing it is, so a catch knows what it caught.
+    final mapped = [
       for (final t in widget.things)
         if (t.position(utc) case final h when h.altitudeDeg > -1)
-          (label: t.id == 'moon' ? 'Moon' : t.name, d: SkyDir(h.azimuthDeg, h.altitudeDeg), bright: t.id == 'moon' || t.kind == 'Planet'),
+          (thing: t, mark: (label: t.id == 'moon' ? 'Moon' : t.name, d: SkyDir(h.azimuthDeg, h.altitudeDeg), bright: t.id == 'moon' || t.kind == 'Planet')),
     ];
+    final marks = <OverlayMark>[for (final m in mapped) m.mark];
     final tracks = <OverlayTrack>[
       for (final tr in widget.tracks)
         (
@@ -138,27 +204,64 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
         ),
     ];
     final camera = r == null ? null : cameraDirection(r, declinationDeg: _declination);
-    // Whatever sits nearest the middle of the view, if anything's close.
-    final centred = camera == null
-        ? null
-        : marks
-            .map((m) => (m: m, d: angularDistanceDeg(camera, m.d)))
-            .where((x) => x.d < 12)
-            .fold<({OverlayMark m, double d})?>(null, (best, x) => best == null || x.d < best.d ? x : best);
+    // Whatever sits nearest the middle of the view, if anything's close: a
+    // pass going over now first, then the Moon, planets and showpieces.
+    _Centred? centred;
+    if (camera != null) {
+      double best = 12;
+      for (final tr in widget.tracks) {
+        if (tr.at(utc) case final h?) {
+          final d = angularDistanceDeg(camera, SkyDir(h.azimuthDeg, h.altitudeDeg));
+          if (d < best) (best, centred) = (d, _Centred(eventTitle(tr.event), (_) => tr.event));
+        }
+      }
+      if (centred == null) {
+        for (final m in mapped) {
+          final d = angularDistanceDeg(camera, m.mark.d);
+          if (d < best && lat != null && lon != null) {
+            best = d;
+            final t = m.thing;
+            centred = _Centred(m.mark.label == 'Moon' ? 'the Moon' : m.mark.label, (now) => t.asEvent(now, lat, lon));
+          }
+        }
+      }
+    }
     final passing = widget.tracks.where((tr) => tr.liveAt(utc)).map((tr) => eventTitle(tr.event)).toList();
     final status = widget.time != null
         ? 'The sky at ${fmtSkyMoment(utc, lon ?? 0)}'
         : passing.isNotEmpty
             ? '${passing.join(' and ')} going over now'
-            : widget.tracks.isNotEmpty
-                ? 'Next: ${widget.tracks.first.label}'
-                : 'Stars, planets and the Moon, live';
+            : 'Live sky';
+    // The next sight, counting down in the top right; not when looking at
+    // another time.
+    final next = widget.time != null ? null : nextUp(ref.watch(homeProvider).value?.events ?? const [], utc);
+    final catalog = ref.watch(skyCatalogProvider).value;
+    final art = (s?.skyFigures ?? true) ? figureArt : null;
+    final place = s?.placeName;
+    SkyOverlayPainter overlay({bool live = true, required double height, TextStyle labelStyle = const TextStyle()}) =>
+        SkyOverlayPainter(
+          r: r!,
+          declinationDeg: _declination,
+          now: utc,
+          previewHeightPx: height,
+          labelStyle: labelStyle,
+          catalog: catalog,
+          latDeg: lat!,
+          lonDeg: lon!,
+          tracks: tracks,
+          marks: marks,
+          art: art,
+          glow: live ? figureGlow : null,
+          onSpotlit: live ? onFigureSpotlit : null,
+          twinkle: live && figureFadeOn ? figureTwinkle : null,
+        );
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
         if (_cameraOn)
           Positioned.fill(
             child: CameraBackdrop(
+              key: _camera,
               onHeight: (h) => _previewHeight = h,
               onError: (msg) {
                 if (!mounted) return;
@@ -169,26 +272,12 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
           ),
         if (r != null && lat != null && lon != null)
           Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, c) => CustomPaint(
-                painter: SkyOverlayPainter(
-                  r: r,
-                  declinationDeg: _declination,
-                  now: utc,
-                  previewHeightPx: _previewHeight ?? c.maxHeight,
-                  labelStyle: Theme.of(context).textTheme.labelSmall ?? const TextStyle(),
-                  catalog: ref.watch(skyCatalogProvider).value,
-                  latDeg: lat,
-                  lonDeg: lon,
-                  tracks: tracks,
-                  marks: marks,
-                  art: (s?.skyFigures ?? true) ? figureArt : null,
-                  glow: figureGlow,
-                  onSpotlit: onFigureSpotlit,
-                  twinkle: figureFadeOn ? figureTwinkle : null,
-                ),
-              ),
-            ),
+            child: LayoutBuilder(builder: (context, c) {
+              final labels = Theme.of(context).textTheme.labelSmall ?? const TextStyle();
+              final height = _previewHeight ?? c.maxHeight;
+              _still = () => overlay(live: false, height: height, labelStyle: labels);
+              return CustomPaint(painter: overlay(height: height, labelStyle: labels));
+            }),
           ),
         SafeArea(
           child: Column(children: [
@@ -196,33 +285,118 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: ScanTopBar(
                 title: scanTitle(status),
-                trailing: CircleButton(
-                  tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
-                  icon: _cameraOn ? Icons.videocam_off_rounded : Icons.photo_camera_rounded,
-                  onPressed: () => setState(() => _cameraOn = !_cameraOn),
-                ),
+                // The next sight's countdown: easy to find, top right.
+                trailing: next == null ? const SizedBox(width: 44) : _Countdown(next, now: utc),
               ),
             ),
             if (_hint)
               const ScanHint('Cloud or a roof in the way? Everything is still drawn where it is. '
                   'Wave the phone in a figure-8 if it drifts.'),
             const Spacer(),
-            // Pip, as on every screen you hold up: found it when there's
-            // something named in the middle, can't see with no sensor.
-            PipMark(
-              state: centred != null ? PipState.found : PipState.idle,
-              dim: camera == null && _error != null,
-            ),
+            // Nerd mode: exactly where the phone points.
+            if ((s?.nerdMode ?? false) && camera != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(nerdPosition(camera.azimuthDeg, camera.elevationDeg),
+                    key: const Key('nerd-numbers'),
+                    style: numeric(size: 13, color: LookUpColors.grey).copyWith(shadows: const [Shadow(blurRadius: 6)])),
+              ),
             ScanLine(
               camera == null
                   ? (_error != null ? 'No motion sensor here, so this view can\'t follow the phone.' : 'Hold your phone up to the sky')
                   : centred != null
-                      ? 'That\'s ${centred.m.label == 'Moon' ? 'the Moon' : centred.m.label}'
+                      ? 'That\'s ${centred.name}. Tap Pip to catch it!'
                       : 'Looking ${compassWord(camera.azimuthDeg)}, ${elevationWord(camera.elevationDeg)}',
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: Row(children: [
+                CircleButton(
+                  tooltip: _cameraOn ? 'Hide camera' : 'Show camera',
+                  icon: _cameraOn ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                  onPressed: () => setState(() => _cameraOn = !_cameraOn),
+                ),
+                Expanded(
+                  child: Center(
+                    // Pip is the shutter: it waves at whatever's in the
+                    // middle, and a tap catches it.
+                    child: Semantics(
+                      button: true,
+                      label: centred != null ? 'Catch ${centred.name}' : 'Take a picture of the sky',
+                      excludeSemantics: true,
+                      child: GestureDetector(
+                        key: const Key('pip-shutter'),
+                        onTap: () => _catch(centred, place: place),
+                        child: Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black.withValues(alpha: 0.35),
+                            border: Border.all(
+                                color: centred != null ? fireflyGlow.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.35),
+                                width: 3),
+                          ),
+                          alignment: Alignment.center,
+                          child: PipMark(
+                            size: 76,
+                            state: centred != null ? PipState.wave : PipState.idle,
+                            // A new thing in the middle: wave again.
+                            replay: centred?.name.hashCode ?? 0,
+                            dim: (camera == null && _error != null) || _catching,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 44),
+              ]),
             ),
           ]),
         ),
       ]),
+    );
+  }
+}
+
+/// What's in the middle of the view: its name in words, and the sighting it
+/// would be once caught.
+class _Centred {
+  const _Centred(this.name, this.event);
+  final String name;
+  final SkyEvent Function(DateTime now) event;
+}
+
+/// "ISS · 12m 04s" in the top right, "ISS · now" while it's over.
+class _Countdown extends StatelessWidget {
+  const _Countdown(this.e, {required this.now});
+  final SkyEvent e;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final live = !now.isBefore(e.start);
+    final words = live ? 'now' : fmtCountdown(e.start.difference(now));
+    return Semantics(
+      label: live ? '${eventTitle(e)}, going over now' : '${eventTitle(e)} in $words',
+      excludeSemantics: true,
+      child: Container(
+        key: const Key('camera-countdown'),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: live ? LookUpColors.good : LookUpColors.line),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(eventStyle(e.type, details: e.details).icon ?? Icons.circle, size: 16, color: eventStyle(e.type, details: e.details).color),
+          const SizedBox(width: 6),
+          Text('${eventShortName(e)} ', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: LookUpColors.grey)),
+          Text(words, style: numeric(size: 15, weight: FontWeight.w700, color: live ? LookUpColors.good : LookUpColors.white)),
+        ]),
+      ),
     );
   }
 }
