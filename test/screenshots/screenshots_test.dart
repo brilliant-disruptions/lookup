@@ -7,6 +7,8 @@ library;
 
 import 'dart:io';
 
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +28,7 @@ import 'package:lookup/ui/plus_card.dart';
 import 'package:lookup/ui/look_up_now_screen.dart';
 import 'package:lookup/services/alert_art.dart';
 import 'package:lookup/ui/starter_card.dart';
-import 'package:lookup/ui/kit/kit.dart' show FloatingTabBar, SkyBackdrop;
+import 'package:lookup/ui/kit/kit.dart' show FloatingTabBar, PipMark, SkyBackdrop;
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
 import 'package:lookup/ui/demo.dart';
@@ -372,7 +374,7 @@ final _sightings = [
   Sighting(eventId: 'iss:no', seen: false, at: _now.toUtc().subtract(const Duration(days: 2)), type: SkyEventType.iss, reason: 'clouds'),
 ];
 
-final _log = SkyLog.from(_sightings);
+final _log = SkyLog.from(_sightings, onboardedAt: _now.toUtc().subtract(const Duration(days: 40)));
 
 /// Device->world rotation (row-major) for a camera pointing at magnetic
 /// azimuth [az], elevation [el], phone upright.
@@ -415,6 +417,7 @@ class _GrantNotifications implements NotificationService {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
+    SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
     _silentRotationSensor();
     await _loadFonts();
   });
@@ -846,82 +849,114 @@ void main() {
     );
   });
 
-  // App Store set: 6.9" (1320×2868), caption above a framed screen.
-  Widget framed(String title, String sub, Widget screen, {Color tint = LookUpColors.blue}) => Scaffold(
-        backgroundColor: Colors.black,
+  // App Store set: 6.9" (1320×2868). A caption over the night sky, the
+  // pass's dashed path across it, and the phone tilted in perspective with
+  // a second one behind it.
+  Widget phone(Widget screen, BuildContext context, {bool dim = false}) => Container(
+        width: 393 + 22,
+        height: 852 + 22,
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(64),
+          gradient: const LinearGradient(colors: [Color(0xFF5A6070), Color(0xFF262B38), Color(0xFF3B4150)], stops: [0, 0.5, 1]),
+          boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 60, offset: Offset(0, 30))],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(54),
+          child: Stack(children: [
+            SizedBox(
+              width: 393,
+              height: 852,
+              child: MediaQuery(
+                data: MediaQuery.of(context).copyWith(size: const Size(393, 852), padding: const EdgeInsets.only(top: 54, bottom: 30)),
+                child: screen,
+              ),
+            ),
+            // The Dynamic Island.
+            Positioned(
+              top: 12,
+              left: (393 - 124) / 2,
+              child: Container(width: 124, height: 36, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20))),
+            ),
+            if (dim) const Positioned.fill(child: ColoredBox(color: Color(0x88000000))),
+          ]),
+        ),
+      );
+
+  Widget framed(String title, String sub, Widget screen, {Color tint = LookUpColors.blue, Widget? behind, bool arc = true}) => Scaffold(
+        backgroundColor: const Color(0xFF03050C),
         body: Builder(
-          builder: (context) => DecoratedBox(
-            // Night, not flat black, with the shot's colour glowing behind the phone.
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0, 0.15),
-                radius: 0.95,
-                colors: [tint.withValues(alpha: 0.30), tint.withValues(alpha: 0.06), Colors.transparent],
-                stops: const [0, 0.55, 1],
-              ),
-            ),
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xCC0B1328), Color(0x0004060B)],
-                  stops: [0, 0.45],
+          builder: (context) => Stack(clipBehavior: Clip.hardEdge, children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [const Color(0xFF03050C), const Color(0xFF0B1630), Color.lerp(const Color(0xFF16264A), tint, 0.18)!],
+                    stops: const [0, 0.55, 1],
+                  ),
                 ),
               ),
+            ),
+            const Positioned.fill(child: Starfield(density: 0.00035, maxOpacity: 0.8)),
+            if (arc) const Positioned.fill(child: CustomPaint(painter: _PassArc())),
+            // The phone behind, tilted the other way and in shadow.
+            Positioned(
+              left: -300,
+              top: 360,
+              child: Transform(
+                alignment: Alignment.centerRight,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.0011)
+                  ..rotateY(0.42)
+                  ..rotateZ(-0.03),
+                child: phone(behind ?? const _BlankScreen(), context, dim: true),
+              ),
+            ),
+            Positioned(
+              left: 70,
+              top: 300,
+              child: Transform(
+                alignment: Alignment.centerLeft,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.0009)
+                  ..rotateY(-0.30)
+                  ..rotateZ(0.05),
+                child: phone(screen, context),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 64,
               child: Column(children: [
-            const SizedBox(height: 70),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Text(title, textAlign: TextAlign.center,
-                  style: display(38, weight: FontWeight.w700, height: 1.08)),
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              child: Text(sub, textAlign: TextAlign.center,
-                  style: const TextStyle(color: LookUpColors.grey, fontSize: 16, height: 1.35)),
-            ),
-            const SizedBox(height: 26),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(34, 0, 34, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(44)),
-                    border: Border.all(color: const Color(0x33FFFFFF), width: 2),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(42)),
-                    child: FittedBox(
-                      fit: BoxFit.fitWidth,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: 393,
-                        height: 852,
-                        child: MediaQuery(
-                          data: MediaQuery.of(context).copyWith(
-                              size: const Size(393, 852), padding: const EdgeInsets.only(top: 54, bottom: 30)),
-                          child: screen,
-                        ),
-                      ),
-                    ),
-                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Text(title, textAlign: TextAlign.center, style: display(42, weight: FontWeight.w500, height: 1.08)),
                 ),
-              ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 34),
+                  child: Text(sub, textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.grey, fontSize: 16.5, height: 1.35)),
+                ),
+              ]),
             ),
           ]),
-            ),
-          ),
         ),
       );
 
   Future<void> storeShot(WidgetTester tester, String name, String title, String sub, Widget screen,
-      {Color tint = LookUpColors.blue, LookUpSettings? settings, Future<void> Function(WidgetTester)? act, List<Override> extra = const []}) async {
+      {Color tint = LookUpColors.blue,
+      Widget? behind,
+      bool arc = true,
+      LookUpSettings? settings,
+      Future<void> Function(WidgetTester)? act,
+      List<Override> extra = const []}) async {
     tester.view.physicalSize = const Size(1320, 2868);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    final framedScreen = framed(title, sub, screen, tint: tint);
+    final framedScreen = framed(title, sub, screen, tint: tint, behind: behind, arc: arc);
     await tester.pumpWidget(settings == null ? _app(framedScreen, extra: extra) : _app(framedScreen, settings: settings, extra: extra));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 600));
@@ -942,91 +977,65 @@ void main() {
 
   // Rendered with the evening scene, so render it in an evening time zone
   // (TZ=Asia/Kolkata in the UTC afternoon), like the verdict preview.
-  testWidgets('appstore 02 now', (t) async {
+  testWidgets('appstore 02 home', (t) async {
     final e = _evening();
     final saved = _homeEvents;
     _homeEvents = e.events;
     addTearDown(() => _homeEvents = saved);
-    await storeShot(t, '02-now', 'Step outside\nright now.', 'One answer: is tonight worth it, and when to look.', const HomeShell(),
-        extra: [tonightSkyProvider.overrideWith((_) async => e.plan)]);
+    await storeShot(t, '02-home', 'Step outside\nright now.', 'One answer: is tonight worth it, and when to look.', const HomeShell(),
+        behind: const _LockScreen(), extra: [tonightSkyProvider.overrideWith((_) async => e.plan)]);
   });
 
-  testWidgets('appstore 03 camera', (t) async {
+  testWidgets('appstore 03 pip', (t) async {
     final path = [
       for (var i = 0; i <= 25; i++)
-        (t: _now.toUtc().add(Duration(seconds: i * 10)),
-         d: SkyDir(245 - i * 4.4, 8 + 42 * math.sin(i / 25 * math.pi))),
+        (t: _now.toUtc().add(Duration(seconds: i * 10)), d: SkyDir(245 - i * 4.4, 8 + 42 * math.sin(i / 25 * math.pi))),
     ];
     await storeShot(
       t,
-      '03-camera',
-      'See its path\nover your sky.',
-      'Hold up your phone: the pass is drawn on the real sky.',
-      Stack(children: [
-        const Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF02040A), Color(0xFF0B1A33), Color(0xFF2C3E5C), Color(0xFF6E5A4A)],
-                stops: [0, 0.45, 0.8, 1],
-              ),
-            ),
-          ),
-        ),
-        const Positioned.fill(child: Starfield(density: 0.0005, maxOpacity: 0.7)),
-        Positioned.fill(
-          child: LayoutBuilder(
-            builder: (context, c) => CustomPaint(
-              painter: SkyOverlayPainter(
-                r: _pose(195, 24),
-                declinationDeg: 0,
-                target: path[12].d,
-                path: path,
-                now: path[12].t,
-                onTarget: false,
-                previewHeightPx: c.maxHeight,
-                labelStyle: Theme.of(context).textTheme.labelSmall!,
-              ),
-            ),
-          ),
-        ),
-      ]),
-      tint: LookUpColors.cyan,
+      '03-pip',
+      'Meet Pip.\nIt shows you where.',
+      'Hold your phone up. Pip flies to it, and a tap catches it.',
+      _PipGuides(path: path, pose: _pose(195, 44)),
+      tint: LookUpColors.good,
+      arc: false,
+      behind: const HomeShell(),
     );
   });
 
-  testWidgets('appstore 04 caught', (t) => storeShot(t, '04-caught', 'Every sighting,\ncelebrated.',
-      'Badges, a card to share, and how many millions were under the same pass.',
+  testWidgets('appstore 04 caught', (t) => storeShot(t, '04-caught', 'Every catch,\ncelebrated.',
+      'A new patch, your picture in Photos, and how many millions were under the same pass.',
       CaughtItScreen(event: _londonPass(), animate: false, onAddPhoto: () async {}),
-      settings: _london));
+      settings: _london, tint: LookUpColors.gold, arc: false));
 
-  testWidgets('appstore 05 starter', (t) => storeShot(t, '05-starter', 'Three sights\nto start with.',
-      'A pass, a planet and a star pattern, picked from your own sky.', const HomeShell(),
+  testWidgets('appstore 05 patches', (t) => storeShot(t, '05-patches', 'A patch for\neverything you catch.',
+      'Levels, collections, seasonal sights and a few secrets.', const LogScreen(),
       tint: LookUpColors.gold,
+      arc: false,
       act: (t) async {
-        await t.drag(find.byType(ListView).first, const Offset(0, -370));
+        await t.tap(find.text('Badges').last, warnIfMissed: false);
         await t.pump(const Duration(milliseconds: 600));
+        await t.drag(find.byType(ListView).first, const Offset(0, -250));
+        await t.pump(const Duration(milliseconds: 800));
       }));
 
-  testWidgets('appstore 06 sky', (t) => storeShot(t, '06-sky', 'Everything\nin your sky.',
-      'Planets, constellations and the Moon, with whether you\'ll see them tonight.', const SkyScreen(),
-      tint: LookUpColors.violet));
+  testWidgets('appstore 06 explore', (t) => storeShot(t, '06-explore', 'Everything\nin your sky.',
+      'Planets, constellations and the Moon, with whether you\'ll see them.', const SkyScreen(),
+      tint: LookUpColors.violet, arc: false));
 
   testWidgets('appstore 07 look', (t) => storeShot(t, '07-look', 'Know exactly\nwhere to look.',
       'Plain directions, a live countdown and who\'s aboard.', sheetOver(LookSheet(event: _events.first))));
 
-  testWidgets('appstore 08 transit', (t) => storeShot(t, '08-transit', 'Catch the station\ncrossing the Moon.',
+  testWidgets('appstore 08 week', (t) => storeShot(t, '08-week', 'Every good night\nin one list.',
+      'Starlink trains, meteor showers, eclipses, launches, aurora.', const UpcomingScreen(), tint: LookUpColors.violet));
+
+  testWidgets('appstore 09 transit', (t) => storeShot(t, '09-transit', 'Catch the station\ncrossing the Moon.',
       'Under a second long. LookUp tells you where to stand.',
       sheetOver(LookSheet(event: _events.firstWhere((e) => e.type == SkyEventType.issTransit))),
       tint: LookUpColors.cyan));
 
-  testWidgets('appstore 09 satellites', (t) => storeShot(t, '09-satellites', 'Hubble and friends,\ntonight.',
+  testWidgets('appstore 10 satellites', (t) => storeShot(t, '10-satellites', 'Hubble and friends,\ntonight.',
       'The brightest satellites crossing your sky.', const SatellitesTonightScreen(), tint: LookUpColors.cyan));
-
-  testWidgets('appstore 10 upcoming', (t) => storeShot(t, '10-upcoming', 'Every good night\nin one list.',
-      'Starlink trains, meteor showers, eclipses, launches, aurora.', const UpcomingScreen(), tint: LookUpColors.violet));
 
   testWidgets('sky tab', (t) => shot(t, const SkyScreen(), '16-sky'));
 
@@ -1220,3 +1229,100 @@ class _ArtPainter extends CustomPainter {
   @override
   bool shouldRepaint(_ArtPainter old) => false;
 }
+
+/// The pass's dashed path across the App Store backgrounds.
+class _PassArc extends CustomPainter {
+  const _PassArc();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(-20, size.height * 0.88)
+      ..quadraticBezierTo(size.width * 0.35, size.height * 0.36, size.width + 20, size.height * 0.2);
+    final pen = Paint()
+      ..color = const Color(0xFF5A8DE8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.butt;
+    for (final m in path.computeMetrics()) {
+      for (var d = 0.0; d < m.length; d += 30) {
+        canvas.drawPath(m.extractPath(d, d + 16), pen);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PassArc o) => false;
+}
+
+/// A dark phone screen for the phone behind.
+class _BlankScreen extends StatelessWidget {
+  const _BlankScreen();
+  @override
+  Widget build(BuildContext context) => const DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+              begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF060A14), Color(0xFF13203D)]),
+        ),
+        child: Starfield(density: 0.0006, maxOpacity: 0.6),
+      );
+}
+
+/// The sky camera's look: the real overlay, Pip landed on the pass as the
+/// plain dot it becomes to guide, and the camera's own words.
+class _PipGuides extends StatelessWidget {
+  const _PipGuides({required this.path, required this.pose});
+  final List<({DateTime t, SkyDir d})> path;
+  final List<double> pose;
+
+  @override
+  Widget build(BuildContext context) => Stack(children: [
+        const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF02040A), Color(0xFF0B1A33), Color(0xFF2C3E5C), Color(0xFF6E5A4A)],
+                stops: [0, 0.45, 0.8, 1],
+              ),
+            ),
+          ),
+        ),
+        const Positioned.fill(child: Starfield(density: 0.0005, maxOpacity: 0.7)),
+        Positioned.fill(
+          child: LayoutBuilder(builder: (context, c) {
+            final p = projectToScreen(pose, path[12].d, declinationDeg: 0, previewHeightPx: c.maxHeight);
+            final at = p == null ? Offset(c.maxWidth / 2, c.maxHeight / 2) : Offset(c.maxWidth / 2 + p.x, c.maxHeight / 2 + p.y);
+            return Stack(children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: SkyOverlayPainter(
+                    r: pose,
+                    declinationDeg: 0,
+                    target: path[12].d,
+                    path: path,
+                    now: path[12].t,
+                    onTarget: true,
+                    previewHeightPx: c.maxHeight,
+                    labelStyle: Theme.of(context).textTheme.labelSmall!,
+                  ),
+                ),
+              ),
+              Positioned(left: at.dx - 28, top: at.dy - 28, child: const PipMark(size: 56, asDot: true)),
+            ]);
+          }),
+        ),
+        Positioned(
+          left: 20,
+          right: 20,
+          top: 500,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(color: const Color(0xCC0B1328), borderRadius: BorderRadius.circular(18)),
+            child: const Text('That\'s the space station. Tap Pip to catch it!',
+                textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ]);
+}
+
