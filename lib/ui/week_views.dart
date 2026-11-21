@@ -115,9 +115,9 @@ class _GlancePageState extends State<GlancePage> {
     final past = widget.nights.where((n) => n.past).toList();
     final ahead = widget.nights.where((n) => !n.past).toList();
     final pick = widget.pick;
+    // The hours sit right above each run of bars and scroll with them, so
+    // they never float over something else (last week's card, say).
     return Column(children: [
-      const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: _Axis()),
-      const SizedBox(height: 8),
       Expanded(
         child: ListView(
           controller: _scroll,
@@ -126,9 +126,11 @@ class _GlancePageState extends State<GlancePage> {
             if (past.isNotEmpty) ...[
               const _Section('Last week'),
               if (widget.missed case final m?) Padding(padding: const EdgeInsets.only(bottom: 14), child: m),
+              const _Axis(),
               for (final n in past) _row(n),
             ],
             _Section('Tonight and ahead', key: _tonight),
+            const _Axis(),
             for (final n in ahead) _row(n),
             const SizedBox(height: 6),
             const Wrap(spacing: 14, runSpacing: 6, children: [
@@ -169,7 +171,9 @@ class _Section extends StatelessWidget {
 class _Axis extends StatelessWidget {
   const _Axis();
   @override
-  Widget build(BuildContext context) => Row(children: [
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
         const SizedBox(width: _labelWidth + _labelGap),
         Expanded(
           child: SizedBox(
@@ -185,7 +189,7 @@ class _Axis extends StatelessWidget {
             }),
           ),
         ),
-      ]);
+      ]));
 }
 
 class _Key extends StatelessWidget {

@@ -109,18 +109,29 @@ enum FireflyStep {
   target,
 }
 
-/// Before the pass: the ghost run, then the landmark and the spot by it,
-/// then where it rises. Once it's up, always the thing itself.
+/// How close to a pass the star-hop starts. The landmark is found where it
+/// is now, but the pass goes by it where it will be then, and the sky turns
+/// about 15° an hour: hours ahead, Venus or Spica is nowhere near the pass's
+/// line, so Pip would lead to the wrong part of the sky. Within this, the
+/// sky has turned under 5°, inside what counts as "on it".
+const starHopWindow = Duration(minutes: 20);
+
+/// Before the pass: the ghost run, then (once it's close, [starHopWindow])
+/// the landmark and the spot by it, then where it rises. Once it's up,
+/// always the thing itself.
 FireflyStep fireflyStep({
   required bool beforePass,
   required bool ghostRunning,
   required bool hasLandmark,
   required bool landmarkFound,
   bool skipped = false,
+  Duration untilPass = Duration.zero,
 }) {
   if (!beforePass) return FireflyStep.target;
   if (ghostRunning) return FireflyStep.ghostRun;
-  if (hasLandmark && !skipped) return landmarkFound ? FireflyStep.meetingPoint : FireflyStep.findLandmark;
+  if (hasLandmark && !skipped && untilPass <= starHopWindow) {
+    return landmarkFound ? FireflyStep.meetingPoint : FireflyStep.findLandmark;
+  }
   return FireflyStep.target;
 }
 

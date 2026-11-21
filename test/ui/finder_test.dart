@@ -250,4 +250,40 @@ void main() {
     await t.pumpWidget(const SizedBox());
     unawaited(c.close());
   });
+
+  testWidgets('hours before a pass, Pip leads to where it rises: no hop to a landmark that isn\'t by it yet', (t) async {
+    final record = OmmRecord.listFromJson(jsonDecode(File('test/fixtures/iss_omm.json').readAsStringSync())).single;
+    final from = DateTime.utc(2026, 10, 20, 16);
+    final pass = PassPredictor(latitude: 36.17, longitude: -86.78)
+        .predict(record: record, type: SkyEventType.iss, from: from, to: from.add(const Duration(days: 21)), minPeakElevationDeg: 10)
+        .firstWhere((e) => e.peakElevationDeg > 60);
+    final open = pass.start.subtract(const Duration(hours: 16));
+    final name = ['Jupiter', 'Saturn', 'Venus', 'Mars', 'the Moon']
+        .firstWhere((n) => (landmarkDirection(n, null, open, 36.17, -86.78)?.altitudeDeg ?? -1) > 5);
+    final ev = pass.copyWith(details: {
+      ...pass.details,
+      'landmarks': 'passing right by $name',
+      'landmarkPoints': [
+        {'name': name, 'f': 0.5, 'above': true, 'close': true},
+      ],
+    });
+    final c = StreamController<List<double>>(sync: true);
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(_Settings.new),
+        clockProvider.overrideWith((_) => Stream.value(open)),
+      ],
+      child: MaterialApp(home: FinderScreen(event: ev, orientationStream: c.stream, camera: false)),
+    ));
+    await t.pump();
+    c.add(north);
+    await t.pump();
+    expect(find.bySemanticsLabel('Watch the route'), findsOneWidget);
+    await t.pump(const Duration(seconds: 4));
+    await t.pump();
+    expect(find.byTooltip('Go straight to where it rises'), findsNothing, reason: 'already going there');
+    expect(find.text(name), findsNothing, reason: 'Pip isn\'t labelling a landmark');
+    await t.pumpWidget(const SizedBox());
+    unawaited(c.close());
+  });
 }

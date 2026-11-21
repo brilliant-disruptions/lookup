@@ -87,6 +87,15 @@ void main() {
     expect(step(before: false), FireflyStep.target);
   });
 
+  test('the star-hop waits until the pass is close: hours ahead the landmark is elsewhere in the sky', () {
+    FireflyStep step(Duration until) =>
+        fireflyStep(beforePass: true, ghostRunning: false, hasLandmark: true, landmarkFound: false, untilPass: until);
+    expect(step(const Duration(hours: 16)), FireflyStep.target, reason: 'straight to where it will rise, not to Venus now');
+    expect(step(const Duration(minutes: 21)), FireflyStep.target);
+    expect(step(starHopWindow), FireflyStep.findLandmark);
+    expect(step(const Duration(minutes: 10)), FireflyStep.findLandmark, reason: 'the alert\'s lead time');
+  });
+
   group('PipCues', () {
     test('one heavy tap when you come onto it, not again while you stay', () {
       final c = PipCues();

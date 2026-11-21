@@ -281,6 +281,7 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
       hasLandmark: hop != null && hopAt != null && hopAt.altitudeDeg > 0 && _route.length >= 2,
       landmarkFound: _landmarkFound,
       skipped: _skipHop,
+      untilPass: e.start.difference(nowUtc),
     );
     final goal = switch (step) {
       FireflyStep.ghostRun => alongRoute(_route, ghostAt!),
