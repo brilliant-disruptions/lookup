@@ -47,15 +47,32 @@ Future<void> showLookSheet(BuildContext context, SkyEvent event) {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => LookSheet(event: event),
+      builder: (_) => lookSheetHost((c) => LookSheet(event: event, scrollController: c)),
     );
 }
+
+/// The Look sheet is taller than many phones (more so in Nerd mode), and a
+/// plain bottom sheet can't be pulled down once its content scrolls: the
+/// scroll view takes the drag. This hands the sheet's drag to the content's
+/// own scroll controller, so a pull at the top closes it from anywhere.
+Widget lookSheetHost(Widget Function(ScrollController) child) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.94,
+      maxChildSize: 0.94,
+      minChildSize: 0,
+      snap: true,
+      snapSizes: const [0.94],
+      builder: (_, controller) => child(controller),
+    );
 
 /// What the notification opens: countdown, where to look, timeline, share.
 /// After the event: "Did you see it?" (spec §3.3), stored on-device.
 class LookSheet extends ConsumerStatefulWidget {
-  const LookSheet({super.key, required this.event, this.demo = false});
+  const LookSheet({super.key, required this.event, this.demo = false, this.scrollController});
   final SkyEvent event;
+
+  /// Set when the sheet sits in [lookSheetHost], so pulling down closes it.
+  final ScrollController? scrollController;
 
   /// Preview mode: labelled, nothing stored, no share.
   final bool demo;
@@ -132,6 +149,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     final place = ref.watch(settingsProvider).value?.placeName;
     return SafeArea(
       child: SingleChildScrollView(
+        controller: widget.scrollController,
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -182,10 +200,14 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               live: live,
               over: over,
               word: _lookWord(event, isAurora: isAurora, isPass: isPass),
+              showWords: ref.watch(settingsProvider).value?.nerdMode ?? false,
             ),
-            const SizedBox(height: 14),
-            Text(lookLine(event), textAlign: TextAlign.center, style: t.bodyLarge),
-            if (isPass) _Landmarks(event: event),
+            // The direction line and landmarks are for Nerd mode only.
+            if (ref.watch(settingsProvider).value?.nerdMode ?? false) ...[
+              const SizedBox(height: 14),
+              Text(lookLine(event), textAlign: TextAlign.center, style: t.bodyLarge),
+              if (isPass) _Landmarks(event: event),
+            ],
             if (isTransit && ((event.details['travelKm'] as num?) ?? 0) >= 0.5 && !over)
               Padding(
                 padding: const EdgeInsets.only(top: 14),
@@ -559,17 +581,19 @@ class _ActionTile extends StatelessWidget {
 /// Pip is the guide: hovering in the countdown ring, with the direction as
 /// words. No dial; the compass lives behind Details for anyone who wants it.
 class _PipGuide extends StatelessWidget {
-  const _PipGuide({required this.event, required this.progress, required this.live, required this.over, required this.word});
+  const _PipGuide({required this.event, required this.progress, required this.live, required this.over, required this.word, required this.showWords});
   final SkyEvent event;
   final double? progress;
   final bool live, over;
   final String word;
+  /// "Look south / high in the sky" under Pip: Nerd mode only.
+  final bool showWords;
 
   @override
   Widget build(BuildContext context) {
     final past = event.details['past'] == true;
     final high = elevationWord(event.peakElevationDeg);
-    final showWhere = !over && !past;
+    final showWhere = !over && !past && showWords;
     return Semantics(
       label: showWhere ? 'Pip says: look $word, $high' : 'Pip',
       child: DecoratedBox(

@@ -12,7 +12,6 @@ import '../domain/plus/free_plan.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'credits_screen.dart';
-import 'demo.dart';
 import 'night_vision_controls.dart';
 import '../domain/models/sky_event.dart';
 import '../services/photo_library.dart';
@@ -261,13 +260,6 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Meet Pip',
             subtitle: 'Your guide, and what its light means',
             onTap: () => showPipIntro(context),
-          ),
-          _Row(
-            icon: Icons.play_arrow_rounded,
-            color: LookUpColors.good,
-            title: 'Preview an alert',
-            subtitle: 'A whole pass in fast-forward',
-            onTap: () => showDemo(context, ref),
           ),
         ]),
         const _Header('LookUp+'),

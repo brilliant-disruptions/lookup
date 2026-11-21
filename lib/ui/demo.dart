@@ -72,7 +72,7 @@ Future<void> showDemo(BuildContext context, WidgetRef ref) async {
               (_) => demoClock(realStart, DateTime.now()),
             )),
       ],
-      child: LookSheet(event: event, demo: true),
+      child: lookSheetHost((c) => LookSheet(event: event, demo: true, scrollController: c)),
     ),
   );
 }
