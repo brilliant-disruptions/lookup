@@ -41,6 +41,7 @@ dependencies:
   material_ui: ^1.11.0
   gal: ^3.0.1
   photo_manager: ^3.12.0
+  in_app_review: ^2.0.12
 
 dev_dependencies:
   flutter_test:

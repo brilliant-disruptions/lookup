@@ -100,6 +100,9 @@ class LookUpSettings {
     this.onboardedAt,
     this.proNudgeAt,
     this.proNudgeNotNow = 0,
+    this.reviewAskedAt,
+    this.reviewAsks = 0,
+    this.weekAhead = true,
     this.plusDeclines = 0,
     this.trialOfferShown = false,
     this.missedItId,
@@ -182,6 +185,14 @@ class LookUpSettings {
   /// times they've said "Not now" (`domain/plus/pro_nudge.dart`).
   final DateTime? proNudgeAt;
   final int proNudgeNotNow;
+
+  /// When LookUp last asked for a rating, and how many times ever
+  /// (`domain/log/review_ask.dart`).
+  final DateTime? reviewAskedAt;
+  final int reviewAsks;
+
+  /// The once-a-week "Your week ahead" note (`domain/scheduling/week_ahead.dart`).
+  final bool weekAhead;
 
   /// Soft LookUp+ asks turned down ("Not now", or the offer closed without
   /// a trial). Two and they stop (domain/plus/nudges.dart).
@@ -306,6 +317,9 @@ class LookUpSettings {
     DateTime? onboardedAt,
     DateTime? proNudgeAt,
     int? proNudgeNotNow,
+    DateTime? reviewAskedAt,
+    int? reviewAsks,
+    bool? weekAhead,
     int? plusDeclines,
     bool? trialOfferShown,
     String? missedItId,
@@ -362,6 +376,9 @@ class LookUpSettings {
         onboardedAt: onboardedAt ?? this.onboardedAt,
         proNudgeAt: proNudgeAt ?? this.proNudgeAt,
         proNudgeNotNow: proNudgeNotNow ?? this.proNudgeNotNow,
+        reviewAskedAt: reviewAskedAt ?? this.reviewAskedAt,
+        reviewAsks: reviewAsks ?? this.reviewAsks,
+        weekAhead: weekAhead ?? this.weekAhead,
         plusDeclines: plusDeclines ?? this.plusDeclines,
         trialOfferShown: trialOfferShown ?? this.trialOfferShown,
         missedItId: missedItId ?? this.missedItId,
@@ -418,6 +435,9 @@ class LookUpSettings {
         if (onboardedAt != null) 'onboardedAt': onboardedAt!.toIso8601String(),
         if (proNudgeAt != null) 'proNudgeAt': proNudgeAt!.toIso8601String(),
         if (proNudgeNotNow > 0) 'proNudgeNotNow': proNudgeNotNow,
+        if (reviewAskedAt != null) 'reviewAskedAt': reviewAskedAt!.toIso8601String(),
+        if (reviewAsks > 0) 'reviewAsks': reviewAsks,
+        if (!weekAhead) 'weekAhead': false,
         if (plusDeclines > 0) 'plusDeclines': plusDeclines,
         if (trialOfferShown) 'trialOfferShown': true,
         if (missedItId != null) 'missedItId': missedItId,
@@ -486,6 +506,9 @@ class LookUpSettings {
       onboardedAt: DateTime.tryParse(j['onboardedAt'] as String? ?? '')?.toUtc(),
       proNudgeAt: DateTime.tryParse(j['proNudgeAt'] as String? ?? '')?.toUtc(),
       proNudgeNotNow: (j['proNudgeNotNow'] as num?)?.toInt() ?? 0,
+      reviewAskedAt: DateTime.tryParse(j['reviewAskedAt'] as String? ?? '')?.toUtc(),
+      reviewAsks: (j['reviewAsks'] as num?)?.toInt() ?? 0,
+      weekAhead: j['weekAhead'] as bool? ?? true,
       plusDeclines: (j['plusDeclines'] as num?)?.toInt() ?? 0,
       trialOfferShown: j['trialOfferShown'] as bool? ?? false,
       missedItId: j['missedItId'] as String?,

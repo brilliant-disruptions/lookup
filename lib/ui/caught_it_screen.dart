@@ -17,6 +17,7 @@ import '../state/sky_state.dart';
 import 'format.dart';
 import 'badges/badge_board.dart';
 import 'kit/kit.dart';
+import 'review_prompt.dart';
 import 'share_card.dart';
 import 'soft_asks.dart';
 import 'theme.dart';
@@ -29,9 +30,10 @@ import 'theme.dart';
 /// For someone on free with a Plus-only sight really coming (Tiangong, a
 /// Starlink train), this is also where LookUp+ is offered: once, for that
 /// dated thing, at the moment they've just felt what a tap is worth.
-Future<void> showCaughtIt(BuildContext context, SkyEvent event, {bool demo = false, Future<void> Function()? onAddPhoto}) {
+Future<void> showCaughtIt(BuildContext context, SkyEvent event, {bool demo = false, Future<void> Function()? onAddPhoto}) async {
   HapticFeedback.heavyImpact();
-  return Navigator.of(context).push(
+  final container = ProviderScope.containerOf(context, listen: false);
+  await Navigator.of(context).push(
     PageRouteBuilder<void>(
       opaque: true,
       transitionDuration: const Duration(milliseconds: 420),
@@ -46,6 +48,8 @@ Future<void> showCaughtIt(BuildContext context, SkyEvent event, {bool demo = fal
       ),
     ),
   );
+  // After the celebration, never during it; never for a preview.
+  if (!demo) await askForReviewIfDue(container);
 }
 
 class CaughtItScreen extends ConsumerWidget {
