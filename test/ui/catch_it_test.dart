@@ -76,6 +76,8 @@ void main() {
     await t.pump(const Duration(seconds: 1));
   });
 
+  _leaveTests();
+
   testWidgets('hours early, the shutter takes a long exposure of the sky now, then waits for the pass', (t) async {
     t.view.physicalSize = const Size(1179, 2556);
     t.view.devicePixelRatio = 3;
@@ -116,6 +118,57 @@ void main() {
     await _settle(t, rounds: 3);
     expect(find.text('Start catching it'), findsOneWidget);
 
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 1));
+  });
+}
+
+// They waited minutes for it: "Done" or a swipe back must never quietly
+// throw a finished catch away.
+void _leaveTests() {
+  testWidgets('leaving with a finished catch that isn\'t in the Log asks first', (t) async {
+    t.view.physicalSize = const Size(1179, 2556);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final camera = _Camera();
+    var now = _pass.start.subtract(const Duration(minutes: 1));
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(_Settings.new),
+        skyCatalogProvider.overrideWith((_) async => SkyCatalog.fromJson(const {}, const {})),
+      ],
+      child: MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => CatchItScreen(
+                      event: _pass, backend: camera, clock: () => now, orientationStream: const Stream<List<double>>.empty()))),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await t.tap(find.text('open'));
+    await _settle(t);
+    await t.tap(find.text('Start catching it'));
+    await _settle(t, rounds: 10);
+    // The pass goes over and it finishes by itself.
+    now = _pass.end.add(const Duration(minutes: 2));
+    for (var i = 0; i < 40 && find.text('Add to your log').evaluate().isEmpty; i++) {
+      await _settle(t, rounds: 5);
+    }
+    expect(find.text('Add to your log'), findsOneWidget);
+
+    await t.tap(find.text('Done'));
+    await _settle(t, rounds: 3);
+    expect(find.byKey(const Key('keep-before-leaving')), findsOneWidget, reason: 'not gone at a tap');
+    expect(find.text('Add to your log'), findsOneWidget, reason: 'still on the screen behind');
+
+    await t.tap(find.text('Don\'t keep it'));
+    await _settle(t, rounds: 5);
+    expect(find.text('open'), findsOneWidget, reason: 'their choice: now it closes');
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 1));
   });

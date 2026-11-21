@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:satellite_observer/satellite_observer.dart';
 
+import '../services/keep_awake.dart';
 import '../data/local_store.dart';
 import '../domain/finder/firefly.dart';
 import '../domain/finder/pointing.dart';
@@ -202,7 +203,8 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    // Waiting with Pip can take minutes: the screen stays on.
+    unawaited(keepScreenAwake(true));
     _store = ref.read(storeProvider);
     final s = ref.read(settingsProvider).value;
     final lat = s?.latitude ?? 0, lon = s?.longitude ?? 0;
@@ -232,7 +234,7 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
     if (_since.isRunning) _store.recordFinderSession(_toLock);
     _ghost.dispose();
     _sub?.cancel();
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    unawaited(keepScreenAwake(false));
     super.dispose();
   }
 
@@ -381,7 +383,7 @@ class _FinderState extends ConsumerState<FinderScreen> with TickerProviderStateM
                 onError: (msg) {
                   if (!mounted) return;
                   setState(() => _cameraOn = false);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                  showCameraTrouble(context, msg, openSettings: ref.read(locationServiceProvider).openSettings);
                 },
               ),
             ),

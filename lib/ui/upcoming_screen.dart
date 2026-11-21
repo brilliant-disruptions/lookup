@@ -48,7 +48,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
         stars: false,
         child: home.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (_, _) => LoadTrouble(what: 'Your week didn\'t load.', onRetry: () => ref.invalidate(homeProvider)),
           data: (d) {
             final now = DateTime.now();
             final nights = glanceNights(d.events, d.recent, now, weather: weather);
@@ -135,13 +135,10 @@ class _MissedCard extends StatelessWidget {
                 child: Text(pastTitle(e), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text('${fmtDay(e.start)}, ${fmtTime(e.start)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
-              ),
+              // When is the point of the row: short, and never cut off (the
+              // name gives way instead).
+              Text(fmtDayShortTime(e.start),
+                  maxLines: 1, style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
             ]),
           ),
         const SizedBox(height: 2),

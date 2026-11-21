@@ -641,7 +641,8 @@ class _WhyPageState extends State<_WhyPage> {
   Widget build(BuildContext context) => Scaffold(
         body: SkyBackdrop(
           child: SafeArea(
-            child: _FillOrScroll(
+            child: _PinnedButton(
+              button: FilledButton(onPressed: widget.onNext, child: Text(_found ? 'Next' : 'Skip')),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 const Kicker('Why only at dusk and dawn?'),
                 const SizedBox(height: 8),
@@ -660,8 +661,6 @@ class _WhyPageState extends State<_WhyPage> {
                       style: TextStyle(height: 1.45),
                     ),
                   ),
-                const Spacer(),
-                FilledButton(onPressed: widget.onNext, child: Text(_found ? 'Next' : 'Skip')),
               ]),
             ),
           ),
@@ -691,7 +690,8 @@ class _PickPage extends ConsumerWidget {
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
-          child: _FillOrScroll(
+          child: _PinnedButton(
+            button: FilledButton(onPressed: onNext, child: const Text('Next')),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               const Center(child: PipMark(size: 72, mood: PipMood.happy)),
               const SizedBox(height: 4),
@@ -725,15 +725,30 @@ class _PickPage extends ConsumerWidget {
               const SizedBox(height: 4),
               const Text('You can change these any time in Settings.',
                   textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim)),
-              const Spacer(),
-              const SizedBox(height: 12),
-              FilledButton(onPressed: onNext, child: const Text('Next')),
             ]),
           ),
         ),
       ),
     );
   }
+}
+
+/// A page whose way forward never scrolls out of sight: the words and
+/// switches scroll, the button stays at the bottom. On a small phone (or
+/// with large text) "Next" used to sit below the fold, under six switches.
+class _PinnedButton extends StatelessWidget {
+  const _PinnedButton({required this.child, required this.button});
+  final Widget child, button;
+  @override
+  Widget build(BuildContext context) => Column(children: [
+        Expanded(
+          child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(24, 24, 24, 12), child: child),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+          child: SizedBox(width: double.infinity, child: button),
+        ),
+      ]);
 }
 
 /// A full-height page whose spacers share out the room on a tall phone,

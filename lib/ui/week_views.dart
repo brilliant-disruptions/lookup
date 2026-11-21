@@ -83,7 +83,9 @@ class _GlancePageState extends State<GlancePage> {
   @override
   void initState() {
     super.initState();
-    // Open on tonight, with last week a scroll up.
+    // Open on tonight, with last week a scroll up. (The list builds every
+    // row, so "Tonight and ahead" exists to scroll to however tall last
+    // week is: a lazy list on a small phone never built it.)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final c = _tonight.currentContext;
       if (c != null && mounted) Scrollable.ensureVisible(c);
@@ -119,10 +121,11 @@ class _GlancePageState extends State<GlancePage> {
     // they never float over something else (last week's card, say).
     return Column(children: [
       Expanded(
-        child: ListView(
+        child: SingleChildScrollView(
+          key: const Key('week-list'),
           controller: _scroll,
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          children: [
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (past.isNotEmpty) ...[
               const _Section('Last week'),
               if (widget.missed case final m?) Padding(padding: const EdgeInsets.only(bottom: 14), child: m),
@@ -140,7 +143,7 @@ class _GlancePageState extends State<GlancePage> {
             ]),
             const SizedBox(height: 18),
             const WeekTools(),
-          ],
+          ]),
         ),
       ),
       Padding(

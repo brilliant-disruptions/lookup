@@ -29,6 +29,21 @@ String fmtTimeSeconds(DateTime utc) => DateFormat.jms().format(utc.toLocal());
 
 /// "0.8 s", "2.4 s".
 String fmtSeconds(Duration d) => '${(d.inMilliseconds / 1000).toStringAsFixed(1)} s';
+/// "Today 3:56 AM", "Yesterday 5:48 AM", "Thu 4:52 AM": a day and a time
+/// short enough for the end of a row.
+String fmtDayShortTime(DateTime utc) {
+  final l = utc.toLocal();
+  final now = DateTime.now();
+  final diff = DateTime(l.year, l.month, l.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+  final day = switch (diff) {
+    0 => 'Today',
+    -1 => 'Yesterday',
+    1 => 'Tomorrow',
+    _ => diff.abs() >= 7 ? DateFormat.MMMd().format(l) : DateFormat.E().format(l),
+  };
+  return '$day ${fmtTime(utc)}';
+}
+
 String fmtDay(DateTime utc) {
   final l = utc.toLocal();
   final now = DateTime.now();
@@ -36,11 +51,14 @@ String fmtDay(DateTime utc) {
   final d = DateTime(l.year, l.month, l.day);
   final diff = d.difference(today).inDays;
   final morning = l.hour < 12;
-  if (diff == 0) return morning ? 'This morning' : 'Tonight';
-  if (diff == 1) return morning ? 'Tomorrow morning' : 'Tomorrow night';
-  if (diff == -1) return morning ? 'Yesterday morning' : 'Last night';
+  // Noon to five is the afternoon: a 2 PM launch or eclipse isn't "tonight".
+  final afternoon = l.hour >= 12 && l.hour < 17;
+  if (diff == 0) return morning ? 'This morning' : (afternoon ? 'This afternoon' : 'Tonight');
+  if (diff == 1) return morning ? 'Tomorrow morning' : (afternoon ? 'Tomorrow afternoon' : 'Tomorrow night');
+  if (diff == -1) return morning ? 'Yesterday morning' : (afternoon ? 'Yesterday afternoon' : 'Last night');
   if (diff.abs() >= 7) return DateFormat.MMMd().format(l); // "Nov 12"
   final day = DateFormat.EEEE().format(l);
+  if (afternoon) return '$day afternoon';
   return morning ? '$day morning' : (diff < 0 ? '$day night' : day);
 }
 

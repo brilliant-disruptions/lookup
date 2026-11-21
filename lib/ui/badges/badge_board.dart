@@ -45,7 +45,9 @@ class BadgeBoard extends ConsumerWidget {
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 14,
         crossAxisSpacing: 8,
-        childAspectRatio: 0.74,
+        // Taller tiles for larger text, so two lines of name and the
+        // progress line still fit under the patch.
+        childAspectRatio: 0.74 / (1 + (MediaQuery.textScalerOf(context).scale(1) - 1).clamp(0.0, 0.6) * 0.75),
         children: [
           for (final (i, b) in log.badges.indexed)
             Rise(index: i, child: _PatchTile(b: b, next: nextChance(b, events, now), onTap: () => showBadgeSheet(context, b))),

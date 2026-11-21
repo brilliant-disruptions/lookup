@@ -20,6 +20,23 @@ import 'sky/figure_art.dart';
 import 'theme.dart';
 
 /// Back camera, filling the screen (cropped to cover, never letterboxed).
+/// What [CameraBackdrop] says when camera access has been refused.
+const cameraOffMessage = 'Camera access is off, so Pip can\'t take a picture.';
+
+/// Says why the camera didn't start. When it's because access was refused,
+/// with the way to turn it on: without the camera nothing can be caught, so
+/// "turn it on in Settings" needs a button that goes there.
+void showCameraTrouble(BuildContext context, String message, {required Future<void> Function() openSettings}) {
+  final off = message == cameraOffMessage;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      content: Text(message),
+      duration: Duration(seconds: off ? 10 : 4),
+      action: off ? SnackBarAction(label: 'Open Settings', onPressed: openSettings) : null,
+    ));
+}
+
 class CameraBackdrop extends StatefulWidget {
   const CameraBackdrop({super.key, required this.onError, required this.onHeight});
   final void Function(String message) onError;
@@ -70,9 +87,7 @@ class CameraBackdropState extends State<CameraBackdrop> with WidgetsBindingObser
       }
       setState(() => _c = c);
     } on CameraException catch (e) {
-      widget.onError(e.code.contains('Denied')
-          ? 'Camera access is off. Turn it on in Settings to see the path over the sky.'
-          : 'The camera didn\'t start.');
+      widget.onError(e.code.contains('Denied') ? cameraOffMessage : 'The camera didn\'t start.');
     } catch (_) {
       widget.onError('The camera didn\'t start.');
     }
