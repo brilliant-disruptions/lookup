@@ -94,7 +94,11 @@ indexes those anyway.)
 `test/screenshots/goldens/appstore/` holds ten captioned 1320 × 2868
 images (6.9" iPhone, which App Store Connect scales for smaller phones), in
 listing order. The first is the one most people see without swiping, so it
-shows the product's moment, the tap itself, rather than a screen of the app:
+shows the product's moment, the tap itself, rather than a screen of the app.
+Pip flies the pass through all ten, in the gap between phones, trailing
+drops of its light, with a feeling in its eyes to suit each line (happy,
+curious, amazed, a wink for the secret patches); on "Meet Pip" it comes up
+off the pass, larger, under the words:
 
 1. It taps you before it flies over. *(lock screen with the real alert over the station's pass)*
 2. Step outside right now. *(Home: "Go out at 9:22 PM.")*
