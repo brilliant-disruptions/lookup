@@ -1,5 +1,6 @@
-/// Every night as one bar from 5 PM to 7 AM ("At a glance"), in one list:
-/// last week above, tonight in view, the two weeks ahead below.
+/// Every day as one bar, midnight to midnight ("At a glance"), in one list:
+/// last week above, today in view, the two weeks ahead below. Hours with
+/// nothing on anywhere are chopped out (`DayAxis`), leaving a narrow break.
 library;
 
 import 'dart:math' as math;
@@ -9,6 +10,7 @@ import 'package:intl/intl.dart';
 
 import '../domain/models/sky_event.dart';
 import '../domain/plan/bar_layout.dart';
+import '../domain/plan/day_axis.dart';
 import '../domain/plan/week_view.dart';
 import 'format.dart';
 import 'kit/kit.dart';
@@ -46,6 +48,63 @@ const _labelWidth = 48.0, _labelGap = 10.0;
 const _barHeight = 40.0, _rowGap = 12.0;
 const _barDark = Color(0xFF0D1530);
 
+/// How many shown hours fit across the screen at once; swipe sideways for the
+/// rest, so sights close together come apart. A chopped stretch is [_breakPx].
+const _hoursInView = 6.0, _breakPx = 14.0;
+
+/// The pixels one shown hour takes, for a bar [view] wide.
+double _perHour(double view) => view / _hoursInView;
+
+/// How far the bars can scroll sideways.
+double _maxScroll(DayAxis axis, double view) => math.max(0.0, axis.width(_perHour(view), _breakPx) - view);
+
+/// One horizontal scroll position shared by every night's bar and the hours
+/// above them, so the nights stay lined up on the clock as you swipe.
+class _SyncedH extends StatefulWidget {
+  const _SyncedH({required this.offset, required this.child});
+  final ValueNotifier<double> offset;
+  final Widget child;
+  @override
+  State<_SyncedH> createState() => _SyncedHState();
+}
+
+class _SyncedHState extends State<_SyncedH> {
+  late final ScrollController _c = ScrollController(initialScrollOffset: widget.offset.value)..addListener(_mine);
+
+  void _mine() {
+    if (_c.hasClients && (_c.offset - widget.offset.value).abs() > 0.5) {
+      widget.offset.value = _c.offset;
+    }
+  }
+
+  void _theirs() {
+    if (!_c.hasClients) return;
+    final to = widget.offset.value.clamp(_c.position.minScrollExtent, _c.position.maxScrollExtent);
+    if ((_c.offset - to).abs() > 0.5) _c.jumpTo(to);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.offset.addListener(_theirs);
+  }
+
+  @override
+  void dispose() {
+    widget.offset.removeListener(_theirs);
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        controller: _c,
+        physics: const ClampingScrollPhysics(),
+        child: widget.child,
+      );
+}
+
 /// Every night as one bar from 5 PM to 7 AM: cloud shaded in, a marker at
 /// each sight's time. Last week sits above (faded, what went over), tonight
 /// opens in view, and the nights ahead run on below. Tap one for its
@@ -82,25 +141,48 @@ class _GlancePageState extends State<GlancePage> {
   final _scroll = ScrollController();
   final _tonight = GlobalKey();
 
+  /// Where the hours are scrolled to, for every night at once.
+  final _hours = ValueNotifier<double>(0);
+
   @override
   void initState() {
     super.initState();
     // Open on tonight, with last week a scroll up. (The list builds every
-    // row, so "Tonight and ahead" exists to scroll to however tall last
+    // row, so "Today and ahead" exists to scroll to however tall last
     // week is: a lazy list on a small phone never built it.)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final c = _tonight.currentContext;
       if (c != null && mounted) Scrollable.ensureVisible(c);
+      if (mounted) _hours.value = _firstSightOffset();
     });
   }
 
+  /// Open the hours on the first sight coming up, not on an empty 5 PM.
+  double _firstSightOffset() {
+    final view = MediaQuery.sizeOf(context).width - 32 - _labelWidth - _labelGap - 2;
+    final axis = _axis;
+    for (final n in widget.nights.where((n) => !n.past)) {
+      if (n.events.isEmpty) continue;
+      final x = n.events.map((e) => axis.x(hourOfDay(e.start), _perHour(view), _breakPx)).reduce(math.min);
+      return (x - view * 0.4).clamp(0.0, _maxScroll(axis, view));
+    }
+    return 0;
+  }
+
+  /// One set of hours for every day, so the rows stay lined up on the clock.
+  DayAxis get _axis => DayAxis.forStarts([
+        for (final n in widget.nights)
+          for (final e in n.events) e.start,
+      ]);
+
   @override
   void dispose() {
+    _hours.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
-  Widget _row(WeekNight n) => Padding(
+  Widget _row(WeekNight n, DayAxis axis) => Padding(
         padding: const EdgeInsets.only(bottom: _rowGap),
         child: Opacity(
           opacity: n.past ? 0.6 : 1,
@@ -109,7 +191,12 @@ class _GlancePageState extends State<GlancePage> {
             const SizedBox(width: _labelGap),
             Expanded(
                 child: _NightBar(n,
-                    selected: n.date == widget.night, pick: widget.pick, onNight: widget.onNight, onPick: widget.onPick)),
+                    axis: axis,
+                    selected: n.date == widget.night,
+                    pick: widget.pick,
+                    hours: _hours,
+                    onNight: widget.onNight,
+                    onPick: widget.onPick)),
           ]),
         ),
       );
@@ -119,6 +206,7 @@ class _GlancePageState extends State<GlancePage> {
     final past = widget.nights.where((n) => n.past).toList();
     final ahead = widget.nights.where((n) => !n.past).toList();
     final pick = widget.pick;
+    final axis = _axis;
     // The hours sit right above each run of bars and scroll with them, so
     // they never float over something else (last week's card, say).
     return Column(children: [
@@ -131,15 +219,16 @@ class _GlancePageState extends State<GlancePage> {
             if (past.isNotEmpty) ...[
               const _Section('Last week'),
               if (widget.missed case final m?) Padding(padding: const EdgeInsets.only(bottom: 14), child: m),
-              const _Axis(),
-              for (final n in past) _row(n),
+              _Axis(_hours, axis),
+              for (final n in past) _row(n, axis),
             ],
-            _Section('Tonight and ahead', key: _tonight),
-            const _Axis(),
-            for (final n in ahead) _row(n),
+            _Section('Today and ahead', key: _tonight),
+            _Axis(_hours, axis),
+            for (final n in ahead) _row(n, axis),
             const SizedBox(height: 6),
             const Wrap(spacing: 14, runSpacing: 6, children: [
-              _Key(icon: Icons.dark_mode_outlined, label: 'Dark band is the night'),
+              _Key(icon: Icons.swap_horiz_rounded, label: 'Swipe the hours sideways'),
+              _Key(icon: Icons.dark_mode_outlined, label: 'Gaps: hours with nothing on'),
               _Key(icon: Icons.texture_rounded, label: 'Cloud'),
               _Key(icon: Icons.circle_outlined, label: 'Faded: no alert'),
             ]),
@@ -161,7 +250,7 @@ class _GlancePageState extends State<GlancePage> {
   }
 }
 
-/// "Last week", "Tonight and ahead": where you are in the list.
+/// "Last week", "Today and ahead": where you are in the list.
 class _Section extends StatelessWidget {
   const _Section(this.title, {super.key});
   final String title;
@@ -174,7 +263,9 @@ class _Section extends StatelessWidget {
 
 /// The hours across the top of the bars.
 class _Axis extends StatelessWidget {
-  const _Axis();
+  const _Axis(this.hours, this.axis);
+  final ValueNotifier<double> hours;
+  final DayAxis axis;
   @override
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -184,13 +275,24 @@ class _Axis extends StatelessWidget {
           child: SizedBox(
             height: 16,
             child: LayoutBuilder(builder: (context, box) {
+              final view = box.maxWidth - 2;
               final style = numeric(size: 10.5, color: LookUpColors.greyDim);
               String h(int hour) => DateFormat.j().format(DateTime(2000, 1, 1, hour));
-              return Stack(clipBehavior: Clip.none, children: [
-                for (final (hour, f) in [(17, 0.0), (21, 4 / 14), (1, 8 / 14), (5, 12 / 14)])
-                  // Every four hours; a 7 AM at the end would run into 5 AM.
-                  Positioned(left: f * box.maxWidth, child: Text(h(hour), style: style)),
-              ]);
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 1),
+                child: _SyncedH(
+                  offset: hours,
+                  child: SizedBox(
+                    width: axis.width(_perHour(view), _breakPx),
+                    child: Stack(children: [
+                      // Every hour that's shown; the chopped ones aren't.
+                      for (final r in axis.runs)
+                        for (var k = r.from; k < r.to; k++)
+                          Positioned(left: axis.x(k.toDouble(), _perHour(view), _breakPx) + 3, child: Text(h(k), style: style)),
+                    ]),
+                  ),
+                ),
+              );
             }),
           ),
         ),
@@ -210,8 +312,11 @@ class _Key extends StatelessWidget {
 }
 
 class _NightBar extends StatelessWidget {
-  const _NightBar(this.n, {required this.selected, required this.pick, required this.onNight, required this.onPick});
+  const _NightBar(this.n,
+      {required this.axis, required this.selected, required this.pick, required this.hours, required this.onNight, required this.onPick});
   final WeekNight n;
+  final DayAxis axis;
+  final ValueNotifier<double> hours;
   final bool selected;
   final SkyEvent? pick;
   final ValueChanged<DateTime> onNight;
@@ -221,7 +326,7 @@ class _NightBar extends StatelessWidget {
   static const _laneStep = _size + 4;
 
   /// The night's markers laid out for a bar this wide.
-  ({List<BarSlot> slots, List<double> labels}) _slots(BuildContext context, double w) {
+  ({List<BarSlot> slots, List<double> labels}) _slots(BuildContext context, double w, double perHour) {
     final style = DefaultTextStyle.of(context).style.merge(_Marker.labelStyle);
     final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.15);
     final labels = [
@@ -236,12 +341,44 @@ class _NightBar extends StatelessWidget {
             .ceilToDouble()
     ];
     final slots = layoutBar(
-      timeX: [for (final e in n.events) barPosition(e.start) * w],
+      timeX: [for (final e in n.events) axis.x(hourOfDay(e.start), perHour, _breakPx)],
       namedWidth: [for (final l in labels) _Marker.widthFor(l)],
       width: w,
       icon: _size,
     );
     return (slots: slots, labels: labels);
+  }
+
+  /// Markers for the sights scrolled off either side: fanned in time order at
+  /// that edge, nearest one on top. A tap names it and scrolls to its time.
+  Widget _edgeMarkers(List<BarSlot> slots, double off, double view, double h) {
+    const small = 0.78, half = _size / 2;
+    final before = <int>[], after = <int>[];
+    for (var i = 0; i < n.events.length; i++) {
+      final x = slots[i].tick - off; // where its time is in view
+      if (x < -half) before.add(i);
+      if (x > view + half) after.add(i);
+    }
+    if (before.isEmpty && after.isEmpty) return const SizedBox.shrink();
+    double step(int count) => count < 2 ? 0 : math.min(9.0, view * 0.25 / (count - 1));
+    Widget marker(int i, double left) => Positioned(
+          left: left,
+          top: (h - _size) / 2,
+          child: Transform.scale(
+            scale: small,
+            child: _Marker(n.events[i], selected: n.events[i].id == pick?.id, onTap: (e) {
+              onPick(e);
+              hours.value = (slots[i].tick - view / 2).clamp(0.0, _maxScroll(axis, view));
+            }),
+          ),
+        );
+    final beforeStep = step(before.length), afterStep = step(after.length);
+    return Stack(children: [
+      // Furthest first, so the nearest ends up on top.
+      for (var k = 0; k < before.length; k++) marker(before[k], 1 + k * beforeStep),
+      for (var k = after.length - 1; k >= 0; k--)
+        marker(after[k], view - _size - 1 - (after.length - 1 - k) * afterStep),
+    ]);
   }
 
   @override
@@ -254,8 +391,10 @@ class _NightBar extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: () => onNight(n.date),
           child: LayoutBuilder(builder: (context, box) {
-            final w = box.maxWidth - 2; // inside the border
-            final laid = _slots(context, w);
+            final view = box.maxWidth - 2; // inside the border
+            final perHour = _perHour(view);
+            final w = math.max(view, axis.width(perHour, _breakPx)); // the whole day, wider than the screen
+            final laid = _slots(context, w, perHour);
             final slots = laid.slots;
             final lanes = slots.isEmpty ? 1 : slots.map((s) => s.lane).reduce(math.max) + 1;
             final h = _barHeight + (lanes - 1) * _laneStep;
@@ -268,7 +407,13 @@ class _NightBar extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Stack(children: [
-                  Positioned.fill(child: CustomPaint(painter: _BarPainter(n.clouds))),
+                _SyncedH(
+                  offset: hours,
+                  child: SizedBox(
+                    width: w,
+                    height: h - 2,
+                    child: Stack(children: [
+                  Positioned.fill(child: CustomPaint(painter: _BarPainter(n.clouds, axis, perHour))),
                   // Each sight's exact time, behind every marker so a line
                   // never runs across another sight.
                   for (var i = 0; i < n.events.length; i++)
@@ -292,6 +437,18 @@ class _NightBar extends StatelessWidget {
                           onTap: onPick,
                           labelWidth: slots[i].named ? laid.labels[i] : null),
                     ),
+                    ]),
+                  ),
+                ),
+                // Sights whose time is scrolled out of sight wait at the
+                // edge, small, until their time comes back into view.
+                if (n.events.isNotEmpty)
+                  Positioned.fill(
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: hours,
+                      builder: (context, off, _) => _edgeMarkers(slots, off, view, h - 2),
+                    ),
+                  ),
                 ]),
               ),
             );
@@ -370,41 +527,51 @@ class _Marker extends StatelessWidget {
   }
 }
 
-/// Twilight at the ends, dark in the middle, cloud hatched in by the hour.
+/// The shown hours (dim by day, dark by night) with cloud hatched in by the
+/// hour, and the chopped stretches between them.
 class _BarPainter extends CustomPainter {
-  _BarPainter(this.clouds);
-  final List<int?> clouds;
+  _BarPainter(this.clouds, this.axis, this.perHour);
+  final List<int?> clouds; // 24, from midnight
+  final DayAxis axis;
+  final double perHour;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final r = Offset.zero & size;
-    canvas.drawRect(
-        r,
-        Paint()
-          ..shader = const LinearGradient(
-            colors: [Color(0xFF1B2A52), Color(0xFF0D1530), Color(0xFF070B18), Color(0xFF0D1530), Color(0xFF1B2A52)],
-            stops: [0, 0.14, 0.5, 0.86, 1],
-          ).createShader(r));
-    final hw = size.width / clouds.length;
+    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF05080F));
     final stripe = Paint()..strokeWidth = 1.4;
-    for (var i = 0; i < clouds.length; i++) {
-      final c = clouds[i];
-      if (c == null || c < 50) continue;
-      final a = ((c - 30) / 60).clamp(0.0, 1.0);
-      final cell = Rect.fromLTWH(i * hw, 0, hw + 0.5, size.height);
-      canvas.drawRect(cell, Paint()..color = LookUpColors.grey.withValues(alpha: 0.1 * a));
-      canvas.save();
-      canvas.clipRect(cell);
-      stripe.color = LookUpColors.grey.withValues(alpha: 0.3 * a);
-      for (var x = cell.left - size.height; x < cell.right; x += 6) {
-        canvas.drawLine(Offset(x, size.height), Offset(x + size.height, 0), stripe);
+    for (final r in axis.runs) {
+      for (var hour = r.from; hour < r.to; hour++) {
+        final left = axis.x(hour.toDouble(), perHour, _breakPx);
+        final cell = Rect.fromLTWH(left, 0, perHour + 0.5, size.height);
+        // Daylight is lighter, the small hours darkest.
+        final day = hour >= 7 && hour < 18;
+        final dusk = hour == 6 || hour == 18 || hour == 19;
+        canvas.drawRect(cell, Paint()..color = day ? const Color(0xFF22345F) : (dusk ? const Color(0xFF1B2A52) : _barDark));
+        final c = clouds[hour];
+        if (c == null || c < 50) continue;
+        final a = ((c - 30) / 60).clamp(0.0, 1.0);
+        canvas.drawRect(cell, Paint()..color = LookUpColors.grey.withValues(alpha: 0.1 * a));
+        canvas.save();
+        canvas.clipRect(cell);
+        stripe.color = LookUpColors.grey.withValues(alpha: 0.3 * a);
+        for (var x = cell.left - size.height; x < cell.right; x += 6) {
+          canvas.drawLine(Offset(x, size.height), Offset(x + size.height, 0), stripe);
+        }
+        canvas.restore();
       }
-      canvas.restore();
+    }
+    // Where time was cut: a slim diagonal-slashed gap.
+    final cut = Paint()
+      ..color = LookUpColors.greyDim.withValues(alpha: 0.5)
+      ..strokeWidth = 1.2;
+    for (final (left, width) in axis.breaks(perHour, _breakPx)) {
+      final mid = left + width / 2;
+      canvas.drawLine(Offset(mid - 2, size.height * 0.62), Offset(mid + 2, size.height * 0.38), cut);
     }
   }
 
   @override
-  bool shouldRepaint(_BarPainter o) => o.clouds != clouds;
+  bool shouldRepaint(_BarPainter o) => o.clouds != clouds || o.perHour != perHour || o.axis.runs != axis.runs;
 }
 
 /// The picked sight, in a few words; tap for the Look sheet.

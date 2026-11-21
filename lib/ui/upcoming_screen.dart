@@ -56,7 +56,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
             final pick = showing.where((e) => e.id == _pick).firstOrNull ??
                 nights.where((n) => !n.past).expand((n) => n.alerts).firstOrNull ??
                 nights.where((n) => !n.past).expand((n) => n.events).firstOrNull;
-            final night = _night ?? (pick == null ? nightOf(now) : nightOf(pick.start));
+            final night = _night ?? (pick == null ? dayOf(now) : dayOf(pick.start));
             final missed = isPlus ? const <SkyEvent>[] : missedWithoutPlus(d.recent);
             final nextPlus =
                 d.events.where((e) => e.plusOnly && e.type.pushes && e.start.isAfter(now.toUtc())).firstOrNull;
@@ -68,7 +68,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                 });
             void pickEvent(SkyEvent e) => setState(() {
                   _pick = e.id;
-                  _night = nightOf(e.start);
+                  _night = dayOf(e.start);
                 });
 
             return Column(children: [
