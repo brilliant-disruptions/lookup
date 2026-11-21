@@ -20,12 +20,16 @@ and finder, the log and share cards.
 | Plan any of the next 14 nights | Tonight and the next two |
 | As many saved places as you like | One (following the phone is always free) |
 | Photo planning: the station crossing the Sun or Moon | — |
+| The Pro camera: lens, shutter and ISO per subject, stacking, self-starting timelapses | Pip's quick catch (to Photos and the Log) |
+| *(Hidden for now)* The sky through history, 3000 BC – 3000 AD, and every famous night | Explore steps a week either side of now |
+| Photos without the "LookUp" caption | Caption on (every shared catch says where it came from) |
 
-Where people meet it: the paywall opened on whatever they tapped (a Plus
-alert, Where to go, a fourth night, a second place, a transit); after alerts
-are switched on in onboarding when something Plus-only is coming; on You
-caught it right after a sighting; the "you missed it" Week cards; and the
-quiet "LookUp+ near you" card on Tonight (free only, "Not now" = a week).
+Where people meet it, and the one budget that keeps it from nagging, is in
+`docs/plus-strategy.md`: the paywall on whatever they reach for (a Plus
+alert, Where to go, a fourth night, a second place, an old night, a transit,
+the Pro camera); the one-time offer at the end of onboarding; and at most one
+soft ask per session (a storm tonight, "You missed it", "LookUp+ near you", or
+after a catch), none in the first two days and none after two "Not now"s.
 
 ## Prices (set in App Store Connect and Play Console)
 

@@ -15,15 +15,18 @@ const _shade = [Shadow(blurRadius: 8, color: Colors.black)];
 const scanTitleStyle = TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: LookUpColors.grey, shadows: _shade);
 
 class ScanTopBar extends StatelessWidget {
-  const ScanTopBar({super.key, required this.title, required this.trailing});
+  const ScanTopBar({super.key, required this.title, required this.trailing, this.onClose});
 
   /// Usually [scanTitle]; any small widget that fits on one line.
   final Widget title;
   final Widget trailing;
 
+  /// What Close does; by default it simply closes the screen.
+  final VoidCallback? onClose;
+
   @override
   Widget build(BuildContext context) => Row(children: [
-        CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: () => Navigator.of(context).pop()),
+        CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: onClose ?? () => Navigator.of(context).pop()),
         // Between the buttons, trimmed rather than overflowing on a small phone with big text.
         Expanded(child: Center(child: title)),
         trailing,

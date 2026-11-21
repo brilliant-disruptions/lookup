@@ -15,6 +15,7 @@ class Sighting {
     this.magnitude,
     this.place,
     this.photo,
+    this.photoAsset,
   });
 
   final String eventId;
@@ -27,8 +28,13 @@ class Sighting {
   final double? magnitude;
   final String? place;
 
-  /// File name of the user's photo of it, if they added one.
+  /// File name of LookUp's copy of the photo of it, if there is one: a
+  /// small thumbnail when [photoAsset] is set, else the whole picture.
   final String? photo;
+
+  /// The picture's id in the phone's Photos (in the LookUp album), when
+  /// the Log shows it from there.
+  final String? photoAsset;
 
   /// Older answers stored only the event id; infer the type from its prefix.
   SkyEventType? get inferredType {

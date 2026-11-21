@@ -10,6 +10,7 @@ import 'package:lookup/domain/sky/visibility.dart';
 import 'package:lookup/domain/weather/cloud_forecast.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/state/sky_state.dart';
+import 'package:lookup/ui/sky/night_strip.dart';
 import 'package:lookup/ui/verdict_card.dart';
 import 'package:lookup/ui/theme.dart';
 
@@ -105,10 +106,12 @@ void main() {
   testWidgets('a clear pass tonight: go, with where to look and the countdown', (t) async {
     await mount(t, [ev('iss:1', const Duration(hours: 3), clouds: 5)], night(List.filled(10, 5)));
     expect(find.textContaining('Go out at'), findsOneWidget);
-    expect(find.textContaining('ISS flyover. Brighter than any star'), findsOneWidget);
+    // Short enough for a kid: what, and which way.
+    expect(find.text('ISS flyover. Look to the west-southwest.'), findsOneWidget);
     expect(find.text('Where to look'), findsOneWidget);
     expect(find.text('Clear all night'), findsOneWidget);
-    expect(find.textContaining('ISS '), findsWidgets); // marked on the strip
+    // One pill for the clouds; the hour-by-hour strip lives elsewhere now.
+    expect(find.byType(NightStrip), findsNothing);
   });
 
   testWidgets('clouded out: stay in, what is missed, and the next good night', (t) async {

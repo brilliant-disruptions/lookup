@@ -5,7 +5,7 @@ import '../domain/plus/plus_preview.dart';
 import '../state/providers.dart';
 import 'format.dart';
 import 'kit/kit.dart';
-import 'paywall_sheet.dart';
+import 'soft_asks.dart';
 import 'theme.dart';
 
 /// "LookUp+ near you": a quiet card on Tonight for free users with the real
@@ -13,7 +13,11 @@ import 'theme.dart';
 /// Not a pop-up: it sits in the list, opens the paywall only when tapped,
 /// and "Not now" puts it away for a week. Never shown to LookUp+ users.
 class PlusNearYouCard extends ConsumerWidget {
-  const PlusNearYouCard({super.key});
+  const PlusNearYouCard({super.key, this.chosen = false});
+
+  /// Home's soft ask picked it ([HomeAsk]), having checked the snooze and
+  /// the budget, and then set the snooze for its next turn.
+  final bool chosen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,8 +25,10 @@ class PlusNearYouCard extends ConsumerWidget {
     final events = ref.watch(homeProvider).value?.events;
     final now = DateTime.now();
     if (s == null || events == null || !s.hasLocation) return const SizedBox.shrink();
-    if (!PlusPreview.show(isPlus: s.isPlus, snoozedUntil: s.plusCardSnoozedUntil, now: now)) return const SizedBox.shrink();
-    final p = PlusPreview.of(events, now);
+    if (s.isPlus || (!chosen && !PlusPreview.show(isPlus: s.isPlus, snoozedUntil: s.plusCardSnoozedUntil, now: now))) {
+      return const SizedBox.shrink();
+    }
+    final p = PlusPreview.of(events, now, wants: s);
     final title = switch (p.count) {
       0 => 'More to see than the station',
       1 => '1 more tap coming that free won\'t send',
@@ -72,15 +78,18 @@ class PlusNearYouCard extends ConsumerWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => showPaywall(context, reason: p.soonest.firstOrNull),
+                    onPressed: () => openSoftPaywall(context, ref, reason: p.soonest.firstOrNull),
                     child: const Text('See LookUp+'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 TextButton(
-                  onPressed: () => ref
-                      .read(settingsProvider.notifier)
-                      .edit((x) => x.copyWith(plusCardSnoozedUntil: DateTime.now().toUtc().add(PlusPreview.snooze))),
+                  onPressed: () async {
+                    await ref
+                        .read(settingsProvider.notifier)
+                        .edit((x) => x.copyWith(plusCardSnoozedUntil: DateTime.now().toUtc().add(PlusPreview.snooze)));
+                    await declineSoftAsk(ref);
+                  },
                   child: const Text('Not now'),
                 ),
               ],

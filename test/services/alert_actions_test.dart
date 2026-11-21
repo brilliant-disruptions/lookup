@@ -38,14 +38,16 @@ void main() {
     await store.saveEvents([event]);
   });
 
-  test('"Saw it!" logs a sighting without opening the app', () async {
+  // Only a catch with the camera logs a sighting: an alert button can't.
+  test('"Saw it!" from an old alert logs nothing without a picture', () async {
     final r = await handleAlertAction(
         actionId: AlertAction.seen, eventId: event.id, store: store, notifications: notifications, now: now);
-    expect(r, AlertActionResult.logged);
-    final f = (await store.loadFeedback()).single;
-    expect(f.seen, isTrue);
-    expect(f.type, SkyEventType.iss);
-    expect(f.magnitude, -3.1);
+    expect(r, AlertActionResult.nothing);
+    expect(await store.loadFeedback(), isEmpty);
+    final c = await handleAlertAction(
+        actionId: AlertAction.catchIt, eventId: event.id, store: store, notifications: notifications, now: now);
+    expect(c, AlertActionResult.nothing, reason: '"Catch it" opens the app; nothing happens in the background');
+    expect(await store.loadFeedback(), isEmpty);
   });
 
   test('"Remind me in 5 min" schedules one reminder', () async {

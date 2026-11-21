@@ -10,7 +10,7 @@ import 'theme.dart';
 List<(String, String)> photoTips(SkyEventType t) => switch (t) {
       SkyEventType.iss || SkyEventType.tiangong || SkyEventType.satellitePass || SkyEventType.starlinkTrain => const [
           if (catchItEnabled)
-            ('Phone', 'Let LookUp do it: Photograph it on this sheet. Prop the phone up where it says and it takes the long exposures itself, starting just before it rises, and stacks them into one streak.')
+            ('Phone', 'Let LookUp do it (LookUp+): Photograph it on this sheet. Prop the phone up where it says and it takes the long exposures itself, starting just before it rises, and stacks them into one streak.')
           else
             ('Phone', 'Prop it against something steady and use Night mode on its longest setting. Start just before it rises: you\'ll get a bright streak across the stars.'),
           ('Camera', 'Tripod, widest lens, manual focus on a bright star. ISO 800, f/2.8–f/4, 15–30 s exposures back to back; stack them later for one long streak.'),

@@ -78,8 +78,12 @@
 	<string>LookUp shows the live camera with the satellite's path drawn over the sky, and lets you photograph what you saw.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>LookUp never records sound. iOS asks only if you film a video for your sky log.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>LookUp saves the pictures you catch in the sky to your Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Attach a photo you took to a sighting in your sky log. Photos stay on your phone.</string>
+	<string>LookUp keeps your catches in a LookUp album and shows them in your Log. Limit Access is enough: you don't need to pick any photos.</string>
+	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
+	<true/>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Add meteor showers, eclipses and flyovers to your calendar.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>

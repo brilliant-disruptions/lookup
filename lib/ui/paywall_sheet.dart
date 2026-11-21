@@ -8,16 +8,18 @@ import '../domain/scheduling/alert_planner.dart';
 import '../services/plus_service.dart';
 import '../state/providers.dart';
 import 'format.dart';
+import 'help.dart';
 import 'kit/kit.dart';
+import 'plus_perks.dart';
 import 'theme.dart';
 
 /// The paywall appears only when a Plus-only event is actually coming for
 /// this user (spec §7), or from Settings.
-Future<void> showPaywall(BuildContext context, {SkyEvent? reason, PlusFeature? feature}) => showModalBottomSheet<void>(
+Future<void> showPaywall(BuildContext context, {SkyEvent? reason, PlusFeature? feature, String? headline}) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => PaywallSheet(reason: reason, feature: feature),
+      builder: (_) => PaywallSheet(reason: reason, feature: feature, headline: headline),
     );
 
 /// Whether this person has LookUp+, read without listening (for taps).
@@ -52,8 +54,12 @@ class PlusAlertTag extends StatelessWidget {
 /// user, then what else is coming in the next fortnight, then one plan
 /// picker and one button, with the trial spelled out.
 class PaywallSheet extends ConsumerStatefulWidget {
-  const PaywallSheet({super.key, this.reason, this.feature});
+  const PaywallSheet({super.key, this.reason, this.feature, this.headline});
   final SkyEvent? reason;
+
+  /// The line under the logo, when what brought them here says it better
+  /// (a storm tonight, a sight they missed).
+  final String? headline;
 
   /// What they tapped that's LookUp+ (Where to go, a later night…), so the
   /// sheet opens on that rather than on alerts.
@@ -114,11 +120,15 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
               ]),
               const SizedBox(height: 6),
               Text(
-                switch (widget.feature) {
+                widget.headline ?? switch (widget.feature) {
                   PlusFeature.whereToGo => 'Find the clear, dark sky near you tonight, and go.',
                   PlusFeature.planAhead => 'Plan any of the next 14 nights, here or at any saved place.',
                   PlusFeature.places => 'Save the cabin, the coast and next month\'s trip, as many as you like.',
                   PlusFeature.transits => 'Catch the station crossing the Sun or Moon, with where to stand.',
+                  PlusFeature.camera =>
+                    'The Pro camera: the right settings for the Moon, stars, meteors and aurora, and timelapses that start by themselves.',
+                  PlusFeature.history => 'Go to any night from 3000 BC to 3000 AD: the Star of Bethlehem, Columbus\' eclipse, the Titanic\'s last night.',
+                  PlusFeature.noCaption => 'Your photos, just the sky: turn off the LookUp caption.',
                   _ => preview == null ? 'Never miss anything up there.' : 'Don\'t find out tomorrow that it went over.',
                 },
                 style: t.bodyLarge?.copyWith(color: LookUpColors.grey, fontSize: 17),
@@ -140,7 +150,7 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
                 GroupedList(indent: 60, children: [for (final e in rest) _AheadRow(e)]),
               ],
               const SizedBox(height: 22),
-              const _Perks(),
+              const PlusPerkList(),
               const SizedBox(height: 22),
               if (isPlus)
                 const Text('You have LookUp+. Thank you.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey))
@@ -194,6 +204,7 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
                 textAlign: TextAlign.center,
                 style: t.bodySmall?.copyWith(color: LookUpColors.greyDim),
               ),
+              const LegalLinks(),
             ],
           ),
         ),
@@ -317,35 +328,6 @@ class _AheadRow extends StatelessWidget {
       );
 }
 
-/// What LookUp+ adds, as five lines: every alert, then the planning tools
-/// that make it "never miss anything up there".
-class _Perks extends StatelessWidget {
-  const _Perks();
-  @override
-  Widget build(BuildContext context) => Column(children: [
-        for (final (glyph, line) in const [
-          (EventGlyph(icon: Icons.notifications_active_rounded, color: LookUpColors.good, size: 26),
-              'Every alert: live aurora with a wake-me option, Starlink trains, Tiangong and rocket launches'),
-          (EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.violet, size: 26),
-              'Where to go tonight: clearer, darker skies within a drive'),
-          (EventGlyph(icon: Icons.calendar_month_rounded, color: LookUpColors.blue, size: 26),
-              'Plan any of the next 14 nights, not just three'),
-          (EventGlyph(icon: Icons.place_rounded, color: LookUpColors.gold, size: 26),
-              'As many saved places as you like: home, the cabin, the trip'),
-          (EventGlyph(icon: Icons.photo_camera_rounded, color: LookUpColors.cyan, size: 26),
-              'Photo planning: the station crossing the Sun or Moon, and where to stand'),
-        ])
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(children: [
-              glyph,
-              const SizedBox(width: 12),
-              Expanded(child: Text(line, style: const TextStyle(fontSize: 14.5, height: 1.3))),
-            ]),
-          ),
-      ]);
-}
-
 /// One plan, as a card you pick before the single button below.
 class _PlanCard extends StatelessWidget {
   const _PlanCard({required this.offer, required this.selected, required this.onTap, this.monthly});
@@ -432,6 +414,7 @@ class _TrialTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     final steps = [
       (Icons.notifications_active_rounded, 'Today', 'Every alert is on, starting tonight.'),
+      (Icons.notifications_rounded, 'Day 5', 'LookUp reminds you the trial ends in 2 days.'),
       (Icons.event_rounded, 'Day 7', 'Your trial ends and $price a year begins.'),
       (Icons.cancel_outlined, 'Before then', 'Cancel in your $store account and you won\'t be charged.'),
     ];

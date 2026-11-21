@@ -46,7 +46,7 @@ abstract final class StarterSky {
 
   /// A constellation, cluster, galaxy… anything fixed but the Moon and planets.
   static bool isStars(Sighting s) =>
-      s.eventId.startsWith('obj:') && !s.eventId.startsWith('obj:planet:') && s.eventId != 'obj:${SkyId.moon}';
+      s.eventId.startsWith('obj:') && !s.eventId.startsWith('obj:planet:') && !s.eventId.startsWith('obj:${SkyId.moon}');
 
   static ({bool pass, bool planet, bool stars}) progress(Iterable<Sighting> seen) =>
       (pass: seen.any(isPass), planet: seen.any(isPlanet), stars: seen.any(isStars));

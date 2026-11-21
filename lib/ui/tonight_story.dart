@@ -461,7 +461,7 @@ class _EndWords extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final u = upsell;
     void openSky() {
-      ref.read(homeTabProvider.notifier).set(1);
+      ref.read(homeTabProvider.notifier).set(HomeTab.explore);
       Navigator.of(context).maybePop();
     }
 
@@ -480,7 +480,7 @@ class _EndWords extends ConsumerWidget {
       ] else ...[
         Text('That\'s tonight', style: display(34, weight: FontWeight.w700)),
         const SizedBox(height: 8),
-        Text('Everything else up there is in the Sky tab, live, wherever you point your phone.', style: _body),
+        Text('Everything else up there is in Explore, live, wherever you point your phone.', style: _body),
         const SizedBox(height: 22),
         FilledButton(onPressed: openSky, child: const Text('Open the sky')),
       ],

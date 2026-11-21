@@ -8,7 +8,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/local_store.dart';
 import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
+import '../domain/models/settings.dart';
 import '../domain/photo/capture_plan.dart' show offerCatchIt;
+import '../domain/photo/shot_plan.dart' show ShotSubject, subjectForEvent;
 import '../domain/plus/free_plan.dart';
 import '../domain/scheduling/alert_planner.dart' show AlertPlanner;
 import '../domain/sky/direction.dart';
@@ -17,12 +19,13 @@ import '../services/photo_store.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'calendar.dart';
-import 'catch_it_screen.dart';
 import 'caught_it_screen.dart';
 import 'finder_screen.dart';
 import 'paywall_sheet.dart';
 import 'photo_tips.dart';
+import 'pro_camera_screen.dart';
 import 'share_card.dart';
+import 'sky/sky_camera_screen.dart';
 import 'sky/sky_track.dart';
 import 'sky_snapshot.dart';
 import 'format.dart';
@@ -91,7 +94,10 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     }
   }
 
+  /// "No" (and why), to tune the alerts. A "yes" is a catch in the camera,
+  /// except in the demo, which only shows what a catch looks like.
   Future<void> _answer(bool seen, {String? reason}) async {
+    assert(!seen || widget.demo, 'a sighting is logged by catching it with Pip');
     if (widget.demo) {
       setState(() {
         _seen = seen;
@@ -198,12 +204,8 @@ class _LookSheetState extends ConsumerState<LookSheet> {
             const SizedBox(height: 22),
             if (!over && event.details['past'] != true)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: FilledButton.icon(
-                  onPressed: () => openFinder(context, event),
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text('Let Pip show you'),
-                ),
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _PipShowsYou(live: live, onTap: () => openFinder(context, event)),
               ),
             // Seen near you: "Can you see it?" while an aurora could be out.
             if (!widget.demo &&
@@ -212,22 +214,23 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                     lon: ref.watch(settingsProvider).value?.longitude,
                     now: now))
               const SeenItRow(),
-            // Catch it: the phone photographs the pass by itself.
-            if (isPass && offerCatchIt(event.type) && !over && event.details['past'] != true && !widget.demo)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: OutlinedButton.icon(
-                  onPressed: () => openCatchIt(context, event),
-                  icon: const Icon(Icons.camera_rounded),
-                  label: const Text('Photograph it'),
-                ),
-              ),
+            // The Pro camera (LookUp+): Catch it for a pass, the right settings
+            // and a timelapse for everything else. Never for the Sun. Before
+            // it starts, Calendar and Invite sit beside it as tiles.
+            ..._actionTiles(context, place,
+                live: live,
+                over: over,
+                photo: !over && event.details['past'] != true && !widget.demo && _photographable(event, settings: ref.watch(settingsProvider).value)),
             if (widget.demo && over)
               _demoDone(context)
             else if (over || live)
               _feedbackRow(context, place)
-            else
-              _plainRow(context, place),
+            else if (widget.demo)
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Got it'),
+              ),
             if (!widget.demo) _details(context, now, isPass: isPass, showArc: !live, isTransit: isTransit),
           ],
         ),
@@ -244,43 +247,77 @@ class _LookSheetState extends ConsumerState<LookSheet> {
         FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Got it')),
       ]);
 
-  /// Before the event: quiet secondary actions (the demo just needs a way out).
-  Widget _plainRow(BuildContext context, String? place) {
-    if (widget.demo) {
-      return FilledButton.icon(
-        onPressed: () => Navigator.of(context).pop(),
-        icon: const Icon(Icons.check_rounded),
-        label: const Text('Got it'),
-      );
-    }
-    return Row(children: [
-      Expanded(
-        child: OutlinedButton.icon(
-          onPressed: () => addToCalendar(event, place: place),
-          icon: const Icon(Icons.event_rounded, size: 18),
-          label: const Text('Calendar'),
+  /// The things you can do besides look: photograph it (LookUp+), and
+  /// before it starts, put it in the calendar or invite someone. One row of
+  /// tiles that sink when pressed.
+  List<Widget> _actionTiles(BuildContext context, String? place, {required bool live, required bool over, required bool photo}) {
+    final plain = !widget.demo && !live && !over;
+    final plus = ref.watch(settingsProvider).value?.isPlus ?? false;
+    final tiles = <Widget>[
+      // Taking a picture is free: on free it's Pip's camera, straight away,
+      // with no tag and no choice to tap through. The Pro camera (LookUp+)
+      // is mentioned once in a while after a catch (domain/plus/pro_nudge.dart).
+      if (photo)
+        _ActionTile(
+          key: const Key('photograph-it'),
+          icon: Icons.camera_rounded,
+          label: 'Photograph it',
+          color: LookUpColors.violet,
+          onTap: () {
+            final s = ref.read(settingsProvider).value;
+            final target = ShotTarget.ofEvent(event, s?.latitude ?? 0, s?.longitude ?? 0);
+            if (plus && target != null) {
+              openProCamera(context, ref, target);
+            } else {
+              openLiveSkyCamera(context, ref);
+            }
+          },
+        ),
+      if (plain) ...[
+        _ActionTile(
+          key: const Key('add-to-calendar'),
+          icon: Icons.event_rounded,
+          label: 'Calendar',
+          color: LookUpColors.blue,
+          onTap: () => addToCalendar(event, place: place),
+        ),
+        _ActionTile(
+          key: const Key('invite'),
+          icon: Icons.person_add_alt_rounded,
+          label: 'Invite',
+          color: LookUpColors.gold,
+          onTap: () => showShareCard(context, event, mode: ShareMode.invite),
+        ),
+      ],
+    ];
+    if (tiles.isEmpty) return const [];
+    return [
+      Padding(
+        padding: EdgeInsets.only(bottom: plain ? 0 : 14),
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(child: tiles[i]),
+            ],
+          ]),
         ),
       ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: OutlinedButton.icon(
-          onPressed: () => showShareCard(context, event, mode: ShareMode.invite),
-          icon: const Icon(Icons.person_add_alt_rounded, size: 18),
-          label: const Text('Invite'),
-        ),
-      ),
-    ]);
+    ];
   }
 
   /// Everything that isn't "where and when", folded away: the arc or the
   /// numbers, brightness and cloud, who's aboard, photo tips.
   Widget _details(BuildContext context, DateTime now,
       {required bool isPass, required bool showArc, required bool isTransit}) {
+    // Nerd mode opens the details and adds the exact numbers.
+    final nerd = ref.watch(settingsProvider).value?.nerdMode ?? false;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          initiallyExpanded: nerd,
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(bottom: 4),
           title: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -293,6 +330,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
             const Divider(),
             const SizedBox(height: 18),
             _DirectionDetail(event: event, isPass: isPass),
+            if (nerd) ...[const SizedBox(height: 14), _NerdNumbers(event)],
             const SizedBox(height: 18),
             if (isPass && showArc)
               Semantics(
@@ -374,14 +412,29 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     if (_seen == false) {
       return const Text('Thanks. We\'ll be pickier next time.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey));
     }
+    // A sighting goes in the Log by catching it with Pip in the camera, so
+    // "yes" opens the camera; "no" is still asked, to tune the alerts.
+    final over = !DateTime.now().toUtc().isBefore(event.end);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Did you see it?', textAlign: TextAlign.center, style: display(22, weight: FontWeight.w700)),
+      Text(over ? 'Did you see it?' : 'Is it up?', textAlign: TextAlign.center, style: display(22, weight: FontWeight.w700)),
       const SizedBox(height: 12),
       Row(children: [
-        Expanded(child: OutlinedButton(onPressed: () => _answer(false), child: const Text('No'))),
-        const SizedBox(width: 12),
-        Expanded(child: FilledButton(onPressed: () => _answer(true), child: const Text('Yes!'))),
+        Expanded(child: OutlinedButton(onPressed: () => _answer(false), child: Text(over ? 'No' : 'Can\'t see it'))),
+        if (!over || widget.demo) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton(
+              onPressed: () => widget.demo ? _answer(true) : openLiveSkyCamera(context, ref),
+              child: const Text('Catch it with Pip'),
+            ),
+          ),
+        ],
       ]),
+      if (over && !widget.demo) ...[
+        const SizedBox(height: 10),
+        const Text('Saw it? Next time, catch it with Pip while it\'s up to keep it in your Log.',
+            textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey, fontSize: 13.5, height: 1.4)),
+      ],
     ]);
   }
 }
@@ -392,6 +445,112 @@ double _lookWord0(SkyEvent e, {required bool isAurora, required bool isPass}) =>
 
 String _lookWord(SkyEvent e, {required bool isAurora, required bool isPass}) =>
     compassWord(_lookWord0(e, isAurora: isAurora, isPass: isPass));
+
+/// The way into the live sky camera: Pip itself, awake, on a card that
+/// says what it'll do. Pip squishes the moment you touch it.
+class _PipShowsYou extends StatefulWidget {
+  const _PipShowsYou({required this.live, required this.onTap});
+  final bool live;
+  final VoidCallback onTap;
+
+  @override
+  State<_PipShowsYou> createState() => _PipShowsYouState();
+}
+
+class _PipShowsYouState extends State<_PipShowsYou> {
+  int _pokes = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = BorderRadius.circular(Radii.lg);
+    return Pressable(
+      key: const Key('pip-show-you'),
+      semanticLabel: 'Let Pip show you',
+      pressedScale: 0.97,
+      onDown: () => setState(() => _pokes++),
+      onTap: widget.onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: r,
+          border: Border.all(color: LookUpColors.good.withValues(alpha: 0.35)),
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [LookUpColors.good.withValues(alpha: 0.22), LookUpColors.good.withValues(alpha: 0.06)],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
+          child: Row(children: [
+            ExcludeSemantics(child: PipMark(size: 76, poke: _pokes)),
+            const SizedBox(width: 2),
+            Expanded(
+              child: ExcludeSemantics(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Let Pip show you', style: display(18, weight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.live ? 'It\'s up. Hold your phone up and follow Pip to it.' : 'Hold your phone up. Pip leads you to the spot.',
+                    style: const TextStyle(color: LookUpColors.grey, fontSize: 13.5, height: 1.3),
+                  ),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(color: LookUpColors.good, shape: BoxShape.circle),
+              child: const Icon(Icons.arrow_forward_rounded, size: 20, color: LookUpColors.black),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// One thing to do, as a tile: a tinted circle with the icon, the word
+/// under it.
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({super.key, required this.icon, required this.label, required this.color, required this.onTap});
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Pressable(
+        semanticLabel: label,
+        onTap: onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: LookUpColors.glass,
+            borderRadius: BorderRadius.circular(Radii.md),
+            border: Border.all(color: LookUpColors.line),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+            child: ExcludeSemantics(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.16), shape: BoxShape.circle),
+                  child: Icon(icon, size: 22, color: color),
+                ),
+                const SizedBox(height: 8),
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
 
 /// Pip is the guide: hovering in the countdown ring, with the direction as
 /// words. No dial; the compass lives behind Details for anyone who wants it.
@@ -425,6 +584,28 @@ class _PipGuide extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Nerd mode's exact numbers: positions to a tenth of a degree, times to
+/// the second, the magnitude.
+class _NerdNumbers extends StatelessWidget {
+  const _NerdNumbers(this.e);
+  final SkyEvent e;
+
+  @override
+  Widget build(BuildContext context) {
+    final mag = e.details['magnitude'];
+    final style = numeric(size: 13, color: LookUpColors.grey);
+    return Column(key: const Key('nerd-numbers'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final line in [
+        'Start ${fmtTimeSeconds(e.start)} · ${nerdPosition(e.riseAzimuthDeg, 0).split(' · ').first}',
+        'Peak ${fmtTimeSeconds(e.peak)} · ${nerdPosition(e.peakAzimuthDeg, e.peakElevationDeg)}',
+        'End ${fmtTimeSeconds(e.end)} · ${nerdPosition(e.setAzimuthDeg, 0).split(' · ').first}',
+        'Lasts ${e.end.difference(e.start).inSeconds} s${mag is num ? ' · ${nerdMagnitude(mag)}' : ''}',
+      ])
+        Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(line, textAlign: TextAlign.center, style: style)),
+    ]);
   }
 }
 
@@ -642,4 +823,14 @@ class _LandmarksState extends ConsumerState<_Landmarks> {
       ]),
     );
   }
+}
+
+/// Whether the Pro camera has something to photograph for [e]: a pass when
+/// Catch it is on, anything else with a subject (never the Sun), once the
+/// app knows where you are.
+bool _photographable(SkyEvent e, {LookUpSettings? settings}) {
+  if (settings?.latitude == null) return false;
+  final s = subjectForEvent(e.type);
+  if (s == null) return false;
+  return s != ShotSubject.pass || offerCatchIt(e.type);
 }

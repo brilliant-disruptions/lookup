@@ -70,8 +70,11 @@ class SkyThing {
     final s = sighting;
     final peak = s != null && s.best.isAfter(n) ? s.best : n;
     final h = s != null && peak == s.best ? null : position(n);
+    // The Moon changes night to night, so each night's is its own catch
+    // (the Moon-phase patch needs them all); everything else is one thing.
+    final night = n.toLocal().subtract(const Duration(hours: 12));
     return SkyEvent(
-      id: 'obj:$id',
+      id: id == SkyId.moon ? 'obj:$id:${night.year}${night.month.toString().padLeft(2, '0')}${night.day.toString().padLeft(2, '0')}' : 'obj:$id',
       type: SkyEventType.skyObject,
       start: n,
       peak: peak,

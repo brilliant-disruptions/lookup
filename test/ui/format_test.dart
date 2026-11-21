@@ -9,4 +9,14 @@ void main() {
     expect(fmtAppears(Duration.zero), 'Appearing now');
     expect(fmtAppears(const Duration(seconds: -3)), 'Appearing now');
   });
+
+  test('nerd mode numbers: a tenth of a degree, a real minus, RA in hours', () {
+    expect(nerdPosition(182.44, 24.06), 'Az 182.4° · Alt 24.1°');
+    expect(nerdPosition(-10, -2), 'Az 350.0° · Alt \u22122.0°');
+    expect(nerdMagnitude(-3.14), 'Mag \u22123.1');
+    expect(nerdMagnitude(0.6), 'Mag 0.6');
+    // Betelgeuse: RA 88.79°, Dec +7.41°.
+    expect(nerdRaDec(88.79, 7.41), 'RA 5h 55.2m · Dec 7.4°');
+    expect(nerdRaDec(83.82, -5.39), 'RA 5h 35.3m · Dec \u22125.4°');
+  });
 }

@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
 import '../domain/log/sighting.dart';
-import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
 import 'format.dart';
+import 'badges/badge_board.dart';
+import 'keep_catch.dart';
 import 'kit/kit.dart';
 import 'settings_screen.dart';
 import 'theme.dart';
@@ -70,10 +71,16 @@ class _LogScreenState extends ConsumerState<LogScreen> {
               if (l.total == 0)
                 const Padding(
                   padding: EdgeInsets.fromLTRB(4, 20, 4, 0),
-                  child: Text(
-                    'Nothing logged yet. After each event LookUp asks "Did you see it?". Every yes lands here.',
-                    style: TextStyle(color: LookUpColors.grey, height: 1.45),
-                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Text(
+                      'Nothing caught yet. Tap Pip, follow it to something in the sky, and tap Pip again to catch it. Every catch lands here.',
+                      style: TextStyle(color: LookUpColors.grey, height: 1.45),
+                    ),
+                    SizedBox(height: 12),
+                    Text('New phone? Your catches are still in your LookUp album.', style: TextStyle(color: LookUpColors.grey, fontSize: 13.5)),
+                    SizedBox(height: 8),
+                    BringBackCatches(),
+                  ]),
                 ),
               const SizedBox(height: 24),
               SegmentedTabs(
@@ -88,7 +95,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                   for (final s in l.seen.take(50))
                     ListRow(
                       onTap: () => _showSighting(context, ref, s),
-                      leading: _Thumb(s.photo, type: s.inferredType),
+                      leading: _Thumb(s.photo, asset: s.photoAsset, type: s.inferredType),
                       title: _typeLabel(s.inferredType),
                       subtitle: [
                         fmtDay(s.eventTime ?? s.at),
@@ -98,16 +105,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                     ),
                 ])
               else if (_tab == 1)
-                GridView.count(
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  padding: EdgeInsets.zero,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.78,
-                  children: [for (final (i, b) in l.badges.indexed) Rise(index: i, child: _BadgeTile(b))],
-                ),
+                BadgeBoard(log: l),
             ],
           ),
         ),
@@ -170,73 +168,17 @@ class _LogScreenState extends ConsumerState<LogScreen> {
       };
 }
 
-class _BadgeTile extends StatelessWidget {
-  const _BadgeTile(this.b);
-  final Badge b;
-  @override
-  Widget build(BuildContext context) {
-    final earned = b.earned;
-    return Semantics(
-      label: '${b.title}${earned ? ', earned' : ', not yet earned'}. ${b.description}',
-      excludeSemantics: true,
-      child: Container(
-        decoration: BoxDecoration(
-          color: LookUpColors.glass,
-          borderRadius: BorderRadius.circular(Radii.lg),
-          border: Border.all(color: earned ? LookUpColors.gold.withValues(alpha: 0.35) : LookUpColors.line),
-        ),
-        padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
-        child: Column(children: [
-          EventGlyph(
-            icon: earned ? Icons.workspace_premium_rounded : Icons.lock_outline_rounded,
-            color: earned ? LookUpColors.gold : LookUpColors.greyDim,
-            size: 40,
-          ),
-          const SizedBox(height: 10),
-          Text(b.title,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                  letterSpacing: -0.2,
-                  color: earned ? LookUpColors.white : LookUpColors.grey)),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Text(b.description,
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, height: 1.3, color: LookUpColors.greyDim)),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
 /// A small square of the sighting's photo, or nothing.
 class _Thumb extends StatelessWidget {
-  const _Thumb(this.name, {this.type});
-  final String? name;
+  const _Thumb(this.name, {this.asset, this.type});
+  final String? name, asset;
   final SkyEventType? type;
   @override
   Widget build(BuildContext context) {
-    if (name == null) return EventGlyph.forType(type, size: 40);
-    return FutureBuilder(
-      future: const PhotoStore().fileFor(name),
-      builder: (context, snap) => ClipRRect(
-        borderRadius: BorderRadius.circular(Radii.sm),
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: snap.data == null
-              ? const ColoredBox(color: LookUpColors.panelRaised)
-              : Image.file(snap.data!, fit: BoxFit.cover, cacheWidth: 120),
-        ),
-      ),
+    if (name == null && asset == null) return EventGlyph.forType(type, size: 40);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(Radii.sm),
+      child: SizedBox(width: 40, height: 40, child: SightingPicture(photo: name, asset: asset)),
     );
   }
 }
@@ -251,6 +193,7 @@ class _SightingSheet extends ConsumerStatefulWidget {
 
 class _SightingSheetState extends ConsumerState<_SightingSheet> {
   late String? _photo = widget.s.photo;
+  late String? _asset = widget.s.photoAsset;
 
   Future<void> _pick() async {
     try {
@@ -260,7 +203,12 @@ class _SightingSheetState extends ConsumerState<_SightingSheet> {
       await ref.read(storeProvider).setPhoto(widget.s.eventId, name);
       if (old != null) await const PhotoStore().delete(old);
       ref.invalidate(skyLogProvider);
-      if (mounted) setState(() => _photo = name);
+      if (mounted) {
+        setState(() {
+          _photo = name;
+          _asset = null;
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -287,13 +235,7 @@ class _SightingSheetState extends ConsumerState<_SightingSheet> {
             if (s.place != null && s.place!.isNotEmpty) s.place!,
           ].join(' · '), style: numeric(size: 14, color: LookUpColors.grey)),
           const SizedBox(height: 16),
-          if (_photo != null)
-            FutureBuilder(
-              future: const PhotoStore().fileFor(_photo),
-              builder: (context, snap) => snap.data == null
-                  ? const SizedBox(height: 200)
-                  : ClipRRect(borderRadius: BorderRadius.circular(Radii.lg), child: Image.file(snap.data!, fit: BoxFit.cover)),
-            ),
+          if (_photo != null || _asset != null) SightingPicture(photo: _photo, asset: _asset, large: true),
           const SizedBox(height: 14),
           OutlinedButton.icon(
             onPressed: _pick,

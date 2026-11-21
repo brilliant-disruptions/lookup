@@ -19,7 +19,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../data/local_store.dart';
 import '../domain/finder/pointing.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/photo/camera.dart';
@@ -34,7 +33,7 @@ import '../services/capture/plugin_capture.dart';
 import '../services/capture/practice_capture.dart';
 import '../services/capture/stack_runner.dart';
 import '../services/orientation.dart';
-import '../services/photo_store.dart';
+import 'keep_catch.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'caught_it_screen.dart';
@@ -415,7 +414,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
   String get _caption => '$_photoTitle · ${fmtTime(_photoTime)}${_place == null ? '' : ' · $_place'}';
 
   /// The picture with its caption along the bottom, as a PNG.
-  Future<List<int>?> _png() async {
+  Future<Uint8List?> _png() async {
     final img = _result;
     if (img == null) return null;
     final w = img.width.toDouble(), h = img.height.toDouble();
@@ -449,11 +448,8 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
     final bytes = await _png();
     if (bytes == null || !mounted) return;
     try {
-      final name = await const PhotoStore().saveBytes(e.id, bytes);
-      final store = ref.read(storeProvider);
-      await store.addFeedback(SeenFeedback.forEvent(e, seen: true, place: _place));
-      await store.setPhoto(e.id, name);
-      ref.invalidate(skyLogProvider);
+      await keepCatch(context, ref, event: e, png: bytes, title: _photoTitle, at: _photoTime, place: _place);
+      if (!mounted) return;
       setState(() => _saved = true);
       if (mounted) await showCaughtIt(context, e);
     } catch (_) {

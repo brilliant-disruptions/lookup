@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/sky_event.dart';
 import '../../domain/plan/night_plan.dart';
+import '../../domain/plus/free_plan.dart';
 import '../../domain/sky/calendar.dart';
 import '../../domain/sky/catalog.dart';
 import '../../domain/sky/history.dart';
@@ -11,6 +12,7 @@ import '../../state/providers.dart';
 import '../../state/sky_state.dart';
 import '../format.dart';
 import '../look_sheet.dart';
+import '../paywall_sheet.dart';
 import '../kit/kit.dart';
 import '../places_screen.dart';
 import '../settings_screen.dart';
@@ -69,16 +71,38 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
         _selected = null;
       });
 
+  /// Whether a day step that way stays in reach: a week either side of now
+  /// while the sky through history is hidden.
+  bool _canStep(DateTime now, int days) {
+    if (skyThroughHistory) return true;
+    final to = (_anchor ?? now.toUtc()).add(Duration(days: days));
+    return to.difference(now.toUtc()).abs() <= const Duration(days: FreePlan.historyDays, hours: 1);
+  }
+
   /// A day either way, staying inside 3000 BC – 3000 AD.
   void _step(DateTime now, int days) {
     final to = (_anchor ?? now.toUtc()).add(Duration(days: days));
     if (to.isBefore(skyTimeFirst) || to.isAfter(skyTimeLast)) return;
+    if (!_canStep(now, days)) return;
+    // Free goes a week either side of now (FreePlan.canVisit); past that is
+    // LookUp+, asked for here because they chose to go further.
+    if (!FreePlan.canVisit(to, DateTime.now(), isPlus: hasPlus(context))) {
+      showPaywall(context, feature: PlusFeature.history);
+      return;
+    }
     setState(() => _anchor = to);
   }
 
   Future<void> _travel(DateTime at, double lon) async {
-    final go = await showTimeTravelSheet(context, at: at, lonDeg: lon);
+    final plus = hasPlus(context);
+    final go = await showTimeTravelSheet(context, at: at, lonDeg: lon, isPlus: plus);
     if (go == null || !mounted) return;
+    final n = go.night;
+    final free = n != null ? FreePlan.canVisitFamous(n.id, isPlus: plus) : FreePlan.canVisit(go.utc, DateTime.now(), isPlus: plus);
+    if (!free) {
+      await showPaywall(context, feature: PlusFeature.history);
+      return;
+    }
     setState(() {
       _night = go.night;
       _minutes = 0;
@@ -112,7 +136,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppHeader(
-        title: const Text('Sky'),
+        title: const Text('Explore'),
         place: _night?.place ?? place,
         onPlaceTap: () => openPlaces(context),
         actions: [
@@ -245,9 +269,11 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                 minutes: _minutes,
                 onMinutes: (m) => setState(() => _minutes = m),
                 onStep: (d) => _step(now, d),
+                canBack: _canStep(now, -1),
+                canForward: _canStep(now, 1),
                 live: !later && night == null,
                 onNow: _backToNow,
-                onPickDate: () => _travel(at, lon),
+                onPickDate: skyThroughHistory ? () => _travel(at, lon) : null,
                 skyThen: skyThen,
                 at: at,
                 lon: lon,
@@ -331,6 +357,12 @@ SkyThing _starThing(Star star, double lat, double lon) => SkyThing(
       finder: {'ra': star.raDeg, 'dec': star.decDeg},
     );
 
+/// The sky through history ("Any night", the famous nights, and Day steps
+/// past a week) is hidden for now: it isn't what people come for. The maths
+/// and its tests stay (`domain/sky/history.dart`, `history_test.dart`);
+/// set this to bring it back, with its LookUp+ gate.
+const skyThroughHistory = false;
+
 /// Move the map through time: the slider for tonight ("cloudy now, but
 /// clear at 3 AM: will Saturn be up then?"), a day at a time either way, or
 /// any night from 3000 BC to 3000 AD, famous ones included. Says the
@@ -343,6 +375,8 @@ class _TimeTravel extends StatelessWidget {
     required this.live,
     required this.onNow,
     required this.onPickDate,
+    this.canBack = true,
+    this.canForward = true,
     required this.at,
     required this.lon,
     this.skyThen,
@@ -352,7 +386,9 @@ class _TimeTravel extends StatelessWidget {
   final ValueChanged<int> onStep;
   final bool live;
   final VoidCallback onNow;
-  final VoidCallback onPickDate;
+  /// Null hides "Any night" (while the sky through history is hidden).
+  final VoidCallback? onPickDate;
+  final bool canBack, canForward;
   final DateTime at;
   final double lon;
   final String? skyThen;
@@ -380,17 +416,18 @@ class _TimeTravel extends StatelessWidget {
         // Wraps to two lines on narrow phones rather than overflowing.
         Wrap(alignment: WrapAlignment.center, children: [
           TextButton.icon(
-            onPressed: () => onStep(-1),
+            onPressed: canBack ? () => onStep(-1) : null,
             icon: const Icon(Icons.chevron_left_rounded, size: 18),
             label: const Text('Day', style: small),
           ),
-          TextButton.icon(
-            onPressed: onPickDate,
-            icon: const Icon(Icons.history_edu_rounded, size: 18),
-            label: const Text('Any night', style: small),
-          ),
+          if (onPickDate != null)
+            TextButton.icon(
+              onPressed: onPickDate,
+              icon: const Icon(Icons.history_edu_rounded, size: 18),
+              label: const Text('Any night', style: small),
+            ),
           TextButton(
-            onPressed: () => onStep(1),
+            onPressed: canForward ? () => onStep(1) : null,
             child: const Row(mainAxisSize: MainAxisSize.min, children: [
               Text('Day', style: small),
               SizedBox(width: 4),
@@ -402,7 +439,9 @@ class _TimeTravel extends StatelessWidget {
         Text(
           [
             skyThen == null
-                ? 'Slide through tonight, or go to any night from 3000 BC to 3000 AD.'
+                ? (onPickDate == null
+                    ? 'Slide through tonight, or step a day at a time, up to a week either way.'
+                    : 'Slide through tonight, or go to any night from 3000 BC to 3000 AD.')
                 : 'Sky at $when: ${skyThen!.toLowerCase()}. Tap anything to see if you could spot it then.',
             if (rough) 'This long ago the Moon can be a degree or two out; the stars and planets hold.',
           ].join(' '),

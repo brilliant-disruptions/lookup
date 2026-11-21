@@ -10,8 +10,11 @@ import 'package:path_provider/path_provider.dart';
 class PhotoStore {
   const PhotoStore();
 
+  /// Where tests keep pictures (no app folder there).
+  static Directory? testDir;
+
   static Future<Directory> _dir() async {
-    final d = Directory('${(await getApplicationDocumentsDirectory()).path}/sightings');
+    final d = Directory('${(testDir ?? await getApplicationDocumentsDirectory()).path}/sightings');
     if (!await d.exists()) await d.create(recursive: true);
     return d;
   }

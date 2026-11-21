@@ -28,7 +28,8 @@ void main() {
     expect(m.isFirst, isTrue);
     expect(m.countLine, 'Your first sighting');
     expect(m.nthOfType, 1);
-    expect([for (final b in m.newBadges) b.id], ['first-light']);
+    expect([for (final b in m.newBadges) b.id], ['first-light', 'station-spotter'], reason: 'a first pass is bronze Station spotter too');
+    expect(m.newBadges.last.fullTitle, 'Station spotter · Bronze');
   });
 
   test('counts this sighting among all and among its kind, ignoring the nos', () {

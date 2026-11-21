@@ -7,13 +7,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/log/catch_moment.dart';
 import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/photo/shot_plan.dart' show ShotSubject, subjectForEvent;
+import '../domain/plus/free_plan.dart' show PlusFeature;
+import '../domain/plus/nudges.dart';
+import '../domain/plus/pro_nudge.dart';
 import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
+import 'badges/badge_board.dart';
 import 'kit/kit.dart';
-import 'paywall_sheet.dart';
+import 'review_prompt.dart';
 import 'share_card.dart';
+import 'soft_asks.dart';
 import 'theme.dart';
 
 /// The moment someone says "Yes, I saw it". It used to be one line on the
@@ -24,9 +30,10 @@ import 'theme.dart';
 /// For someone on free with a Plus-only sight really coming (Tiangong, a
 /// Starlink train), this is also where LookUp+ is offered: once, for that
 /// dated thing, at the moment they've just felt what a tap is worth.
-Future<void> showCaughtIt(BuildContext context, SkyEvent event, {bool demo = false, Future<void> Function()? onAddPhoto}) {
+Future<void> showCaughtIt(BuildContext context, SkyEvent event, {bool demo = false, Future<void> Function()? onAddPhoto}) async {
   HapticFeedback.heavyImpact();
-  return Navigator.of(context).push(
+  final container = ProviderScope.containerOf(context, listen: false);
+  await Navigator.of(context).push(
     PageRouteBuilder<void>(
       opaque: true,
       transitionDuration: const Duration(milliseconds: 420),
@@ -41,6 +48,8 @@ Future<void> showCaughtIt(BuildContext context, SkyEvent event, {bool demo = fal
       ),
     ),
   );
+  // After the celebration, never during it; never for a preview.
+  if (!demo) await askForReviewIfDue(container);
 }
 
 class CaughtItScreen extends ConsumerWidget {
@@ -64,7 +73,7 @@ class CaughtItScreen extends ConsumerWidget {
     final alertsOn = ref.watch(alertsEnabledProvider).value != false;
     final CatchMoment? m;
     if (demo) {
-      m = CatchMoment(nth: 1, nthOfType: 1, newBadges: [SkyLog.from(const []).badges.first], next: null, nextPlus: null);
+      m = CatchMoment(nth: 1, nthOfType: 1, newBadges: [SkyLog.from(const []).badges.firstWhere((b) => b.id == 'first-light')], next: null, nextPlus: null);
     } else {
       final log = ref.watch(skyLogProvider).value;
       m = log == null ? null : CatchMoment.of(log: log, eventId: event.id, upcoming: events, now: DateTime.now(), isPlus: isPlus);
@@ -169,7 +178,9 @@ class CaughtItScreen extends ConsumerWidget {
                                 ),
                               ),
                             ],
-                            if (m.nextPlus != null) ...[const SizedBox(height: 14), Rise(index: 5, child: _PlusCard(event: m.nextPlus!))],
+                            // One offer per moment, within the shared budget: a dated sight
+                            // free won't tap them for, else what the Pro camera would do.
+                            if (!demo) _CaughtAsk(nextPlus: m.nextPlus, subject: subjectForEvent(event.type), catches: m.nth),
                           ],
                         ],
                       ),
@@ -368,27 +379,18 @@ class _BadgeUnlocked extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const RadialGradient(colors: [Color(0xFFFFE6A6), LookUpColors.gold]),
-              boxShadow: [BoxShadow(color: LookUpColors.gold.withValues(alpha: 0.45), blurRadius: 18)],
-            ),
-            child: const Icon(Icons.military_tech_rounded, color: Color(0xFF5A3D00), size: 26),
-          ),
+          PatchArrives(key: Key('unlocked-${badge.id}'), b: badge, size: 64, delay: Duration(milliseconds: 350 + 200 * index), animate: animate),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Badge unlocked',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: LookUpColors.gold),
+                Text(
+                  badge.tier != null && badge.steps.length > 1 ? 'Up a level' : 'New patch',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: LookUpColors.gold),
                 ),
                 const SizedBox(height: 2),
-                Text(badge.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(badge.fullTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 Text(badge.description, style: const TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.3)),
               ],
             ),
@@ -447,11 +449,11 @@ class _NextCard extends StatelessWidget {
 }
 
 /// The one LookUp+ offer: a real, dated Plus-only sight free won't tap for.
-class _PlusCard extends StatelessWidget {
+class _PlusCard extends ConsumerWidget {
   const _PlusCard({required this.event});
   final SkyEvent event;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tint = eventStyle(event.type, details: event.details).color;
     return GlassCard(
       tint: tint,
@@ -481,7 +483,7 @@ class _PlusCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           OutlinedButton(
-            onPressed: () => showPaywall(context, reason: event),
+            onPressed: () => openSoftPaywall(context, ref, reason: event),
             style: OutlinedButton.styleFrom(
               foregroundColor: LookUpColors.white,
               side: BorderSide(color: tint.withValues(alpha: 0.6)),
@@ -489,6 +491,103 @@ class _PlusCard extends StatelessWidget {
             child: const Text('Get the tap with LookUp+'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// After a catch, at most one LookUp+ offer, decided once when the screen
+/// opens and held to the shared budget (domain/plus/nudges.dart): a dated
+/// Plus-only sight coming over them, else the Pro camera line
+/// (domain/plus/pro_nudge.dart: never the first catch, never a pass, weekly,
+/// never after two "Not now"s). Showing the Pro line is remembered.
+class _CaughtAsk extends ConsumerStatefulWidget {
+  const _CaughtAsk({required this.nextPlus, required this.subject, required this.catches});
+  final SkyEvent? nextPlus;
+  final ShotSubject? subject;
+  final int catches;
+  @override
+  ConsumerState<_CaughtAsk> createState() => _CaughtAskState();
+}
+
+class _CaughtAskState extends ConsumerState<_CaughtAsk> {
+  SoftAsk? _ask;
+  bool _show = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = ref.read(settingsProvider).value;
+    if (s == null) return;
+    final now = DateTime.now();
+    if (widget.nextPlus != null && softAskAllowed(ref, SoftAsk.caughtSight, s, now: now)) {
+      _ask = SoftAsk.caughtSight;
+    } else if (widget.subject case final subject?
+        when softAskAllowed(ref, SoftAsk.proTip, s, now: now) &&
+            showProNudge(
+              isPlus: s.isPlus,
+              subject: subject,
+              catches: widget.catches,
+              now: now,
+              lastShown: s.proNudgeAt,
+              notNow: s.proNudgeNotNow,
+            )) {
+      _ask = SoftAsk.proTip;
+      WidgetsBinding.instance.addPostFrameCallback(
+          (_) => ref.read(settingsProvider.notifier).edit((s) => s.copyWith(proNudgeAt: DateTime.now().toUtc())));
+    }
+    _show = _ask != null;
+    if (_ask case final a?) claimSoftAsk(ref, a);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_show) return const SizedBox.shrink();
+    if (_ask == SoftAsk.caughtSight) {
+      return Padding(padding: const EdgeInsets.only(top: 14), child: Rise(index: 5, child: _PlusCard(event: widget.nextPlus!)));
+    }
+    final subject = widget.subject!;
+    return Padding(
+      key: const Key('pro-tip'),
+      padding: const EdgeInsets.only(top: 14),
+      child: Rise(
+        index: 5,
+        child: GlassCard(
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: LookUpColors.violet.withValues(alpha: 0.16), shape: BoxShape.circle),
+                child: const Icon(Icons.camera_rounded, size: 20, color: LookUpColors.violet),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(proNudgeLine(subject),
+                    style: const TextStyle(fontSize: 14, color: LookUpColors.grey, height: 1.35)),
+              ),
+            ]),
+            // Wraps rather than overflows with big text.
+            Wrap(alignment: WrapAlignment.end, children: [
+              TextButton(
+                key: const Key('pro-tip-not-now'),
+                onPressed: () {
+                  setState(() => _show = false);
+                  ref.read(settingsProvider.notifier).edit((s) => s.copyWith(proNudgeNotNow: s.proNudgeNotNow + 1));
+                  declineSoftAsk(ref);
+                },
+                style: TextButton.styleFrom(foregroundColor: LookUpColors.grey),
+                child: const Text('Not now'),
+              ),
+              TextButton(
+                key: const Key('pro-tip-see'),
+                onPressed: () => openSoftPaywall(context, ref, feature: PlusFeature.camera),
+                child: const Text('See the Pro camera'),
+              ),
+            ]),
+          ]),
+        ),
       ),
     );
   }

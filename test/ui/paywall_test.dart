@@ -90,6 +90,14 @@ void main() {
     expect(find.text('Tiangong flyover'), findsOneWidget);
     expect(find.text('No alert on free'), findsOneWidget);
 
+    // Everything LookUp+ adds, from the one list the onboarding offer uses too.
+    for (final line in ['The Pro camera', 'Timelapses that start', 'Where to go tonight']) {
+      expect(find.textContaining(line), findsOneWidget, reason: line);
+    }
+    expect(find.textContaining('3000 BC'), findsNothing, reason: 'the sky through history isn\'t what LookUp+ is sold on');
+    expect(find.byKey(const Key('terms-link')), findsOneWidget);
+    expect(find.byKey(const Key('privacy-link')), findsOneWidget);
+
     // Yearly is picked, priced per month and against monthly, trial spelled out.
     expect(find.text(r'≈ $2.50 a month'), findsOneWidget);
     expect(find.text('Save 58%'), findsOneWidget);

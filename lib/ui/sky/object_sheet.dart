@@ -1,16 +1,16 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/local_store.dart';
 import '../../domain/sky/direction.dart';
 import '../../domain/sky/visibility.dart';
 import '../../state/providers.dart';
 import '../../state/sky_state.dart';
-import '../caught_it_screen.dart';
 import '../finder_screen.dart';
 import '../format.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
+import '../pro_camera_screen.dart';
+import 'sky_camera_screen.dart';
 import 'sky_thing.dart';
 
 Future<void> showObjectSheet(BuildContext context, SkyThing thing, {DateTime? at, (double, double)? place}) =>
@@ -37,20 +37,10 @@ class ObjectSheet extends ConsumerStatefulWidget {
 }
 
 class _ObjectSheetState extends ConsumerState<ObjectSheet> {
-  bool _logged = false;
+  /// Touches on the big Pip: each one squishes it.
+  int _pokes = 0;
 
   SkyThing get t => widget.thing;
-
-  Future<void> _found() async {
-    final s = ref.read(settingsProvider).value;
-    if (s?.latitude == null) return;
-    final e = t.asEvent(DateTime.now(), s!.latitude!, s.longitude!);
-    await ref.read(storeProvider).addFeedback(SeenFeedback.forEvent(e, seen: true, place: s.placeName));
-    ref.invalidate(skyLogProvider);
-    if (!mounted) return;
-    setState(() => _logged = true);
-    await showCaughtIt(context, e);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +137,13 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
             ),
           const SizedBox(height: 18),
           if (then != null ? upThen : t.whyNot == null && (upNow || sight != null)) ...[
-            Center(child: PipMark(size: 112)),
+            Center(
+              child: GestureDetector(
+                key: const Key('object-pip'),
+                onTapDown: (_) => setState(() => _pokes++),
+                child: PipMark(size: 112, poke: _pokes),
+              ),
+            ),
             const SizedBox(height: 10),
             Text(
               '${then != null ? 'At ${fmtSkyMoment(then, away?.$2 ?? s?.longitude ?? 0)}' : upNow ? 'Now' : 'At ${fmtTime(sight!.best)}'}: look ${compassWord(az)}, ${elevationWord(alt)}.',
@@ -165,6 +161,20 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
             if (t.rise != null) Pill('Rises ${fmtTime(t.rise!)}', icon: Icons.north_east_rounded, color: LookUpColors.grey),
             if (t.set != null) Pill('Sets ${fmtTime(t.set!)}', icon: Icons.south_east_rounded, color: LookUpColors.grey),
           ]),
+          // Nerd mode: where it is now, exactly, and how bright.
+          if (s?.nerdMode ?? false) ...[
+            const SizedBox(height: 12),
+            Text(
+              [
+                nerdPosition(h.azimuthDeg, h.altitudeDeg),
+                nerdMagnitude(t.mag),
+                if (t.finder case {'ra': final num ra, 'dec': final num dec}) nerdRaDec(ra, dec),
+              ].join('\n'),
+              key: const Key('nerd-numbers'),
+              textAlign: TextAlign.center,
+              style: numeric(size: 13, color: LookUpColors.grey),
+            ),
+          ],
           const SizedBox(height: 22),
           if (s?.latitude != null && t.whyNot == null)
             FilledButton.icon(
@@ -172,14 +182,25 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
               icon: const Icon(Icons.auto_awesome_rounded),
               label: const Text('Let Pip show you'),
             ),
-          if (upNow)
-            Center(
-              child: TextButton.icon(
-                onPressed: _logged ? null : _found,
-                icon: Icon(_logged ? Icons.check_rounded : Icons.auto_awesome_rounded, size: 18),
-                label: Text(_logged ? 'In your log' : 'I found it'),
+          // Into the Log by catching it with Pip in the camera, nowhere else;
+          // or the Pro camera (LookUp+) for a proper photograph or a timelapse.
+          if (upNow || t.rise != null)
+            Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
+              if (upNow)
+                TextButton.icon(
+                  onPressed: () => openLiveSkyCamera(context, ref),
+                  icon: const Icon(Icons.photo_camera_rounded, size: 18),
+                  label: const Text('Catch it with Pip'),
+                ),
+              TextButton.icon(
+                key: const Key('photograph-it'),
+                onPressed: () => openProCamera(context, ref, ShotTarget.ofThing(t)),
+                icon: const Icon(Icons.camera_rounded, size: 18),
+                // Free: "Catch it with Pip" is the picture; only the Pro camera is paid,
+                // so say that, not that photographs are.
+                label: Text((s?.isPlus ?? false) ? 'Photograph it' : 'Pro camera · LookUp+'),
               ),
-            ),
+            ]),
         ]),
       ),
     );

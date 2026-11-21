@@ -72,15 +72,30 @@ void main() {
     expect(weekNights(const [], now).first.cloudy, isFalse);
   });
 
-  test('the calendar is two weeks from this Monday, earlier days past and empty', () {
-    final days = calendarNights([ev('iss:a', SkyEventType.iss, DateTime(2026, 10, 30, 18, 41))], now);
-    expect(days, hasLength(14));
-    expect(days.first.date, DateTime(2026, 10, 26)); // Monday
-    expect(days.first.date.weekday, DateTime.monday);
-    expect(days.where((d) => d.past).map((d) => d.date.day), [26, 27, 28, 29]);
-    final tonight = days.firstWhere((d) => d.date == DateTime(2026, 10, 30));
-    expect(tonight.past, isFalse);
-    expect(tonight.events.single.id, 'iss:a');
-    expect(days.last.date, DateTime(2026, 11, 8));
+  test('at a glance scrolls from last week, through tonight, to two weeks ahead', () {
+    final nights = glanceNights(
+      [ev('iss:a', SkyEventType.iss, DateTime(2026, 10, 30, 18, 41))],
+      [
+        ev('iss:old', SkyEventType.iss, DateTime(2026, 10, 27, 19, 5)),
+        // A dawn pass on the 29th belongs to the night of the 28th.
+        ev('iss:dawn', SkyEventType.iss, DateTime(2026, 10, 29, 5, 40)),
+        ev('iss:too-old', SkyEventType.iss, DateTime(2026, 10, 20, 19)),
+      ],
+      now,
+    );
+    expect(nights, hasLength(7 + 7), reason: 'a week ahead when nothing is known further out');
+    expect(nights.first.date, DateTime(2026, 10, 23));
+    expect(nights.where((n) => n.past), hasLength(7));
+    expect(nights.firstWhere((n) => !n.past).date, DateTime(2026, 10, 30), reason: 'tonight comes right after');
+    expect(nights.singleWhere((n) => n.date == DateTime(2026, 10, 27)).events.single.id, 'iss:old');
+    expect(nights.singleWhere((n) => n.date == DateTime(2026, 10, 28)).events.single.id, 'iss:dawn');
+    expect(nights.expand((n) => n.events).map((e) => e.id), isNot(contains('iss:too-old')));
+    expect(nights.where((n) => n.past).every((n) => !n.hasForecast), isTrue);
+    expect(nights.last.date, DateTime(2026, 11, 5));
+    // Something further out (a meteor peak) takes the list to it, up to two weeks.
+    final longer = glanceNights([ev('meteors', SkyEventType.meteorShower, DateTime(2026, 11, 9, 2))], const [], now);
+    expect(longer.last.date, DateTime(2026, 11, 8));
+    final far = glanceNights([ev('eclipse', SkyEventType.lunarEclipse, DateTime(2027, 2, 1, 22))], const [], now);
+    expect(far.where((n) => !n.past), hasLength(14));
   });
 }

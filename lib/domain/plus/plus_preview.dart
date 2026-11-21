@@ -4,7 +4,9 @@
 /// the paywall looks at. Pure.
 library;
 
+import '../models/settings.dart';
 import '../models/sky_event.dart';
+import '../scheduling/alert_planner.dart';
 
 class PlusPreview {
   const PlusPreview({required this.soonest, required this.count});
@@ -20,11 +22,19 @@ class PlusPreview {
   /// How long "Not now" hides the card.
   static const snooze = Duration(days: 7);
 
-  static PlusPreview of(Iterable<SkyEvent> events, DateTime now) {
+  /// With [wants], only kinds whose switch is on: a kind they turned off
+  /// is never shown as a reason to buy.
+  static PlusPreview of(Iterable<SkyEvent> events, DateTime now, {LookUpSettings? wants}) {
     final u = now.toUtc();
     final ahead = [
       for (final e in events)
-        if (e.plusOnly && e.type.pushes && e.details['past'] != true && e.start.isAfter(u) && e.start.isBefore(u.add(window))) e,
+        if (e.plusOnly &&
+            e.type.pushes &&
+            (wants == null || AlertPlanner.typeEnabled(e.type, wants)) &&
+            e.details['past'] != true &&
+            e.start.isAfter(u) &&
+            e.start.isBefore(u.add(window)))
+          e,
     ]..sort((a, b) => a.start.compareTo(b.start));
     return PlusPreview(soonest: ahead.take(3).toList(), count: ahead.length);
   }

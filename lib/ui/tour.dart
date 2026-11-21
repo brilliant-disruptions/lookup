@@ -61,7 +61,7 @@ final tourRequestProvider = NotifierProvider<TourRequest, int>(TourRequest.new);
 
 /// Show the tour on the Tonight tab, then remember they've seen it.
 Future<void> startTour(BuildContext context, WidgetRef ref) async {
-  ref.read(homeTabProvider.notifier).set(0);
+  ref.read(homeTabProvider.notifier).set(HomeTab.home);
   // Let Tonight load, lay out and its cards finish rising before lighting
   // them up; a stop whose target never shows is left out.
   try {

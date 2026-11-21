@@ -97,6 +97,19 @@ class LookUpSettings {
     this.pipCoached = false,
     this.skyCameraCoached = false,
     this.skyFigures = true,
+    this.onboardedAt,
+    this.proNudgeAt,
+    this.proNudgeNotNow = 0,
+    this.reviewAskedAt,
+    this.reviewAsks = 0,
+    this.weekAhead = true,
+    this.plusDeclines = 0,
+    this.trialOfferShown = false,
+    this.missedItId,
+    this.missedItAt,
+    this.photoCaption = true,
+    this.firstBadgeShown = false,
+    this.nerdMode = false,
     this.miles,
   });
 
@@ -164,6 +177,44 @@ class LookUpSettings {
   final double minIssPeakElevationDeg;
   final double minStarlinkPeakElevationDeg;
   final bool onboarded;
+
+  /// When onboarding finished: the "Looked up" badge's date.
+  final DateTime? onboardedAt;
+
+  /// When the caught-it screen last mentioned the Pro camera, and how many
+  /// times they've said "Not now" (`domain/plus/pro_nudge.dart`).
+  final DateTime? proNudgeAt;
+  final int proNudgeNotNow;
+
+  /// When LookUp last asked for a rating, and how many times ever
+  /// (`domain/log/review_ask.dart`).
+  final DateTime? reviewAskedAt;
+  final int reviewAsks;
+
+  /// The once-a-week "Your week ahead" note (`domain/scheduling/week_ahead.dart`).
+  final bool weekAhead;
+
+  /// Soft LookUp+ asks turned down ("Not now", or the offer closed without
+  /// a trial). Two and they stop (domain/plus/nudges.dart).
+  final int plusDeclines;
+
+  /// The one-time trial offer at the end of onboarding has been shown.
+  final bool trialOfferShown;
+
+  /// The last "You missed it" (domain/plus/missed_it.dart): which, and when.
+  final String? missedItId;
+  final DateTime? missedItAt;
+
+  /// The "LookUp" caption along the foot of photos. Only LookUp+ can turn
+  /// it off ([PlusFeature.noCaption]).
+  final bool photoCaption;
+
+  /// The first badge has had its moment on screen (once, after onboarding).
+  final bool firstBadgeShown;
+
+  /// Nerd mode: the numbers (degrees, magnitudes, coordinates) shown beside
+  /// the words. Off by default; the main path always speaks in words.
+  final bool nerdMode;
 
   /// Saved places to switch between. The active one is the pinned
   /// [latitude]/[longitude] when [locationMode] is pinned.
@@ -263,6 +314,19 @@ class LookUpSettings {
     bool? pipCoached,
     bool? skyCameraCoached,
     bool? skyFigures,
+    DateTime? onboardedAt,
+    DateTime? proNudgeAt,
+    int? proNudgeNotNow,
+    DateTime? reviewAskedAt,
+    int? reviewAsks,
+    bool? weekAhead,
+    int? plusDeclines,
+    bool? trialOfferShown,
+    String? missedItId,
+    DateTime? missedItAt,
+    bool? photoCaption,
+    bool? firstBadgeShown,
+    bool? nerdMode,
     bool? miles,
   }) =>
       LookUpSettings(
@@ -309,6 +373,19 @@ class LookUpSettings {
         pipCoached: pipCoached ?? this.pipCoached,
         skyCameraCoached: skyCameraCoached ?? this.skyCameraCoached,
         skyFigures: skyFigures ?? this.skyFigures,
+        onboardedAt: onboardedAt ?? this.onboardedAt,
+        proNudgeAt: proNudgeAt ?? this.proNudgeAt,
+        proNudgeNotNow: proNudgeNotNow ?? this.proNudgeNotNow,
+        reviewAskedAt: reviewAskedAt ?? this.reviewAskedAt,
+        reviewAsks: reviewAsks ?? this.reviewAsks,
+        weekAhead: weekAhead ?? this.weekAhead,
+        plusDeclines: plusDeclines ?? this.plusDeclines,
+        trialOfferShown: trialOfferShown ?? this.trialOfferShown,
+        missedItId: missedItId ?? this.missedItId,
+        missedItAt: missedItAt ?? this.missedItAt,
+        photoCaption: photoCaption ?? this.photoCaption,
+        firstBadgeShown: firstBadgeShown ?? this.firstBadgeShown,
+        nerdMode: nerdMode ?? this.nerdMode,
         miles: miles ?? this.miles,
       );
 
@@ -355,6 +432,19 @@ class LookUpSettings {
         'pipCoached': pipCoached,
         'skyCameraCoached': skyCameraCoached,
         'skyFigures': skyFigures,
+        if (onboardedAt != null) 'onboardedAt': onboardedAt!.toIso8601String(),
+        if (proNudgeAt != null) 'proNudgeAt': proNudgeAt!.toIso8601String(),
+        if (proNudgeNotNow > 0) 'proNudgeNotNow': proNudgeNotNow,
+        if (reviewAskedAt != null) 'reviewAskedAt': reviewAskedAt!.toIso8601String(),
+        if (reviewAsks > 0) 'reviewAsks': reviewAsks,
+        if (!weekAhead) 'weekAhead': false,
+        if (plusDeclines > 0) 'plusDeclines': plusDeclines,
+        if (trialOfferShown) 'trialOfferShown': true,
+        if (missedItId != null) 'missedItId': missedItId,
+        if (missedItAt != null) 'missedItAt': missedItAt!.toIso8601String(),
+        if (!photoCaption) 'photoCaption': false,
+        'firstBadgeShown': firstBadgeShown,
+        'nerdMode': nerdMode,
         if (miles != null) 'miles': miles,
       };
 
@@ -413,6 +503,19 @@ class LookUpSettings {
       pipCoached: j['pipCoached'] as bool? ?? d.pipCoached,
       skyCameraCoached: j['skyCameraCoached'] as bool? ?? d.skyCameraCoached,
       skyFigures: j['skyFigures'] as bool? ?? d.skyFigures,
+      onboardedAt: DateTime.tryParse(j['onboardedAt'] as String? ?? '')?.toUtc(),
+      proNudgeAt: DateTime.tryParse(j['proNudgeAt'] as String? ?? '')?.toUtc(),
+      proNudgeNotNow: (j['proNudgeNotNow'] as num?)?.toInt() ?? 0,
+      reviewAskedAt: DateTime.tryParse(j['reviewAskedAt'] as String? ?? '')?.toUtc(),
+      reviewAsks: (j['reviewAsks'] as num?)?.toInt() ?? 0,
+      weekAhead: j['weekAhead'] as bool? ?? true,
+      plusDeclines: (j['plusDeclines'] as num?)?.toInt() ?? 0,
+      trialOfferShown: j['trialOfferShown'] as bool? ?? false,
+      missedItId: j['missedItId'] as String?,
+      missedItAt: DateTime.tryParse(j['missedItAt'] as String? ?? '')?.toUtc(),
+      photoCaption: j['photoCaption'] as bool? ?? true,
+      firstBadgeShown: j['firstBadgeShown'] as bool? ?? d.firstBadgeShown,
+      nerdMode: j['nerdMode'] as bool? ?? d.nerdMode,
       miles: j['miles'] as bool?,
     );
   }

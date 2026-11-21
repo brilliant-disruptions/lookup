@@ -16,15 +16,14 @@ import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'look_up_now_screen.dart';
 import 'paywall_sheet.dart';
-import 'sky/night_strip.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
 import 'widgets/pass_arc.dart';
 
-/// The top of Tonight: one answer to "should I go out?" ("Go out at
-/// 10:17 PM.", "Stay in tonight."), why in a few chips, one button, and
-/// tonight's clouds with its things marked on them. The decision is
-/// [TonightVerdict]; this is its words and picture.
+/// The top of Home: one answer to "should I go out?" ("Go out at
+/// 10:17 PM.", "Stay in tonight."), one line on what and where, the clouds
+/// in one pill, one button and the countdown. Short enough for a kid to
+/// read at a glance. The decision is [TonightVerdict]; this is its words.
 class VerdictCard extends ConsumerStatefulWidget {
   const VerdictCard({super.key, required this.home});
   final HomeData home;
@@ -62,7 +61,7 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
       ref.read(liveActivityProvider).markLive();
     }
     _wasLive = live;
-    if (e != null && (ModalRoute.of(context)?.isCurrent ?? false) && ref.read(homeTabProvider) == 0) {
+    if (e != null && (ModalRoute.of(context)?.isCurrent ?? false) && ref.read(homeTabProvider) == HomeTab.home) {
       maybeOpenLookUpNow(context, e, now);
     }
 
@@ -86,7 +85,7 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
       VerdictKind.quiet => 'A quiet sky tonight.',
     };
     final line = switch (v.kind) {
-      VerdictKind.go || VerdictKind.live => '${eventTitle(e!)}. ${_sentence(eventSubtitle(e))}',
+      VerdictKind.go || VerdictKind.live => _quickLine(e!),
       VerdictKind.maybe => '${eventTitle(e!)}. Some cloud is forecast, so look for the gaps. ${_sentence(eventSubtitle(e))}',
       VerdictKind.stayIn when e != null => 'Cloud is forecast over the ${eventTitle(e)} at ${fmtTime(e.start)}.',
       VerdictKind.stayIn => 'Cloud all night, and nothing bright passes over.',
@@ -94,22 +93,12 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
       VerdictKind.quiet => 'Nothing bright passes over tonight.',
     };
 
+    // One pill, the clouds: the rest (Moon, planets, the hour-by-hour strip)
+    // lives in Explore and the week, so this card says it fast.
     final chips = <Widget>[
       if (outlook != null && outlook.hasForecast) _outlookPill(outlook),
       if (e != null && e.cloudCoverPercent == null && v.kind != VerdictKind.stayIn)
         const Pill('No cloud forecast yet', icon: Icons.cloud_outlined),
-      ?_moonPill(sky?.moon, sky?.window?.start, tonightEnds),
-      if (planet != null && v.kind != VerdictKind.clearNight) Pill('${planet.planet.label} up', dot: true, color: LookUpColors.gold),
-    ];
-
-    final ahead = [
-      for (final x in widget.home.events)
-        if (x.type.pushes && x.start.isAfter(now.toUtc().subtract(const Duration(minutes: 10))) && x.start.isBefore(tonightEnds)) x,
-    ];
-    final marks = [
-      for (final x in ahead.take(3))
-        (at: x.start, color: eventStyle(x.type, details: x.details).color, label: '${_short(x)} ${fmtTime(x.start)}'),
-      if (planet?.sighting case final s?) (at: s.best, color: LookUpColors.gold, label: planet!.planet.label),
     ];
 
     final until = e?.start.difference(now.toUtc());
@@ -122,20 +111,8 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Expanded(
-              child: Kicker(kicker, color: tint == LookUpColors.grey ? LookUpColors.grey : tint, live: live || v.kind == VerdictKind.go),
-            ),
-            // Pip on Tonight: found it while something's up, blinking in the
-            // last two minutes, can't see when it's a night to stay in.
-            PipMark(
-              key: const Key('tonight-pip'),
-              size: 40,
-              state: live ? PipState.found : PipState.idle,
-              blinking: !live && until != null && !until.isNegative && until < const Duration(minutes: 2),
-              dim: v.kind == VerdictKind.stayIn,
-            ),
-          ]),
+          // Pip lives beside the tab bar now; one Pip on screen, not two.
+          Kicker(kicker, color: tint == LookUpColors.grey ? LookUpColors.grey : tint, live: live || v.kind == VerdictKind.go),
           const SizedBox(height: 8),
           Semantics(
             header: true,
@@ -187,7 +164,7 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
             )
           else if (v.kind == VerdictKind.clearNight)
             FilledButton.icon(
-              onPressed: () => ref.read(homeTabProvider.notifier).set(1),
+              onPressed: () => ref.read(homeTabProvider.notifier).set(HomeTab.explore),
               icon: const Icon(Icons.explore_rounded),
               label: Text('Find ${planet!.planet.label}'),
             ),
@@ -201,10 +178,6 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-          ],
-          if (outlook != null && outlook.hasForecast) ...[
-            const SizedBox(height: 18),
-            NightStrip(outlook: outlook, compact: true, marks: marks),
           ],
           if (e != null && e.isEstimate)
             const Padding(
@@ -242,6 +215,14 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
     );
   }
 
+  /// What and which way, in as few words as a kid can take in: a pass is
+  /// just "Look to the west-southwest."; the rest keep their one sentence.
+  static String _quickLine(SkyEvent e) => switch (e.type) {
+        SkyEventType.iss || SkyEventType.tiangong || SkyEventType.starlinkTrain || SkyEventType.satellitePass =>
+          '${eventTitle(e)}. Look to the ${compassWord(e.riseAzimuthDeg)}.',
+        _ => '${eventTitle(e)}. ${_sentence(eventSubtitle(e))}',
+      };
+
   static String _sentence(String s) {
     if (s.isEmpty) return s;
     final t = '${s[0].toUpperCase()}${s.substring(1)}';
@@ -254,17 +235,6 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
     return 'Nothing passes over, but ${p.planet.label} is easy to find: best at ${fmtTime(s.best)}, ${elevationWord(s.altDeg)} in the ${compassWord(s.azDeg)}.';
   }
 
-  static String _short(SkyEvent e) => switch (e.type) {
-    SkyEventType.iss => 'ISS',
-    SkyEventType.tiangong => 'Tiangong',
-    SkyEventType.starlinkTrain => 'Starlink',
-    SkyEventType.auroraNow => 'Aurora',
-    SkyEventType.meteorShower => 'Meteors',
-    SkyEventType.rocketLaunch => 'Launch',
-    SkyEventType.lunarEclipse => 'Eclipse',
-    _ => eventTitle(e),
-  };
-
   static Widget _outlookPill(NightOutlook o) {
     final (icon, color) = switch (o.shape) {
       'clear' || 'clouds-later' || 'clearing' => (Icons.nightlight_round, LookUpColors.good),
@@ -272,17 +242,5 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
       _ => (Icons.cloud_rounded, LookUpColors.grey),
     };
     return Pill(outlookWords(o), icon: icon, color: color);
-  }
-
-  static Widget? _moonPill(MoonTonight? m, DateTime? tonightStarts, DateTime tonightEnds) {
-    if (m == null) return null;
-    final set = m.set;
-    // Only a Moon that sets during the dark hours is tonight's news.
-    final from = tonightStarts ?? DateTime.now().toUtc();
-    if (set != null && set.isAfter(from) && set.isBefore(tonightEnds) && m.illumination > 0.15) {
-      return Pill('Moon sets ${fmtTime(set)}', icon: Icons.dark_mode_rounded);
-    }
-    if (m.sighting?.verdict.yes ?? false) return Pill('Moon ${(m.illumination * 100).round()}%', icon: Icons.dark_mode_rounded);
-    return null;
   }
 }

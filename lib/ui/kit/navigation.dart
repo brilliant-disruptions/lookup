@@ -210,10 +210,13 @@ class TabItem {
 /// A floating frosted capsule of tabs; the active one sits on a soft pill.
 /// Use with `Scaffold(extendBody: true)` so pages scroll underneath.
 class FloatingTabBar extends StatelessWidget {
-  const FloatingTabBar({super.key, required this.tabs, required this.index, required this.onSelect});
+  const FloatingTabBar({super.key, required this.tabs, required this.index, required this.onSelect, this.trailing});
   final List<TabItem> tabs;
   final int index;
   final ValueChanged<int> onSelect;
+
+  /// Sits beside the capsule on the right as its own round button (Pip).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -221,7 +224,14 @@ class FloatingTabBar extends StatelessWidget {
         minimum: const EdgeInsets.only(bottom: 10),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: DecoratedBox(
+          child: Row(children: [
+            Expanded(child: _capsule()),
+            if (trailing case final t?) ...[const SizedBox(width: 10), t],
+          ]),
+        ),
+      );
+
+  Widget _capsule() => DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
               boxShadow: const [BoxShadow(color: Color(0x80000000), blurRadius: 30, offset: Offset(0, 10))],
@@ -255,12 +265,20 @@ class FloatingTabBar extends StatelessWidget {
                               Icon(i == index ? (t.activeIcon ?? t.icon) : t.icon,
                                   size: 22, color: i == index ? LookUpColors.blue : LookUpColors.grey),
                               const SizedBox(height: 3),
-                              Text(t.label,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: i == index ? LookUpColors.white : LookUpColors.grey,
-                                  )),
+                              // One line, shrunk to fit four tabs beside Pip, even with big text.
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(t.label,
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: i == index ? LookUpColors.white : LookUpColors.grey,
+                                      )),
+                                ),
+                              ),
                             ]),
                           ),
                         ),
@@ -269,9 +287,7 @@ class FloatingTabBar extends StatelessWidget {
                 ]),
               ),
             ),
-          ),
-        ),
-      );
+          );
 }
 
 /// Bottom padding for a scrolling page that sits under [FloatingTabBar].

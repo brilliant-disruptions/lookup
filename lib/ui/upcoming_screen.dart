@@ -8,36 +8,25 @@ import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
-import 'look_sheet.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'settings_screen.dart';
 import 'theme.dart';
 import 'week_views.dart';
 
-/// The week ahead, two ways: every night at a glance, or two weeks as a
-/// calendar, with a glider between them. The week behind is one tap away.
+/// The Week tab: every night at a glance, in one list: last week above,
+/// tonight in view, the nights ahead below.
 class UpcomingScreen extends ConsumerStatefulWidget {
-  const UpcomingScreen({super.key, this.pushed = false});
+  const UpcomingScreen({super.key});
 
-  /// Opened from the Next tab: gets a back button.
-  final bool pushed;
   @override
   ConsumerState<UpcomingScreen> createState() => _UpcomingScreenState();
 }
 
 class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
-  final _pages = PageController();
-
-  /// The night and the sight picked in either view; shared by both.
+  /// The night and the sight picked.
   DateTime? _night;
   String? _pick;
-
-  @override
-  void dispose() {
-    _pages.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,19 +39,10 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppHeader(
-        title: const Text('The week'),
-        // Pushed from Next, the back button needs the room; the place is one step back.
-        place: widget.pushed ? null : ((place?.isNotEmpty ?? false) ? place! : 'Near you'),
-        onPlaceTap: widget.pushed ? null : () => openPlaces(context),
-        actions: [
-          if (widget.pushed)
-            CircleButton(
-              tooltip: 'Back',
-              icon: Icons.arrow_back_rounded,
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          const SettingsButton(),
-        ],
+        title: const Text('Week'),
+        place: (place?.isNotEmpty ?? false) ? place! : 'Near you',
+        onPlaceTap: () => openPlaces(context),
+        actions: const [SettingsButton()],
       ),
       body: SkyBackdrop(
         stars: false,
@@ -71,22 +51,19 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
           error: (e, _) => Center(child: Text('$e')),
           data: (d) {
             final now = DateTime.now();
-            final nights = weekNights(d.events, now, weather: weather);
-            final days = calendarNights(d.events, now, weather: weather);
-            final showing = [for (final n in days) ...n.events];
+            final nights = glanceNights(d.events, d.recent, now, weather: weather);
+            final showing = [for (final n in nights) ...n.events];
             final pick = showing.where((e) => e.id == _pick).firstOrNull ??
-                nights.expand((n) => n.alerts).firstOrNull ??
-                showing.firstOrNull;
-            final night = _night ?? (pick == null ? nights.first.date : nightOf(pick.start));
+                nights.where((n) => !n.past).expand((n) => n.alerts).firstOrNull ??
+                nights.where((n) => !n.past).expand((n) => n.events).firstOrNull;
+            final night = _night ?? (pick == null ? nightOf(now) : nightOf(pick.start));
             final missed = isPlus ? const <SkyEvent>[] : missedWithoutPlus(d.recent);
             final nextPlus =
                 d.events.where((e) => e.plusOnly && e.type.pushes && e.start.isAfter(now.toUtc())).firstOrNull;
-            // Room for the "Last 7 nights" pill above the tab bar.
-            final bottom = tabBarClearance(context) + 56;
 
             void pickNight(DateTime n) => setState(() {
                   _night = n;
-                  final there = days.where((x) => x.date == n).firstOrNull;
+                  final there = nights.where((x) => x.date == n).firstOrNull;
                   _pick = (there?.alerts.firstOrNull ?? there?.events.firstOrNull)?.id ?? _pick;
                 });
             void pickEvent(SkyEvent e) => setState(() {
@@ -94,192 +71,34 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                   _night = nightOf(e.start);
                 });
 
-            return Stack(children: [
-              Column(children: [
-                SizedBox(height: top + 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: WeekGlider(
-                    controller: _pages,
-                    labels: const ['At a glance', 'Calendar'],
-                    icons: const [Icons.view_timeline_rounded, Icons.calendar_month_rounded],
-                  ),
+            return Column(children: [
+              SizedBox(height: top + 6),
+              if (d.satellitesMissing)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: Text('Satellite passes will appear once we can reach the tracking data.',
+                      textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5)),
                 ),
-                if (d.satellitesMissing)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 10, 16, 0),
-                    child: Text('Satellite passes will appear once we can reach the tracking data.',
-                        textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5)),
-                  ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: PageView(controller: _pages, children: [
-                    GlancePage(
-                      nights: nights,
-                      night: night,
-                      pick: pick,
-                      isPlus: isPlus,
-                      onNight: pickNight,
-                      onPick: pickEvent,
-                      bottomPadding: bottom,
-                    ),
-                    CalendarPage(days: days, night: night, isPlus: isPlus, onNight: pickNight, bottomPadding: bottom),
-                  ]),
-                ),
-              ]),
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.paddingOf(context).bottom + 10,
-                child: Center(
-                  child: _LastWeekPill(
-                    recent: d.recent,
-                    // Only with something Plus-only really coming: the paywall
-                    // never opens without one (spec §7).
-                    missed: nextPlus == null ? const [] : missed,
-                    onTap: () => _showLastWeek(context, d.recent, missed: nextPlus == null ? const [] : missed,
-                        next: nextPlus, lead: settings?.leadMinutes ?? 10, isPlus: isPlus),
-                  ),
+              Expanded(
+                child: GlancePage(
+                  nights: nights,
+                  night: night,
+                  pick: pick,
+                  isPlus: isPlus,
+                  onNight: pickNight,
+                  onPick: pickEvent,
+                  bottomPadding: MediaQuery.paddingOf(context).bottom + 12,
+                  // Only with something Plus-only really coming: the paywall
+                  // never opens without one (spec §7).
+                  missed: nextPlus == null || missed.isEmpty
+                      ? null
+                      : _MissedCard(missed: missed, lead: settings?.leadMinutes ?? 10, next: nextPlus),
                 ),
               ),
             ]);
           },
         ),
       ),
-    );
-  }
-
-  Future<void> _showLastWeek(BuildContext context, List<SkyEvent> recent,
-          {required List<SkyEvent> missed, required SkyEvent? next, required int lead, required bool isPlus}) =>
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        backgroundColor: LookUpColors.panel,
-        builder: (context) => DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.75,
-          maxChildSize: 0.95,
-          builder: (context, scroll) => ListView(
-            controller: scroll,
-            padding: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.paddingOf(context).bottom + 24),
-            children: [
-              Text('Last 7 nights', style: display(24, weight: FontWeight.w700)),
-              const SizedBox(height: 14),
-              if (missed.isNotEmpty) ...[
-                _MissedCard(missed: missed, lead: lead, next: next),
-                const SizedBox(height: 4),
-              ],
-              if (recent.isEmpty)
-                const _Empty('Nothing passed over in the last week.')
-              else
-                ..._byNight(recent, past: true, isPlus: isPlus),
-            ],
-          ),
-        ),
-      );
-
-  /// Day header, then that day's events on one card.
-  List<Widget> _byNight(List<SkyEvent> events, {required bool past, required bool isPlus}) {
-    final groups = <String, List<SkyEvent>>{};
-    for (final e in events) {
-      groups.putIfAbsent(fmtDay(e.start), () => []).add(e);
-    }
-    final now = DateTime.now().toUtc();
-    return [
-      for (final g in groups.entries)
-        Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SectionHeader(g.key, padding: const EdgeInsets.fromLTRB(4, 24, 4, 10)),
-          GroupedList(indent: 64, children: [
-            for (final e in g.value)
-              _EventRow(e,
-                  past: past,
-                  now: !past && !now.isBefore(e.start) && now.isBefore(e.end),
-                  locked: lockedOnFree(e, isPlus: isPlus)),
-          ]),
-        ]),
-    ];
-  }
-}
-
-/// "Last 7 nights", and how many clear Plus-only sights went by unseen.
-class _LastWeekPill extends StatelessWidget {
-  const _LastWeekPill({required this.recent, required this.missed, required this.onTap});
-  final List<SkyEvent> recent;
-  final List<SkyEvent> missed;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hot = missed.isNotEmpty;
-    final color = hot ? LookUpColors.orange : LookUpColors.grey;
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: LookUpColors.panel.withValues(alpha: 0.94),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: hot ? LookUpColors.orange.withValues(alpha: 0.35) : LookUpColors.line),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.history_rounded, size: 16, color: color),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                hot
-                    ? 'Last 7 nights · You missed ${missed.length}'
-                    : recent.isEmpty
-                        ? 'Last 7 nights'
-                        : 'Last 7 nights · ${recent.length}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
-              ),
-            ),
-            const SizedBox(width: 2),
-            Icon(Icons.chevron_right_rounded, size: 17, color: color),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-class _EventRow extends StatelessWidget {
-  const _EventRow(this.e, {required this.past, required this.now, this.locked = false});
-  final SkyEvent e;
-  final bool past;
-  final bool now;
-
-  /// Plus-only, for someone on free: no tap unless they upgrade.
-  final bool locked;
-
-  @override
-  Widget build(BuildContext context) {
-    final quiet = past || !e.type.pushes;
-    return ListRow(
-      onTap: () => showLookSheet(context, e),
-      leading: EventGlyph.of(e, dim: past),
-      title: past ? pastTitle(e) : eventTitle(e),
-      titleColor: quiet ? LookUpColors.grey : LookUpColors.white,
-      subtitle: past ? pastVerdict(e) : eventSubtitle(e),
-      trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-        Text(fmtTime(e.start), style: numeric(size: 14, weight: FontWeight.w600, color: quiet ? LookUpColors.grey : LookUpColors.white)),
-        if (now) ...[
-          const SizedBox(height: 4),
-          const Pill('Now', dot: true, color: LookUpColors.good),
-        ] else if (!past && !e.type.pushes) ...[
-          const SizedBox(height: 4),
-          const Text('No alert', style: TextStyle(fontSize: 11.5, color: LookUpColors.greyDim)),
-        ] else if (!past && locked) ...[
-          const SizedBox(height: 4),
-          const PlusAlertTag(),
-        ],
-      ]),
     );
   }
 }
@@ -338,14 +157,4 @@ class _MissedCard extends StatelessWidget {
       ]),
     );
   }
-}
-
-class _Empty extends StatelessWidget {
-  const _Empty(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 24, 4, 0),
-        child: Text(text, style: const TextStyle(color: LookUpColors.grey, height: 1.45)),
-      );
 }

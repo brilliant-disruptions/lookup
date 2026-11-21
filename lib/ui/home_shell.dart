@@ -7,14 +7,17 @@ import '../services/alert_actions.dart';
 import '../services/notification_service.dart';
 import '../state/providers.dart';
 import 'catch_it_screen.dart';
-import 'caught_it_screen.dart';
 import 'finder_screen.dart';
+import 'first_badge_sheet.dart';
 import 'kit/navigation.dart';
 import 'log_screen.dart';
 import 'look_sheet.dart';
 import 'now_screen.dart';
+import 'pip/pip_button.dart';
 import 'share_card.dart';
+import 'sky/sky_camera_screen.dart';
 import 'sky/sky_screen.dart';
+import 'upcoming_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -50,7 +53,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         _openAlert(pending);
         return;
       }
+      unawaited(_firstBadge());
     });
+  }
+
+  /// Straight after setting up, the first badge gets its moment, once. (Set
+  /// up before there was one? It's dated today.)
+  Future<void> _firstBadge() async {
+    final s = await ref.read(settingsProvider.future);
+    if (!s.onboarded || s.firstBadgeShown || !mounted) return;
+    await ref.read(settingsProvider.notifier).edit(
+        (x) => x.copyWith(firstBadgeShown: true, onboardedAt: x.onboardedAt ?? DateTime.now().toUtc()));
+    if (mounted) await showFirstBadge(context);
   }
 
   /// A tapped alert opens its Look sheet; "Find it" goes straight to the
@@ -58,22 +72,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   Future<void> _openAlert(AlertTap t) async {
     ref.read(alertTapProvider.notifier).set(null);
     final store = ref.read(storeProvider);
-    if (t.action == AlertAction.seen || t.action == AlertAction.snooze) {
+    if (t.action == AlertAction.snooze) {
       final result = await handleAlertAction(
           actionId: t.action, eventId: t.eventId, store: store, notifications: ref.read(notificationServiceProvider));
-      if (result == AlertActionResult.logged) ref.invalidate(skyLogProvider);
       if (!mounted || result == AlertActionResult.nothing) return;
-      // "Saw it!" from the alert with the app open: celebrate it properly.
-      if (result == AlertActionResult.logged) {
-        final event = await findStoredEvent(store, t.eventId);
-        if (!mounted) return;
-        if (event != null) {
-          await showCaughtIt(context, event);
-          return;
-        }
-      }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(result == AlertActionResult.logged ? 'Logged. Nice one.' : 'We\'ll remind you in 5 minutes.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('We\'ll remind you in 5 minutes.')));
+      return;
+    }
+    // "Catch it" (and the old "Saw it!"): the camera with Pip. A sighting
+    // goes in the Log only when it's caught there.
+    if (t.action == AlertAction.catchIt || t.action == AlertAction.seen) {
+      await ref.read(homeProvider.future);
+      if (mounted) await openLiveSkyCamera(context, ref);
       return;
     }
     // Wait for the first load so the event is there to open.
@@ -102,16 +112,19 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       if (t != null) _openAlert(t);
     });
     final tab = ref.watch(homeTabProvider);
-    const pages = [NowScreen(), SkyScreen(), LogScreen()];
+    const pages = [NowScreen(), UpcomingScreen(), SkyScreen(), LogScreen()];
     return Scaffold(
       extendBody: true,
       body: IndexedStack(index: tab, children: pages),
       bottomNavigationBar: FloatingTabBar(
         index: tab,
         onSelect: ref.read(homeTabProvider.notifier).set,
+        // Pip, beside the tabs on every screen: one tap to the camera.
+        trailing: PipButton(onTap: () => openLiveSkyCamera(context, ref)),
         tabs: [
-          const TabItem(Icons.schedule_outlined, 'Next', activeIcon: Icons.schedule_rounded),
-          const TabItem(Icons.explore_outlined, 'Sky', activeIcon: Icons.explore_rounded),
+          const TabItem(Icons.home_outlined, 'Home', activeIcon: Icons.home_rounded),
+          const TabItem(Icons.view_week_outlined, 'Week', activeIcon: Icons.view_week_rounded),
+          const TabItem(Icons.explore_outlined, 'Explore', activeIcon: Icons.explore_rounded),
           const TabItem(Icons.auto_awesome_outlined, 'Log', activeIcon: Icons.auto_awesome_rounded),
         ],
       ),

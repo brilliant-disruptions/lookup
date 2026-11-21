@@ -1,5 +1,6 @@
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,8 @@ import '../domain/log/sky_log.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/plus/nudges.dart' show SoftAsk;
+import '../domain/plus/trial_reminder.dart';
 import '../domain/plus/plus_grant.dart';
 import '../domain/units.dart';
 import '../services/ambient_light.dart';
@@ -16,11 +19,15 @@ import '../services/live_activity.dart';
 import '../services/location_service.dart';
 import '../services/widget_service.dart';
 import '../services/notification_service.dart';
+import '../services/photo_library.dart';
 import '../services/plus_service.dart';
 import '../services/refresh_service.dart';
 import '../services/shortcut_summary.dart';
 
 final storeProvider = Provider<LocalStore>((_) => LocalStore());
+
+/// The phone's own Photos, for caught pictures; tests swap in a fake.
+final photoLibraryProvider = Provider<PhotoLibrary>((_) => DevicePhotoLibrary());
 final notificationServiceProvider =
     Provider<NotificationService>((_) => NotificationService());
 final locationServiceProvider =
@@ -209,6 +216,18 @@ class AlertTaps extends Notifier<AlertTap?> {
 
 final alertTapProvider = NotifierProvider<AlertTaps, AlertTap?>(AlertTaps.new);
 
+/// The soft LookUp+ ask this app session has shown, if any: the budget in
+/// domain/plus/nudges.dart allows one per session, and this is that one.
+class SoftAskSession extends Notifier<SoftAsk?> {
+  @override
+  SoftAsk? build() => null;
+
+  /// Takes the slot, unless another ask already has it.
+  void claim(SoftAsk a) => state ??= a;
+}
+
+final softAskSessionProvider = NotifierProvider<SoftAskSession, SoftAsk?>(SoftAskSession.new);
+
 /// Store billing. What the store says flows into settings (isPlus and its
 /// end date, domain/plus/plus_grant.dart), and a change either way triggers
 /// a re-plan so Plus-only alerts are scheduled, or dropped, right away.
@@ -219,6 +238,16 @@ final plusServiceProvider = Provider<PlusService>((ref) {
       final before = await ref.read(settingsProvider.future);
       final after = PlusGrant.apply(before, news, now);
       if (identical(after, before)) return;
+      // A trial starting: the reminder the paywall promises, 2 days before it ends.
+      final remind = trialReminderAt(before, news, now);
+      if (remind != null && news is PlusOwned) {
+        try {
+          await ref.read(notificationServiceProvider).scheduleTrialReminder(remind,
+              ends: news.until!, iOS: defaultTargetPlatform == TargetPlatform.iOS);
+        } catch (_) {
+          // A reminder that can't be set must never cost the purchase.
+        }
+      }
       await ref.read(settingsProvider.notifier).edit((s) => PlusGrant.apply(s, news, now));
       if (after.isPlus != before.isPlus) await ref.read(homeProvider.notifier).refresh();
     },
@@ -231,10 +260,12 @@ final plusServiceProvider = Provider<PlusService>((ref) {
   return svc;
 });
 
-/// The user's sky log (badges, counts) from stored "did you see it?" answers.
+/// The user's sky log (badges, counts) from stored catches, with the
+/// "Looked up" badge from setting up ([LookUpSettings.onboardedAt]).
 final skyLogProvider = FutureProvider<SkyLog>((ref) async {
   final f = await ref.watch(storeProvider).loadFeedback();
-  return SkyLog.from([for (final x in f) x.toSighting()]);
+  final onboardedAt = await ref.watch(settingsProvider.selectAsync((s) => s.onboardedAt));
+  return SkyLog.from([for (final x in f) x.toSighting()], onboardedAt: onboardedAt);
 });
 
 /// What the app has learned from "what got in the way?" answers.
@@ -243,11 +274,13 @@ final tuningProvider = FutureProvider<AlertTuning>((ref) async {
   return AlertTuning.from([for (final x in f) x.toSighting()]);
 });
 
-/// Which bottom tab is showing (0 Tonight, 1 Sky, 2 Week, 3 Log), so screens can
-/// send you to another one ("See the week").
+/// Which bottom tab is showing ([HomeTab.home] … [HomeTab.log]), so screens
+/// can send you to another one ("See every night").
 class HomeTab extends Notifier<int> {
+  static const home = 0, week = 1, explore = 2, log = 3;
+
   @override
-  int build() => 0;
+  int build() => home;
   void set(int i) => state = i;
 }
 

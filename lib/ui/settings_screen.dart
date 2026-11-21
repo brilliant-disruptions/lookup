@@ -8,12 +8,16 @@ import '../domain/models/settings.dart';
 import '../domain/sky/skyglow.dart';
 import '../domain/sky/visibility.dart';
 import '../services/widget_service.dart';
+import '../domain/plus/free_plan.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'credits_screen.dart';
 import 'demo.dart';
 import 'night_vision_controls.dart';
 import '../domain/models/sky_event.dart';
+import '../services/photo_library.dart';
+import 'help.dart';
+import 'keep_catch.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
@@ -125,6 +129,19 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: '${_hm(s.quietHours.startMinute)} – ${_hm(s.quietHours.endMinute)}',
             onTap: () => _quietHours(context, s, set),
           ),
+          _Switch(
+            key: const Key('week-ahead'),
+            icon: Icons.view_week_rounded,
+            color: LookUpColors.blue,
+            value: s.weekAhead,
+            onChanged: (v) async {
+              await set((s) => s.copyWith(weekAhead: v));
+              // Off stops the next one now; on comes back with the next refresh.
+              if (!v) await ref.read(notificationServiceProvider).scheduleWeekAhead(null);
+            },
+            title: 'Your week ahead',
+            subtitle: 'One note on Sunday evening about the week\'s sights',
+          ),
         ]),
         const _Header('Outside'),
         GroupedList(indent: 60, children: [
@@ -171,8 +188,30 @@ class SettingsScreen extends ConsumerWidget {
             value: s.skyFigures,
             onChanged: (v) => set((s) => s.copyWith(skyFigures: v)),
             title: 'Constellation pictures',
-            subtitle: 'The old star-map figures, faint behind the lines on Sky',
+            subtitle: 'The old star-map figures, faint behind the lines in Explore',
           ),
+          _Switch(
+            icon: Icons.calculate_rounded,
+            color: LookUpColors.violet,
+            value: s.nerdMode,
+            onChanged: (v) => set((s) => s.copyWith(nerdMode: v)),
+            title: 'Nerd mode',
+            subtitle: 'Degrees, magnitudes and sky coordinates beside the words',
+          ),
+          // On for everyone; only LookUp+ can turn it off (PlusFeature.noCaption).
+          _Switch(
+            key: const Key('photo-caption'),
+            icon: Icons.closed_caption_rounded,
+            color: LookUpColors.gold,
+            value: FreePlan.caption(isPlus: s.isPlus, wanted: s.photoCaption),
+            onChanged: (v) => s.isPlus ? set((s) => s.copyWith(photoCaption: v)) : showPaywall(context, feature: PlusFeature.noCaption),
+            title: 'Caption on photos',
+            subtitle: s.isPlus
+                ? 'What, when and where along the foot of each picture'
+                : 'What, when and where, and "LookUp". LookUp+ can turn it off.',
+          ),
+          const _PhotosRow(),
+          const Padding(padding: EdgeInsets.fromLTRB(16, 4, 16, 10), child: BringBackCatches()),
           _ScrollHere(
             when: focusNightVision,
             child: _Switch(
@@ -247,6 +286,41 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _MoreScreen())),
           ),
         ]),
+        const _Header('Help'),
+        GroupedList(indent: 60, children: [
+          _Row(
+            key: const Key('report-problem'),
+            icon: Icons.mail_outline_rounded,
+            color: LookUpColors.blue,
+            title: 'Report a problem',
+            subtitle: 'An email to us with your app version filled in',
+            onTap: () => openLink(context, reportProblemUri(isPlus: s.isPlus)),
+          ),
+          _Row(
+            icon: Icons.help_outline_rounded,
+            color: LookUpColors.cyan,
+            title: 'Help and questions',
+            onTap: () => openLink(context, supportUri),
+          ),
+          _Row(
+            key: const Key('privacy-row'),
+            icon: Icons.lock_outline_rounded,
+            color: LookUpColors.good,
+            title: 'Privacy Policy',
+            subtitle: 'No accounts, no ads, no tracking',
+            onTap: () => openLink(context, privacyUri),
+          ),
+          _Row(
+            icon: Icons.description_outlined,
+            color: LookUpColors.grey,
+            title: 'Terms of Use',
+            onTap: () => openLink(context, termsUri),
+          ),
+        ]),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: SelectableText('$supportEmail · LookUp $appVersion', style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim)),
+        ),
       ],
     );
   }
@@ -413,7 +487,7 @@ class _Glyph extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.color, required this.title, this.subtitle, this.onTap});
+  const _Row({super.key, required this.icon, required this.color, required this.title, this.subtitle, this.onTap});
   final IconData icon;
   final Color color;
   final String title;
@@ -425,6 +499,7 @@ class _Row extends StatelessWidget {
 
 class _Switch extends StatelessWidget {
   const _Switch({
+    super.key,
     required this.value,
     required this.onChanged,
     required this.title,
@@ -481,4 +556,41 @@ class _ScrollHereState extends State<_ScrollHere> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Where catches go, and the Photos access LookUp recommends (Limited).
+class _PhotosRow extends ConsumerWidget {
+  const _PhotosRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lib = ref.watch(photoLibraryProvider);
+    if (!lib.asks) {
+      return const ListRow(
+        key: Key('photos-access-row'),
+        leading: _Glyph(Icons.photo_library_rounded, LookUpColors.cyan),
+        title: 'Photos',
+        subtitle: 'Catches go in Pictures/LookUp, and your Log shows them from there',
+        subtitleLines: 3,
+      );
+    }
+    final a = ref.watch(photosAccessProvider).value;
+    final change = a == PhotosAccess.full || a == PhotosAccess.denied;
+    return ListRow(
+      key: const Key('photos-access-row'),
+      leading: const _Glyph(Icons.photo_library_rounded, LookUpColors.cyan),
+      title: 'Photos',
+      subtitle: a == null ? null : photosAccessLine(a),
+      subtitleLines: 4,
+      trailing: change
+          ? TextButton(
+              onPressed: () async {
+                await lib.openSettings();
+                ref.invalidate(photosAccessProvider);
+              },
+              child: Text(a == PhotosAccess.denied ? 'Turn on' : 'Change'),
+            )
+          : null,
+    );
+  }
 }

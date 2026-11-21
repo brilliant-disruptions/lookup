@@ -17,6 +17,7 @@ import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
 import '../domain/scheduling/alert_planner.dart';
+import '../domain/scheduling/week_ahead.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/sun.dart';
 import '../domain/weather/cloud_forecast.dart';
@@ -405,6 +406,7 @@ class RefreshService {
       final previous = await store.loadPlannedIds();
       final scheduled = await notifications.applyPlan(plan, previous);
       await store.savePlannedIds(scheduled);
+      if (!approximate) await notifications.scheduleWeekAhead(WeekAhead.of(events: events, settings: tuned, now: now));
       await _fireAuroraNow(events, settings, offset);
     } catch (e) {
       errors.add('schedule: $e');

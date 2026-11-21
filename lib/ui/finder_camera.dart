@@ -29,11 +29,23 @@ class CameraBackdrop extends StatefulWidget {
   final void Function(double height) onHeight;
 
   @override
-  State<CameraBackdrop> createState() => _CameraBackdropState();
+  State<CameraBackdrop> createState() => CameraBackdropState();
 }
 
-class _CameraBackdropState extends State<CameraBackdrop> with WidgetsBindingObserver {
+class CameraBackdropState extends State<CameraBackdrop> with WidgetsBindingObserver {
   CameraController? _c;
+
+  /// A still from the camera as it's pointing now (JPEG), or null when the
+  /// camera isn't running or the shot failed.
+  Future<Uint8List?> takePicture() async {
+    final c = _c;
+    if (c == null || !c.value.isInitialized || c.value.isTakingPicture) return null;
+    try {
+      return await (await c.takePicture()).readAsBytes();
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -405,13 +417,7 @@ class SkyOverlayPainter extends CustomPainter {
       if (targetLabel case final l?) _label(canvas, l, t + const Offset(0, -40), Colors.white, 13);
     }
 
-    // Centre crosshair.
-    final c = size.center(Offset.zero);
-    final cross = Paint()
-      ..color = Colors.white.withValues(alpha: 0.6)
-      ..strokeWidth = 1.2;
-    canvas.drawLine(c - const Offset(14, 0), c + const Offset(14, 0), cross);
-    canvas.drawLine(c - const Offset(0, 14), c + const Offset(0, 14), cross);
+    // No centre crosshair: Pip is what shows the way.
   }
 
   void _paintPath(Canvas canvas, Size size, List<({DateTime t, SkyDir d})> path, Color color, List<Rect> keepClear) {

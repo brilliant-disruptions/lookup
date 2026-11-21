@@ -55,7 +55,7 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 > • Night-vision red mode to keep your eyes dark-adapted
 >
 > REMEMBER WHAT YOU SAW
-> A sky log with badges, your own photos and a shareable "your sky year"
+> A sky log of mission patches, your own photos and a shareable "your sky year"
 > card.
 >
 > PRIVATE BY DESIGN
@@ -68,8 +68,10 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 > LookUp+ is for never missing anything up there: every alert (live aurora
 > with a wake-me option, Starlink trains, Tiangong, rocket launches), where
 > to go tonight for a clear, dark sky, the whole fortnight ahead at any saved
-> place, as many places as you like, and photo planning for the station
-> crossing the Sun or Moon. 7 days free on the yearly plan.
+> place, as many places as you like, photo planning for the station
+> crossing the Sun or Moon, and the Pro camera with timelapses that start
+> and stop by themselves.
+> 7 days free on the yearly plan.
 
 ## Keywords [100]
 
@@ -95,17 +97,17 @@ listing order. The first is the one most people see without swiping, so it
 shows the product's moment, the tap itself, rather than a screen of the app:
 
 1. It taps you before it flies over. *(lock screen with the real alert over the station's pass)*
-2. Step outside right now. *(Tonight's verdict: "Go out at 10:18 PM.")*
-3. See its path over your sky. *(camera view)*
-4. Every sighting, celebrated. *(You caught it, with how many millions were under the same pass)*
-5. Three sights to start with. *(Your first three)*
-6. Everything in your sky. *(Sky map)*
+2. Step outside right now. *(Home: "Go out at 9:22 PM.")*
+3. Meet Pip. It shows you where. *(the sky camera, Pip landed on the pass)*
+4. Every catch, celebrated. *(You caught it: a new patch, and how many millions were under the same pass)*
+5. A patch for everything you catch. *(the Log's patch board, with This season)*
+6. Everything in your sky. *(Explore)*
 7. Know exactly where to look. *(Look sheet)*
-8. Catch the station crossing the Moon. *(transit)*
-9. Hubble and friends, tonight. *(satellites)*
-10. Every good night in one list. *(Week)*
+8. Every good night in one list. *(Week)*
+9. Catch the station crossing the Moon. *(transit)*
+10. Hubble and friends, tonight. *(satellites)*
 
-Each sits on a night gradient with its own colour glowing behind the phone.
+They're cut from one long night sky, so they flow into each other in the store: each tilted phone straddles the edge into the next image, and one pass's dashed path runs through all ten (`appstore set` and `_StoreSlice` in the test; each screen is rendered on its own and captured first).
 Shot 2 uses an evening scene whose times follow the clock it's rendered at:
 render it with `TZ=Asia/Kolkata` during the UTC afternoon (or any time zone
 where it's then evening) so it reads "Go out at 10:18 PM".
@@ -127,6 +129,15 @@ recording of *Preview an alert* → finder works well).
 > only on the device to predict passes and to fetch a cloud forecast.
 > Camera, Photos and Calendar are only requested when the user taps the
 > camera view, Add your photo, or Add to calendar.
+
+## Links
+
+- **Privacy Policy URL:** https://lookup-relay.brilliant-disruptions.workers.dev/privacy (served by the relay, `relay/src/pages.ts`; deploy the relay first)
+- **Support URL:** https://lookup-relay.brilliant-disruptions.workers.dev/support
+- **Terms of Use (EULA):** Apple's standard licence. In App Store Connect leave the standard EULA selected, and add this line to the end of the description, as Apple asks for subscription apps: *Terms of Use: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/*
+- **Support email:** hello@brilliantdisruptions.com (Settings › Help › Report a problem fills in the app version)
+
+The paywall and the onboarding offer show *Terms of Use · Privacy Policy* under the buttons (`LegalLinks` in `lib/ui/help.dart`), with the price from the store and that it renews until cancelled.
 
 ## App Privacy
 

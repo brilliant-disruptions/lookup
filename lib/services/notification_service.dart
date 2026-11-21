@@ -1,11 +1,13 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/models/sky_event.dart';
-import '../domain/photo/capture_plan.dart' show offerCatchIt;
+import '../domain/photo/capture_plan.dart' show catchItOnAlerts, offerCatchIt;
 import '../domain/scheduling/alert_planner.dart';
+import '../domain/scheduling/week_ahead.dart';
 import 'alert_art.dart';
 
 /// Makes the picture for an alert, or null for none.
@@ -16,7 +18,12 @@ typedef AlertArtMaker = Future<String?> Function(PlannedAlert alert);
 abstract final class AlertAction {
   static const find = 'find';
   static const snooze = 'snooze';
+  /// "Saw it!" from alerts sent before catching took over: no longer logs
+  /// anything on its own; tapped with the app open it opens the camera.
   static const seen = 'seen';
+
+  /// "Catch it": opens the camera with Pip, where a catch logs it.
+  static const catchIt = 'catch';
 
   /// "Tell a friend": opens the app straight to the invite.
   static const invite = 'invite';
@@ -51,7 +58,7 @@ class NotificationService {
   static const _findAndroid =
       AndroidNotificationAction(AlertAction.find, 'Find it', showsUserInterface: true);
   static const _snoozeAndroid = AndroidNotificationAction(AlertAction.snooze, 'In 5 min');
-  static const _seenAndroid = AndroidNotificationAction(AlertAction.seen, 'Saw it!');
+  static const _catchAndroid = AndroidNotificationAction(AlertAction.catchIt, 'Catch it', showsUserInterface: true);
   static const _inviteAndroid = AndroidNotificationAction(AlertAction.invite, 'Tell a friend', showsUserInterface: true);
   static const _photoAndroid = AndroidNotificationAction(AlertAction.photo, 'Photograph it', showsUserInterface: true);
 
@@ -87,7 +94,7 @@ class NotificationService {
             ? [_findAndroid, _photoAndroid, _inviteAndroid]
             : withSnooze
                 ? [_findAndroid, _inviteAndroid, _snoozeAndroid]
-                : [_findAndroid, _seenAndroid],
+                : [_findAndroid, _catchAndroid],
         // Nothing private in a sky alert: show it in full on the lock screen,
         // even on phones that hide notification text there by default.
         visibility: NotificationVisibility.public,
@@ -147,7 +154,7 @@ class NotificationService {
       countdownTo: countdown,
       timeoutAfterMs: clearAt > 0 ? clearAt : null,
       thread: e.id,
-      photographable: offerCatchIt(e.type),
+      photographable: catchItOnAlerts && offerCatchIt(e.type),
     );
   }
 
@@ -168,7 +175,8 @@ class NotificationService {
               options: {DarwinNotificationActionOption.foreground}),
           DarwinNotificationAction.plain(AlertAction.snooze, 'Remind me in 5 min'),
         ] else
-          DarwinNotificationAction.plain(AlertAction.seen, 'Saw it!'),
+          DarwinNotificationAction.plain(AlertAction.catchIt, 'Catch it',
+              options: {DarwinNotificationActionOption.foreground}),
       ]),
   ];
 
@@ -326,4 +334,48 @@ class NotificationService {
           notificationDetails: detailsFor(kind), payload: payload);
 
   Future<void> cancelAll() => _plugin.cancelAll();
+
+  /// The one trial reminder's id: far from the hashed alert ids.
+  static const trialReminderId = 2147480001;
+  static const weekAheadId = 2147480002;
+
+  /// The Sunday note (`domain/scheduling/week_ahead.dart`); null clears it.
+  Future<void> scheduleWeekAhead(WeekAheadNote? n) async {
+    await _plugin.cancel(id: weekAheadId);
+    if (n == null) return;
+    await ensureTimeZone();
+    await _plugin.zonedSchedule(
+      id: weekAheadId,
+      title: n.title,
+      body: n.body,
+      scheduledDate: tz.TZDateTime.from(n.at, tz.local),
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails('lookup_week', 'Your week ahead',
+            channelDescription: 'One note on Sunday evening about the week\'s sights', importance: Importance.defaultImportance),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentBanner: true, presentSound: false),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
+
+  /// "Your LookUp+ trial ends in 2 days", at [at] (domain/plus/trial_reminder.dart).
+  /// On its own quiet channel: it's about the account, not the sky, so no
+  /// chime and not time-sensitive.
+  Future<void> scheduleTrialReminder(DateTime at, {required DateTime ends, required bool iOS}) async {
+    await ensureTimeZone();
+    final store = iOS ? 'App Store' : 'Google Play';
+    final day = DateFormat('EEEE').format(ends.toLocal());
+    await _plugin.zonedSchedule(
+      id: trialReminderId,
+      title: 'Your LookUp+ trial ends in 2 days',
+      body: 'Keep it and nothing changes. To stop, cancel in your $store subscriptions before $day.',
+      scheduledDate: tz.TZDateTime.from(at, tz.local),
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails('lookup_account', 'Your LookUp+',
+            channelDescription: 'A reminder before a free trial ends', importance: Importance.defaultImportance),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentBanner: true, presentSound: false),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
 }

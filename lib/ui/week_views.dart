@@ -1,5 +1,5 @@
-/// The Week tab's two views and the glider between them: every night as
-/// one bar from 5 PM to 7 AM ("At a glance"), and two weeks as a calendar.
+/// Every night as one bar from 5 PM to 7 AM ("At a glance"), in one list:
+/// last week above, tonight in view, the two weeks ahead below.
 library;
 
 import 'dart:math' as math;
@@ -18,101 +18,37 @@ import 'paywall_sheet.dart';
 import 'theme.dart';
 import 'where_to_go_screen.dart';
 
-/// A two-way switch whose thumb glides with the pages under it, so a swipe
-/// and a tap feel like the same thing.
-class WeekGlider extends StatelessWidget {
-  const WeekGlider({super.key, required this.controller, required this.labels, required this.icons});
-  final PageController controller;
-  final List<String> labels;
-  final List<IconData> icons;
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) {
-          final page = controller.hasClients && controller.position.haveDimensions
-              ? (controller.page ?? 0.0)
-              : controller.initialPage.toDouble();
-          final n = labels.length;
-          return Container(
-            height: 42,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: LookUpColors.line),
-            ),
-            child: LayoutBuilder(builder: (context, box) {
-              final w = box.maxWidth / n;
-              return Stack(children: [
-                Positioned(
-                  left: page.clamp(0.0, n - 1.0) * w,
-                  top: 0,
-                  bottom: 0,
-                  width: w,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: LookUpColors.white,
-                      borderRadius: BorderRadius.circular(11),
-                      boxShadow: const [BoxShadow(color: Color(0x59000000), blurRadius: 10, offset: Offset(0, 2))],
-                    ),
-                  ),
-                ),
-                Row(children: [
-                  for (var i = 0; i < n; i++)
-                    Expanded(
-                      child: Semantics(
-                        button: true,
-                        selected: page.round() == i,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            if (MediaQuery.of(context).disableAnimations) {
-                              controller.jumpToPage(i);
-                            } else {
-                              controller.animateToPage(i, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
-                            }
-                          },
-                          child: Builder(builder: (context) {
-                            // Dark on the thumb, grey off it, blending as it glides.
-                            final on = (1 - (page - i).abs()).clamp(0.0, 1.0);
-                            final c = Color.lerp(LookUpColors.grey, LookUpColors.black, on)!;
-                            return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                              Icon(icons[i], size: 16, color: c),
-                              const SizedBox(width: 6),
-                              Text(labels[i], style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: c)),
-                            ]);
-                          }),
-                        ),
-                      ),
-                    ),
-                ]),
-              ]);
-            }),
-          );
-        },
-      );
-}
-
 /// "Fri" over "30", the selected night in blue.
 class _NightLabel extends StatelessWidget {
-  const _NightLabel(this.date, {required this.selected});
+  const _NightLabel(this.date, {required this.selected, this.past = false});
   final DateTime date;
-  final bool selected;
+  final bool selected, past;
   @override
   Widget build(BuildContext context) => SizedBox(
-        width: 40,
+        width: _labelWidth,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Text(DateFormat.E().format(date),
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: selected ? LookUpColors.blue : LookUpColors.white)),
-          Text('${date.day}', style: numeric(size: 11, color: LookUpColors.greyDim)),
+              style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? LookUpColors.blue : (past ? LookUpColors.grey : LookUpColors.white))),
+          const SizedBox(height: 1),
+          Text(DateFormat.MMMd().format(date), style: numeric(size: 11, color: LookUpColors.greyDim)),
         ]),
       );
 }
 
-/// Every night this week as one bar from 5 PM to 7 AM: cloud shaded in, a
-/// marker at each sight's time. Tap one for its details below.
-class GlancePage extends StatelessWidget {
+/// The day column, and the gap between it and the bars.
+const _labelWidth = 48.0, _labelGap = 10.0;
+
+/// Each night's bar, and the room between one night and the next.
+const _barHeight = 40.0, _rowGap = 12.0;
+
+/// Every night as one bar from 5 PM to 7 AM: cloud shaded in, a marker at
+/// each sight's time. Last week sits above (faded, what went over), tonight
+/// opens in view, and the nights ahead run on below. Tap one for its
+/// details at the bottom.
+class GlancePage extends StatefulWidget {
   const GlancePage({
     super.key,
     required this.nights,
@@ -122,6 +58,7 @@ class GlancePage extends StatelessWidget {
     required this.onNight,
     required this.onPick,
     required this.bottomPadding,
+    this.missed,
   });
   final List<WeekNight> nights;
   final DateTime night;
@@ -131,38 +68,100 @@ class GlancePage extends StatelessWidget {
   final ValueChanged<SkyEvent> onPick;
   final double bottomPadding;
 
+  /// Shown at the top of last week when it's worth saying (free users who
+  /// missed something clear that LookUp+ would have tapped them for).
+  final Widget? missed;
+
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding),
-        children: [
-          const _Axis(),
-          const SizedBox(height: 4),
-          for (final n in nights)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(children: [
-                _NightLabel(n.date, selected: n.date == night),
-                const SizedBox(width: 8),
-                Expanded(child: _NightBar(n, selected: n.date == night, pick: pick, onNight: onNight, onPick: onPick)),
-              ]),
-            ),
-          const SizedBox(height: 4),
-          const Wrap(spacing: 14, runSpacing: 4, children: [
-            _Key(icon: Icons.dark_mode_outlined, label: 'Dark band is the night'),
-            _Key(icon: Icons.texture_rounded, label: 'Cloud'),
-            _Key(icon: Icons.circle_outlined, label: 'Faded: no alert'),
+  State<GlancePage> createState() => _GlancePageState();
+}
+
+class _GlancePageState extends State<GlancePage> {
+  final _scroll = ScrollController();
+  final _tonight = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // Open on tonight, with last week a scroll up.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = _tonight.currentContext;
+      if (c != null && mounted) Scrollable.ensureVisible(c);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Widget _row(WeekNight n) => Padding(
+        padding: const EdgeInsets.only(bottom: _rowGap),
+        child: Opacity(
+          opacity: n.past ? 0.6 : 1,
+          child: Row(children: [
+            _NightLabel(n.date, selected: n.date == widget.night, past: n.past),
+            const SizedBox(width: _labelGap),
+            Expanded(
+                child: _NightBar(n,
+                    selected: n.date == widget.night, pick: widget.pick, onNight: widget.onNight, onPick: widget.onPick)),
           ]),
-          const SizedBox(height: 14),
-          if (pick case final e?)
-            _PickCard(e, locked: lockedOnFree(e, isPlus: isPlus))
-          else
-            const GlassCard(
-              child: Text('Nothing worth stepping out for this week. We\'ll tap you when there is.',
-                  style: TextStyle(color: LookUpColors.grey, height: 1.45)),
-            ),
-          const SizedBox(height: 14),
-          const WeekTools(),
-        ],
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final past = widget.nights.where((n) => n.past).toList();
+    final ahead = widget.nights.where((n) => !n.past).toList();
+    final pick = widget.pick;
+    return Column(children: [
+      const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: _Axis()),
+      const SizedBox(height: 8),
+      Expanded(
+        child: ListView(
+          controller: _scroll,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            if (past.isNotEmpty) ...[
+              const _Section('Last week'),
+              if (widget.missed case final m?) Padding(padding: const EdgeInsets.only(bottom: 14), child: m),
+              for (final n in past) _row(n),
+            ],
+            _Section('Tonight and ahead', key: _tonight),
+            for (final n in ahead) _row(n),
+            const SizedBox(height: 6),
+            const Wrap(spacing: 14, runSpacing: 6, children: [
+              _Key(icon: Icons.dark_mode_outlined, label: 'Dark band is the night'),
+              _Key(icon: Icons.texture_rounded, label: 'Cloud'),
+              _Key(icon: Icons.circle_outlined, label: 'Faded: no alert'),
+            ]),
+            const SizedBox(height: 18),
+            const WeekTools(),
+          ],
+        ),
+      ),
+      Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, widget.bottomPadding),
+        child: pick != null
+            ? _PickCard(pick, locked: lockedOnFree(pick, isPlus: widget.isPlus))
+            : const GlassCard(
+                child: Text('Nothing worth stepping out for yet. We\'ll tap you when there is.',
+                    style: TextStyle(color: LookUpColors.grey, height: 1.45)),
+              ),
+      ),
+    ]);
+  }
+}
+
+/// "Last week", "Tonight and ahead": where you are in the list.
+class _Section extends StatelessWidget {
+  const _Section(this.title, {super.key});
+  final String title;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
+        child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: LookUpColors.grey)),
       );
 }
 
@@ -171,7 +170,7 @@ class _Axis extends StatelessWidget {
   const _Axis();
   @override
   Widget build(BuildContext context) => Row(children: [
-        const SizedBox(width: 48),
+        const SizedBox(width: _labelWidth + _labelGap),
         Expanded(
           child: SizedBox(
             height: 16,
@@ -209,7 +208,7 @@ class _NightBar extends StatelessWidget {
   final ValueChanged<DateTime> onNight;
   final ValueChanged<SkyEvent> onPick;
 
-  static const _size = 22.0;
+  static const _size = 26.0;
 
   /// Room between neighbouring markers and at the bar's ends.
   static const _gap = 3.0, _edge = 2.0;
@@ -268,9 +267,9 @@ class _NightBar extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: () => onNight(n.date),
           child: Container(
-            height: 32,
+            height: _barHeight,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: selected ? LookUpColors.blue.withValues(alpha: 0.7) : LookUpColors.line),
             ),
             child: ClipRRect(
@@ -286,7 +285,7 @@ class _NightBar extends StatelessWidget {
                   for (var i = 0; i < n.events.length; i++)
                     Positioned(
                       left: xs[i],
-                      top: (32 - 2 - _size) / 2,
+                      top: (_barHeight - 2 - _size) / 2,
                       child: _Marker(n.events[i],
                           selected: n.events[i].id == pick?.id,
                           onTap: onPick,
@@ -409,7 +408,10 @@ class _PickCard extends StatelessWidget {
   final SkyEvent e;
   final bool locked;
   @override
-  Widget build(BuildContext context) => GlassCard(
+  Widget build(BuildContext context) {
+    // Last week's: what it was and how it went, not what to do.
+    final past = e.end.isBefore(DateTime.now().toUtc());
+    return GlassCard(
         tint: eventStyle(e.type, details: e.details).color,
         onTap: () => showLookSheet(context, e),
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -418,15 +420,18 @@ class _PickCard extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(eventTitle(e), style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600)),
+              Text(past ? pastTitle(e) : eventTitle(e), style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 1),
               Text('${fmtDay(e.start)}, ${fmtTime(e.start)}', style: numeric(size: 12.5, color: LookUpColors.grey)),
               const SizedBox(height: 4),
-              Text(eventSubtitle(e), style: const TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.35)),
-              if (locked) ...[
+              Text(past ? pastVerdict(e) : eventSubtitle(e),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.35)),
+              if (!past && locked) ...[
                 const SizedBox(height: 6),
                 const PlusAlertTag(size: 12),
-              ] else if (!e.type.pushes) ...[
+              ] else if (!past && !e.type.pushes) ...[
                 const SizedBox(height: 6),
                 const Text('No alert', style: TextStyle(fontSize: 12, color: LookUpColors.greyDim)),
               ],
@@ -435,6 +440,7 @@ class _PickCard extends StatelessWidget {
           const Icon(Icons.chevron_right_rounded, color: LookUpColors.greyDim),
         ]),
       );
+  }
 }
 
 /// Plan a night, where to go, satellites: one row of chips.
@@ -474,239 +480,4 @@ class _ToolChip extends StatelessWidget {
           ),
         ),
       );
-}
-
-/// Two weeks as a grid: dots for what's coming, hatched where it's cloudy.
-/// Tap a night to see it below.
-class CalendarPage extends StatelessWidget {
-  const CalendarPage({
-    super.key,
-    required this.days,
-    required this.night,
-    required this.isPlus,
-    required this.onNight,
-    required this.bottomPadding,
-  });
-  final List<WeekNight> days;
-  final DateTime night;
-  final bool isPlus;
-  final ValueChanged<DateTime> onNight;
-  final double bottomPadding;
-
-  @override
-  Widget build(BuildContext context) {
-    final sel = days.where((d) => d.date == night).firstOrNull;
-    final today = days.where((d) => !d.past).firstOrNull?.date;
-    final month = DateFormat.MMM();
-    final span = month.format(days.first.date) == month.format(days.last.date)
-        ? DateFormat.yMMMM().format(days.first.date)
-        : '${month.format(days.first.date)} – ${month.format(days.last.date)}';
-    return ListView(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
-          child: Row(children: [
-            Text(span, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            const Spacer(),
-            const Text('Two weeks', style: TextStyle(fontSize: 12, color: LookUpColors.greyDim)),
-          ]),
-        ),
-        Row(children: [
-          for (var i = 0; i < 7; i++)
-            Expanded(
-              child: Center(
-                child: Text(DateFormat.E().format(days[i].date).substring(0, 1),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: LookUpColors.greyDim)),
-              ),
-            ),
-        ]),
-        const SizedBox(height: 4),
-        for (var w = 0; w * 7 < days.length; w++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 5),
-            child: Row(children: [
-              for (var i = w * 7; i < math.min(days.length, w * 7 + 7); i++)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2.5),
-                    child: _DayCell(days[i], selected: days[i].date == night, today: days[i].date == today, onTap: onNight),
-                  ),
-                ),
-            ]),
-          ),
-        const SizedBox(height: 6),
-        // Only the dots actually on the calendar, each named.
-        Wrap(spacing: 12, runSpacing: 4, children: [
-          for (final (color, label) in _legend(days)) _Dot(color, label),
-          const _Key(icon: Icons.texture_rounded, label: 'Cloudy'),
-        ]),
-        if (sel != null) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(fmtDay(DateTime(sel.date.year, sel.date.month, sel.date.day, 20).toUtc()),
-                      style: display(19, weight: FontWeight.w600)),
-                ),
-              ),
-              Text(_cloudWords(sel), style: const TextStyle(fontSize: 13, color: LookUpColors.grey)),
-            ]),
-          ),
-          if (sel.events.isEmpty)
-            const GlassCard(
-              child: Text('Nothing worth stepping out for that night.', style: TextStyle(color: LookUpColors.grey)),
-            )
-          else
-            GroupedList(indent: 60, children: [
-              for (final e in sel.alerts)
-                ListRow(
-                  onTap: () => showLookSheet(context, e),
-                  leading: EventGlyph.of(e, size: 30),
-                  title: eventTitle(e),
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                  trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-                    Text(fmtTime(e.start), style: numeric(size: 14, weight: FontWeight.w600)),
-                    if (lockedOnFree(e, isPlus: isPlus)) ...[
-                      const SizedBox(height: 4),
-                      const PlusAlertTag(),
-                    ],
-                  ]),
-                ),
-              if (sel.quiet.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-                  child: Text('Also: ${sel.quiet.map((e) => '${eventTitle(e)} ${fmtTime(e.start)}').join(' · ')}',
-                      style: const TextStyle(fontSize: 12.5, color: LookUpColors.greyDim, height: 1.4)),
-                ),
-            ]),
-        ],
-        const SizedBox(height: 16),
-        const WeekTools(),
-      ],
-    );
-  }
-
-  /// One key per kind of dot on the calendar, in the order they first show.
-  static List<(Color, String)> _legend(List<WeekNight> days) {
-    final seen = <String>{};
-    return [
-      for (final d in days)
-        for (final e in d.alerts.take(4))
-          if (seen.add(_kind(e.type))) (eventStyle(e.type, details: e.details).color, _kind(e.type)),
-    ];
-  }
-
-  static String _kind(SkyEventType t) => switch (t) {
-        SkyEventType.iss => 'ISS',
-        SkyEventType.tiangong => 'Tiangong',
-        SkyEventType.starlinkTrain => 'Starlink',
-        SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora',
-        SkyEventType.meteorShower => 'Meteors',
-        SkyEventType.lunarEclipse || SkyEventType.solarEclipse => 'Eclipses',
-        SkyEventType.planetPairing || SkyEventType.planetHighlight => 'Planets',
-        SkyEventType.rocketLaunch => 'Launches',
-        SkyEventType.issTransit => 'Transits',
-        SkyEventType.satellitePass => 'Satellites',
-        SkyEventType.skyObject => 'Sky',
-        SkyEventType.occultation || SkyEventType.occultationNear => 'Moon',
-        SkyEventType.comet || SkyEventType.nova => 'Rare',
-        SkyEventType.fullMoonRise => 'Full Moon',
-      };
-
-  /// How the night's clouds look, from the forecast; nothing claimed
-  /// without one.
-  static String _cloudWords(WeekNight n) {
-    final known = n.clouds.nonNulls.toList();
-    if (known.isEmpty) return 'No forecast yet';
-    final mean = known.reduce((a, b) => a + b) / known.length;
-    return n.cloudy ? 'Cloudy' : mean <= 30 ? 'Mostly clear' : 'Some cloud';
-  }
-}
-
-class _Dot extends StatelessWidget {
-  const _Dot(this.color, this.label);
-  final Color color;
-  final String label;
-  @override
-  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: LookUpColors.greyDim)),
-      ]);
-}
-
-class _DayCell extends StatelessWidget {
-  const _DayCell(this.d, {required this.selected, required this.today, required this.onTap});
-  final WeekNight d;
-  final bool selected, today;
-  final ValueChanged<DateTime> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final dots = [for (final e in d.alerts.take(4)) eventStyle(e.type, details: e.details).color];
-    return Semantics(
-      container: true,
-      button: !d.past,
-      selected: selected,
-      label: '${DateFormat.MMMEd().format(d.date)}: '
-          '${d.alerts.isEmpty ? 'nothing' : '${d.alerts.length} to see'}${d.cloudy ? ', cloudy' : ''}',
-      excludeSemantics: true,
-      child: GestureDetector(
-        onTap: d.past ? null : () => onTap(d.date),
-        child: Opacity(
-          opacity: d.past ? 0.35 : 1,
-          child: AspectRatio(
-            aspectRatio: 1 / 1.1,
-            child: Container(
-              decoration: BoxDecoration(
-                color: selected ? LookUpColors.blue.withValues(alpha: 0.16) : Colors.white.withValues(alpha: 0.045),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: selected ? LookUpColors.blue : Colors.transparent, width: 1.2),
-              ),
-              child: CustomPaint(
-                painter: d.cloudy ? _HatchPainter() : null,
-                child: Column(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                  Text('${d.date.day}',
-                      style: numeric(size: 14, weight: FontWeight.w700, color: today ? LookUpColors.blue : LookUpColors.white)),
-                  SizedBox(
-                    height: 6,
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      for (final c in dots)
-                        Container(
-                          width: 5,
-                          height: 5,
-                          margin: const EdgeInsets.symmetric(horizontal: 1),
-                          decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-                        ),
-                    ]),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HatchPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = LookUpColors.grey.withValues(alpha: 0.16)
-      ..strokeWidth = 1.2;
-    canvas.save();
-    canvas.clipRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(10)));
-    for (var x = -size.height; x < size.width; x += 6) {
-      canvas.drawLine(Offset(x, size.height), Offset(x + size.height, 0), p);
-    }
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_HatchPainter o) => false;
 }

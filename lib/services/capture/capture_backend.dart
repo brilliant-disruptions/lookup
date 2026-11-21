@@ -16,6 +16,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../domain/photo/camera.dart';
 import '../../domain/photo/capture_plan.dart';
+import '../../domain/photo/exposure.dart';
 
 /// One frame: luma at full size, chroma at half, and how far it must turn
 /// clockwise (degrees) to be upright with the phone held upright.
@@ -43,6 +44,10 @@ abstract class CaptureBackend {
 
   /// Starts sending frames, exposed as [plan] says (when it can).
   Future<void> start(CapturePlan plan);
+
+  /// Starts sending frames from [lensId] at [exposure] (null: the camera's
+  /// own auto exposure). For the Pro camera, which has no pass to plan.
+  Future<void> startWith({required String lensId, Exposure? exposure});
 
   Stream<CaptureFrame> get frames;
 

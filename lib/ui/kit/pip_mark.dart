@@ -1,6 +1,8 @@
 /// Pip off the finder: the same light [paintFirefly] draws in alerts and on
-/// the sky, as a widget for every other screen. Pip has no face or body; its
-/// character is how it moves (pip_motion.dart). Kept out of
+/// the sky, as a widget for every other screen. Here Pip is the character:
+/// a soft orb with eyes that breathes, glances, blinks, jiggles and squishes
+/// when touched (pip_motion.dart, pip_greeting.dart); [PipMark.asDot] is the
+/// plain light, for Pip marking a spot in a picture of the sky. Kept out of
 /// firefly_mark.dart, which must stay `dart:ui` only for the alert isolate.
 library;
 
@@ -8,6 +10,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'firefly_mark.dart';
+import 'pip_greeting.dart';
 import 'pip_motion.dart';
 
 export 'pip_motion.dart' show PipState;
@@ -20,10 +23,13 @@ class PipMark extends StatefulWidget {
     this.dim = false,
     this.blinking = false,
     this.flyFrom,
+    this.replay = 0,
+    this.asDot = false,
+    this.poke = 0,
   });
 
-  /// What Pip is doing. [PipState.hello] and [PipState.found] play once
-  /// each time Pip changes to them, then Pip rests.
+  /// What Pip is doing. [PipState.hello], [PipState.found] and
+  /// [PipState.greet] play once each time Pip changes to them, then Pip rests.
   final PipState state;
 
   /// The square Pip hovers in; Pip itself is drawn at a scale of size / 48.
@@ -40,6 +46,16 @@ class PipMark extends StatefulWidget {
   /// trailing sparks, stretched by the speed, and lands with a squash.
   final Offset? flyFrom;
 
+  /// Change it to play [state] again from the start (another hello).
+  final int replay;
+
+  /// The plain dot of light, not the character: for Pip marking a spot in
+  /// a picture of the sky, where it's showing you where to look.
+  final bool asDot;
+
+  /// Change it when Pip is touched: it squishes, wobbles and squints.
+  final int poke;
+
   @override
   State<PipMark> createState() => _PipMarkState();
 }
@@ -51,6 +67,7 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
   double _t = 0;
   double _flewAt = 0;
   double _stateAt = 0;
+  double _pokeAt = -1e9;
   bool _still = false;
 
   @override
@@ -68,7 +85,8 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
   void didUpdateWidget(PipMark old) {
     super.didUpdateWidget(old);
     if (widget.flyFrom != old.flyFrom) _flewAt = _t;
-    if (widget.state != old.state) _stateAt = _t;
+    if (widget.state != old.state || widget.replay != old.replay) _stateAt = _t;
+    if (widget.poke != old.poke) _pokeAt = _t;
   }
 
   @override
@@ -91,6 +109,8 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
           blinking: widget.blinking,
           flyFrom: widget.flyFrom,
           sinceFlew: _still ? null : _t - _flewAt,
+          asDot: widget.asDot,
+          sincePoke: _t - _pokeAt,
         ),
       ),
     ),
@@ -110,10 +130,12 @@ class PipMarkPainter extends CustomPainter {
     this.blinking = false,
     this.flyFrom,
     this.sinceFlew,
+    this.asDot = false,
+    this.sincePoke = 1e9,
   });
   final PipState state;
-  final double seconds, sinceState;
-  final bool still, dim, blinking;
+  final double seconds, sinceState, sincePoke;
+  final bool still, dim, blinking, asDot;
   final Offset? flyFrom;
   final double? sinceFlew;
 
@@ -139,8 +161,27 @@ class PipMarkPainter extends CustomPainter {
       paintFireflyLanding(canvas, home, still ? 1 : sinceState, scale: scale * 0.9);
     }
     final s = scale * pose.size;
-    void draw(Canvas c, double blink) => paintFirefly(c, at,
-        blink: blink, scale: s, stretch: pose.stretch, squash: pose.squash, angle: pose.angle);
+    final greeting = state == PipState.greet && sinceState < pipGreetLength;
+    // The dot in a picture of the sky; everywhere else the character, at
+    // rest or saying hi.
+    final hi = asDot
+        ? (greeting ? pipGreeting(sinceState, still: still, fromDot: true) : const PipGreeting())
+        : (greeting ? pipGreeting(sinceState, still: still) : pipCharacter(seconds, sincePoke: sincePoke, still: still));
+    void draw(Canvas c, double blink) {
+      if (hi.dot) {
+        paintFirefly(c, at, blink: blink, scale: s, stretch: pose.stretch, squash: pose.squash, angle: pose.angle);
+        return;
+      }
+      // Squash and stretch apply to the character too.
+      c
+        ..save()
+        ..translate(at.dx, at.dy)
+        ..rotate(pose.angle)
+        ..scale(pose.stretch, pose.squash)
+        ..rotate(-pose.angle);
+      paintPipGreeting(c, Offset.zero, hi, blink: blink, scale: s);
+      c.restore();
+    }
     if (dim || pose.opacity < 1) {
       final a = (dim ? 0.35 : 1) * pose.opacity;
       canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, a));

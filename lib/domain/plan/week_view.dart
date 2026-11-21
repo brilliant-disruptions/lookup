@@ -1,7 +1,9 @@
-/// The Week tab's two views of the same nights: each night as one bar from
-/// 5 PM to 7 AM ("at a glance"), and two weeks as a calendar. A night runs
-/// noon to noon, so a 5:40 AM pass belongs to the night before it.
+/// Every night as one bar from 5 PM to 7 AM ("at a glance"), in one list you
+/// scroll: the week behind above, tonight, and the nights ahead below. A
+/// night runs noon to noon, so a 5:40 AM pass belongs to the night before it.
 library;
+
+import 'dart:math' as math;
 
 import '../models/sky_event.dart';
 import '../weather/cloud_forecast.dart';
@@ -29,13 +31,14 @@ class WeekNight {
   /// Local midnight of the evening the night starts on.
   final DateTime date;
 
-  /// What's on that night and still to come, by start time.
+  /// What's on that night, by start time: still to come, or for a
+  /// [past] night, what went over.
   final List<SkyEvent> events;
 
   /// Cloud cover each hour from 5 PM (14 values); null past the forecast.
   final List<int?> clouds;
 
-  /// Already over (calendar days before tonight).
+  /// Already over: a night before tonight.
   final bool past;
 
   /// The things LookUp would tap you for.
@@ -77,16 +80,42 @@ List<WeekNight> weekNights(Iterable<SkyEvent> events, DateTime now, {CloudForeca
   ];
 }
 
-/// [weeks] whole weeks from the Monday of this week, for the calendar.
-/// Days before tonight are [WeekNight.past] and carry nothing.
-List<WeekNight> calendarNights(Iterable<SkyEvent> events, DateTime now, {CloudForecast? weather, int weeks = 2}) {
+/// The nights to scroll through: [back] nights before tonight (with what
+/// went over, from [recent]), tonight, and the nights after: a week, or on
+/// to the last night with something on, up to [ahead] nights in all. Past
+/// that, nothing has been worked out yet, and an empty bar would say "no
+/// sky". Past nights carry no clouds: the forecast only looks forward.
+List<WeekNight> glanceNights(
+  Iterable<SkyEvent> events,
+  Iterable<SkyEvent> recent,
+  DateTime now, {
+  CloudForecast? weather,
+  int back = 7,
+  int ahead = 14,
+}) {
   final tonight = nightOf(now);
-  final monday = DateTime(tonight.year, tonight.month, tonight.day - (tonight.weekday - DateTime.monday));
   return [
-    for (var i = 0; i < weeks * 7; i++)
+    for (var i = back; i > 0; i--)
       () {
-        final d = DateTime(monday.year, monday.month, monday.day + i);
-        return _night(d, events, now, weather, past: d.isBefore(tonight));
+        final d = DateTime(tonight.year, tonight.month, tonight.day - i);
+        return WeekNight(
+          date: d,
+          past: true,
+          events: [for (final e in recent) if (nightOf(e.start) == d) e]..sort((a, b) => a.start.compareTo(b.start)),
+          clouds: List<int?>.filled(nightBarHours, null),
+        );
       }(),
+    ...weekNights(events, now, weather: weather, count: math.max(7, math.min(ahead, _lastNight(events, now)))),
   ];
+}
+
+/// How many nights from tonight reach the last one with something on.
+int _lastNight(Iterable<SkyEvent> events, DateTime now) {
+  final tonight = nightOf(now);
+  var n = 0;
+  for (final e in events) {
+    final d = nightOf(e.start).difference(tonight).inHours / 24;
+    n = math.max(n, d.round() + 1);
+  }
+  return n;
 }

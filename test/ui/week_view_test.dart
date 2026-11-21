@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
-import 'package:lookup/domain/plan/week_view.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/kit/kit.dart' show eventStyle;
 import 'package:lookup/ui/theme.dart';
 import 'package:lookup/ui/upcoming_screen.dart';
-import 'package:lookup/ui/week_views.dart' show CalendarPage;
 
 class _Settings extends SettingsNotifier {
   @override
@@ -53,6 +51,8 @@ class _Home extends HomeNotifier {
           _ev('pair:a', SkyEventType.planetPairing, const Duration(days: 4),
               const {'bodies': ['Venus', 'the Moon'], 'label': 'Venus and the Moon'}),
         ],
+        // Went over three nights ago: last week, above tonight.
+        recent: [_ev('iss:old', SkyEventType.iss, const Duration(days: -3))],
         aurora: null,
         lastRefresh: _now,
         errors: const [],
@@ -102,52 +102,42 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('at a glance: the week on one screen, the first sight picked, tap another', (t) async {
+  testWidgets('at a glance: one list, opened on tonight, the first sight picked, tap another', (t) async {
     await pump(t);
-    expect(find.text('At a glance'), findsOneWidget);
-    expect(find.text('Calendar'), findsOneWidget);
-    // Seven nights, each a bar; the first sight is shown below.
+    expect(find.text('Calendar'), findsNothing, reason: 'one view now, no calendar');
+    expect(find.text('Tonight and ahead'), findsOneWidget);
+    // Each night a bar; the first sight still to come is shown below.
     expect(find.bySemanticsLabel(RegExp(r'^(Tonight|This morning|Tomorrow|[A-Z][a-z]+day)')), findsWidgets);
     expect(find.text('ISS flyover'), findsOneWidget);
-    expect(find.text('Plan a night'), findsOneWidget);
+    await t.ensureVisible(find.bySemanticsLabel(RegExp(r'^Starlink train, ')));
+    await t.pump();
 
     await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')));
     await t.pump();
     expect(find.text('Starlink train'), findsOneWidget);
     expect(find.text('Alert with LookUp+'), findsOneWidget);
     expect(find.textContaining('°'), findsNothing);
+    // The tools are at the end of the list.
+    await t.scrollUntilVisible(find.text('Plan a night'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Plan a night'), findsOneWidget);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('the glider slides to the calendar, which shows the same night', (t) async {
+  testWidgets('last week is a scroll up: faded, with what went over', (t) async {
     await pump(t);
-    await t.tap(find.bySemanticsLabel(RegExp(r'^Starlink train, ')));
+    // Opens on tonight; last week sits above it.
+    expect(find.text('Tonight and ahead'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('Last week'), -300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Last week'), findsOneWidget);
+    final old = find.bySemanticsLabel(RegExp(r'^ISS flyover, '));
+    expect(old, findsWidgets);
+    await t.ensureVisible(old.first);
     await t.pump();
-    await t.tap(find.text('Calendar'));
-    for (var i = 0; i < 4; i++) {
-      await t.pump(const Duration(milliseconds: 150));
-    }
-    // The Starlink night is picked there too, with its sights listed.
-    expect(find.text('Starlink train'), findsOneWidget);
-    expect(find.text('Two weeks'), findsOneWidget);
-    // The key names only the dots on the calendar: the ISS and Tiangong
-    // apart, and nothing for meteors when there are none.
-    Finder key(String label) => find.descendant(of: find.byType(CalendarPage), matching: find.text(label));
-    for (final label in ['ISS', 'Starlink', 'Tiangong', 'Planets']) {
-      expect(key(label), findsOneWidget, reason: label);
-    }
-    expect(key('Meteors'), findsNothing);
-    expect(key('Stations'), findsNothing);
+    await t.tap(old.first);
+    await t.pump();
+    expect(find.text('Visible if it was clear'), findsOneWidget);
     expect(t.takeException(), isNull);
-
-    // Back to the ISS's night by tapping its day: the ISS and the
-    // transit's "Also" line.
-    final night = nightOf(_base);
-    await t.tap(find.bySemanticsLabel(RegExp('^[A-Z][a-z]{2}, [A-Z][a-z]{2} ${night.day}:')).first);
-    await t.pump();
-    expect(find.text('ISS flyover'), findsOneWidget);
-    expect(find.textContaining('Also: '), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
 }

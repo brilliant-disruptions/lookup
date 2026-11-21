@@ -13,6 +13,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../domain/photo/camera.dart';
 import '../../domain/photo/capture_plan.dart';
+import '../../domain/photo/exposure.dart';
 import 'capture_backend.dart';
 
 class PluginCapture extends CaptureBackend {
@@ -60,7 +61,13 @@ class PluginCapture extends CaptureBackend {
   }
 
   @override
-  Future<void> start(CapturePlan plan) async {
+  Future<void> startWith({required String lensId, Exposure? exposure}) => _stream();
+
+  @override
+  Future<void> start(CapturePlan plan) => _stream();
+
+  /// The plugin can't set the shutter: its quick auto-exposed frames.
+  Future<void> _stream() async {
     final c = _c;
     if (c == null) return;
     try {

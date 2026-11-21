@@ -73,11 +73,14 @@ List<PathPoint> arcPath(SkyEvent e, {Duration step = const Duration(seconds: 5)}
 /// sharp share and a phone screen; small enough to stack live.
 const captureLongPx = 1920;
 
-/// Catch it is switched off while it's reworked (aiming and capture need
-/// another pass): no "Photograph it" on the Look sheet or the pass alert.
-/// The screen, the camera code and the tests stay. Turn it back on here,
-/// or for a test build with `--dart-define=LOOKUP_CATCH_IT=true`.
-const catchItEnabled = bool.fromEnvironment('LOOKUP_CATCH_IT');
+/// Catch it is part of the Pro camera (LookUp+): "Photograph it" on a
+/// pass's Look sheet. Switch it off for a build with
+/// `--dart-define=LOOKUP_CATCH_IT=false`.
+const catchItEnabled = bool.fromEnvironment('LOOKUP_CATCH_IT', defaultValue: true);
+
+/// "Photograph it" on the pass alert itself waits until Catch it has been
+/// proven on real phones (and would only be offered to LookUp+).
+const catchItOnAlerts = bool.fromEnvironment('LOOKUP_CATCH_IT_ALERTS');
 
 /// Whether to offer Catch it for [t] in this build.
 bool offerCatchIt(SkyEventType t) => catchItEnabled && canCatch(t);
