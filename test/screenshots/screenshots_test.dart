@@ -470,22 +470,23 @@ void main() {
   // The redesign's three moments, then the three tabs.
   testWidgets('onboarding moments', (t) async {
     await mount(t, const OnboardingScreen(),
-        settings: const LookUpSettings(),
+        settings: const LookUpSettings(latitude: 36.17, longitude: -86.78, placeName: 'Nashville'),
         extra: [
           locationServiceProvider.overrideWithValue(_GrantLocation()),
           notificationServiceProvider.overrideWithValue(_GrantNotifications()),
         ]);
+    // Follow Pip: a light to tap, Pip asking where you are, then your own sky.
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/40-onboarding-1-welcome.png'));
-    await t.tap(find.text("Show me what's over me"));
+    await t.tap(find.byKey(const Key('onboarding-wake')));
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 500));
+    }
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/40-onboarding-3-tap.png'));
+    await t.tap(find.text('Show me my sky'));
     for (var i = 0; i < 8; i++) {
       await t.pump(const Duration(milliseconds: 500));
     }
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/40-onboarding-2-sight.png'));
-    await t.tap(find.text('Continue'));
-    for (var i = 0; i < 6; i++) {
-      await t.pump(const Duration(milliseconds: 500));
-    }
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/40-onboarding-3-tap.png'));
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 5));
   });
