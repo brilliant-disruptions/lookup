@@ -226,7 +226,7 @@ void main() {
     await t.tap(find.text('Show me my sky'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 300));
-    expect(find.text('Finding your sky…'), findsOneWidget);
+    expect(find.text('Lighting up your sky…'), findsOneWidget);
     expect(home.quick.first, isTrue, reason: 'a quick look while the globe turns');
     await settle(t, 9);
     expect(find.byKey(const Key('first-look')), findsOneWidget);
@@ -285,8 +285,10 @@ void main() {
     expect(find.byKey(const Key('twilight-why')), findsOneWidget);
     await t.tap(find.text('Next'));
     await settle(t, 3);
-    // What Pip tells you about: each switch is the setting.
+    // What Pip tells you about: each switch is the setting, and no prices here.
     expect(find.text('What should Pip tell you about?'), findsOneWidget);
+    expect(find.text('LookUp+'), findsNothing, reason: 'LookUp+ is said once, on the offer');
+    expect(find.textContaining('free trial'), findsNothing);
     expect(container.read(settingsProvider).value!.auroraEnabled, isTrue);
     await t.ensureVisible(find.byKey(const Key('pick-aurora')));
     await settle(t, 1);
@@ -302,8 +304,10 @@ void main() {
     await t.tap(find.text('Tap me 10 minutes before'));
     await settle(t, 4);
     expect(notifications.asked, 1);
-    // Once, the offer (not the paywall), then done.
+    // Once, the offer (not the paywall), built on what they picked: aurora off, Starlink on.
     expect(find.byKey(const Key('trial-offer')), findsOneWidget);
+    expect(find.text('Starlink trains are LookUp+'), findsOneWidget);
+    expect(find.textContaining('You asked Pip to watch for Starlink trains'), findsOneWidget);
     expect(find.byType(PaywallSheet), findsNothing);
     await t.tap(find.byKey(const Key('trial-offer-not-now')));
     await settle(t);

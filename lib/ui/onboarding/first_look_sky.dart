@@ -48,6 +48,9 @@ final firstLookProvider = FutureProvider<({List<SkyThing> things, ({DateTime sta
   );
 });
 
+/// Where the first look starts: south, a little up.
+const firstLookStart = SkyDir(180, 28);
+
 /// How close (degrees) counts as "in the middle": the sky camera's lock.
 const firstLookLockDeg = 10.0;
 
@@ -60,7 +63,7 @@ class FirstLookSky extends StatefulWidget {
     required this.clock,
     required this.onCatch,
     this.tracks = const [],
-    this.start = const SkyDir(180, 28),
+    this.start = firstLookStart,
     this.lockedTo,
     this.leadId,
     this.catalog,

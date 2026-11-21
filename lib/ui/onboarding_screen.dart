@@ -13,7 +13,7 @@ import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'onboarding/first_look_sky.dart';
-import 'onboarding/globe.dart';
+import 'onboarding/light_up.dart';
 import 'onboarding/twilight_slider.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
@@ -76,9 +76,13 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   /// The first refresh, while the globe turns, so the sky and the pass that
   /// follow are theirs. Quick first (location and the ISS only); clouds,
   /// aurora and Starlink follow in the background.
+  /// Done when Pip has lit up their sky (or there was nothing to light).
+  Completer<void> _litUp = Completer<void>();
+
   Future<void> _look() async {
+    _litUp = Completer<void>();
     _go(_Step.looking);
-    final shown = Future<void>.delayed(const Duration(milliseconds: 1900));
+    final started = onboardingClock();
     try {
       // Let the stored (empty) data finish loading first, or it can land
       // after the refresh and hide what it found.
@@ -88,12 +92,19 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
       // Offline: the pages after this say so, and the shell retries.
     }
     unawaited(ref.read(homeProvider.notifier).refresh().catchError((_) {}));
-    await shown; // let the globe finish turning
     if (!mounted || _step != _Step.looking) return;
     // Allowed, but no fix came (indoors, airplane mode): a town instead of a wait.
     final s = await ref.read(settingsProvider.future);
     if (!mounted) return;
-    _go(s.hasLocation ? _Step.sky : _Step.noLocation);
+    if (!s.hasLocation) return _go(_Step.noLocation);
+    // Let Pip finish lighting up their sky; never more than about four seconds.
+    final left = const Duration(seconds: 4) - onboardingClock().difference(started);
+    final cap = Timer(left.isNegative ? Duration.zero : left, () {
+      if (!_litUp.isCompleted) _litUp.complete();
+    });
+    await _litUp.future;
+    cap.cancel();
+    if (mounted && _step == _Step.looking) _go(_Step.sky);
   }
 
   Future<void> _finish({required bool alerts}) async {
@@ -154,7 +165,9 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
             onShowMe: _showMe,
             onTown: _pickTown,
           ),
-        _Step.looking => const _LookingPage(),
+        _Step.looking => _LookingPage(onDone: () {
+            if (!_litUp.isCompleted) _litUp.complete();
+          }),
         _Step.sky => _SkyPage(onNext: () => _go(_Step.station)),
         _Step.station => _StationPage(onNext: () => _go(_Step.why)),
         _Step.why => _WhyPage(onNext: () => _go(_Step.pick)),
@@ -302,26 +315,60 @@ class _HelloPage extends StatelessWidget {
       );
 }
 
-/// Moment 3: the globe turns to their place while LookUp works out its sky.
-class _LookingPage extends ConsumerWidget {
-  const _LookingPage();
+/// Moment 3: while LookUp works out their sky, Pip lights it up: the real
+/// stars over their place fly out to where they sit and the horizon rises
+/// with the place's name on it. Its last frame is the next page's first.
+class _LookingPage extends ConsumerStatefulWidget {
+  const _LookingPage({required this.onDone});
+  final VoidCallback onDone;
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_LookingPage> createState() => _LookingPageState();
+}
+
+class _LookingPageState extends ConsumerState<_LookingPage> {
+  late final DateTime _opened = onboardingClock();
+  bool _gaveUp = false;
+
+  @override
+  Widget build(BuildContext context) {
     final s = ref.watch(settingsProvider).value;
+    final catalog = ref.watch(skyCatalogProvider);
+    final look = ref.watch(firstLookProvider);
+    final lat = s?.latitude, lon = s?.longitude;
+    final ready = lat != null && lon != null && catalog.hasValue && !look.isLoading;
+    // No stars to light (no catalog, no sky): don't hold them up.
+    if (!_gaveUp && (catalog.hasError || look.hasError || (lat != null && !look.isLoading && look.value == null))) {
+      _gaveUp = true;
+      Future<void>.delayed(const Duration(milliseconds: 900), widget.onDone);
+    }
+    final place = (s?.placeName?.isNotEmpty ?? false) ? s!.placeName! : null;
     return Scaffold(
-      body: SkyBackdrop(
-        child: SafeArea(
-          child: Column(children: [
-            const SizedBox(height: 40),
-            const _SkyWords('Finding your sky…'),
-            Expanded(
-              child: s?.latitude == null
-                  ? const Center(child: PipMark(size: 60, state: PipState.searching))
-                  : FindingGlobe(key: const Key('onboarding-globe'), lat: s!.latitude!, lon: s.longitude!, place: s.placeName),
-            ),
-          ]),
+      backgroundColor: const Color(0xFF03050C),
+      body: Stack(children: [
+        Positioned.fill(
+          child: ready
+              ? LightUpSky(
+                  key: const Key('onboarding-light-up'),
+                  catalog: catalog.value!,
+                  lat: lat,
+                  lon: lon,
+                  at: firstLookTime(_opened, look.value?.window).at,
+                  look: firstLookStart,
+                  place: place,
+                  onDone: widget.onDone,
+                )
+              : const SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching))),
         ),
-      ),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: const _SkyWords('Lighting up your sky…'),
+            ),
+          ),
+        ),
+      ]),
     );
   }
 }
@@ -566,7 +613,8 @@ class _WhyPageState extends State<_WhyPage> {
 }
 
 /// Moment 7: what Pip should tell them about. Each switch is the setting
-/// itself (Settings → What to tell me about), saved as it's flipped.
+/// itself (Settings → What to tell me about), saved as it's flipped. No
+/// prices here: which of these are LookUp+ is said once, on the offer.
 class _PickPage extends ConsumerWidget {
   const _PickPage({required this.onNext});
   final VoidCallback onNext;
@@ -575,15 +623,14 @@ class _PickPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider).value ?? const LookUpSettings();
     void set(LookUpSettings Function(LookUpSettings) f) => ref.read(settingsProvider.notifier).edit(f);
-    final rows = <({String key, IconData icon, Color color, String title, String line, bool plus, bool on, void Function(bool) flip})>[
-      (key: 'iss', icon: Icons.satellite_alt_rounded, color: LookUpColors.blue, title: 'The space station', line: 'A few times a week', plus: false, on: s.issEnabled, flip: (v) => set((x) => x.copyWith(issEnabled: v))),
-      (key: 'meteors', icon: Icons.auto_awesome_rounded, color: LookUpColors.orange, title: 'Meteor showers', line: 'The best nights of each', plus: false, on: s.meteorsEnabled, flip: (v) => set((x) => x.copyWith(meteorsEnabled: v))),
-      (key: 'moon', icon: Icons.nightlight_round, color: LookUpColors.cyan, title: 'Eclipses and the Moon', line: 'Full Moons rising, eclipses', plus: false, on: s.eclipsesEnabled && s.moonriseEnabled, flip: (v) => set((x) => x.copyWith(eclipsesEnabled: v, moonriseEnabled: v))),
-      (key: 'planets', icon: Icons.blur_on_rounded, color: LookUpColors.gold, title: 'Planets meeting', line: 'Close pairs in the twilight', plus: false, on: s.pairingsEnabled, flip: (v) => set((x) => x.copyWith(pairingsEnabled: v))),
-      (key: 'starlink', icon: Icons.linear_scale_rounded, color: LookUpColors.violet, title: 'Starlink trains', line: 'After each launch', plus: true, on: s.starlinkEnabled, flip: (v) => set((x) => x.copyWith(starlinkEnabled: v))),
-      (key: 'aurora', icon: Icons.waves_rounded, color: LookUpColors.good, title: 'Aurora', line: 'The moment it\'s visible from here', plus: true, on: s.auroraEnabled, flip: (v) => set((x) => x.copyWith(auroraEnabled: v))),
+    final rows = <({String key, IconData icon, Color color, String title, String line, bool on, void Function(bool) flip})>[
+      (key: 'iss', icon: Icons.satellite_alt_rounded, color: LookUpColors.blue, title: 'The space station', line: 'A few times a week', on: s.issEnabled, flip: (v) => set((x) => x.copyWith(issEnabled: v))),
+      (key: 'meteors', icon: Icons.auto_awesome_rounded, color: LookUpColors.orange, title: 'Meteor showers', line: 'The best nights of each', on: s.meteorsEnabled, flip: (v) => set((x) => x.copyWith(meteorsEnabled: v))),
+      (key: 'moon', icon: Icons.nightlight_round, color: LookUpColors.cyan, title: 'Eclipses and the Moon', line: 'Full Moons rising, eclipses', on: s.eclipsesEnabled && s.moonriseEnabled, flip: (v) => set((x) => x.copyWith(eclipsesEnabled: v, moonriseEnabled: v))),
+      (key: 'planets', icon: Icons.blur_on_rounded, color: LookUpColors.gold, title: 'Planets meeting', line: 'Close pairs in the twilight', on: s.pairingsEnabled, flip: (v) => set((x) => x.copyWith(pairingsEnabled: v))),
+      (key: 'starlink', icon: Icons.linear_scale_rounded, color: LookUpColors.violet, title: 'Starlink trains', line: 'After each launch', on: s.starlinkEnabled, flip: (v) => set((x) => x.copyWith(starlinkEnabled: v))),
+      (key: 'aurora', icon: Icons.waves_rounded, color: LookUpColors.good, title: 'Aurora', line: 'The moment it\'s visible from here', on: s.auroraEnabled, flip: (v) => set((x) => x.copyWith(auroraEnabled: v))),
     ];
-    final plusOn = !s.isPlus && rows.any((r) => r.plus && r.on);
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
@@ -600,7 +647,7 @@ class _PickPage extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Pressable(
                     key: Key('pick-${r.key}'),
-                    semanticLabel: '${r.title}${r.plus ? ', LookUp+' : ''}, ${r.on ? 'on' : 'off'}',
+                    semanticLabel: '${r.title}, ${r.on ? 'on' : 'off'}',
                     onTap: () => r.flip(!r.on),
                     child: GlassCard(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -613,19 +660,14 @@ class _PickPage extends ConsumerWidget {
                             Text(r.line, style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
                           ]),
                         ),
-                        Pill(r.plus ? 'LookUp+' : 'Free', color: r.plus ? LookUpColors.blue : LookUpColors.good),
-                        const SizedBox(width: 6),
                         ExcludeSemantics(child: Switch(value: r.on, onChanged: r.flip)),
                       ]),
                     ),
                   ),
                 ),
               const SizedBox(height: 4),
-              Text(
-                plusOn ? 'The LookUp+ ones come with a 7-day free trial at the end.' : 'You can change these any time in Settings.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12.5, color: LookUpColors.greyDim),
-              ),
+              const Text('You can change these any time in Settings.',
+                  textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim)),
               const Spacer(),
               const SizedBox(height: 12),
               FilledButton(onPressed: onNext, child: const Text('Next')),
@@ -742,6 +784,10 @@ class _OfferPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = PlusPreview.of(ref.watch(homeProvider).value?.events ?? const <SkyEvent>[], DateTime.now());
+    final s = ref.watch(settingsProvider).value;
+    // What they just asked Pip for that free doesn't tap for.
+    final picked = [if (s?.auroraEnabled ?? false) 'aurora', if (s?.starlinkEnabled ?? false) 'Starlink trains'];
+    final asked = picked.join(' and ');
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
@@ -755,15 +801,23 @@ class _OfferPage extends ConsumerWidget {
               Rise(
                 index: 1,
                 child: Text(
-                  p.count == 0 ? 'Want a tap for everything up there?' : 'There\'s more coming over you',
+                  picked.isNotEmpty
+                      ? '${asked[0].toUpperCase()}${asked.substring(1)} ${picked.length == 1 && picked.first == 'aurora' ? 'is' : 'are'} LookUp+'
+                      : p.count == 0
+                          ? 'Want a tap for everything up there?'
+                          : 'There\'s more coming over you',
+                  key: const Key('trial-offer-title'),
                   style: display(32, weight: FontWeight.w700, height: 1.1),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                p.count == 0
-                    ? 'Free taps you for the space station, meteor showers and eclipses. LookUp+ adds the rest.'
-                    : 'Free taps you for the space station. ${p.count == 1 ? 'Here\'s one' : 'Here are ${p.count}'} it won\'t, this month:',
+                picked.isNotEmpty
+                    ? 'You asked Pip to watch for $asked. Free taps you for the space station, meteor showers, eclipses and the Moon; '
+                        '${p.count == 0 ? 'LookUp+ adds these.' : 'LookUp+ adds these, and they\'re coming:'}'
+                    : p.count == 0
+                        ? 'Free taps you for the space station, meteor showers and eclipses. LookUp+ adds the rest.'
+                        : 'Free taps you for the space station. ${p.count == 1 ? 'Here\'s one' : 'Here are ${p.count}'} it won\'t, this month:',
                 style: const TextStyle(color: LookUpColors.grey, height: 1.45),
               ),
               const SizedBox(height: 16),
