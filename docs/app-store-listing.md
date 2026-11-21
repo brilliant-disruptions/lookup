@@ -130,6 +130,15 @@ recording of *Preview an alert* → finder works well).
 > Camera, Photos and Calendar are only requested when the user taps the
 > camera view, Add your photo, or Add to calendar.
 
+## Links
+
+- **Privacy Policy URL:** https://lookup-relay.brilliant-disruptions.workers.dev/privacy (served by the relay, `relay/src/pages.ts`; deploy the relay first)
+- **Support URL:** https://lookup-relay.brilliant-disruptions.workers.dev/support
+- **Terms of Use (EULA):** Apple's standard licence. In App Store Connect leave the standard EULA selected, and add this line to the end of the description, as Apple asks for subscription apps: *Terms of Use: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/*
+- **Support email:** hello@brilliantdisruptions.com (Settings › Help › Report a problem fills in the app version)
+
+The paywall and the onboarding offer show *Terms of Use · Privacy Policy* under the buttons (`LegalLinks` in `lib/ui/help.dart`), with the price from the store and that it renews until cancelled.
+
 ## App Privacy
 
 See [`mac-checklist.md`](mac-checklist.md#app-store-connect-bits).

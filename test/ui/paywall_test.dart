@@ -95,6 +95,8 @@ void main() {
       expect(find.textContaining(line), findsOneWidget, reason: line);
     }
     expect(find.textContaining('3000 BC'), findsNothing, reason: 'the sky through history isn\'t what LookUp+ is sold on');
+    expect(find.byKey(const Key('terms-link')), findsOneWidget);
+    expect(find.byKey(const Key('privacy-link')), findsOneWidget);
 
     // Yearly is picked, priced per month and against monthly, trial spelled out.
     expect(find.text(r'≈ $2.50 a month'), findsOneWidget);

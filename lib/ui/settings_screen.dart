@@ -16,6 +16,7 @@ import 'demo.dart';
 import 'night_vision_controls.dart';
 import '../domain/models/sky_event.dart';
 import '../services/photo_library.dart';
+import 'help.dart';
 import 'keep_catch.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
@@ -271,6 +272,41 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _MoreScreen())),
           ),
         ]),
+        const _Header('Help'),
+        GroupedList(indent: 60, children: [
+          _Row(
+            key: const Key('report-problem'),
+            icon: Icons.mail_outline_rounded,
+            color: LookUpColors.blue,
+            title: 'Report a problem',
+            subtitle: 'An email to us with your app version filled in',
+            onTap: () => openLink(context, reportProblemUri(isPlus: s.isPlus)),
+          ),
+          _Row(
+            icon: Icons.help_outline_rounded,
+            color: LookUpColors.cyan,
+            title: 'Help and questions',
+            onTap: () => openLink(context, supportUri),
+          ),
+          _Row(
+            key: const Key('privacy-row'),
+            icon: Icons.lock_outline_rounded,
+            color: LookUpColors.good,
+            title: 'Privacy Policy',
+            subtitle: 'No accounts, no ads, no tracking',
+            onTap: () => openLink(context, privacyUri),
+          ),
+          _Row(
+            icon: Icons.description_outlined,
+            color: LookUpColors.grey,
+            title: 'Terms of Use',
+            onTap: () => openLink(context, termsUri),
+          ),
+        ]),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: SelectableText('$supportEmail · LookUp $appVersion', style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim)),
+        ),
       ],
     );
   }
@@ -437,7 +473,7 @@ class _Glyph extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.color, required this.title, this.subtitle, this.onTap});
+  const _Row({super.key, required this.icon, required this.color, required this.title, this.subtitle, this.onTap});
   final IconData icon;
   final Color color;
   final String title;

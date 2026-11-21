@@ -65,4 +65,15 @@ void main() {
     expect(find.byType(PaywallSheet), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
+
+  testWidgets('Settings has Help: report a problem, help, privacy, terms, and the support address', (t) async {
+    await _mount(t, plus: false);
+    await t.scrollUntilVisible(find.byKey(const Key('privacy-row')), 400, scrollable: find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first);
+    await t.pump();
+    for (final k in ['report-problem', 'privacy-row']) {
+      expect(find.byKey(Key(k), skipOffstage: false), findsOneWidget, reason: k);
+    }
+    expect(find.textContaining('hello@brilliantdisruptions.com', skipOffstage: false), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+  });
 }

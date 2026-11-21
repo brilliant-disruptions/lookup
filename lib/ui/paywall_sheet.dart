@@ -8,6 +8,7 @@ import '../domain/scheduling/alert_planner.dart';
 import '../services/plus_service.dart';
 import '../state/providers.dart';
 import 'format.dart';
+import 'help.dart';
 import 'kit/kit.dart';
 import 'plus_perks.dart';
 import 'theme.dart';
@@ -203,6 +204,7 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
                 textAlign: TextAlign.center,
                 style: t.bodySmall?.copyWith(color: LookUpColors.greyDim),
               ),
+              const LegalLinks(),
             ],
           ),
         ),

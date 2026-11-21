@@ -10,9 +10,11 @@ import '../domain/onboarding/first_look.dart';
 import '../domain/plus/plus_preview.dart';
 import '../domain/scheduling/alert_planner.dart';
 import '../domain/sky/catalog.dart';
+import '../services/plus_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
+import 'help.dart';
 import 'kit/kit.dart';
 import 'onboarding/first_look_sky.dart';
 import 'onboarding/light_up.dart';
@@ -784,6 +786,16 @@ class _AskPage extends ConsumerWidget {
 /// and Starlink (only if left on) also drop in the tap they'd get, from a
 /// real one coming when there is one. Then the real sights coming, the rest
 /// of LookUp+, a 7-day trial and a plain "Not now". Never again after this.
+/// The yearly plan's price as the store shows it (null until known).
+final _yearlyPrice = FutureProvider.autoDispose<String?>((ref) async {
+  try {
+    final offers = await ref.watch(plusServiceProvider).offers();
+    return offers.where((o) => o.id == PlusProducts.yearly).firstOrNull?.price;
+  } catch (_) {
+    return null;
+  }
+});
+
 class _OfferPage extends ConsumerStatefulWidget {
   const _OfferPage({required this.onTry, required this.onNotNow});
   final VoidCallback onTry, onNotNow;
@@ -958,6 +970,17 @@ class _OfferPageState extends ConsumerState<_OfferPage> {
                     ),
                   ),
                   TextButton(key: const Key('trial-offer-not-now'), onPressed: widget.onNotNow, child: const Text('Not now')),
+                  Text(
+                    // The store's own price for their country, when it's known.
+                    switch (ref.watch(_yearlyPrice).value) {
+                      final price? => '7 days free, then $price a year, renewing until you cancel. Pip reminds you before the trial ends.',
+                      null => '7 days free on the yearly plan, then it renews each year until you cancel. Pip reminds you before the trial ends.',
+                    },
+                    key: const Key('trial-offer-terms'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11.5, color: LookUpColors.greyDim),
+                  ),
+                  const LegalLinks(),
                 ]),
               ),
             ]),

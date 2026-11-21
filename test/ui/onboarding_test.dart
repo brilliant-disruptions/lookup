@@ -323,6 +323,10 @@ void main() {
     expect(find.byKey(const Key('offer-light-aurora')), findsNothing);
     expect(find.descendant(of: find.byKey(const Key('trial-offer-sights')), matching: find.textContaining('Starlink')), findsOneWidget);
     // And the rest of LookUp+, once, here; the sky through history isn't sold.
+    // What Apple asks for wherever a subscription is sold.
+    expect(find.byKey(const Key('terms-link')), findsOneWidget);
+    expect(find.byKey(const Key('privacy-link')), findsOneWidget);
+    expect(find.textContaining('renews each year until you cancel'), findsOneWidget, reason: 'no store in tests: no price to show');
     for (final k in ['planAhead', 'places', 'transits', 'noCaption']) {
       expect(find.byKey(Key('perk-$k')), findsOneWidget, reason: k);
     }

@@ -11,6 +11,7 @@
 // with its own Kp and cloud (lib/domain/aurora/seen_nearby.dart).
 
 import { cellKey, cellsNear, distanceKm, isCell, type Cell } from './cells';
+import { servePage } from './pages';
 import type { Pusher } from './push';
 import { createInvite, serveInvite, type InviteDeps } from './invite';
 import { CURATED, live, type RareEvent } from './rare_events';
@@ -126,6 +127,12 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const net = `ip:${await dailyHash(deps.secret, networkOf(ip), now)}`;
 
   if (url.pathname === '/v1/health') return json(200, { ok: true });
+
+  // Privacy, support and Terms: public pages the App Store and the app link to.
+  if (req.method === 'GET') {
+    const page = servePage(url.pathname);
+    if (page) return page;
+  }
 
   // The same for everyone and asked for once a day, so no limit and no store.
   if (url.pathname === '/v1/rare-events' && req.method === 'GET') {
