@@ -463,7 +463,10 @@ class _PipShowsYouState extends State<_PipShowsYou> {
       pressedScale: 0.97,
       onDown: () => setState(() => _pokes++),
       onTap: widget.onTap,
-      child: DecoratedBox(
+      // Pip's glow stays inside the card.
+      child: ClipRRect(
+        borderRadius: r,
+        child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: r,
           border: Border.all(color: LookUpColors.good.withValues(alpha: 0.35)),
@@ -499,6 +502,7 @@ class _PipShowsYouState extends State<_PipShowsYou> {
             ),
           ]),
         ),
+      ),
       ),
     );
   }

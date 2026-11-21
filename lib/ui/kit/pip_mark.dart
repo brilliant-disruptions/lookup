@@ -25,6 +25,7 @@ class PipMark extends StatefulWidget {
     this.flyFrom,
     this.replay = 0,
     this.asDot = false,
+    this.glow = 1,
     this.poke = 0,
   });
 
@@ -55,6 +56,10 @@ class PipMark extends StatefulWidget {
 
   /// Change it when Pip is touched: it squishes, wobbles and squints.
   final int poke;
+
+  /// How much of the halo round the character to draw (1 is all of it):
+  /// less where Pip sits in a small slot, so it doesn't flood it.
+  final double glow;
 
   @override
   State<PipMark> createState() => _PipMarkState();
@@ -111,6 +116,7 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
           sinceFlew: _still ? null : _t - _flewAt,
           asDot: widget.asDot,
           sincePoke: _t - _pokeAt,
+          glow: widget.glow,
         ),
       ),
     ),
@@ -132,7 +138,9 @@ class PipMarkPainter extends CustomPainter {
     this.sinceFlew,
     this.asDot = false,
     this.sincePoke = 1e9,
+    this.glow = 1,
   });
+  final double glow;
   final PipState state;
   final double seconds, sinceState, sincePoke;
   final bool still, dim, blinking, asDot;
@@ -179,7 +187,7 @@ class PipMarkPainter extends CustomPainter {
         ..rotate(pose.angle)
         ..scale(pose.stretch, pose.squash)
         ..rotate(-pose.angle);
-      paintPipGreeting(c, Offset.zero, hi, blink: blink, scale: s);
+      paintPipGreeting(c, Offset.zero, hi, blink: blink, scale: s, glow: glow);
       c.restore();
     }
     if (dim || pose.opacity < 1) {

@@ -12,6 +12,7 @@ import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/home_shell.dart';
 import 'package:lookup/ui/kit/navigation.dart';
 import 'package:lookup/ui/kit/pip_mark.dart';
+import 'package:lookup/ui/pip/pip_button.dart' show PipButton, pipHomeOffset;
 import 'package:lookup/ui/kit/surfaces.dart' show ListRow;
 import 'package:lookup/state/sky_state.dart';
 import 'package:lookup/state/night_state.dart';
@@ -126,6 +127,23 @@ void main() {
     await settle(t);
     expect(find.byType(FinderScreen), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing, reason: 'no Look sheet on the way');
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Pip is the tab bar\'s last slot: no bigger than a tab, its glow kept in, where the camera flies home to', (t) async {
+    await pump(t);
+    final bar = t.getRect(find.byType(FloatingTabBar));
+    final pip = t.getRect(find.byKey(const Key('pip-button')));
+    expect(pip.height, PipButton.size);
+    expect(pip.height, lessThanOrEqualTo(54), reason: 'as tall as a tab');
+    expect(bar.contains(pip.topLeft) && bar.contains(pip.bottomRight - const Offset(0.1, 0.1)), isTrue, reason: 'inside the capsule, not beside it');
+    expect(find.descendant(of: find.byKey(const Key('pip-button')), matching: find.byType(ClipOval)), findsOneWidget,
+        reason: 'the glow stays in its slot');
+    // The camera's Pip flies out from, and back to, exactly here.
+    final screen = t.view.physicalSize / t.view.devicePixelRatio;
+    final o = pipHomeOffset(screen, MediaQueryData.fromView(t.view).padding);
+    expect(screen.center(Offset(o.x, o.y)).dx, closeTo(pip.center.dx, 0.5));
+    expect(screen.center(Offset(o.x, o.y)).dy, closeTo(pip.center.dy, 0.5));
     await t.pumpWidget(const SizedBox());
   });
 
