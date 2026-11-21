@@ -285,7 +285,7 @@ class _HelloPage extends StatelessWidget {
             child: _FillOrScroll(
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 const Spacer(),
-                const Center(child: PipMark(key: Key('onboarding-pip'), size: 150, state: PipState.greet)),
+                const Center(child: PipMark(key: Key('onboarding-pip'), size: 150, state: PipState.greet, mood: PipMood.curious)),
                 const Spacer(),
                 const Rise(index: 0, child: Kicker('Pip', color: LookUpColors.good)),
                 const SizedBox(height: 8),
@@ -363,7 +363,7 @@ class _LookingPageState extends ConsumerState<_LookingPage> {
                   place: place,
                   onDone: widget.onDone,
                 )
-              : const SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching))),
+              : const SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching, mood: PipMood.focused))),
         ),
         SafeArea(
           child: Padding(
@@ -399,7 +399,7 @@ class _SkyPageState extends ConsumerState<_SkyPage> {
     final catalog = ref.watch(skyCatalogProvider).value;
     final lat = s?.latitude, lon = s?.longitude;
     if (lat == null || lon == null || look.isLoading) {
-      return const Scaffold(body: SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching))));
+      return const Scaffold(body: SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching, mood: PipMood.focused))));
     }
     final things = look.value?.things ?? const <SkyThing>[];
     final when = firstLookTime(_opened, look.value?.window);
@@ -642,7 +642,7 @@ class _PickPage extends ConsumerWidget {
         child: SafeArea(
           child: _FillOrScroll(
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Center(child: PipMark(size: 72)),
+              const Center(child: PipMark(size: 72, mood: PipMood.happy)),
               const SizedBox(height: 4),
               const Kicker('Pip will watch for…', color: LookUpColors.good),
               const SizedBox(height: 8),
@@ -740,7 +740,7 @@ class _AskPage extends ConsumerWidget {
                   key: const Key('tap-preview'),
                   padding: const EdgeInsets.all(14),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const PipMark(key: Key('onboarding-pip-blink'), size: 34, blinking: true),
+                    const PipMark(key: Key('onboarding-pip-blink'), size: 34, blinking: true, mood: PipMood.shy),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

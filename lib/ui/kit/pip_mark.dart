@@ -13,7 +13,7 @@ import 'firefly_mark.dart';
 import 'pip_greeting.dart';
 import 'pip_motion.dart';
 
-export 'pip_motion.dart' show PipState;
+export 'pip_motion.dart' show PipMood, PipState;
 
 class PipMark extends StatefulWidget {
   const PipMark({
@@ -26,6 +26,8 @@ class PipMark extends StatefulWidget {
     this.replay = 0,
     this.asDot = false,
     this.poke = 0,
+    this.mood = PipMood.calm,
+    this.moodFor,
   });
 
   /// What Pip is doing. [PipState.hello], [PipState.found] and
@@ -56,6 +58,12 @@ class PipMark extends StatefulWidget {
   /// Change it when Pip is touched: it squishes, wobbles and squints.
   final int poke;
 
+  /// How Pip feels, in its eyes ([PipMood]). A change eases in.
+  final PipMood mood;
+
+  /// With a time, the feeling passes and Pip drifts back to calm.
+  final Duration? moodFor;
+
   @override
   State<PipMark> createState() => _PipMarkState();
 }
@@ -68,6 +76,8 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
   double _flewAt = 0;
   double _stateAt = 0;
   double _pokeAt = -1e9;
+  double _moodAt = 0;
+  PipMood _fromMood = PipMood.calm;
   bool _still = false;
 
   @override
@@ -87,6 +97,19 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
     if (widget.flyFrom != old.flyFrom) _flewAt = _t;
     if (widget.state != old.state || widget.replay != old.replay) _stateAt = _t;
     if (widget.poke != old.poke) _pokeAt = _t;
+    if (widget.mood != old.mood) {
+      _fromMood = _moodNow(old).$1;
+      _moodAt = _t;
+    }
+  }
+
+  /// The feeling now (it passes after [PipMark.moodFor]), the one it's
+  /// coming from, and how long since it changed.
+  (PipMood, PipMood, double) _moodNow(PipMark w) {
+    final since = _t - _moodAt;
+    final d = w.moodFor;
+    if (d != null && since > d.inMicroseconds / 1e6) return (PipMood.calm, w.mood, since - d.inMicroseconds / 1e6);
+    return (w.mood, _fromMood, since);
   }
 
   @override
@@ -111,6 +134,9 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
           sinceFlew: _still ? null : _t - _flewAt,
           asDot: widget.asDot,
           sincePoke: _t - _pokeAt,
+          mood: _moodNow(widget).$1,
+          fromMood: _moodNow(widget).$2,
+          sinceMood: _moodNow(widget).$3,
         ),
       ),
     ),
@@ -132,9 +158,13 @@ class PipMarkPainter extends CustomPainter {
     this.sinceFlew,
     this.asDot = false,
     this.sincePoke = 1e9,
+    this.mood = PipMood.calm,
+    this.fromMood = PipMood.calm,
+    this.sinceMood = 1e9,
   });
   final PipState state;
-  final double seconds, sinceState, sincePoke;
+  final double seconds, sinceState, sincePoke, sinceMood;
+  final PipMood mood, fromMood;
   final bool still, dim, blinking, asDot;
   final Offset? flyFrom;
   final double? sinceFlew;
@@ -166,7 +196,15 @@ class PipMarkPainter extends CustomPainter {
     // rest or saying hi.
     final hi = asDot
         ? (greeting ? pipGreeting(sinceState, still: still, fromDot: true) : const PipGreeting())
-        : (greeting ? pipGreeting(sinceState, still: still) : pipCharacter(seconds, sincePoke: sincePoke, still: still));
+        : (greeting
+            ? pipGreeting(sinceState, still: still)
+            // "Can't see" (dim) is sorry; otherwise the feeling it was given.
+            : pipCharacter(seconds,
+                sincePoke: sincePoke,
+                still: still,
+                mood: dim ? PipMood.sorry : mood,
+                from: dim ? PipMood.sorry : fromMood,
+                sinceMood: sinceMood));
     void draw(Canvas c, double blink) {
       if (hi.dot) {
         paintFirefly(c, at, blink: blink, scale: s, stretch: pose.stretch, squash: pose.squash, angle: pose.angle);

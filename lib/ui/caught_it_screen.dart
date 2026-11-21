@@ -52,6 +52,14 @@ Future<void> showCaughtIt(BuildContext context, SkyEvent event, {bool demo = fal
   if (!demo) await askForReviewIfDue(container);
 }
 
+/// How Pip feels about a catch: a wink for a secret found, amazed by a
+/// first catch or a gold level, happy otherwise.
+PipMood caughtMood(CatchMoment m) {
+  if (m.newBadges.any((b) => b.secret)) return PipMood.wink;
+  if (m.isFirst || m.newBadges.any((b) => b.tier == BadgeTier.gold)) return PipMood.amazed;
+  return PipMood.happy;
+}
+
 class CaughtItScreen extends ConsumerWidget {
   const CaughtItScreen({super.key, required this.event, this.demo = false, this.onAddPhoto, this.animate = true});
   final SkyEvent event;
@@ -119,10 +127,10 @@ class CaughtItScreen extends ConsumerWidget {
                               // Pip found it with you: its ring and hop, by the sight.
                               child: Stack(clipBehavior: Clip.none, children: [
                                 EventGlyph.of(event, size: 68),
-                                const Positioned(
+                                Positioned(
                                   right: -30,
                                   top: -30,
-                                  child: PipMark(key: Key('caught-pip'), size: 44, state: PipState.found),
+                                  child: PipMark(key: const Key('caught-pip'), size: 44, state: PipState.found, mood: m == null ? PipMood.happy : caughtMood(m)),
                                 ),
                               ]),
                             ),

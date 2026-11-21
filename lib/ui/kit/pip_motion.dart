@@ -227,6 +227,118 @@ double _blinks(double t, List<double> at) {
 const pipGreetLength = 3.2;
 
 /// Pip saying hi, at one moment. Lengths are in 48-pixel Pip units.
+/// How Pip feels. Pip has no mouth, brows or hands, so every feeling is in
+/// its eyes (the lids, their size, a glint, where it looks) and a little in
+/// how it holds itself. Feelings are brief; Pip drifts back to calm. Only
+/// the character has them: guiding in the camera, Pip is the plain dot.
+enum PipMood {
+  /// At rest: eyes wander and blink.
+  calm,
+
+  /// Lower lids push up into smiles: a catch, a patch, clear skies.
+  happy,
+
+  /// Wide, round eyes with a glint, and a swell: a first catch, a gold
+  /// level, an aurora storm.
+  amazed,
+
+  /// Head on one side, one eye a little wider: hello, something new.
+  curious,
+
+  /// Heavy lids, slow blinks: daytime, quiet hours, nothing up yet.
+  sleepy,
+
+  /// Corners droop, looking down, dimmer: clouds, a miss, can't see.
+  sorry,
+
+  /// Narrowed, lids slanted in, still: working something out.
+  focused,
+
+  /// One eye smiles: a share, a secret found.
+  wink,
+
+  /// Smaller, glancing down and aside: asking for something.
+  shy,
+}
+
+/// The shape of Pip's eyes for a feeling, at full strength.
+class PipEyes {
+  const PipEyes({
+    this.lid = 0,
+    this.slant = 0,
+    this.smileL = 0,
+    this.smileR = 0,
+    this.sizeL = 1,
+    this.sizeR = 1,
+    this.glint = 0,
+    this.lookX = 0,
+    this.lookY = 0,
+    this.tilt = 0,
+    this.size = 1,
+    this.glow = 1,
+  });
+
+  /// How far the top lids come down, 0 open … 1 shut.
+  final double lid;
+
+  /// The lids' slant: positive drops the outer corners (sorry), negative
+  /// the inner ones (focused).
+  final double slant;
+
+  /// Lower lids pushed up into a smile, per eye, 0…1.
+  final double smileL, smileR;
+
+  /// Each eye's size.
+  final double sizeL, sizeR;
+
+  /// A white glint of light in each eye, 0…1.
+  final double glint;
+
+  /// Where a feeling looks (calm wanders instead).
+  final double lookX, lookY;
+
+  /// Pip leaning to one side, radians.
+  final double tilt;
+
+  /// Pip's size and glow, as a feeling holds it.
+  final double size, glow;
+
+  static const calm = PipEyes();
+
+  static PipEyes of(PipMood m) => switch (m) {
+        PipMood.calm => calm,
+        PipMood.happy => const PipEyes(smileL: 0.85, smileR: 0.85, sizeL: 1.4, sizeR: 1.4, lookY: -0.3, glow: 1.15),
+        PipMood.amazed => const PipEyes(sizeL: 1.25, sizeR: 1.25, glint: 1, lookY: -0.6, size: 1.08, glow: 1.4),
+        PipMood.curious => const PipEyes(sizeL: 1.12, sizeR: 0.88, glint: 0.6, lookX: 0.6, lookY: -0.5, tilt: -0.22),
+        PipMood.sleepy => const PipEyes(lid: 0.55, lookY: 0.4, size: 0.95, glow: 0.8),
+        PipMood.sorry => const PipEyes(lid: 0.38, slant: 0.95, sizeL: 1.1, sizeR: 1.1, lookY: 0.7, size: 0.93, glow: 0.7),
+        PipMood.focused => const PipEyes(lid: 0.36, slant: -0.7, glow: 1.05),
+        PipMood.wink => const PipEyes(smileR: 0.85, sizeR: 1.4, lookX: 0.3, lookY: -0.2, tilt: 0.12),
+        PipMood.shy => const PipEyes(lid: 0.2, sizeL: 0.92, sizeR: 0.92, lookX: -0.7, lookY: 0.55, size: 0.92, tilt: 0.1),
+      };
+
+  PipEyes lerp(PipEyes o, double k) {
+    double l(double a, double b) => a + (b - a) * k;
+    return PipEyes(
+      lid: l(lid, o.lid),
+      slant: l(slant, o.slant),
+      smileL: l(smileL, o.smileL),
+      smileR: l(smileR, o.smileR),
+      sizeL: l(sizeL, o.sizeL),
+      sizeR: l(sizeR, o.sizeR),
+      glint: l(glint, o.glint),
+      lookX: l(lookX, o.lookX),
+      lookY: l(lookY, o.lookY),
+      tilt: l(tilt, o.tilt),
+      size: l(size, o.size),
+      glow: l(glow, o.glow),
+    );
+  }
+}
+
+/// How long a new feeling takes to come over Pip's eyes.
+const pipMoodChange = 0.35;
+
 class PipGreeting {
   const PipGreeting({
     this.grown = 0,
@@ -238,7 +350,11 @@ class PipGreeting {
     this.drop,
     this.t = 0,
     this.size = 1,
+    this.eyes = PipEyes.calm,
   });
+
+  /// The shape of the eyes: how Pip feels ([PipMood]).
+  final PipEyes eyes;
 
   /// 0 is the dot, 1 the soft orb the eyes sit in.
   final double grown;
@@ -337,24 +453,46 @@ double _smooth(double k) {
 /// seconds (now and then twice), and it gives a small jiggle every seven.
 /// [sincePoke] is seconds since it was touched: a squish, a wobble and a
 /// happy squint. [still] is Reduce Motion: eyes open, looking ahead.
-PipGreeting pipCharacter(double t, {double sincePoke = 1e9, bool still = false}) {
-  if (still) return const PipGreeting(grown: 1, open: 1);
-  // Where the eyes look: one of a few places, chosen by the moment.
+PipGreeting pipCharacter(
+  double t, {
+  double sincePoke = 1e9,
+  bool still = false,
+  PipMood mood = PipMood.calm,
+  PipMood from = PipMood.calm,
+  double sinceMood = 1e9,
+}) {
+  // The feeling's eyes, eased in from the last one.
+  final k = still ? 1.0 : _smooth(sinceMood / pipMoodChange);
+  final eyes = PipEyes.of(from).lerp(PipEyes.of(mood), k);
+  if (still) return PipGreeting(grown: 1, open: 1, lookX: eyes.lookX, lookY: eyes.lookY, size: eyes.size, eyes: eyes);
+  // Where the eyes look: calm wanders between a few places; a feeling holds
+  // its look, with only a small drift.
   const spots = [(0.0, 0.0), (0.8, 0.0), (-0.8, 0.1), (0.5, -0.6), (-0.5, -0.5), (0.0, 0.4), (0.0, 0.0)];
   const glance = 2.6;
-  final k = (t / glance).floor();
+  final g = (t / glance).floor();
   (double, double) spot(int i) => spots[((i * 5 + 3) % spots.length + spots.length) % spots.length];
-  final (fx, fy) = spot(k - 1);
-  final (tx, ty) = spot(k);
-  final e = _smooth((t - k * glance) / 0.3);
-  var lookX = fx + (tx - fx) * e, lookY = fy + (ty - fy) * e;
-  // Blinks: every 3.7 s, and a double blink every third time.
-  final b = t % 3.7;
-  var open = _blinks(b, (t ~/ 3.7) % 3 == 2 ? const [0.1, 0.35] : const [0.1]).clamp(0.0, 1.0);
+  final (fx, fy) = spot(g - 1);
+  final (tx, ty) = spot(g);
+  final e = _smooth((t - g * glance) / 0.3);
+  final calmness = mood == PipMood.calm ? k : (from == PipMood.calm ? 1 - k : 0.0);
+  var lookX = (fx + (tx - fx) * e) * calmness + (eyes.lookX + 0.06 * math.sin(t * 0.9)) * (1 - calmness);
+  var lookY = (fy + (ty - fy) * e) * calmness + (eyes.lookY + 0.05 * math.sin(t * 0.7)) * (1 - calmness);
+  // Blinks: every 3.7 s (a double blink every third time); sleepy, slow and heavy.
+  double open;
+  if (mood == PipMood.sleepy && k > 0.5) {
+    final b = t % 4.2;
+    open = b < 0.9 ? 1 - math.sin(b / 0.9 * math.pi) : 1;
+  } else {
+    final b = t % 3.7;
+    open = _blinks(b, (t ~/ 3.7) % 3 == 2 ? const [0.1, 0.35] : const [0.1]).clamp(0.0, 1.0);
+  }
   // A small jiggle every 7 s, like water nudged.
   final j = t % 7;
   var wobble = j < 1.2 ? 0.5 * math.exp(-j * 3) * math.sin(j * 14) : 0.0;
-  var size = 1 + 0.025 * math.sin(t * 1.7);
+  var size = (1 + 0.025 * math.sin(t * 1.7)) * eyes.size;
+  // Happy bounces a little; amazed swells with a pop when it comes.
+  if (mood == PipMood.happy) size *= 1 + 0.03 * k * math.exp(-(t % 1.6) * 3) * math.sin((t % 1.6) * 12).abs();
+  if (mood == PipMood.amazed && sinceMood < 1.2) size *= 1 + 0.07 * math.exp(-sinceMood * 3) * math.sin(sinceMood * 14);
   if (sincePoke >= 0 && sincePoke < 0.8) {
     final p = sincePoke;
     // Squished, then springs back with a wobble; eyes squint shut, then pop open looking up.
@@ -364,6 +502,6 @@ PipGreeting pipCharacter(double t, {double sincePoke = 1e9, bool still = false})
     lookX *= 0.3;
     lookY = p < 0.5 ? -0.5 : lookY;
   }
-  return PipGreeting(grown: 1, open: open, lookX: lookX, lookY: lookY, wobble: wobble, t: t, size: size);
+  return PipGreeting(grown: 1, open: open, lookX: lookX, lookY: lookY, wobble: wobble, t: t, size: size, eyes: eyes);
 }
 
