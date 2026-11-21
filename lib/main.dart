@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +25,9 @@ Future<void> main() async {
   onAlert(await notifications.launchResponse());
   await container.read(plusServiceProvider).start();
   await WidgetService.init();
+  // A portrait app: every screen is laid out for a phone held upright, and
+  // on its side the Week list had a finger's height to live in.
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(UncontrolledProviderScope(
     container: container,
     child: const LookUpApp(),

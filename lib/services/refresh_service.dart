@@ -5,6 +5,7 @@ library;
 import '../data/aurora_reports_client.dart';
 import '../data/celestrak_client.dart';
 import '../data/launch_library_client.dart';
+import '../domain/scheduling/alert_ledger.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../data/local_store.dart';
 import '../data/open_meteo_client.dart';
@@ -254,6 +255,9 @@ class RefreshService {
           await store.saveClouds(clouds);
         } catch (e) {
           errors.add('clouds: $e');
+          // The forecast in hand is for somewhere else: unknown is honest,
+          // another town's sky isn't.
+          if (cloudsMoved) clouds = null;
         }
       }
       return clouds;
@@ -263,7 +267,10 @@ class RefreshService {
       var aurora = await store.loadAurora();
       if (!quick &&
           settings.auroraEnabled &&
-          (force || aurora == null || now.difference(aurora.fetchedAt) > auroraMaxAge)) {
+          (force ||
+              aurora == null ||
+              now.difference(aurora.fetchedAt) > auroraMaxAge ||
+              !aurora.currentFor(now, fix.lat, fix.lon))) {
         try {
           // All three at once; the forecast alone decides whether there's a snapshot.
           final kpNowF = swpc.fetchEstimatedKpNow()..ignore();
@@ -278,7 +285,7 @@ class RefreshService {
             errors.add('aurora-now: $e');
           }
           aurora = AuroraSnapshot(
-              fetchedAt: now, kpNow: kpNow, forecast: forecast, ovationProbability: ovation);
+              fetchedAt: now, kpNow: kpNow, forecast: forecast, ovationProbability: ovation, latitude: fix.lat, longitude: fix.lon);
           await store.saveAurora(aurora);
         } catch (e) {
           errors.add('aurora: $e');
@@ -396,18 +403,28 @@ class RefreshService {
     }
 
     final offset = NotificationService.utcOffsetMinutes();
+    // What has already gone out stays out of the schedule: it's never
+    // cancelled (it's on their Lock Screen), never sent again, and it has
+    // used its share of the night's taps.
+    final before = AlertLedger.at(await store.loadAlertLedger(), now);
     // Never alert from the shipped ISS: its times are only roughly right.
     final plan = planner.plan(
         events: approximate
             ? [for (final e in events) if (e.type != SkyEventType.iss && e.type != SkyEventType.issTransit) e]
             : events,
-        settings: tuned, now: now, utcOffsetMinutes: offset, tuning: tuning);
+        settings: tuned, now: now, utcOffsetMinutes: offset, tuning: tuning, alerted: AlertLedger.alerted(before.delivered));
     try {
-      final previous = await store.loadPlannedIds();
-      final scheduled = await notifications.applyPlan(plan, previous);
-      await store.savePlannedIds(scheduled);
+      // Ids saved by a build from before the ledger: all still waiting, as far as anyone knows.
+      final legacy = await store.loadPlannedIds();
+      final sent = {for (final d in before.delivered) d.id};
+      await notifications.applyPlan(plan, {...before.pending, ...legacy.difference(sent)});
+      await store.saveAlertLedger(AlertLedger.next(before.delivered, [
+        for (final a in plan)
+          AlertRecord(id: a.notificationId, eventId: a.event.id, fireAt: a.fireAt, peak: a.event.peak),
+      ]));
+      if (legacy.isNotEmpty) await store.savePlannedIds(const []);
       if (!approximate) await notifications.scheduleWeekAhead(WeekAhead.of(events: events, settings: tuned, now: now));
-      await _fireAuroraNow(events, settings, offset);
+      await _fireAuroraNow(events, settings, offset, now);
     } catch (e) {
       errors.add('schedule: $e');
     }
@@ -430,13 +447,13 @@ class RefreshService {
   /// "Aurora now" can't be scheduled ahead; show it immediately, once per
   /// 3-hour bucket (the event id carries the bucket).
   Future<void> _fireAuroraNow(
-      List<SkyEvent> events, LookUpSettings settings, int offset) async {
-    if (!settings.isPlus) return;
+      List<SkyEvent> events, LookUpSettings settings, int offset, DateTime now) async {
+    if (!settings.isPlus || settings.alertsPaused) return;
     for (final e in events.where((e) => e.type == SkyEventType.auroraNow)) {
       if (!AlertPlanner.passesQuietHours(e, settings, offset)) continue;
       final id = AlertPlanner.notificationIdFor(e.id, AlertKind.headsUp);
-      final already = await store.loadPlannedIds();
-      if (already.contains(id)) continue;
+      final already = await store.loadAlertLedger();
+      if (already.any((r) => r.id == id)) continue;
       await notifications.showNow(
         id: id,
         title: AlertPlanner.auroraNowTitle(e),
@@ -444,7 +461,10 @@ class RefreshService {
         payload: e.id,
         kind: AlertKind.goNow, // already happening: no "remind me later"
       );
-      await store.savePlannedIds({...already, id});
+      // Remembered as sent (and outside the night's cap), so no later
+      // refresh in this bucket sends it again.
+      await store.saveAlertLedger(
+          [...already, AlertRecord(id: id, eventId: e.id, fireAt: now.toUtc(), peak: e.peak, counts: false)]);
     }
   }
 

@@ -87,6 +87,7 @@ class LookUpSettings {
     this.isPlus = false,
     this.plusUntil,
     this.plusSeenAt,
+    this.plusDoubtAt,
     this.minIssPeakElevationDeg = 25,
     this.minStarlinkPeakElevationDeg = 20,
     this.onboarded = false,
@@ -103,6 +104,7 @@ class LookUpSettings {
     this.reviewAskedAt,
     this.reviewAsks = 0,
     this.weekAhead = true,
+    this.alertsPaused = false,
     this.plusDeclines = 0,
     this.trialOfferShown = false,
     this.missedItId,
@@ -174,6 +176,11 @@ class LookUpSettings {
 
   /// When the store last vouched for LookUp+ on this phone.
   final DateTime? plusSeenAt;
+
+  /// When the store first answered "nothing owned" while LookUp+ was still
+  /// believed here; cleared when it vouches again. The doubt
+  /// ([PlusGrant.doubt]) runs from this.
+  final DateTime? plusDoubtAt;
   final double minIssPeakElevationDeg;
   final double minStarlinkPeakElevationDeg;
   final bool onboarded;
@@ -193,6 +200,10 @@ class LookUpSettings {
 
   /// The once-a-week "Your week ahead" note (`domain/scheduling/week_ahead.dart`).
   final bool weekAhead;
+
+  /// Every tap off at once (a holiday, exams, a new baby) without touching
+  /// what they've chosen to hear about. Nothing is scheduled while it's on.
+  final bool alertsPaused;
 
   /// Soft LookUp+ asks turned down ("Not now", or the offer closed without
   /// a trial). Two and they stop (domain/plus/nudges.dart).
@@ -304,6 +315,8 @@ class LookUpSettings {
     DateTime? plusUntil,
     bool forgetPlusUntil = false,
     DateTime? plusSeenAt,
+    DateTime? plusDoubtAt,
+    bool forgetPlusDoubt = false,
     double? minIssPeakElevationDeg,
     double? minStarlinkPeakElevationDeg,
     bool? onboarded,
@@ -320,6 +333,7 @@ class LookUpSettings {
     DateTime? reviewAskedAt,
     int? reviewAsks,
     bool? weekAhead,
+    bool? alertsPaused,
     int? plusDeclines,
     bool? trialOfferShown,
     String? missedItId,
@@ -361,6 +375,7 @@ class LookUpSettings {
         isPlus: isPlus ?? this.isPlus,
         plusUntil: forgetPlusUntil ? null : plusUntil ?? this.plusUntil,
         plusSeenAt: plusSeenAt ?? this.plusSeenAt,
+        plusDoubtAt: forgetPlusDoubt ? null : plusDoubtAt ?? this.plusDoubtAt,
         minIssPeakElevationDeg:
             minIssPeakElevationDeg ?? this.minIssPeakElevationDeg,
         minStarlinkPeakElevationDeg:
@@ -379,6 +394,7 @@ class LookUpSettings {
         reviewAskedAt: reviewAskedAt ?? this.reviewAskedAt,
         reviewAsks: reviewAsks ?? this.reviewAsks,
         weekAhead: weekAhead ?? this.weekAhead,
+        alertsPaused: alertsPaused ?? this.alertsPaused,
         plusDeclines: plusDeclines ?? this.plusDeclines,
         trialOfferShown: trialOfferShown ?? this.trialOfferShown,
         missedItId: missedItId ?? this.missedItId,
@@ -422,6 +438,7 @@ class LookUpSettings {
         'isPlus': isPlus,
         if (plusUntil != null) 'plusUntil': plusUntil!.toIso8601String(),
         if (plusSeenAt != null) 'plusSeenAt': plusSeenAt!.toIso8601String(),
+        if (plusDoubtAt != null) 'plusDoubtAt': plusDoubtAt!.toIso8601String(),
         'minIssPeakElevationDeg': minIssPeakElevationDeg,
         'minStarlinkPeakElevationDeg': minStarlinkPeakElevationDeg,
         'onboarded': onboarded,
@@ -438,6 +455,7 @@ class LookUpSettings {
         if (reviewAskedAt != null) 'reviewAskedAt': reviewAskedAt!.toIso8601String(),
         if (reviewAsks > 0) 'reviewAsks': reviewAsks,
         if (!weekAhead) 'weekAhead': false,
+        if (alertsPaused) 'alertsPaused': true,
         if (plusDeclines > 0) 'plusDeclines': plusDeclines,
         if (trialOfferShown) 'trialOfferShown': true,
         if (missedItId != null) 'missedItId': missedItId,
@@ -487,6 +505,7 @@ class LookUpSettings {
       isPlus: j['isPlus'] as bool? ?? d.isPlus,
       plusUntil: DateTime.tryParse(j['plusUntil'] as String? ?? '')?.toUtc(),
       plusSeenAt: DateTime.tryParse(j['plusSeenAt'] as String? ?? '')?.toUtc(),
+      plusDoubtAt: DateTime.tryParse(j['plusDoubtAt'] as String? ?? '')?.toUtc(),
       minIssPeakElevationDeg: (j['minIssPeakElevationDeg'] as num?)?.toDouble() ??
           d.minIssPeakElevationDeg,
       minStarlinkPeakElevationDeg:
@@ -509,6 +528,7 @@ class LookUpSettings {
       reviewAskedAt: DateTime.tryParse(j['reviewAskedAt'] as String? ?? '')?.toUtc(),
       reviewAsks: (j['reviewAsks'] as num?)?.toInt() ?? 0,
       weekAhead: j['weekAhead'] as bool? ?? true,
+      alertsPaused: j['alertsPaused'] as bool? ?? false,
       plusDeclines: (j['plusDeclines'] as num?)?.toInt() ?? 0,
       trialOfferShown: j['trialOfferShown'] as bool? ?? false,
       missedItId: j['missedItId'] as String?,

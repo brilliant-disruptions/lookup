@@ -217,6 +217,8 @@ class _Refresh implements RefreshService {
 
 class _FakePlus implements PlusService {
   @override
+  Stream<String> get errors => const Stream.empty();
+  @override
   Future<List<PlusOffer>> offers() async => const [];
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
@@ -968,8 +970,13 @@ void main() {
     _ShotCamera camera() => _ShotCamera(path: path, magnitude: typicalMagnitude(pass), latDeg: 51.5, lonDeg: -0.12, catalog: _catalog);
 
     Future<void> catchShot(WidgetTester t, Widget w, String name, {Future<void> Function(WidgetTester)? act}) async {
-      t.view.physicalSize = const Size(1179, 2556);
-      t.view.devicePixelRatio = 3;
+      // LOOKUP_SMALL=1 renders at a small phone's size (375×667 pt, an
+      // iPhone SE) into goldens/small/, to check nothing is clipped there.
+      final small = Platform.environment['LOOKUP_SMALL'] == '1';
+      if (small) name = 'small/$name';
+      t.view.physicalSize = small ? const Size(750, 1334) : const Size(1179, 2556);
+      t.view.devicePixelRatio = small ? 2 : 3;
+      if (small) t.view.padding = const FakeViewPadding(top: 40);
       addTearDown(t.view.reset);
       await t.pumpWidget(_app(w, settings: _london));
       // Stacking runs on the test clock; decoding pictures needs real time.

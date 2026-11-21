@@ -21,6 +21,8 @@ class _Settings extends SettingsNotifier {
 
 class _FakePlus implements PlusService {
   @override
+  Stream<String> get errors => const Stream.empty();
+  @override
   Future<List<PlusOffer>> offers() async => const [];
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
@@ -63,6 +65,19 @@ void main() {
     await t.pump();
     expect(_c.read(settingsProvider).value!.photoCaption, isFalse);
     expect(find.byType(PaywallSheet), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('one switch pauses every alert, and says so', (t) async {
+    await _mount(t, plus: false);
+    final sw = find.byKey(const Key('pause-alerts'));
+    await t.ensureVisible(sw);
+    expect(find.text('One switch for a holiday or a busy week'), findsOneWidget);
+    await t.tap(find.descendant(of: sw, matching: find.byType(Switch)));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    expect(_c.read(settingsProvider).value!.alertsPaused, isTrue);
+    expect(find.text('Nothing will tap you until you turn this off'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
 

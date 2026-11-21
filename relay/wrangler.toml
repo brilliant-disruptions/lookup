@@ -17,3 +17,9 @@ crons = ["*/10 * * * *"]
 
 [observability]
 enabled = true
+
+# Errors and our own log lines only. The per-request log would keep each
+# caller's address and the cells they asked about, and the privacy page says
+# the relay keeps neither.
+[observability.logs]
+invocation_logs = false

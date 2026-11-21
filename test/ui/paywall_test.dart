@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +14,11 @@ import 'package:lookup/ui/theme.dart';
 class _Settings extends SettingsNotifier {
   @override
   Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true);
+}
+
+class _PlusSettings extends SettingsNotifier {
+  @override
+  Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true, isPlus: true);
 }
 
 final _now = DateTime.now().toUtc();
@@ -51,6 +58,16 @@ PlusOffer _offer(String id, String price, double raw) => PlusOffer(
     );
 
 class _FakePlus implements PlusService {
+  final failed = StreamController<String>.broadcast();
+  int restores = 0;
+  bool reachable = true;
+  @override
+  Stream<String> get errors => failed.stream;
+  @override
+  Future<void> restore() async {
+    restores++;
+    if (!reachable) throw 'offline';
+  }
   final bought = <String>[];
   @override
   Future<List<PlusOffer>> offers() async => [
@@ -112,6 +129,62 @@ void main() {
     await t.tap(find.text(r'Continue · $5.99 a month'));
     await t.pump();
     expect(plus.bought, [PlusProducts.monthly]);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  Future<_FakePlus> open(WidgetTester t, {bool isPlus = false}) async {
+    t.view.physicalSize = const Size(1179, 6000);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final plus = _FakePlus();
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(isPlus ? _PlusSettings.new : _Settings.new),
+        homeProvider.overrideWith(_Home.new),
+        plusServiceProvider.overrideWithValue(plus),
+      ],
+      child: MaterialApp(theme: buildLookUpTheme(), home: const Scaffold(body: PaywallSheet())),
+    ));
+    for (var i = 0; i < 5; i++) {
+      await t.pump(const Duration(milliseconds: 200));
+    }
+    return plus;
+  }
+
+  // A declined card or a cancelled sheet comes from the store later, not
+  // from the button: it used to show nothing at all.
+  testWidgets('a purchase that doesn\'t go through says so, in words, and the plans stay', (t) async {
+    final plus = await open(t);
+    expect(find.byKey(const Key('paywall-note')), findsNothing);
+    plus.failed.add('SKErrorDomain 2');
+    await t.pump();
+    await t.pump();
+    final note = t.widget<Text>(find.byKey(const Key('paywall-note'))).data!;
+    expect(note, contains('haven\'t been charged'));
+    expect(note, isNot(contains('SKError')), reason: 'never the raw error');
+    expect(find.byKey(const Key('paywall-buy')), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Restore purchases says what it found', (t) async {
+    final plus = await open(t);
+    await t.tap(find.byKey(const Key('restore-purchases')));
+    await t.pump();
+    await t.pump();
+    expect(plus.restores, 1);
+    expect(t.widget<Text>(find.byKey(const Key('paywall-note'))).data, contains('No LookUp+ found'));
+    plus.reachable = false;
+    await t.tap(find.byKey(const Key('restore-purchases')));
+    await t.pump();
+    await t.pump();
+    expect(t.widget<Text>(find.byKey(const Key('paywall-note'))).data, contains('Couldn\'t reach the store'));
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a subscriber is shown where to manage or cancel', (t) async {
+    await open(t, isPlus: true);
+    expect(find.byKey(const Key('manage-subscription')), findsOneWidget);
+    expect(find.byKey(const Key('restore-purchases')), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
 }

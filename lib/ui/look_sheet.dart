@@ -463,7 +463,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
 
 /// Which way to look, in words: the rise point for a pass, north for aurora.
 double _lookWord0(SkyEvent e, {required bool isAurora, required bool isPass}) =>
-    isAurora ? 0 : (isPass ? e.riseAzimuthDeg : e.peakAzimuthDeg);
+    isAurora ? e.peakAzimuthDeg : (isPass ? e.riseAzimuthDeg : e.peakAzimuthDeg);
 
 String _lookWord(SkyEvent e, {required bool isAurora, required bool isPass}) =>
     compassWord(_lookWord0(e, isAurora: isAurora, isPass: isPass));
@@ -673,7 +673,7 @@ String _capitalised(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.subst
 /// One plain sentence: where to look and what you'll see.
 String lookLine(SkyEvent e) => switch (e.type) {
       SkyEventType.auroraNow || SkyEventType.auroraOutlook =>
-        'Face north. Get away from streetlights and give your eyes five minutes.',
+        'Face ${auroraFace(e)}. Get away from streetlights and give your eyes five minutes.',
       SkyEventType.meteorShower =>
         'Lie back and look up, anywhere. Meteors seem to come from the ${compassWord(e.peakAzimuthDeg)}, but they streak across the whole sky. Give your eyes 20 minutes in the dark.',
       SkyEventType.lunarEclipse =>

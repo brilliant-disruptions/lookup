@@ -106,7 +106,9 @@ class YearCard extends StatelessWidget {
       if (r.highest?.peakElevationDeg != null) 'Highest pass: ${elevationWord(r.highest!.peakElevationDeg!)}',
       if (r.lateNights > 0) '${r.lateNights} after midnight',
     ];
-    return AspectRatio(
+    // A picture that gets shared: one size, whatever the phone's text size.
+    return MediaQuery.withNoTextScaling(
+        child: AspectRatio(
       aspectRatio: 4 / 5,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(Radii.lg),
@@ -148,6 +150,6 @@ class YearCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }

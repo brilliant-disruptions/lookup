@@ -48,7 +48,10 @@ class NowScreen extends ConsumerWidget {
           onRefresh: () => ref.read(homeProvider.notifier).pull(),
           child: home.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => ListView(children: [Padding(padding: const EdgeInsets.all(24), child: Text('$e'))]),
+            error: (_, _) => ListView(children: [
+              SizedBox(height: top + 40),
+              LoadTrouble(what: 'Tonight\'s sky didn\'t load.', onRetry: () => ref.invalidate(homeProvider)),
+            ]),
             data: (d) => ListView(
               padding: EdgeInsets.fromLTRB(16, top + 14, 16, tabBarClearance(context)),
               children: [

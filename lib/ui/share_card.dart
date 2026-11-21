@@ -227,7 +227,10 @@ class ShareCard extends ConsumerWidget {
     Widget body(Widget child) => snapshot != null
         ? child
         : Starfield(density: 0.0007, maxOpacity: 0.6, seed: e.id.hashCode, fadeBottom: false, child: child);
-    return AspectRatio(
+    // A poster is a picture that gets shared: it's laid out at one size,
+    // whatever text size the phone is set to (large text overflowed it).
+    return MediaQuery.withNoTextScaling(
+        child: AspectRatio(
       aspectRatio: 4 / 5,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(Radii.lg),
@@ -280,7 +283,7 @@ class ShareCard extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

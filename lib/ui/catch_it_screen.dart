@@ -157,7 +157,8 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
     _frames?.cancel();
     _runner?.dispose();
     unawaited(_backend?.close());
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    // Back to the app's own portrait (main.dart), not every rotation.
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
@@ -559,9 +560,47 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
   /// The live camera fills a box fixed to the phone (it turns with it).
   bool get _deviceMode => !_practice && (_phase == CatchPhase.opening || _phase == CatchPhase.aim);
 
+  /// A finished catch that isn't in the Log yet: leaving would lose it.
+  bool get _unkept => _phase == CatchPhase.done && !_practice && !_skyShot && !_saved && _result != null;
+
+  /// Leaving with a catch not kept: ask first. They waited minutes for it,
+  /// and "Done" (or a swipe back) must never quietly throw it away.
+  Future<void> _askBeforeLeaving() async {
+    final keep = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        key: const Key('keep-before-leaving'),
+        title: const Text('Keep this picture?'),
+        content: const Text('It isn\'t in your Log yet. Leave now and it\'s gone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Don\'t keep it')),
+          FilledButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Add to my Log')),
+        ],
+      ),
+    );
+    if (!mounted || keep == null) return;
+    if (keep) {
+      await _keep();
+      if (!mounted || !_saved) return;
+    } else {
+      setState(() => _saved = true); // their choice: nothing left to lose
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final turns = _contentTurns;
+    return PopScope(
+      canPop: !_unkept,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _askBeforeLeaving();
+      },
+      child: _screen(context, turns),
+    );
+  }
+
+  Widget _screen(BuildContext context, int turns) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -569,7 +608,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
           // The camera's box in the phone's own frame: as wide as the
           // screen, at most 60% of its height.
           final aspect = _backend?.portraitAspect ?? 3 / 4;
-          final bw = math.min(area.maxWidth, area.maxHeight * 0.5 * aspect);
+          final bw = math.min(area.maxWidth, area.maxHeight * _pictureShare(area.maxHeight) * aspect);
           final device = Size(bw, bw / aspect);
           return Stack(children: [
             if (_deviceMode)
@@ -608,6 +647,11 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
     );
   }
 
+  /// How much of the height the picture takes. Half on a tall phone; less
+  /// on a short one, where half left the words and buttons under it
+  /// squeezed behind the shutter or cut off.
+  static double _pictureShare(double height) => height < 640 ? 0.36 : (height < 740 ? 0.43 : 0.5);
+
   /// The picture's box when it's drawn upright with the words: the
   /// practice sky, the streak building, the result.
   Size _holeFor(BoxConstraints c) {
@@ -617,7 +661,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
         : (_plan == null ? 3 / 4 : (_plan!.framing.widthFovDeg / _plan!.framing.heightFovDeg));
     final wide = c.maxWidth > c.maxHeight;
     final maxW = wide ? c.maxWidth * 0.62 : c.maxWidth - 24;
-    final maxH = wide ? c.maxHeight - 24 : c.maxHeight * 0.5;
+    final maxH = wide ? c.maxHeight - 24 : c.maxHeight * _pictureShare(c.maxHeight);
     var w = maxW, h = w / aspect;
     if (h > maxH) {
       h = maxH;
@@ -913,7 +957,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
           children.add(const SizedBox(height: 10));
           children.add(OutlinedButton.icon(
               onPressed: _share, icon: const Icon(Icons.ios_share_rounded, size: 18), label: const Text('Share')));
-          children.add(TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done')));
+          children.add(TextButton(onPressed: () => Navigator.of(context).maybePop(), child: const Text('Done')));
         }
       case CatchPhase.failed:
         children.add(FilledButton(
@@ -934,7 +978,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
     final r = _r;
     if (r == null) return (plan.aimWords, null, false);
     final g = guide(cameraDirection(r, declinationDeg: _decl), plan.framing.center, toleranceDeg: 4);
-    if (!g.onTarget) return (g.words, 'Bring the firefly into the ring', false);
+    if (!g.onTarget) return (g.words, 'Bring Pip into the ring', false);
     final level = levelWords(tiltDeg(r, quarterTurns: _contentTurns));
     if (level != null) return (level, null, false);
     if (!isSteady(_recent)) return ('Hold it still', null, false);

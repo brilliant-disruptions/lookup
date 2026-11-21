@@ -157,7 +157,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
         stars: false,
         child: sky.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (_, _) => LoadTrouble(what: 'The sky map didn\'t load.', onRetry: () => ref.invalidate(tonightSkyProvider)),
         data: (t) {
           if (t == null || settings?.latitude == null || catalog == null) {
             return Padding(

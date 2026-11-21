@@ -31,10 +31,10 @@ export function privacyPage(): string {
 <p>LookUp works out your sky on your phone. There are no accounts, no ads, no analytics and no tracking, and no third-party SDKs. We don't sell or share anything about you.</p>
 
 <h2>Your location</h2>
-<p>LookUp asks for a rough location (or a town you pick) to work out what's over you. It stays on your phone. To fetch the weather, LookUp sends that location to <a href="https://open-meteo.com">Open-Meteo</a>, the free weather service, with nothing that identifies you. Searching for a town sends the words you type to Open-Meteo's place search.</p>
+<p>LookUp asks for your location (or a town you pick) to work out what's over you. Your exact position stays on your phone. To fetch the weather, LookUp sends a rough version of it, rounded to about a kilometre, to <a href="https://open-meteo.com">Open-Meteo</a>, the weather service, with nothing that identifies you. The same goes for other places you save, and for the darker spots LookUp suggests nearby. Searching for a town sends the words you type to Open-Meteo's place search.</p>
 
 <h2>Photos</h2>
-<p>Pictures you catch are saved to a LookUp album in your Photos. LookUp only reads its own album, and we recommend giving it Limited access. Your pictures never leave your phone unless you share them.</p>
+<p>Pictures you catch are saved to a LookUp album in your Photos. LookUp only reads its own album, and we recommend giving it Limited access. Each picture is saved with what it shows, when, the name of your place and a rough location (to about a kilometre), as any photo is; if you share a picture, those can go with it. Your pictures never leave your phone unless you share them.</p>
 
 <h2>Sky data</h2>
 <p>LookUp downloads satellite orbits (Celestrak), space weather (NOAA SWPC), rocket launches (The Space Devs) and a short list of rare sky events from our server. None of these requests carry your location.</p>
@@ -42,9 +42,9 @@ export function privacyPage(): string {
 <h2>Seen near you, wake-ups and invites</h2>
 <p>If you use these, LookUp's small server sees only:</p>
 <ul>
-<li><b>Aurora reports:</b> a half-degree square (about 55 km) and the time, with a random token that changes every day. Kept for an hour.</li>
+<li><b>Aurora reports:</b> a half-degree square (about 55 km), the time and whether you saw it by eye or in the camera, with a random token that changes every day. Kept for an hour.</li>
 <li><b>Wake-ups for aurora near you:</b> your phone's push address and the half-degree squares around you, never your position. Removed when you turn them off.</li>
-<li><b>Invites you create:</b> what's in the invite (the sight, its time, where to look, and the place name if you include it). They expire after the event.</li>
+<li><b>Invites you create:</b> what's in the invite (the sight, its time and your time zone, where to look and its picture, the cloud forecast, and the name of your place). Anyone with the link can see them. They're deleted two days after the event.</li>
 </ul>
 <p>The server doesn't keep IP addresses.</p>
 
@@ -55,7 +55,7 @@ export function privacyPage(): string {
 <p>LookUp is for everyone and collects nothing that identifies anyone, including children.</p>
 
 <h2>Emails to us</h2>
-<p>If you email us (Settings › Help › Report a problem fills in your app version and phone system), we get your email address and what you write, and use them only to reply.</p>
+<p>If you email us (Settings › Help › Report a problem fills in your app version, your phone's system and whether you have LookUp+), we get your email address and what you write, and use them only to reply.</p>
 
 <h2>Changes</h2>
 <p>If LookUp ever starts collecting anything new, we'll update this page before that version comes out, say so in the app, and ask first for anything that needs your permission.</p>

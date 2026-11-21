@@ -6,7 +6,11 @@ import '../domain/sky/calendar.dart';
 import '../domain/sky/direction.dart';
 import '../domain/units.dart';
 
-String fmtTime(DateTime utc) => DateFormat.jm().format(utc.toLocal());
+/// Whether the phone is set to the 24-hour clock (set from the app's
+/// MediaQuery, `app.dart`): then times read "21:05", not "9:05 PM".
+bool use24HourClock = false;
+
+String fmtTime(DateTime utc) => (use24HourClock ? DateFormat.Hm() : DateFormat.jm()).format(utc.toLocal());
 
 /// "9:00 PM" today; with the date on any other day: "Mar 3, 1610, 9:00 PM".
 String fmtMoment(DateTime utc) {
@@ -25,10 +29,25 @@ String fmtSkyMoment(DateTime utc, double lonDeg) {
 }
 
 /// To the second, for transits that last under one.
-String fmtTimeSeconds(DateTime utc) => DateFormat.jms().format(utc.toLocal());
+String fmtTimeSeconds(DateTime utc) => (use24HourClock ? DateFormat.Hms() : DateFormat.jms()).format(utc.toLocal());
 
 /// "0.8 s", "2.4 s".
 String fmtSeconds(Duration d) => '${(d.inMilliseconds / 1000).toStringAsFixed(1)} s';
+/// "Today 3:56 AM", "Yesterday 5:48 AM", "Thu 4:52 AM": a day and a time
+/// short enough for the end of a row.
+String fmtDayShortTime(DateTime utc) {
+  final l = utc.toLocal();
+  final now = DateTime.now();
+  final diff = DateTime(l.year, l.month, l.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+  final day = switch (diff) {
+    0 => 'Today',
+    -1 => 'Yesterday',
+    1 => 'Tomorrow',
+    _ => diff.abs() >= 7 ? DateFormat.MMMd().format(l) : DateFormat.E().format(l),
+  };
+  return '$day ${fmtTime(utc)}';
+}
+
 String fmtDay(DateTime utc) {
   final l = utc.toLocal();
   final now = DateTime.now();
@@ -36,11 +55,14 @@ String fmtDay(DateTime utc) {
   final d = DateTime(l.year, l.month, l.day);
   final diff = d.difference(today).inDays;
   final morning = l.hour < 12;
-  if (diff == 0) return morning ? 'This morning' : 'Tonight';
-  if (diff == 1) return morning ? 'Tomorrow morning' : 'Tomorrow night';
-  if (diff == -1) return morning ? 'Yesterday morning' : 'Last night';
+  // Noon to five is the afternoon: a 2 PM launch or eclipse isn't "tonight".
+  final afternoon = l.hour >= 12 && l.hour < 17;
+  if (diff == 0) return morning ? 'This morning' : (afternoon ? 'This afternoon' : 'Tonight');
+  if (diff == 1) return morning ? 'Tomorrow morning' : (afternoon ? 'Tomorrow afternoon' : 'Tomorrow night');
+  if (diff == -1) return morning ? 'Yesterday morning' : (afternoon ? 'Yesterday afternoon' : 'Last night');
   if (diff.abs() >= 7) return DateFormat.MMMd().format(l); // "Nov 12"
   final day = DateFormat.EEEE().format(l);
+  if (afternoon) return '$day afternoon';
   return morning ? '$day morning' : (diff < 0 ? '$day night' : day);
 }
 
@@ -106,9 +128,9 @@ String eventSubtitle(SkyEvent e) {
   switch (e.type) {
     case SkyEventType.auroraOutlook:
       final kp = (e.details['kp'] as num?)?.toStringAsFixed(1);
-      return 'Forecast Kp $kp · look north once it\'s fully dark';
+      return 'Forecast Kp $kp · look ${auroraFace(e)} once it\'s fully dark';
     case SkyEventType.auroraNow:
-      return 'Find a dark spot and look north';
+      return 'Find a dark spot and look ${auroraFace(e)}';
     case SkyEventType.starlinkTrain:
       final n = e.details['count'];
       return 'A line of ~$n lights, ${describeArc(riseAzimuthDeg: e.riseAzimuthDeg, peakElevationDeg: e.peakElevationDeg, duration: e.duration)}';
@@ -186,7 +208,7 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.iss => 'Just watched the space station fly$where 🛰️ LookUp tapped me 10 minutes before.',
     SkyEventType.tiangong => 'Just watched Tiangong fly$where 🛰️ LookUp tapped me 10 minutes before.',
     SkyEventType.starlinkTrain => 'A Starlink train just crossed the sky$where ✨ LookUp told me when to step outside.',
-    SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora$where tonight 🌌 LookUp said to go look north.',
+    SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora$where tonight 🌌 LookUp said to go look ${auroraFace(e)}.',
     SkyEventType.meteorShower => 'Caught the ${e.details['shower'] ?? 'meteor shower'}$where ☄️ LookUp told me when.',
     SkyEventType.lunarEclipse => 'Watched the lunar eclipse$where 🌕 LookUp tapped me in time.',
     SkyEventType.solarEclipse => e.details['kind'] == 'total'

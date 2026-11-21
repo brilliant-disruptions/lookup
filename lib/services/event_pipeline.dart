@@ -111,7 +111,7 @@ class EventPipeline {
     }
 
     if (i.starlink != null) {
-      for (final g in TrainDetector.detect(i.starlink!).take(maxTrains)) {
+      for (final g in TrainDetector.detect(i.starlink!, now: now).take(maxTrains)) {
         out.addAll(predictor.predict(
           record: g.representative,
           type: SkyEventType.starlinkTrain,
@@ -146,9 +146,10 @@ class EventPipeline {
           peak: mid,
           end: w.end,
           peakElevationDeg: 15,
-          riseAzimuthDeg: 0,
-          peakAzimuthDeg: 0,
-          setAzimuthDeg: 0,
+          // Toward the nearer pole: south from the southern hemisphere.
+          riseAzimuthDeg: lat < 0 ? 180 : 0,
+          peakAzimuthDeg: lat < 0 ? 180 : 0,
+          setAzimuthDeg: lat < 0 ? 180 : 0,
           cloudCoverPercent: i.clouds?.coverAt(mid),
           details: {
             'kp': outlook.maxKpTonight,
@@ -158,7 +159,9 @@ class EventPipeline {
           },
         ));
       }
-      final kpNow = a.kpNow;
+      // Only from a reading taken within the hour, for this place: a
+      // snapshot kept through a failed fetch is yesterday's storm.
+      final kpNow = a.currentFor(now, lat, lon) ? a.kpNow : null;
       if (kpNow != null && s.auroraEnabled) {
         final d = auroraNow(
           now: now,
@@ -193,9 +196,10 @@ class EventPipeline {
             peak: now,
             end: now.add(const Duration(hours: 3)),
             peakElevationDeg: 15,
-            riseAzimuthDeg: 0,
-            peakAzimuthDeg: 0,
-            setAzimuthDeg: 0,
+            // Toward the nearer pole: south from the southern hemisphere.
+            riseAzimuthDeg: lat < 0 ? 180 : 0,
+            peakAzimuthDeg: lat < 0 ? 180 : 0,
+            setAzimuthDeg: lat < 0 ? 180 : 0,
             cloudCoverPercent: i.clouds?.coverAt(now),
             details: {
               'kp': kpNow,
@@ -204,7 +208,7 @@ class EventPipeline {
                 'crowd': true,
                 'people': crowd.people,
                 'headline': crowd.headlineIn(miles: i.settings.usesMiles),
-                'body': crowd.body(const CrowdRules().window),
+                'body': crowd.body(const CrowdRules().window, face: lat < 0 ? 'south' : 'north'),
               },
             },
           ));
@@ -299,7 +303,7 @@ class EventPipeline {
     past(i.iss, SkyEventType.iss, s.minIssPeakElevationDeg);
     if (s.tiangongEnabled) past(i.tiangong, SkyEventType.tiangong, s.minIssPeakElevationDeg);
     if (i.starlink != null) {
-      for (final g in TrainDetector.detect(i.starlink!).take(maxTrains)) {
+      for (final g in TrainDetector.detect(i.starlink!, now: now).take(maxTrains)) {
         past([g.representative], SkyEventType.starlinkTrain, s.minStarlinkPeakElevationDeg,
             idPrefix: 'starlink-${g.launchKey}',
             details: {'count': g.count, 'label': g.label, 'launch': g.launchKey});
@@ -330,9 +334,10 @@ class EventPipeline {
           peak: mid,
           end: p.time.add(const Duration(hours: 3)),
           peakElevationDeg: 15,
-          riseAzimuthDeg: 0,
-          peakAzimuthDeg: 0,
-          setAzimuthDeg: 0,
+          // Toward the nearer pole: south from the southern hemisphere.
+          riseAzimuthDeg: lat < 0 ? 180 : 0,
+          peakAzimuthDeg: lat < 0 ? 180 : 0,
+          setAzimuthDeg: lat < 0 ? 180 : 0,
           cloudCoverPercent: i.clouds?.coverAt(mid),
           details: {'kp': p.kp, 'kpNeeded': double.parse(needed.toStringAsFixed(1)), 'past': true},
         ));

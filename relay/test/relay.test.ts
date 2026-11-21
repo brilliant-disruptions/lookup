@@ -52,6 +52,8 @@ const call = (method: string, path: string, body?: unknown, ip = '203.0.113.7') 
 
 const report = (cell: Cell, reporter: string, how = 'eye', ip?: string) => call('POST', '/v1/report', { cell, how, reporter }, ip);
 const token = (n: string) => `${n}`.padEnd(64, 'x');
+/** An APNs device token: hex, 64 long. */
+const apnsToken = (n: string) => [...n].map((c) => c.charCodeAt(0).toString(16)).join('').padEnd(64, '0').slice(0, 64);
 const settle = async () => {
   await Promise.all(pending);
   pending = [];
@@ -81,7 +83,8 @@ describe('reports', () => {
     expect(j.reports).toHaveLength(1);
     expect(j.reports[0]).toMatchObject({ la: glasgow.la, lo: glasgow.lo, how: 'eye', at: new Date(T0).toISOString() });
     expect(j.reports[0].r).not.toContain('alice');
-    expect(j.reports[0].r).toMatch(/^[0-9a-f]{24}$/);
+    // Only a number within this answer: nothing that names the person in the next one.
+    expect(j.reports[0].r).toBe('p1');
   });
 
   it('reject anything but a grid cell, a known "how" and a sane token', async () => {
@@ -148,7 +151,7 @@ describe('waking phones', () => {
   const subscribe = (t: string, platform: 'apns' | 'fcm', cells: Cell[]) => call('POST', '/v1/subscribe', { token: t, platform, cells });
 
   beforeEach(async () => {
-    expect((await subscribe(token('iphone-edinburgh'), 'apns', cellsNear(edinburgh, 250))).status).toBe(204);
+    expect((await subscribe(apnsToken('iphone-edinburgh'), 'apns', cellsNear(edinburgh, 250))).status).toBe(204);
     expect((await subscribe(token('android-edinburgh'), 'fcm', [edinburgh])).status).toBe(204);
     expect((await subscribe(token('android-london'), 'fcm', [london])).status).toBe(204);
   });
@@ -161,7 +164,7 @@ describe('waking phones', () => {
     expect([...apns.sent, ...fcm.sent]).toHaveLength(0);
     await report(fife, token('d'));
     await settle();
-    expect(apns.sent).toEqual([token('iphone-edinburgh')]);
+    expect(apns.sent).toEqual([apnsToken('iphone-edinburgh')]);
     expect(fcm.sent).toEqual([token('android-edinburgh')]);
   });
 
@@ -191,7 +194,7 @@ describe('waking phones', () => {
     await settle();
     const left = (await store.toWake([edinburgh], now + 1)).map((s) => s.token);
     expect(left).not.toContain(token('android-edinburgh'));
-    expect(left).toContain(token('iphone-edinburgh'));
+    expect(left).toContain(apnsToken('iphone-edinburgh'));
   });
 
   it('unsubscribing stops it, and lapsed subscriptions are swept after 30 days', async () => {
@@ -214,5 +217,85 @@ describe('waking phones', () => {
 
   it('a wake with no reports around does nothing', async () => {
     expect(await wakeNear(edinburgh, deps)).toBe(0);
+  });
+});
+
+describe('holding up under abuse', () => {
+  const raw = (path: string, init: RequestInit & { ip?: string }) =>
+    handle(new Request(`https://relay.test${path}`, { ...init, headers: { 'cf-connecting-ip': init.ip ?? '203.0.113.7', ...(init.headers ?? {}) } }), deps);
+  const rows = async (table: string) => (await store['db'].prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>())!.n;
+
+  // A web page can only post "simple" content types from a visitor's browser
+  // without asking first, and the relay never answers the asking.
+  it('takes JSON only as JSON: a web page can\'t post reports through its visitors', async () => {
+    const body = JSON.stringify({ cell: glasgow, how: 'eye', reporter: token('visitor') });
+    expect((await raw('/v1/report', { method: 'POST', body })).status).toBe(400);
+    expect((await raw('/v1/report', { method: 'POST', body, headers: { 'content-type': 'text/plain' } })).status).toBe(400);
+    expect(await rows('reports')).toBe(0);
+    expect((await raw('/v1/report', { method: 'POST', body, headers: { 'content-type': 'application/json; charset=utf-8' } })).status).toBe(202);
+  });
+
+  it('a body over the limit is turned away, whatever length it claims', async () => {
+    const big = JSON.stringify({ cell: glasgow, how: 'eye', reporter: token('big'), pad: 'x'.repeat(RULES.maxBody) });
+    expect((await raw('/v1/report', { method: 'POST', body: big, headers: { 'content-type': 'application/json' } })).status).toBe(400);
+    expect(await rows('reports')).toBe(0);
+  });
+
+  it('a push address must look like one: nothing long enough to fill the database', async () => {
+    const sub = (t: string, platform: string) => call('POST', '/v1/subscribe', { token: t, platform, cells: [edinburgh] });
+    expect((await sub('a'.repeat(4096), 'fcm')).status).toBe(400);
+    expect((await sub('z'.repeat(64), 'apns')).status).toBe(400); // not hex
+    expect((await sub('a'.repeat(201), 'apns')).status).toBe(400);
+    expect(await rows('subs')).toBe(0);
+    expect((await sub('0123456789abcdef'.repeat(4), 'apns')).status).toBe(204);
+    expect((await sub('fcm_'.padEnd(180, 'T'), 'fcm')).status).toBe(204);
+  });
+
+  it('a flood that\'s being turned away writes nothing more', async () => {
+    for (let i = 0; i < RULES.ipLimit.n + 50; i++) await report(glasgow, token(`flood${i}`), 'eye', '198.51.100.9');
+    expect((await report(glasgow, token('one-more'), 'eye', '198.51.100.9')).status).toBe(429);
+    const kept = await store['db'].prepare("SELECT COUNT(*) AS n FROM limits WHERE key LIKE 'report:%'").first<{ n: number }>();
+    expect(kept!.n).toBe(RULES.ipLimit.n);
+  });
+
+  it('reporters are numbered within one answer only: nobody can be followed by it', async () => {
+    await report(glasgow, token('a'));
+    await report(perth, token('b'), 'eye', '198.51.100.2');
+    now += 6 * 60 * 1000;
+    await report(fife, token('a'));
+    const read = async (cells: Cell[]) =>
+      ((await (await call('GET', `/v1/reports?cells=${cells.map((c) => `${c.la},${c.lo}`).join(';')}`)).json()) as { reports: { la: number; r: string }[] }).reports;
+    const all = await read([glasgow, perth, fife]);
+    // The same person twice is still one person to the phone that counts them…
+    expect(new Set(all.map((r) => r.r)).size).toBe(2);
+    expect(all.find((r) => r.la === glasgow.la)!.r).toBe(all.find((r) => r.la === fife.la)!.r);
+    // …but every id is just a place in the list.
+    for (const r of all) expect(r.r).toMatch(/^p[0-9]+$/);
+    expect((await read([perth]))[0].r).toBe('p1');
+  });
+
+  it('wakes a batch at a time and leaves the rest for the next report, never silenced unsent', async () => {
+    const many = RULES.wakeBatch + 15;
+    for (let i = 0; i < many; i++) {
+      await store.subscribe({ token: `fcm-${i}`.padEnd(40, 'x'), platform: 'fcm', sandbox: false }, [edinburgh], now);
+    }
+    for (const [c, n] of [[glasgow, 'a'], [perth, 'b'], [borders, 'c'], [fife, 'd']] as const) await report(c, token(n));
+    await settle();
+    expect(fcm.sent).toHaveLength(RULES.wakeBatch);
+    expect(await store.toWake([edinburgh], now - RULES.quietMs)).toHaveLength(15);
+    await report(edinburgh, token('e'));
+    await settle();
+    expect(new Set(fcm.sent).size).toBe(many);
+  });
+
+  it('one push failing doesn\'t stop the others', async () => {
+    await store.subscribe({ token: 'fcm-ok'.padEnd(40, 'x'), platform: 'fcm', sandbox: false }, [edinburgh], now);
+    apns.send = async () => {
+      throw new Error('network');
+    };
+    await store.subscribe({ token: 'ab'.repeat(32), platform: 'apns', sandbox: false }, [edinburgh], now);
+    for (const [c, n] of [[glasgow, 'a'], [perth, 'b'], [borders, 'c'], [fife, 'd']] as const) await report(c, token(n));
+    await settle();
+    expect(fcm.sent).toContain('fcm-ok'.padEnd(40, 'x'));
   });
 });

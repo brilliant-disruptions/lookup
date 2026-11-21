@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../data/aurora_reports_client.dart' show relayConfigured;
@@ -15,6 +17,7 @@ import 'credits_screen.dart';
 import 'night_vision_controls.dart';
 import '../domain/models/sky_event.dart';
 import '../services/photo_library.dart';
+import 'format.dart' show fmtTime;
 import 'help.dart';
 import 'keep_catch.dart';
 import 'onboarding_screen.dart' show openIntroPreview;
@@ -91,7 +94,60 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ]),
         const _Header('Alerts'),
+        // The phone itself has LookUp's notifications off: every switch
+        // below is moot until that's fixed, so say so here too (not only
+        // on Home).
+        if (ref.watch(alertsEnabledProvider).value == false)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: GlassCard(
+              key: const Key('settings-alerts-off'),
+              tint: LookUpColors.warn,
+              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+              child: Row(children: [
+                const Icon(Icons.notifications_off_rounded, color: LookUpColors.warn, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('Notifications are off for LookUp on this phone, so nothing below can reach you.',
+                      style: TextStyle(fontSize: 13.5, height: 1.35)),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final ok = await ref.read(notificationServiceProvider).requestPermission();
+                    if (!ok) await ref.read(locationServiceProvider).openSettings();
+                    ref.invalidate(alertsEnabledProvider);
+                  },
+                  child: const Text('Turn on'),
+                ),
+              ]),
+            ),
+          ),
         GroupedList(indent: 60, children: [
+          _Switch(
+            key: const Key('pause-alerts'),
+            icon: Icons.pause_circle_outline_rounded,
+            color: LookUpColors.orange,
+            value: s.alertsPaused,
+            // `set` re-plans at once: what's scheduled comes off (or goes back) now.
+            onChanged: (v) => set((s) => s.copyWith(alertsPaused: v)),
+            title: 'Pause all alerts',
+            subtitle: s.alertsPaused ? 'Nothing will tap you until you turn this off' : 'One switch for a holiday or a busy week',
+          ),
+          // Android only, and only while it's off: without it the phone may
+          // hold a heads-up back for minutes while it dozes.
+          if (ref.watch(exactTimingProvider).value == false)
+            _Row(
+              key: const Key('on-time-alerts'),
+              icon: Icons.alarm_on_rounded,
+              color: LookUpColors.good,
+              title: 'On-time alerts',
+              subtitle: 'Let LookUp tap you to the minute, even when the phone is resting',
+              onTap: () async {
+                await ref.read(notificationServiceProvider).requestExactTiming();
+                ref.invalidate(exactTimingProvider);
+                unawaited(ref.read(homeProvider.notifier).refresh().catchError((_) {}));
+              },
+            ),
           _Row(
             icon: Icons.notifications_rounded,
             color: LookUpColors.red,
@@ -326,12 +382,9 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  static String _hm(int m) {
-    final h = m ~/ 60, mm = m % 60;
-    final ap = h >= 12 ? 'pm' : 'am';
-    final h12 = h % 12 == 0 ? 12 : h % 12;
-    return '$h12:${mm.toString().padLeft(2, '0')} $ap';
-  }
+  /// A time of day as the rest of the app writes it ("11:00 PM", or
+  /// "23:00" on a 24-hour phone).
+  static String _hm(int m) => fmtTime(DateTime(2000, 1, 1, m ~/ 60, m % 60).toUtc());
 
   Future<void> _quietHours(BuildContext context, LookUpSettings s, _Set set) async {
     final start = await showTimePicker(

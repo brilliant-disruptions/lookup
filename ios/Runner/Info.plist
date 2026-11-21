@@ -71,9 +71,9 @@
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>LookUp uses your rough location to work out what flies over you. It never leaves your phone.</string>
+	<string>LookUp uses your location to work out what flies over you. Only a rough version, to about a kilometre, is sent, to fetch your weather forecast.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>LookUp uses your rough location to work out what flies over you. It never leaves your phone.</string>
+	<string>LookUp uses your location to work out what flies over you. Only a rough version, to about a kilometre, is sent, to fetch your weather forecast.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>LookUp shows the live camera with the satellite's path drawn over the sky, and lets you photograph what you saw.</string>
 	<key>NSMicrophoneUsageDescription</key>

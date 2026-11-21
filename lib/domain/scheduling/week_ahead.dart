@@ -33,19 +33,28 @@ abstract final class WeekAhead {
   }
 
   static WeekAheadNote? of({required Iterable<SkyEvent> events, required LookUpSettings settings, required DateTime now}) {
-    if (!settings.weekAhead || !settings.onboarded) return null;
+    if (!settings.weekAhead || !settings.onboarded || settings.alertsPaused) return null;
     final at = nextSend(now);
     if (settings.quietHours.contains(minute)) return null;
     bool wanted(SkyEvent e) =>
         e.type.pushes &&
         e.details['past'] != true &&
         AlertPlanner.typeEnabled(e.type, settings) &&
-        (settings.isPlus || !e.plusOnly);
+        (settings.isPlus || !e.plusOnly) &&
+        // "Pip will tap you" has to be true: not for something quiet hours
+        // will keep silent, or worked out from elements too old to tap for.
+        AlertPlanner.passesQuietHours(e, settings, e.start.toLocal().timeZoneOffset.inMinutes) &&
+        AlertPlanner.elementsFresh(e);
     final ahead = [for (final e in events) if (wanted(e) && e.start.isAfter(at)) e]..sort((a, b) => a.start.compareTo(b.start));
     if (ahead.isEmpty) return null;
     final end = at.add(const Duration(days: 7));
     final week = ahead.where((e) => e.start.isBefore(end)).toList();
     if (week.isEmpty) {
+      // Passes are only worked out a week ahead, so "quiet" can only be said
+      // once most of that week is in view (from the day before it starts).
+      // Written on a Monday, the note would see a few hours of the week it
+      // describes and call it quiet with five station passes still to come.
+      if (now.toUtc().isBefore(at.subtract(const Duration(days: 1)))) return null;
       final next = ahead.first;
       return WeekAheadNote(
         at: at,

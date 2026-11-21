@@ -111,6 +111,25 @@ void main() {
       expect(news.single, isA<PlusOwned>().having((o) => o.until, 'until', _now.add(const Duration(days: 12))));
     });
 
+    test('Google Play lists a purchase that isn\'t paid for yet (pending): not LookUp+', () async {
+      store.owns = [
+        PurchaseDetails(
+          productID: PlusProducts.yearly,
+          status: PurchaseStatus.restored,
+          transactionDate: null,
+          verificationData: PurchaseVerificationData(
+            localVerificationData: '{"productId":"lookup_plus_yearly","purchaseState":4}',
+            serverVerificationData: '',
+            source: 'google_play',
+          ),
+        ),
+      ];
+      await plus.start(check: false);
+      await plus.recheck();
+      expect(news.whereType<PlusOwned>(), isEmpty);
+      expect(news.single, isA<PlusNotListed>());
+    });
+
     test('only the yearly and monthly plans are LookUp+; nothing else is sold, so nothing else counts', () async {
       expect(PlusProducts.all, {PlusProducts.yearly, PlusProducts.monthly});
       store.owns = [_tx('lookup_plus_lifetime')];

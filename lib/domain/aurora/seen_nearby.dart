@@ -149,12 +149,13 @@ class CrowdVerdict {
     return 'Aurora being seen $where';
   }
 
-  /// "5 people in the last 20 minutes, 3 by eye. Face north, low."
-  String? body(Duration window) {
+  /// "5 people in the last 20 minutes, 3 by eye. Face north, low." [face]
+  /// is "south" in the southern hemisphere.
+  String? body(Duration window, {String face = 'north'}) {
     if (!confirmed) return null;
     final eye = byEye == people ? ', all by eye' : (byEye == 0 ? ', on their phone cameras' : ', $byEye by eye');
     return '$people people in the last ${window.inMinutes} minutes$eye. '
-        'Get away from lights and face north, low in the sky. A phone camera shows colour your eyes may miss.';
+        'Get away from lights and face $face, low in the sky. A phone camera shows colour your eyes may miss.';
   }
 
   static CrowdVerdict no(String reason) => CrowdVerdict._(confirmed: false, reason: reason);

@@ -42,18 +42,30 @@ GET    /v1/health
   refused, so a position can't be sent even by mistake.
 - **Reporter tokens and IP addresses** are never stored. Each is replaced by
   an HMAC salted with `RELAY_SECRET` and today's date. The `r` that GET
-  returns is that hash, so the app can count people once.
+  returns is only a number within that answer (`p1`, `p2`…), so the app
+  can count people once and nobody can be followed from one answer to the
+  next. Per-request logs are off (`wrangler.toml`): they would keep
+  addresses.
 - **Rate limits:**
   - one report per person per 5 minutes;
   - 30 reports or subscriptions per network per hour;
-  - 240 reads per network per hour.
+  - 240 reads per network per hour;
+  - 240 invite pages, cards and passes per network per hour: past that,
+    pages still load but aren't counted, and Wallet passes wait.
+
+  A request that's over its limit writes nothing (`hit` counts first).
+  Bodies must be `application/json` (so no web page can post through its
+  visitors' browsers) and are cut off at their size limit. Push tokens must
+  look like APNs' or FCM's own. At most 2,000 invite pictures are kept at
+  once; past that a new invite gets the default card.
 
   A network is an IPv4 address or an IPv6 /64 (`networkOf`), so one line
   can't claim a budget for each of its addresses.
 - **Wake-up:** when a report makes it 4+ people from 2+ cells within
   250 km in the last 20 minutes, every phone subscribed to a cell in that
-  area gets a silent push, at most once per 30 minutes. The push carries no
-  text and no data: just `{lookup: "aurora-crowd"}`.
+  area gets a silent push, at most once per 30 minutes, 40 phones per
+  report (the rest go with the next report, never marked woken unsent).
+  The push carries no text and no data: just `{lookup: "aurora-crowd"}`.
 - **Cleanup:** every 10 minutes (cron), reports and limits older than an
   hour are deleted, along with subscriptions the app hasn't renewed in 30
   days. Tokens Apple or Google call dead are dropped at once.
