@@ -8,12 +8,15 @@ import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/onboarding/first_look.dart';
 import '../domain/plus/plus_preview.dart';
+import '../domain/scheduling/alert_planner.dart';
+import '../domain/sky/catalog.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
 import 'onboarding/first_look_sky.dart';
 import 'onboarding/light_up.dart';
+import 'onboarding/offer_sky.dart';
 import 'onboarding/twilight_slider.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
@@ -775,15 +778,83 @@ class _AskPage extends ConsumerWidget {
 }
 
 
-/// The one-time LookUp+ offer at the end of setting up: the real taps it
-/// would send over them this month (or, before those are known, what it
-/// adds), a 7-day trial, and a plain "Not now". Never again after this.
-class _OfferPage extends ConsumerWidget {
+/// The one-time LookUp+ offer at the end of setting up: "Light up your sky".
+/// Their sky from the sky page comes back dimmed, and each LookUp+ thing is
+/// a switch that turns it on in that sky while Pip flies over to it. Aurora
+/// and Starlink (only if left on) also drop in the tap they'd get, from a
+/// real one coming when there is one. Then the real sights coming, the rest
+/// of LookUp+, a 7-day trial and a plain "Not now". Never again after this.
+class _OfferPage extends ConsumerStatefulWidget {
   const _OfferPage({required this.onTry, required this.onNotNow});
   final VoidCallback onTry, onNotNow;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_OfferPage> createState() => _OfferPageState();
+}
+
+typedef _Light = ({OfferLight light, String key, String name, String line, Color color});
+
+const _lights = <_Light>[
+  (light: OfferLight.aurora, key: 'aurora', name: 'Aurora', line: 'The moment it\'s visible here', color: LookUpColors.good),
+  (light: OfferLight.starlink, key: 'starlink', name: 'Starlink trains', line: 'A tap before each one', color: LookUpColors.violet),
+  (light: OfferLight.darker, key: 'darker', name: 'Darker skies', line: 'Where to go tonight', color: LookUpColors.blue),
+  (light: OfferLight.timelapse, key: 'timelapse', name: 'Timelapses', line: 'Start and stop themselves', color: LookUpColors.cyan),
+  (light: OfferLight.camera, key: 'camera', name: 'Pro camera', line: 'The sharpest of 40', color: LookUpColors.gold),
+];
+
+class _OfferPageState extends ConsumerState<_OfferPage> {
+  final _lit = <OfferLight>{};
+  OfferLight? _last;
+  late final DateTime _opened = onboardingClock();
+
+  /// The tap shown at the top: (title, body, when).
+  ({String title, String body, String when})? _tap;
+  Timer? _tapTimer;
+
+  @override
+  void dispose() {
+    _tapTimer?.cancel();
+    super.dispose();
+  }
+
+  void _flip(OfferLight l, PlusPreview p, LookUpSettings? s) {
+    setState(() {
+      if (!_lit.remove(l)) {
+        _lit.add(l);
+        _last = l;
+        _tap = _tapFor(l, p, s);
+      } else if (_last == l) {
+        _last = null;
+      }
+    });
+    if (_tap != null) {
+      _tapTimer?.cancel();
+      _tapTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _tap = null);
+      });
+    }
+  }
+
+  /// What the alert would say: the real coming one if there is one.
+  ({String title, String body, String when})? _tapFor(OfferLight l, PlusPreview p, LookUpSettings? s) {
+    final type = switch (l) {
+      OfferLight.aurora => SkyEventType.auroraNow,
+      OfferLight.starlink => SkyEventType.starlinkTrain,
+      _ => null,
+    };
+    if (type == null) return null;
+    final e = p.soonest.where((e) => e.type == type).firstOrNull;
+    if (e != null) {
+      final title = type == SkyEventType.auroraNow ? AlertPlanner.auroraNowTitle(e) : AlertPlanner.headsUpTitle(e, 10);
+      return (title: title, body: AlertPlanner.headsUpBody(e, miles: s?.usesMiles ?? false), when: '${fmtDay(e.start)}, ${fmtTime(e.start)}');
+    }
+    return type == SkyEventType.auroraNow
+        ? (title: 'Aurora now', body: 'Find a dark spot and look north.', when: 'Example')
+        : (title: 'Starlink train in 10 min', body: 'A line of lights, one after another.', when: 'Example');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final s = ref.watch(settingsProvider).value;
     final p = PlusPreview.of(ref.watch(homeProvider).value?.events ?? const <SkyEvent>[], DateTime.now(), wants: s);
     final aurora = s?.auroraEnabled ?? false, starlink = s?.starlinkEnabled ?? false;
@@ -792,98 +863,117 @@ class _OfferPage extends ConsumerWidget {
     // asked"; and a kind they turned off is never pitched.
     final picked = [if (aurora) 'aurora', if (starlink) 'Starlink trains'];
     final asked = picked.join(' and ');
+    final lights = [
+      for (final l in _lights)
+        if ((l.light != OfferLight.aurora || aurora) && (l.light != OfferLight.starlink || starlink)) l,
+    ];
+    final on = lights.where((l) => _lit.contains(l.light)).length;
+    final all = on == lights.length;
     final title = picked.isNotEmpty
         ? '${asked[0].toUpperCase()}${asked.substring(1)} ${picked.length == 1 && aurora ? 'is' : 'are'} LookUp+'
-        : p.count > 0
-            ? 'There\'s more coming over you'
-            : 'Want more from your sky?';
+        : 'Want more from your sky?';
     final body = picked.isNotEmpty
-        ? 'Pip\'s set to watch for $asked. Free taps you for the space station, meteor showers, eclipses and the Moon; '
-            '${p.count == 0 ? 'LookUp+ adds ${picked.length == 1 ? 'this' : 'these'}.' : 'LookUp+ adds these, and they\'re coming:'}'
-        : p.count > 0
-            ? 'Free taps you for what you picked. ${p.count == 1 ? 'Here\'s one' : 'Here are ${p.count}'} it won\'t, this month:'
-            : 'Free taps you for what you picked. LookUp+ is the rest of what Pip can do:';
-    // Before any dated sights are known: what LookUp+ adds of what's on.
-    final rows = [
-      if (aurora)
-        const _OfferRow(
-            glyph: EventGlyph(icon: Icons.waves_rounded, color: LookUpColors.good, size: 34),
-            title: 'Aurora, the moment it\'s visible',
-            line: 'Live alerts from here, not a forecast'),
-      if (starlink)
-        const _OfferRow(
-            glyph: EventGlyph(icon: Icons.linear_scale_rounded, color: LookUpColors.violet, size: 34),
-            title: 'Starlink trains',
-            line: 'A tap before each one goes over'),
-      if (picked.isNotEmpty)
-        const _OfferRow(
-            glyph: EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.blue, size: 34),
-            title: 'Where to go tonight',
-            line: 'Clearer, darker skies near you'),
-    ];
+        ? 'Pip\'s set to watch for $asked. Free taps you for the space station, meteor showers, eclipses and the Moon. Turn each one on and watch your sky.'
+        : 'Free taps you for what you picked. Turn each one on and watch your sky.';
+    final catalog = ref.watch(skyCatalogProvider).value;
+    final at = firstLookTime(_opened, ref.watch(firstLookProvider).value?.window).at;
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
-          // The content scrolls; the two buttons stay put at the bottom.
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
-                child: Column(key: const Key('trial-offer'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Rise(index: 0, child: const Kicker('LookUp+', color: LookUpColors.blue)),
-              const SizedBox(height: 10),
-              Rise(
-                index: 1,
-                child: Text(
-                  title,
-                  key: const Key('trial-offer-title'),
-                  style: display(32, weight: FontWeight.w700, height: 1.1),
+          child: Stack(children: [
+            // The content scrolls; the two buttons stay put at the bottom.
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
+                  child: Column(key: const Key('trial-offer'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Rise(index: 0, child: const Kicker('LookUp+', color: LookUpColors.blue)),
+                    const SizedBox(height: 10),
+                    Rise(
+                      index: 1,
+                      child: Text(title, key: const Key('trial-offer-title'), style: display(30, weight: FontWeight.w700, height: 1.1)),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(body, key: const Key('trial-offer-body'), style: const TextStyle(color: LookUpColors.grey, height: 1.45)),
+                    const SizedBox(height: 14),
+                    Rise(
+                      index: 2,
+                      child: SizedBox(
+                        height: 230,
+                        child: OfferSky(
+                          catalog: catalog ?? SkyCatalog.empty,
+                          lat: s?.latitude ?? 0,
+                          lon: s?.longitude ?? 0,
+                          at: at,
+                          lit: Set.of(_lit),
+                          last: _last,
+                          place: s?.placeName,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _Meter(on: on, of: lights.length),
+                    const SizedBox(height: 10),
+                    _LightGrid(
+                      lights: lights,
+                      lit: _lit,
+                      onFlip: (l) => _flip(l, p, s),
+                    ),
+                    if (p.count > 0) ...[
+                      const SizedBox(height: 18),
+                      Kicker(p.count == 1 ? 'Coming over you' : '${p.count} coming over you this month'),
+                      const SizedBox(height: 8),
+                      GlassCard(
+                        key: const Key('trial-offer-sights'),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        child: Column(children: [
+                          for (final e in p.soonest)
+                            _OfferRow(glyph: EventGlyph.of(e, size: 34), title: eventTitle(e), line: '${fmtDay(e.start)}, ${fmtTime(e.start)}'),
+                        ]),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    const Kicker('Also with LookUp+'),
+                    const SizedBox(height: 8),
+                    PlusPerkGrid(
+                      key: const Key('trial-offer-perks'),
+                      except: {'camera', 'timelapse', 'whereToGo', if (picked.isNotEmpty) 'alerts'},
+                    ),
+                  ]),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                body,
-                key: const Key('trial-offer-body'),
-                style: const TextStyle(color: LookUpColors.grey, height: 1.45),
-              ),
-              if (p.count > 0 || rows.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Rise(
-                  index: 2,
-                  child: GlassCard(
-                    key: const Key('trial-offer-sights'),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    child: Column(children: [
-                      if (p.count > 0)
-                        for (final e in p.soonest)
-                          _OfferRow(glyph: EventGlyph.of(e, size: 34), title: eventTitle(e), line: '${fmtDay(e.start)}, ${fmtTime(e.start)}')
-                      else
-                        ...rows,
-                    ]),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(Radii.md),
+                      boxShadow: [if (all) BoxShadow(color: LookUpColors.blue.withValues(alpha: 0.45), blurRadius: 22)],
+                    ),
+                    child: FilledButton(
+                      key: const Key('trial-offer-try'),
+                      onPressed: widget.onTry,
+                      child: Text(all ? 'Keep it all on: 7 days free' : 'Try 7 days free'),
+                    ),
                   ),
-                ),
-              ],
-              const SizedBox(height: 18),
-              // With nothing above, the alerts perk is the first thing LookUp+ adds.
-              if (p.count > 0 || rows.isNotEmpty) ...[
-                const Kicker('Also with LookUp+'),
-                const SizedBox(height: 8),
-                const PlusPerkGrid(key: Key('trial-offer-perks'), except: {'alerts'}),
-              ] else
-                const PlusPerkGrid(key: Key('trial-offer-perks')),
+                  TextButton(key: const Key('trial-offer-not-now'), onPressed: widget.onNotNow, child: const Text('Not now')),
                 ]),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                FilledButton(
-                  key: const Key('trial-offer-try'),
-                  onPressed: onTry,
-                  child: const Text('Try 7 days free'),
+            ]),
+            // The tap they'd get, dropping in from the top.
+            Positioned(
+              left: 10,
+              right: 10,
+              top: 6,
+              child: IgnorePointer(
+                child: AnimatedSlide(
+                  offset: _tap == null ? const Offset(0, -1.6) : Offset.zero,
+                  duration: const Duration(milliseconds: 420),
+                  curve: _tap == null ? Curves.easeIn : Curves.easeOutBack,
+                  child: _tap == null ? const SizedBox(height: 64) : _TapPreview(tap: _tap!),
                 ),
-                TextButton(key: const Key('trial-offer-not-now'), onPressed: onNotNow, child: const Text('Not now')),
-              ]),
+              ),
             ),
           ]),
         ),
@@ -892,6 +982,152 @@ class _OfferPage extends ConsumerWidget {
   }
 }
 
+class _Meter extends StatelessWidget {
+  const _Meter({required this.on, required this.of});
+  final int on, of;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Stack(children: [
+              Container(height: 5, color: LookUpColors.glassStrong),
+              AnimatedFractionallySizedBox(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                widthFactor: of == 0 ? 0 : on / of,
+                child: Container(
+                  height: 5,
+                  decoration: const BoxDecoration(gradient: LinearGradient(colors: [fireflyGlow, LookUpColors.good])),
+                ),
+              ),
+            ]),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text('$on of $of on', key: const Key('offer-lit-count'), style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
+      ]);
+}
+
+/// The switches, two to a row.
+class _LightGrid extends StatelessWidget {
+  const _LightGrid({required this.lights, required this.lit, required this.onFlip});
+  final List<_Light> lights;
+  final Set<OfferLight> lit;
+  final ValueChanged<OfferLight> onFlip;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+    for (var i = 0; i < lights.length; i += 2) {
+      rows.add(IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(child: _LightTile(light: lights[i], on: lit.contains(lights[i].light), onTap: () => onFlip(lights[i].light))),
+          const SizedBox(width: 8),
+          Expanded(
+            child: i + 1 < lights.length
+                ? _LightTile(light: lights[i + 1], on: lit.contains(lights[i + 1].light), onTap: () => onFlip(lights[i + 1].light))
+                : const SizedBox(),
+          ),
+        ]),
+      ));
+      if (i + 2 < lights.length) rows.add(const SizedBox(height: 8));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+  }
+}
+
+class _LightTile extends StatelessWidget {
+  const _LightTile({required this.light, required this.on, required this.onTap});
+  final _Light light;
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Pressable(
+        key: Key('offer-light-${light.key}'),
+        onTap: onTap,
+        semanticLabel: '${light.name}, ${on ? 'on' : 'off'}',
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          decoration: BoxDecoration(
+            color: on ? light.color.withValues(alpha: 0.16) : LookUpColors.glass,
+            borderRadius: BorderRadius.circular(Radii.md),
+            border: Border.all(color: on ? light.color.withValues(alpha: 0.6) : LookUpColors.line),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(light.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, height: 1.2)),
+                const SizedBox(height: 2),
+                Text(light.line, style: const TextStyle(fontSize: 12, color: LookUpColors.grey, height: 1.25)),
+              ]),
+            ),
+            const SizedBox(width: 6),
+            _Toggle(on: on, color: light.color),
+          ]),
+        ),
+      );
+}
+
+class _Toggle extends StatelessWidget {
+  const _Toggle({required this.on, required this.color});
+  final bool on;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        width: 30,
+        height: 18,
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(color: on ? color : LookUpColors.glassStrong, borderRadius: BorderRadius.circular(9)),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutBack,
+          alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(width: 14, height: 14, decoration: const BoxDecoration(color: LookUpColors.white, shape: BoxShape.circle)),
+        ),
+      );
+}
+
+/// A Lock Screen banner: the tap LookUp+ would send.
+class _TapPreview extends StatelessWidget {
+  const _TapPreview({required this.tap});
+  final ({String title, String body, String when}) tap;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        key: const Key('offer-tap-preview'),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: LookUpColors.panelRaised,
+          border: Border.all(color: LookUpColors.line),
+          borderRadius: BorderRadius.circular(Radii.lg),
+          boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, 8))],
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: LookUpColors.night, borderRadius: BorderRadius.circular(9)),
+            child: const Center(child: PipMark(size: 26)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tap.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(tap.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: LookUpColors.white, height: 1.3)),
+              const SizedBox(height: 3),
+              Text(tap.when, style: const TextStyle(fontSize: 11.5, color: LookUpColors.grey)),
+            ]),
+          ),
+        ]),
+      );
+}
 
 class _OfferRow extends StatelessWidget {
   const _OfferRow({required this.glyph, required this.title, required this.line});

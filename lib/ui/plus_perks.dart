@@ -1,6 +1,10 @@
 /// Everything LookUp+ adds, in one list, so the paywall and the onboarding
 /// offer can't drift apart. Keep in step with `domain/plus/free_plan.dart`
 /// and `docs/plus-strategy.md`.
+///
+/// The sky through history is still LookUp+ past a week (Explore opens the
+/// paywall when someone reaches for it) but isn't sold here: it isn't
+/// what people buy LookUp+ for.
 library;
 
 import 'package:material_ui/material_ui.dart';
@@ -52,13 +56,6 @@ const plusPerks = <PlusPerk>[
     color: LookUpColors.gold,
     short: 'Every place you like',
     line: 'As many saved places as you like: home, the cabin, the trip',
-  ),
-  (
-    key: 'history',
-    icon: Icons.history_edu_rounded,
-    color: LookUpColors.gold,
-    short: 'Any night in history',
-    line: 'Any night from 3000 BC to 3000 AD, and every famous night',
   ),
   (
     key: 'transits',

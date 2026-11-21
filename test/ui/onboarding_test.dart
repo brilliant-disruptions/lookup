@@ -320,16 +320,56 @@ void main() {
     expect(find.text('Starlink trains are LookUp+'), findsOneWidget);
     expect(find.textContaining('Pip\'s set to watch for Starlink trains'), findsOneWidget);
     expect(find.textContaining('aurora', findRichText: true), findsNothing, reason: 'turned off, so never pitched');
+    expect(find.byKey(const Key('offer-light-aurora')), findsNothing);
     expect(find.descendant(of: find.byKey(const Key('trial-offer-sights')), matching: find.textContaining('Starlink')), findsOneWidget);
-    // And everything else LookUp+ adds, once, here.
-    for (final k in ['camera', 'timelapse', 'whereToGo', 'planAhead', 'places', 'history', 'transits']) {
+    // And the rest of LookUp+, once, here; the sky through history isn't sold.
+    for (final k in ['planAhead', 'places', 'transits', 'noCaption']) {
       expect(find.byKey(Key('perk-$k')), findsOneWidget, reason: k);
     }
-    expect(find.byKey(const Key('perk-alerts')), findsNothing, reason: 'the alerts are said above it');
+    for (final k in ['alerts', 'camera', 'timelapse', 'whereToGo', 'history']) {
+      expect(find.byKey(Key('perk-$k')), findsNothing, reason: '$k is a switch above, or not sold');
+    }
+    expect(find.textContaining('history'), findsNothing);
     await t.tap(find.byKey(const Key('trial-offer-not-now')));
     await settle(t);
     final s = container.read(settingsProvider).value!;
     expect((s.onboarded, s.trialOfferShown, s.plusDeclines), (true, true, 1));
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('light up your sky: each switch turns it on, Starlink drops in the real tap, all on says keep it', (t) async {
+    await toOffer(t);
+    expect(find.byKey(const Key('offer-sky')), findsOneWidget);
+    expect(find.text('0 of 5 on'), findsOneWidget);
+    expect(find.byKey(const Key('offer-tap-preview')), findsNothing);
+    Future<void> flip(String k) async {
+      await t.ensureVisible(find.byKey(Key('offer-light-$k')));
+      await t.tap(find.byKey(Key('offer-light-$k')));
+      await settle(t, 2);
+    }
+
+    await flip('starlink');
+    expect(find.text('1 of 5 on'), findsOneWidget);
+    // The tap they'd get, from the real train coming tomorrow.
+    expect(find.byKey(const Key('offer-tap-preview')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('offer-tap-preview')), matching: find.text('Starlink train in 10 min')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('offer-tap-preview')), matching: find.text('Example')), findsNothing);
+    await settle(t, 16);
+    expect(find.byKey(const Key('offer-tap-preview')), findsNothing, reason: 'it goes away by itself');
+    // Aurora: none coming, so the tap says it's an example.
+    await flip('aurora');
+    expect(find.descendant(of: find.byKey(const Key('offer-tap-preview')), matching: find.text('Example')), findsOneWidget);
+    for (final k in ['darker', 'timelapse']) {
+      await flip(k);
+    }
+    expect(find.text('Try 7 days free'), findsOneWidget);
+    await flip('camera');
+    expect(find.text('5 of 5 on'), findsOneWidget);
+    expect(find.text('Keep it all on: 7 days free'), findsOneWidget);
+    // Off again is one tap; and none of this changes their alert settings.
+    await flip('camera');
+    expect(find.text('Try 7 days free'), findsOneWidget);
+    expect(container.read(settingsProvider).value!.tiangongEnabled, isFalse);
     await t.pumpWidget(const SizedBox());
   });
 
@@ -347,7 +387,8 @@ void main() {
     expect(find.textContaining('Starlink'), findsNothing, reason: 'the coming train is one they said no to');
     expect(find.textContaining('urora'), findsNothing);
     expect(find.byKey(const Key('trial-offer-sights')), findsNothing);
-    for (final k in ['alerts', 'camera', 'timelapse', 'whereToGo', 'planAhead', 'places', 'history', 'transits']) {
+    expect(find.text('0 of 3 on'), findsOneWidget, reason: 'darker skies, timelapses, the Pro camera');
+    for (final k in ['alerts', 'planAhead', 'places', 'transits', 'noCaption']) {
       expect(find.byKey(Key('perk-$k')), findsOneWidget, reason: k);
     }
     await t.pumpWidget(const SizedBox());
