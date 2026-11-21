@@ -107,7 +107,7 @@ shows the product's moment, the tap itself, rather than a screen of the app:
 9. Catch the station crossing the Moon. *(transit)*
 10. Hubble and friends, tonight. *(satellites)*
 
-Each sits on the night sky with the pass's dashed path across it, the phone tilted in perspective and a second phone behind (`framed` in the test).
+They're cut from one long night sky, so they flow into each other in the store: each tilted phone straddles the edge into the next image, and one pass's dashed path runs through all ten (`appstore set` and `_StoreSlice` in the test; each screen is rendered on its own and captured first).
 Shot 2 uses an evening scene whose times follow the clock it's rendered at:
 render it with `TZ=Asia/Kolkata` during the UTC afternoon (or any time zone
 where it's then evening) so it reads "Go out at 10:18 PM".
