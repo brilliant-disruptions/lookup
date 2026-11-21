@@ -54,6 +54,12 @@ export function privacyPage(): string {
 <h2>Children</h2>
 <p>LookUp is for everyone and collects nothing that identifies anyone, including children.</p>
 
+<h2>Emails to us</h2>
+<p>If you email us (Settings › Help › Report a problem fills in your app version and phone system), we get your email address and what you write, and use them only to reply.</p>
+
+<h2>Changes</h2>
+<p>If LookUp ever starts collecting anything new, we'll update this page before that version comes out, say so in the app, and ask first for anything that needs your permission.</p>
+
 <h2>Questions</h2>
 <p>Write to <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p>
 <p class="muted">Brilliant Disruptions</p>`);

@@ -15,7 +15,7 @@ describe('public pages', () => {
 
   it('the policy says what leaves the phone, and never claims more than the app does', () => {
     const p = privacyPage();
-    for (const s of ['no analytics', 'Open-Meteo', 'half-degree', 'LookUp album', 'Limited']) expect(p).toContain(s);
+    for (const s of ['no analytics', 'Open-Meteo', 'half-degree', 'LookUp album', 'Limited', 'use them only to reply', 'update this page before']) expect(p).toContain(s);
     expect(p).not.toMatch(/precise location|track you across/i);
   });
 });
