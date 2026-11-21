@@ -308,6 +308,11 @@ void main() {
     expect(find.byKey(const Key('trial-offer')), findsOneWidget);
     expect(find.text('Starlink trains are LookUp+'), findsOneWidget);
     expect(find.textContaining('You asked Pip to watch for Starlink trains'), findsOneWidget);
+    // And everything else LookUp+ adds, once, here.
+    for (final k in ['camera', 'timelapse', 'whereToGo', 'planAhead', 'places', 'history', 'transits']) {
+      expect(find.byKey(Key('perk-$k')), findsOneWidget, reason: k);
+    }
+    expect(find.byKey(const Key('perk-alerts')), findsNothing, reason: 'the alerts are said above it');
     expect(find.byType(PaywallSheet), findsNothing);
     await t.tap(find.byKey(const Key('trial-offer-not-now')));
     await settle(t);

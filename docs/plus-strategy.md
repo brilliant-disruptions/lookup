@@ -34,6 +34,10 @@ Reaching a limit someone chose to try (a later night, an old night, a second
 place) is always answered with the paywall. That's a **limit ask**, not
 pestering.
 
+The full list as people read it lives in one place, `lib/ui/plus_perks.dart`:
+the paywall shows it a line each, and the onboarding offer shows the alerts
+they picked first and the rest as a grid. Change it there and both follow.
+
 ## Soft asks: one budget
 
 A soft ask is LookUp offering LookUp+ without being asked. They share one

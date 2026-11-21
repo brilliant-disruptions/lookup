@@ -9,6 +9,7 @@ import '../services/plus_service.dart';
 import '../state/providers.dart';
 import 'format.dart';
 import 'kit/kit.dart';
+import 'plus_perks.dart';
 import 'theme.dart';
 
 /// The paywall appears only when a Plus-only event is actually coming for
@@ -148,7 +149,7 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
                 GroupedList(indent: 60, children: [for (final e in rest) _AheadRow(e)]),
               ],
               const SizedBox(height: 22),
-              const _Perks(),
+              const PlusPerkList(),
               const SizedBox(height: 22),
               if (isPlus)
                 const Text('You have LookUp+. Thank you.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey))
@@ -323,35 +324,6 @@ class _AheadRow extends StatelessWidget {
           const Text('No alert on free', style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim)),
         ]),
       );
-}
-
-/// What LookUp+ adds, as five lines: every alert, then the planning tools
-/// that make it "never miss anything up there".
-class _Perks extends StatelessWidget {
-  const _Perks();
-  @override
-  Widget build(BuildContext context) => Column(children: [
-        for (final (glyph, line) in const [
-          (EventGlyph(icon: Icons.notifications_active_rounded, color: LookUpColors.good, size: 26),
-              'Every alert: live aurora with a wake-me option, Starlink trains, Tiangong and rocket launches'),
-          (EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.violet, size: 26),
-              'Where to go tonight: clearer, darker skies within a drive'),
-          (EventGlyph(icon: Icons.calendar_month_rounded, color: LookUpColors.blue, size: 26),
-              'Plan any of the next 14 nights, not just three'),
-          (EventGlyph(icon: Icons.place_rounded, color: LookUpColors.gold, size: 26),
-              'As many saved places as you like: home, the cabin, the trip'),
-          (EventGlyph(icon: Icons.photo_camera_rounded, color: LookUpColors.cyan, size: 26),
-              'Photo planning: the station crossing the Sun or Moon, and where to stand'),
-        ])
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(children: [
-              glyph,
-              const SizedBox(width: 12),
-              Expanded(child: Text(line, style: const TextStyle(fontSize: 14.5, height: 1.3))),
-            ]),
-          ),
-      ]);
 }
 
 /// One plan, as a card you pick before the single button below.

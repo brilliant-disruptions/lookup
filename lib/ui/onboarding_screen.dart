@@ -17,6 +17,7 @@ import 'onboarding/light_up.dart';
 import 'onboarding/twilight_slider.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
+import 'plus_perks.dart';
 import 'sky/sky_thing.dart';
 import 'sky/sky_track.dart';
 import 'theme.dart';
@@ -791,11 +792,12 @@ class _OfferPage extends ConsumerWidget {
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
-          child: _FillOrScroll(
-            child: Column(key: const Key('trial-offer'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Spacer(),
-              const Center(child: PipMark(size: 72)),
-              const SizedBox(height: 6),
+          // The content scrolls; the two buttons stay put at the bottom.
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
+                child: Column(key: const Key('trial-offer'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Rise(index: 0, child: const Kicker('LookUp+', color: LookUpColors.blue)),
               const SizedBox(height: 10),
               Rise(
@@ -846,15 +848,25 @@ class _OfferPage extends ConsumerWidget {
                   ]),
                 ),
               ),
-              const Spacer(flex: 2),
-              FilledButton(
-                key: const Key('trial-offer-try'),
-                onPressed: onTry,
-                child: const Text('Try 7 days free'),
+              const SizedBox(height: 18),
+              const Kicker('Also with LookUp+'),
+              const SizedBox(height: 8),
+              const PlusPerkGrid(key: Key('trial-offer-perks'), except: {'alerts'}),
+                ]),
               ),
-              TextButton(key: const Key('trial-offer-not-now'), onPressed: onNotNow, child: const Text('Not now')),
-            ]),
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                FilledButton(
+                  key: const Key('trial-offer-try'),
+                  onPressed: onTry,
+                  child: const Text('Try 7 days free'),
+                ),
+                TextButton(key: const Key('trial-offer-not-now'), onPressed: onNotNow, child: const Text('Not now')),
+              ]),
+            ),
+          ]),
         ),
       ),
     );

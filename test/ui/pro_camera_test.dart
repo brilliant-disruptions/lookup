@@ -129,7 +129,7 @@ void main() {
     await t.tap(find.text('go'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 500));
-    expect(find.textContaining('The Pro camera'), findsOneWidget);
+    expect(find.textContaining('The Pro camera: the right settings'), findsOneWidget);
     expect(find.byType(ProCameraScreen), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
