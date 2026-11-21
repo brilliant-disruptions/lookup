@@ -7,6 +7,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../domain/models/sky_event.dart';
 import '../domain/photo/capture_plan.dart' show catchItOnAlerts, offerCatchIt;
 import '../domain/scheduling/alert_planner.dart';
+import '../domain/scheduling/week_ahead.dart';
 import 'alert_art.dart';
 
 /// Makes the picture for an alert, or null for none.
@@ -336,6 +337,26 @@ class NotificationService {
 
   /// The one trial reminder's id: far from the hashed alert ids.
   static const trialReminderId = 2147480001;
+  static const weekAheadId = 2147480002;
+
+  /// The Sunday note (`domain/scheduling/week_ahead.dart`); null clears it.
+  Future<void> scheduleWeekAhead(WeekAheadNote? n) async {
+    await _plugin.cancel(id: weekAheadId);
+    if (n == null) return;
+    await ensureTimeZone();
+    await _plugin.zonedSchedule(
+      id: weekAheadId,
+      title: n.title,
+      body: n.body,
+      scheduledDate: tz.TZDateTime.from(n.at, tz.local),
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails('lookup_week', 'Your week ahead',
+            channelDescription: 'One note on Sunday evening about the week\'s sights', importance: Importance.defaultImportance),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentBanner: true, presentSound: false),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
 
   /// "Your LookUp+ trial ends in 2 days", at [at] (domain/plus/trial_reminder.dart).
   /// On its own quiet channel: it's about the account, not the sky, so no

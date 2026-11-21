@@ -29,7 +29,7 @@ class _FakePlus implements PlusService {
 late ProviderContainer _c;
 
 Future<void> _mount(WidgetTester t, {required bool plus}) async {
-  t.view.physicalSize = const Size(1179, 2556);
+  t.view.physicalSize = const Size(1179, 4200);
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
   _c = ProviderContainer(overrides: [

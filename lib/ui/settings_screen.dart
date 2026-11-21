@@ -129,6 +129,19 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: '${_hm(s.quietHours.startMinute)} – ${_hm(s.quietHours.endMinute)}',
             onTap: () => _quietHours(context, s, set),
           ),
+          _Switch(
+            key: const Key('week-ahead'),
+            icon: Icons.view_week_rounded,
+            color: LookUpColors.blue,
+            value: s.weekAhead,
+            onChanged: (v) async {
+              await set((s) => s.copyWith(weekAhead: v));
+              // Off stops the next one now; on comes back with the next refresh.
+              if (!v) await ref.read(notificationServiceProvider).scheduleWeekAhead(null);
+            },
+            title: 'Your week ahead',
+            subtitle: 'One note on Sunday evening about the week\'s sights',
+          ),
         ]),
         const _Header('Outside'),
         GroupedList(indent: 60, children: [
