@@ -44,6 +44,8 @@ export type InviteDeps = {
   pass?: PassConfig;
   defaultCard: Uint8Array;
   passImages: PassImages;
+  /** Pictures kept at once (RULES.maxInvitePictures). */
+  maxPictures?: number;
 };
 
 export const INVITE_RULES = {
@@ -58,7 +60,9 @@ const TYPES = new Set([
   'planetPairing', 'rocketLaunch', 'issTransit', 'planetHighlight', 'skyObject', 'satellitePass',
   'occultation', 'occultationNear', 'comet', 'nova', 'fullMoonRise',
 ]);
-const TEXT = /^[\p{L}\p{N} .,;:'’()°%\-–—!?&/+]+$/u;
+// Letters and decimal digits only: no circled, superscript or other
+// number-like signs, which read as digits but aren't counted as them.
+const TEXT = /^[\p{L}\p{Nd} .,;:'’()°%\-–—!?&/+]+$/u;
 const DIGIT = String.raw`\p{Nd}`;
 /** What joins the groups of a phone number. */
 const SEP = String.raw`[ .()/+\-–—]`;
@@ -67,12 +71,33 @@ const DATE = new RegExp(
   'gu',
 );
 const NUMBERS = new RegExp(String.raw`${DIGIT}(?:${SEP}*${DIGIT})*`, 'gu');
-const DECIMAL = new RegExp(String.raw`^${DIGIT}+\.${DIGIT}+$`, 'u');
+/** A measurement or a coordinate: up to three digits, a point, up to five more. Longer is a number dressed as one ("800.5550199"). */
+const DECIMAL = new RegExp(String.raw`^${DIGIT}{1,3}\.${DIGIT}{1,5}$`, 'u');
 const digits = (s: string) => (s.match(/\p{Nd}/gu) ?? []).length;
 
-/** Seven digits or more that read as one number: a phone number. A date, a time after it and a decimal don't. */
+/** A date that could be on a calendar (a year near now, a month, a day): "5551-23-45" is digits with dashes in. */
+function realDate(s: string): boolean {
+  const p = s.split(/[-/.]/).map((x) => (/^[0-9]+$/.test(x) ? parseInt(x, 10) : NaN));
+  const yearFirst = s.search(/[-/.]/) === 4;
+  const [y, a, b] = yearFirst ? p : [p[2], p[0], p[1]];
+  if (!(y >= 1900 && y <= 2100) || !(a >= 1 && b >= 1)) return false;
+  return yearFirst ? a <= 12 && b <= 31 : (a <= 12 && b <= 31) || (a <= 31 && b <= 12);
+}
+
+/** Seven digits or more that read as one number: a phone number. A real date, a time after it and a short decimal don't. */
 const phoneLike = (s: string) =>
-  (s.match(NUMBERS) ?? []).some((run) => !DECIMAL.test(run) && digits(run.replace(DATE, ' ')) >= 7);
+  (s.match(NUMBERS) ?? []).some((run) => !DECIMAL.test(run) && digits(run.replace(DATE, (d) => (realDate(d) ? ' ' : d))) >= 7);
+
+/**
+ * A web address written to be read, not tapped: a letter that only looks
+ * like a full stop (Lisu ꓸ, the sinological dot ꞏ), a foreign digit used as
+ * one ("example٠com"), or a word that mixes Latin letters with another
+ * script's ("exampleꓸcom", Cyrillic look-alikes).
+ */
+const disguised = (s: string) =>
+  /[ꓸꞏ]/u.test(s) ||
+  /\p{L}(?![0-9])\p{Nd}\p{L}/u.test(s) ||
+  (s.match(/\p{L}+/gu) ?? []).some((w) => /\p{Script=Latin}/u.test(w) && /[^\p{Script=Latin}]/u.test(w));
 
 /**
  * No links of any kind: this page only ever says what's up there, and the
@@ -85,7 +110,8 @@ const phoneLike = (s: string) =>
  */
 export function linkish(text: string): boolean {
   return [text, text.normalize('NFKC')].some(
-    (s) => /:\/\/|www\./i.test(s) || /\.\p{L}{2}/u.test(s) || /\p{Nd}{1,3}(?:\.\p{Nd}{1,3}){3}/u.test(s) || phoneLike(s),
+    (s) =>
+      /:\/\/|www\./i.test(s) || /\.\p{L}{2}/u.test(s) || /\p{Nd}{1,3}(?:\.\p{Nd}{1,3}){3}/u.test(s) || phoneLike(s) || disguised(s),
   );
 }
 
@@ -149,7 +175,7 @@ export async function createInvite(b: Record<string, unknown>, base: string, dep
   const image = pngFromBase64(b.image);
   if (!inv || image === 'bad') return Response.json({ error: 'invite' }, { status: 400 });
   const code = newCode();
-  await deps.store.addInvite(code, JSON.stringify(inv), image, Date.parse(inv.end) + INVITE_RULES.keepAfterMs, now);
+  await deps.store.addInvite(code, JSON.stringify(inv), image, Date.parse(inv.end) + INVITE_RULES.keepAfterMs, now, deps.maxPictures ?? Number.MAX_SAFE_INTEGER);
   return Response.json({ url: `${base}/n/${code}`, code }, { status: 201 });
 }
 
@@ -313,7 +339,7 @@ const notFound = (base: string, appStoreId?: string) =>
 <body><div><h1 style="font-size:26px;margin:0 0 8px">This invite has gone</h1><p style="color:#A0A8B8;margin:0">It was for something that’s already over.</p>${
       appStoreId ? `<p><a href="https://apps.apple.com/app/id${esc(appStoreId)}">Get LookUp</a> to hear about the next one.</p>` : ''
     }</div></body></html>`,
-    { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } },
+    { status: 404, headers: PAGE_HEADERS },
   );
 
 const comingSoon = (back: string) =>
@@ -328,7 +354,18 @@ export const PIP_SVG = `<svg class="pip" width="36" height="36" viewBox="0 0 36 
 <defs><radialGradient id="pipglow"><stop offset="0" stop-color="#C4F55E" stop-opacity=".55"/><stop offset="1" stop-color="#C4F55E" stop-opacity="0"/></radialGradient></defs>
 <circle cx="18" cy="18" r="18" fill="url(#pipglow)"/><circle cx="18" cy="18" r="6" fill="#C4F55E"/><circle cx="18" cy="18" r="3" fill="#F4FFD9"/></svg>`;
 
-export async function serveInvite(path: string, base: string, deps: InviteDeps, userAgent = ''): Promise<Response> {
+/** Nothing here may be framed, sniffed into another type, or load or send anything but its own picture. */
+const PAGE_HEADERS = {
+  'content-type': 'text/html; charset=utf-8',
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'no-referrer',
+  'content-security-policy':
+    "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+};
+
+/** [busy]: this network has read a lot this hour. Pages still load, but aren't counted, and passes (which cost a signature each) wait. */
+export async function serveInvite(path: string, base: string, deps: InviteDeps, userAgent = '', busy = false): Promise<Response> {
   const m = /^\/n\/([a-z2-9]{10})(?:\/(card\.png|invite\.ics|pass\.pkpass|get))?\/?$/.exec(path);
   if (!m) return notFound(base, deps.appStoreId);
   const [, code, part] = m;
@@ -340,16 +377,16 @@ export async function serveInvite(path: string, base: string, deps: InviteDeps, 
   const cache = { 'cache-control': 'public, max-age=300' };
   switch (part) {
     case 'get': {
-      await deps.store.tally('get', deps.now());
+      if (!busy) await deps.store.tally('get', deps.now());
       // Phone-specific, so never cached. Until a store has a listing, a plain "coming soon".
       const store = storeFor(userAgent, deps);
       const headers = { 'cache-control': 'no-store' };
       if (store) return new Response(null, { status: 302, headers: { location: store, ...headers } });
-      return new Response(comingSoon(url), { headers: { 'content-type': 'text/html; charset=utf-8', ...headers } });
+      return new Response(comingSoon(url), { headers: { ...PAGE_HEADERS, ...headers } });
     }
     case 'card.png': {
       const img = (await deps.store.inviteImage(code)) ?? deps.defaultCard;
-      return new Response(img, { headers: { 'content-type': 'image/png', ...cache } });
+      return new Response(img, { headers: { 'content-type': 'image/png', 'x-content-type-options': 'nosniff', ...cache } });
     }
     case 'invite.ics':
       return new Response(inviteIcs(code, inv, url, deps.now()), {
@@ -357,13 +394,14 @@ export async function serveInvite(path: string, base: string, deps: InviteDeps, 
       });
     case 'pass.pkpass': {
       if (!deps.pass) return new Response('Wallet passes aren’t set up', { status: 404 });
+      if (busy) return new Response('Try again in a little while', { status: 429, headers: { 'retry-after': '600' } });
       const pkpass = await buildPass(deps.pass, code, inv, url, deps.passImages);
       return new Response(pkpass, {
         headers: { 'content-type': 'application/vnd.apple.pkpass', 'content-disposition': `attachment; filename="lookup-${code}.pkpass"` },
       });
     }
     default:
-      await deps.store.tally('view', deps.now());
-      return new Response(invitePage(code, inv, base, deps), { headers: { 'content-type': 'text/html; charset=utf-8', ...cache } });
+      if (!busy) await deps.store.tally('view', deps.now());
+      return new Response(invitePage(code, inv, base, deps), { headers: { ...PAGE_HEADERS, ...cache } });
   }
 }

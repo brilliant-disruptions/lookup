@@ -26,7 +26,7 @@ class ScanTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(children: [
-        CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: onClose ?? () => Navigator.of(context).pop()),
+        CircleButton(tooltip: 'Close', icon: Icons.close_rounded, onPressed: onClose ?? () => Navigator.of(context).maybePop()),
         // Between the buttons, trimmed rather than overflowing on a small phone with big text.
         Expanded(child: Center(child: title)),
         trailing,

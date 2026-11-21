@@ -87,6 +87,7 @@ class LookUpSettings {
     this.isPlus = false,
     this.plusUntil,
     this.plusSeenAt,
+    this.plusDoubtAt,
     this.minIssPeakElevationDeg = 25,
     this.minStarlinkPeakElevationDeg = 20,
     this.onboarded = false,
@@ -174,6 +175,11 @@ class LookUpSettings {
 
   /// When the store last vouched for LookUp+ on this phone.
   final DateTime? plusSeenAt;
+
+  /// When the store first answered "nothing owned" while LookUp+ was still
+  /// believed here; cleared when it vouches again. The doubt
+  /// ([PlusGrant.doubt]) runs from this.
+  final DateTime? plusDoubtAt;
   final double minIssPeakElevationDeg;
   final double minStarlinkPeakElevationDeg;
   final bool onboarded;
@@ -304,6 +310,8 @@ class LookUpSettings {
     DateTime? plusUntil,
     bool forgetPlusUntil = false,
     DateTime? plusSeenAt,
+    DateTime? plusDoubtAt,
+    bool forgetPlusDoubt = false,
     double? minIssPeakElevationDeg,
     double? minStarlinkPeakElevationDeg,
     bool? onboarded,
@@ -361,6 +369,7 @@ class LookUpSettings {
         isPlus: isPlus ?? this.isPlus,
         plusUntil: forgetPlusUntil ? null : plusUntil ?? this.plusUntil,
         plusSeenAt: plusSeenAt ?? this.plusSeenAt,
+        plusDoubtAt: forgetPlusDoubt ? null : plusDoubtAt ?? this.plusDoubtAt,
         minIssPeakElevationDeg:
             minIssPeakElevationDeg ?? this.minIssPeakElevationDeg,
         minStarlinkPeakElevationDeg:
@@ -422,6 +431,7 @@ class LookUpSettings {
         'isPlus': isPlus,
         if (plusUntil != null) 'plusUntil': plusUntil!.toIso8601String(),
         if (plusSeenAt != null) 'plusSeenAt': plusSeenAt!.toIso8601String(),
+        if (plusDoubtAt != null) 'plusDoubtAt': plusDoubtAt!.toIso8601String(),
         'minIssPeakElevationDeg': minIssPeakElevationDeg,
         'minStarlinkPeakElevationDeg': minStarlinkPeakElevationDeg,
         'onboarded': onboarded,
@@ -487,6 +497,7 @@ class LookUpSettings {
       isPlus: j['isPlus'] as bool? ?? d.isPlus,
       plusUntil: DateTime.tryParse(j['plusUntil'] as String? ?? '')?.toUtc(),
       plusSeenAt: DateTime.tryParse(j['plusSeenAt'] as String? ?? '')?.toUtc(),
+      plusDoubtAt: DateTime.tryParse(j['plusDoubtAt'] as String? ?? '')?.toUtc(),
       minIssPeakElevationDeg: (j['minIssPeakElevationDeg'] as num?)?.toDouble() ??
           d.minIssPeakElevationDeg,
       minStarlinkPeakElevationDeg:

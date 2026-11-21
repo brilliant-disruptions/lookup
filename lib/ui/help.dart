@@ -29,6 +29,11 @@ Uri get privacyUri => Uri.parse('$siteBase/privacy');
 Uri get supportUri => Uri.parse('$siteBase/support');
 final termsUri = Uri.parse('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/');
 
+/// Where a subscription is changed or cancelled: the store's own page.
+Uri get manageSubscriptionUri => Uri.parse(Platform.isIOS
+    ? 'https://apps.apple.com/account/subscriptions'
+    : 'https://play.google.com/store/account/subscriptions');
+
 /// An email to support with the app's version and the phone's system
 /// filled in (nothing else: no location, no account).
 Uri reportProblemUri({required bool isPlus}) {

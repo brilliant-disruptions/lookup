@@ -128,14 +128,20 @@ void main() {
     const fresh = LookUpSettings();
     test('a first LookUp+ ending in 7 days is a trial: remind 2 days before the end', () {
       final until = now.add(const Duration(days: 7));
-      expect(trialReminderAt(fresh, PlusOwned(until: until), now), until.subtract(const Duration(days: 2)));
+      expect(trialReminderAt(fresh, PlusOwned(until: until, bought: true), now), until.subtract(const Duration(days: 2)));
+    });
+
+    // A long-time subscriber who reinstalls a few days before their renewal
+    // looks just like a trial by its dates; it wasn't bought just now.
+    test('never for LookUp+ that was found already owned (a restore, a new phone)', () {
+      expect(trialReminderAt(fresh, PlusOwned(until: now.add(const Duration(days: 5))), now), isNull);
     });
 
     test('not a monthly, one with no end, a renewal, or someone who had it before', () {
-      expect(trialReminderAt(fresh, PlusOwned(until: now.add(const Duration(days: 30))), now), isNull);
-      expect(trialReminderAt(fresh, const PlusOwned(), now), isNull);
-      expect(trialReminderAt(fresh.copyWith(isPlus: true), PlusOwned(until: now.add(const Duration(days: 7))), now), isNull);
-      expect(trialReminderAt(fresh.copyWith(plusUntil: DateTime.utc(2026, 1, 1)), PlusOwned(until: now.add(const Duration(days: 7))), now), isNull);
+      expect(trialReminderAt(fresh, PlusOwned(until: now.add(const Duration(days: 30)), bought: true), now), isNull);
+      expect(trialReminderAt(fresh, const PlusOwned(bought: true), now), isNull);
+      expect(trialReminderAt(fresh.copyWith(isPlus: true), PlusOwned(until: now.add(const Duration(days: 7)), bought: true), now), isNull);
+      expect(trialReminderAt(fresh.copyWith(plusUntil: DateTime.utc(2026, 1, 1)), PlusOwned(until: now.add(const Duration(days: 7)), bought: true), now), isNull);
       expect(trialReminderAt(fresh, const PlusNotListed(), now), isNull);
     });
   });

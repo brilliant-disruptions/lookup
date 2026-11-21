@@ -4,6 +4,7 @@ library;
 export 'controls.dart';
 export 'event_style.dart';
 export 'firefly_mark.dart';
+export 'load_trouble.dart';
 export 'motion.dart';
 export 'navigation.dart';
 export 'pip_mark.dart';

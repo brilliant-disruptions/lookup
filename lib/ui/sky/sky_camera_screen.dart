@@ -14,6 +14,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../services/keep_awake.dart';
 import '../../domain/finder/firefly.dart' show towardOnScreen;
 import '../../domain/finder/guide_target.dart';
 import '../../domain/finder/pointing.dart';
@@ -59,7 +60,20 @@ Future<void> openSkyCamera(
 
 /// The camera view of the sky as it is now, from outside Explore (Pip beside the
 /// tab bar): the Moon, planets, showpieces and passes the live map shows.
+var _openingLiveSky = false;
+
 Future<void> openLiveSkyCamera(BuildContext context, WidgetRef ref) async {
+  // Two quick taps on Pip mustn't open two cameras on top of each other.
+  if (_openingLiveSky) return;
+  _openingLiveSky = true;
+  try {
+    await _openLiveSkyCamera(context, ref);
+  } finally {
+    _openingLiveSky = false;
+  }
+}
+
+Future<void> _openLiveSkyCamera(BuildContext context, WidgetRef ref) async {
   final s = ref.read(settingsProvider).value;
   final lat = s?.latitude, lon = s?.longitude;
   final t = await ref.read(tonightSkyProvider.future);
@@ -126,7 +140,8 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    // Waiting with Pip can take minutes: the screen stays on.
+    unawaited(keepScreenAwake(true));
     final s = ref.read(settingsProvider).value;
     _hint = !(s?.skyCameraCoached ?? true);
     if (_hint) {
@@ -148,7 +163,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
   @override
   void dispose() {
     _sub?.cancel();
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    unawaited(keepScreenAwake(false));
     super.dispose();
   }
 
@@ -388,7 +403,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
                   onError: (msg) {
                     if (!mounted) return;
                     setState(() => _cameraOn = false);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                    showCameraTrouble(context, msg, openSettings: ref.read(locationServiceProvider).openSettings);
                   },
                 ),
               ),

@@ -8,7 +8,7 @@ import { defaultCard, passImages } from '../src/assets';
 import { inviteIcs } from '../src/ics';
 import { INVITE_RULES, senderWhen, type Invite } from '../src/invite';
 import type { PassConfig } from '../src/pass';
-import { handle, sweep, type Deps } from '../src/relay';
+import { RULES, handle, sweep, type Deps } from '../src/relay';
 import { SqlStore } from '../src/store';
 import { sqliteD1 } from './sqlite_d1';
 
@@ -51,7 +51,7 @@ beforeEach(() => {
 });
 
 const post = (body: unknown, ip = '203.0.113.9') =>
-  handle(new Request('https://relay.test/v1/invites', { method: 'POST', headers: { 'cf-connecting-ip': ip }, body: JSON.stringify(body) }), deps);
+  handle(new Request('https://relay.test/v1/invites', { method: 'POST', headers: { 'cf-connecting-ip': ip, 'content-type': 'application/json' }, body: JSON.stringify(body) }), deps);
 const get = (path: string) => handle(new Request(`https://relay.test${path}`), deps);
 const create = async (extra: Record<string, unknown> = {}) => {
   const res = await post({ ...good, ...extra });
@@ -67,6 +67,8 @@ describe('creating an invite', () => {
   });
 
   it('refuses anything odd: unknown kinds, markup, past or far-off times, bad pictures', async () => {
+    // Each from its own network: this is about the words, not the hourly limit.
+    let n = 0;
     for (const bad of [
       { type: 'party' },
       { title: '<script>alert(1)</script>' },
@@ -94,6 +96,17 @@ describe('creating an invite', () => {
       { look: 'Call 9005550100' },
       { place: '+44 20 7946 0958' },
       { place: 'Home 2026-11-03 555 0100' },
+      // A number dressed as a decimal or a date, or in digits that aren't counted as digits.
+      { look: 'Call 800.5550199 now' },
+      { look: 'WhatsApp 49.1712345678' },
+      { look: 'Call 5551-23-45 67' },
+      { look: 'Call 9123-45-67' },
+      { look: 'Call ➄➄➄ ➀➁➂ ➃➄➅➆' },
+      // An address written to be read: a letter or digit standing in for the dot, look-alike letters.
+      { title: 'exampleꓸcom/win' },
+      { look: 'Prizes at example٠com' },
+      { look: 'Prizes at exampleꞏcom' },
+      { look: 'Prizes at exаmple com' },
       { start: new Date(NOW - 3600e3).toISOString(), end: new Date(NOW - 3000e3).toISOString() },
       { start: new Date(NOW + 40 * 86400e3).toISOString(), end: new Date(NOW + 40 * 86400e3 + 60e3).toISOString() },
       { end: new Date(Date.parse(START) + 13 * 3600e3).toISOString() },
@@ -101,7 +114,7 @@ describe('creating an invite', () => {
       { tz: 2000 },
       { image: Buffer.from('not a png').toString('base64') },
     ]) {
-      expect((await post({ ...good, ...bad })).status, JSON.stringify(bad)).toBe(400);
+      expect((await post({ ...good, ...bad }, `198.51.100.${++n}`)).status, JSON.stringify(bad)).toBe(400);
     }
   });
 
@@ -119,6 +132,10 @@ describe('creating an invite', () => {
       { look: 'Use eclipse glasses (ISO 12312-2) until the Sun is fully covered.' },
       { title: 'Comet C/2026 O1' },
       { look: 'About 1,000,000 km away, e.g. three times the Moon’s distance.' },
+      { place: 'Köln' },
+      { place: 'Москва' },
+      { place: '東京' },
+      { look: 'Peaks 21.11.2026 at 21:05, about 384.4 thousand km away.' },
     ]) {
       expect((await post({ ...good, ...fine })).status, JSON.stringify(fine)).toBe(201);
     }
@@ -126,7 +143,7 @@ describe('creating an invite', () => {
 
   it('an invite saved under the old, looser rules has gone: page, calendar, pass and card', async () => {
     const lure = { ...good, look: 'Claim your free telescope at telescope-prize.shop/claim before it starts!' };
-    await store.addInvite('oldlureabc', JSON.stringify(lure), null, Date.parse(END) + INVITE_RULES.keepAfterMs, NOW);
+    await store.addInvite('oldlureabc', JSON.stringify(lure), null, Date.parse(END) + INVITE_RULES.keepAfterMs, NOW, 100);
     for (const part of ['', '/invite.ics', '/pass.pkpass', '/card.png', '/get']) {
       const res = await get(`/n/oldlureabc${part}`);
       expect(res.status, part).toBe(404);
@@ -172,6 +189,32 @@ describe('the page', () => {
     // No Wallet button or App Store banner until they're set up.
     expect(html).not.toContain('pass.pkpass');
     expect(html).not.toContain('apple-itunes-app');
+  });
+
+  it('past the hourly reads, pages still load but aren\'t counted, and nothing can frame or sniff them', async () => {
+    const { code } = await create();
+    const first = await get(`/n/${code}`);
+    expect(first.headers.get('x-frame-options')).toBe('DENY');
+    expect(first.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(first.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect((await get(`/n/${code}/card.png`)).headers.get('x-content-type-options')).toBe('nosniff');
+    for (let i = 0; i < RULES.pageLimit.n + 20; i++) await get(`/n/${code}`);
+    const late = await get(`/n/${code}`);
+    expect(late.status).toBe(200);
+    expect((await store.tallies('2026-11-03')).view).toBeLessThanOrEqual(RULES.pageLimit.n);
+  });
+
+  it('only so many pictures are kept at once; past that an invite still works, with the default card', async () => {
+    const data = JSON.stringify(good);
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    for (let i = 0; i < RULES.maxInvitePictures; i++) await store.addInvite(`fill${i}`, data, png, now + 3600e3, now, RULES.maxInvitePictures);
+    const image = Buffer.from(png).toString('base64');
+    const full = (await (await post({ ...good, image })).json()) as { code: string };
+    expect(full.code).toMatch(/^[a-z2-9]{10}$/);
+    expect(new Uint8Array(await (await get(`/n/${full.code}/card.png`)).arrayBuffer())).toEqual(defaultCard);
+    now += 2 * 3600e3; // the others expire
+    const { code } = (await (await post({ ...good, image })).json()) as { code: string };
+    expect(new Uint8Array(await (await get(`/n/${code}/card.png`)).arrayBuffer())).toEqual(png);
   });
 
   // Pip is the app's guide; meeting it on the invite says what "Get
@@ -270,7 +313,7 @@ describe('the calendar file', () => {
     for (const l of lines) expect(new TextEncoder().encode(l).length).toBeLessThanOrEqual(75);
     // Commas escaped in text, lines folded with a leading space.
     expect(ics.replace(/\r\n /g, '')).toContain('Face west-southwest. It appears there and climbs high in the sky');
-    expect(inviteIcs('x', { ...(good as Invite), look: 'A, B; C' }, 'u', NOW)).toContain('A\\, B\; C');
+    expect(inviteIcs('x', { ...(good as Invite), look: 'A, B; C' }, 'u', NOW)).toContain('A\\, B\\; C');
   });
 });
 

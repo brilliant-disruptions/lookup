@@ -40,7 +40,11 @@ abstract final class WeekAhead {
         e.type.pushes &&
         e.details['past'] != true &&
         AlertPlanner.typeEnabled(e.type, settings) &&
-        (settings.isPlus || !e.plusOnly);
+        (settings.isPlus || !e.plusOnly) &&
+        // "Pip will tap you" has to be true: not for something quiet hours
+        // will keep silent, or worked out from elements too old to tap for.
+        AlertPlanner.passesQuietHours(e, settings, e.start.toLocal().timeZoneOffset.inMinutes) &&
+        AlertPlanner.elementsFresh(e);
     final ahead = [for (final e in events) if (wanted(e) && e.start.isAfter(at)) e]..sort((a, b) => a.start.compareTo(b.start));
     if (ahead.isEmpty) return null;
     final end = at.add(const Duration(days: 7));

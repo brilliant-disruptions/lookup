@@ -181,11 +181,16 @@ In order, before the first submission:
    [`app-store-listing.md`](app-store-listing.md#links); keep Apple's
    standard EULA and add the Terms of Use line to the end of the
    description.
-5. **App Privacy:** *Location → Coarse Location*, used for *App
-   Functionality*, **not** linked to the user, **not** used for tracking
-   (rough coordinates go to Open-Meteo for the cloud forecast; Seen near you
-   sends only half-degree squares). Photos never leave the phone, so they
-   aren't "collected". Everything else: *Data Not Collected*. Must match
+5. **App Privacy:** two answers, both used for *App Functionality*,
+   **not** linked to the user, **not** used for tracking:
+   - *Location → Coarse Location* (coordinates rounded to about a kilometre
+     go to Open-Meteo for the cloud forecast; Seen near you sends only
+     half-degree squares);
+   - *Identifiers → Device ID* (the push address, sent to the relay only if
+     aurora wake-ups are on).
+
+   Photos never leave the phone, so they aren't "collected". Everything
+   else: *Data Not Collected*. Must match
    `ios/Runner/PrivacyInfo.xcprivacy` and the privacy page
    (`relay/src/pages.ts`); change all three together.
 6. **Listing copy and the ten screenshots:** see

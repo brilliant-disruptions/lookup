@@ -39,7 +39,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         glow: LookUpColors.violet,
         child: log.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (_, _) => LoadTrouble(what: 'Your Log didn\'t load.', onRetry: () => ref.invalidate(skyLogProvider)),
           data: (l) => ListView(
             padding: EdgeInsets.fromLTRB(16, top + 14, 16, tabBarClearance(context)),
             children: [

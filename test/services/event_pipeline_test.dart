@@ -37,7 +37,8 @@ void main() {
       now: DateTime.utc(2026, 10, 22, 4), // 11pm CDT: dark
       iss: iss,
       starlink: starlink,
-      aurora: AuroraSnapshot(fetchedAt: now, kpNow: 9, forecast: forecast, ovationProbability: 80),
+      // Read a quarter of an hour ago: "now" is only said from a fresh reading.
+      aurora: AuroraSnapshot(fetchedAt: DateTime.utc(2026, 10, 22, 3, 45), kpNow: 9, forecast: forecast, ovationProbability: 80),
     ));
     final types = events.map((e) => e.type).toSet();
     expect(types, contains(SkyEventType.iss));
@@ -137,13 +138,13 @@ void main() {
     final events = const EventPipeline().build(PipelineInputs(
       settings: nashville,
       now: DateTime.utc(2026, 10, 21, 18), // 1pm CDT
-      aurora: AuroraSnapshot(fetchedAt: now, kpNow: 9, forecast: const [], ovationProbability: 80),
+      aurora: AuroraSnapshot(fetchedAt: DateTime.utc(2026, 10, 21, 17, 50), kpNow: 9, forecast: const [], ovationProbability: 80),
     ));
     expect(events.where((e) => e.type == SkyEventType.auroraNow), isEmpty);
     final low = const EventPipeline().build(PipelineInputs(
       settings: nashville,
       now: DateTime.utc(2026, 10, 22, 4),
-      aurora: AuroraSnapshot(fetchedAt: now, kpNow: 3, forecast: const [], ovationProbability: 80),
+      aurora: AuroraSnapshot(fetchedAt: DateTime.utc(2026, 10, 22, 3, 50), kpNow: 3, forecast: const [], ovationProbability: 80),
     ));
     expect(low.where((e) => e.type == SkyEventType.auroraNow), isEmpty);
   });

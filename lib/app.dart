@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'state/night_state.dart';
 import 'state/providers.dart';
+import 'ui/kit/load_trouble.dart';
 import 'ui/format.dart' show displayMiles;
 import 'ui/home_shell.dart';
 import 'ui/onboarding_screen.dart';
@@ -51,7 +52,7 @@ class LookUpApp extends ConsumerWidget {
       ),
       home: settings.when(
         loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+        error: (_, _) => Scaffold(body: LoadTrouble(what: 'LookUp didn\'t start properly.', onRetry: () => ref.invalidate(settingsProvider))),
         data: (s) => s.onboarded ? const HomeShell() : const OnboardingScreen(),
       ),
     );

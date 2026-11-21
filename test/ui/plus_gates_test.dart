@@ -20,6 +20,8 @@ class _Settings extends SettingsNotifier {
 
 class _FakePlus implements PlusService {
   @override
+  Stream<String> get errors => const Stream.empty();
+  @override
   Future<List<PlusOffer>> offers() async => const [];
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);

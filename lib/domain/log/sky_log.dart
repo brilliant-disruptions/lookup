@@ -215,7 +215,9 @@ class SkyLog {
       final s = chrono[i];
       final t = s.inferredType;
       if (t != null) running[t] = (running[t] ?? 0) + 1;
-      final local = (s.eventTime ?? s.at).toLocal();
+      // When they caught it, not when it was due: a planet's "time" is its
+      // best moment tonight, which may be 2 AM for something caught at nine.
+      final local = s.at.toLocal();
 
       once('first-light', true, s.at);
       final iss = running[SkyEventType.iss] ?? 0;

@@ -63,17 +63,42 @@ void main() {
 
     test('an empty answer while the period is still running is doubted for a few days, then believed', () {
       final s = PlusGrant.apply(free, PlusOwned(until: now.add(const Duration(days: 300))), now);
-      final nextDay = PlusGrant.apply(s, const PlusNotListed(), now.add(const Duration(days: 1)));
+      final first = now.add(const Duration(days: 1));
+      final nextDay = PlusGrant.apply(s, const PlusNotListed(), first);
       expect(nextDay.isPlus, isTrue, reason: 'one empty answer is not a refund');
-      expect(nextDay.plusSeenAt, now, reason: 'the doubt runs from when the store last vouched');
-      final later = PlusGrant.apply(nextDay, const PlusNotListed(), now.add(PlusGrant.doubt + const Duration(hours: 1)));
+      expect(nextDay.plusDoubtAt, first, reason: 'the doubt runs from the first empty answer');
+      expect(PlusGrant.apply(nextDay, const PlusNotListed(), first.add(const Duration(days: 2))).isPlus, isTrue);
+      final later = PlusGrant.apply(nextDay, const PlusNotListed(), first.add(PlusGrant.doubt + const Duration(hours: 1)));
       expect(later.isPlus, isFalse);
+      expect(later.plusDoubtAt, isNull);
     });
 
-    test('the same for the lifetime purchase: a refund that was never announced still ends it', () {
+    // A paying subscriber losing alerts is as bad as a false one: someone who
+    // opens the app once a week mustn't lose a year's plan to one bad answer.
+    test('one empty answer never ends a paid plan, however long ago the store last vouched', () {
+      final s = PlusGrant.apply(free, PlusOwned(until: now.add(const Duration(days: 300))), now);
+      final weekLater = now.add(const Duration(days: 8));
+      final after = PlusGrant.apply(s, const PlusNotListed(), weekLater);
+      expect(after.isPlus, isTrue);
+      expect(after.plusUntil, isNotNull);
+      // The store answering properly next time clears the doubt.
+      final ok = PlusGrant.apply(after, PlusOwned(until: now.add(const Duration(days: 300))), weekLater.add(const Duration(hours: 1)));
+      expect(ok.plusDoubtAt, isNull);
+    });
+
+    test('a doubt that starts in the future (the clock was changed) starts again', () {
+      final s = PlusGrant.apply(free, const PlusOwned(), now).copyWith(plusDoubtAt: now.add(const Duration(days: 900)));
+      final again = PlusGrant.apply(s, const PlusNotListed(), now);
+      expect(again.plusDoubtAt, now);
+      expect(PlusGrant.apply(again, const PlusNotListed(), now.add(const Duration(days: 4))).isPlus, isFalse);
+    });
+
+    test('a purchase with no end date: a refund that was never announced still ends it', () {
       final s = PlusGrant.apply(free, const PlusOwned(), now);
-      expect(PlusGrant.apply(s, const PlusNotListed(), now.add(const Duration(days: 2))).isPlus, isTrue);
-      expect(PlusGrant.apply(s, const PlusNotListed(), now.add(const Duration(days: 4))).isPlus, isFalse);
+      final first = PlusGrant.apply(s, const PlusNotListed(), now.add(const Duration(days: 2)));
+      expect(first.isPlus, isTrue);
+      expect(PlusGrant.apply(first, const PlusNotListed(), now.add(const Duration(days: 4))).isPlus, isTrue);
+      expect(PlusGrant.apply(first, const PlusNotListed(), now.add(const Duration(days: 6))).isPlus, isFalse);
     });
 
     test('the store vouching again resets the doubt', () {
@@ -88,7 +113,7 @@ void main() {
       const old = LookUpSettings(isPlus: true);
       final first = PlusGrant.apply(old, const PlusNotListed(), now);
       expect(first.isPlus, isTrue);
-      expect(first.plusSeenAt, now);
+      expect(first.plusDoubtAt, now);
       expect(PlusGrant.apply(first, const PlusNotListed(), now.add(const Duration(days: 4))).isPlus, isFalse);
       // ...and is kept for good the moment the store vouches for it.
       expect(PlusGrant.apply(first, const PlusOwned(), now.add(const Duration(days: 1))).isPlus, isTrue);
@@ -169,6 +194,17 @@ void main() {
     test('one replaced by an upgrade', () {
       final t = StoreTransaction.read('{"expiresDate":${t0 + 86400000},"isUpgraded":true}');
       expect(t.activeAt(now), isFalse);
+    });
+
+    test('Google Play: a purchase that is listed but not paid for (pending) is not LookUp+', () {
+      final pending = StoreTransaction.read('{"productId":"lookup_plus_yearly","purchaseState":4}');
+      expect(pending.unpaid, isTrue);
+      expect(pending.activeAt(now), isFalse);
+      final paid = StoreTransaction.read('{"productId":"lookup_plus_yearly","purchaseState":0}');
+      expect(paid.unpaid, isFalse);
+      expect(paid.activeAt(now), isTrue);
+      // StoreKit's JSON has no such field.
+      expect(StoreTransaction.read('{"expiresDate":${now.add(const Duration(days: 3)).millisecondsSinceEpoch}}').unpaid, isFalse);
     });
 
     test('the lifetime purchase has no end', () {

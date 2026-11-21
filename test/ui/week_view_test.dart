@@ -92,10 +92,29 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
+  // On a small phone the lazy list never built "Tonight and ahead" below a
+  // tall last week, so the tab opened on last week instead.
+  testWidgets('opens on tonight, with last week a scroll up, even on a small phone', (t) async {
+    t.view.physicalSize = const Size(375 * 2, 667 * 2);
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    await pump(t);
+    final list = t.getRect(find.byKey(const Key('week-list')));
+    final tonight = t.getRect(find.text('Tonight and ahead'));
+    expect(tonight.top, greaterThanOrEqualTo(list.top - 1));
+    expect(tonight.top, lessThan(list.bottom), reason: 'the heading is in view');
+    if (find.text('Last week').evaluate().isNotEmpty) {
+      expect(t.getRect(find.text('Last week')).top, lessThan(tonight.top));
+    }
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('at a glance, each marker says what it is: which satellite, which planets', (t) async {
     await pump(t);
     for (final name in ['ISS', 'ISS × Moon', 'Starlink', 'Tiangong', 'Venus · Moon']) {
-      expect(find.text(name), findsOneWidget, reason: name);
+      // Every night's row is built (last week's too), so a name can be there twice.
+      expect(find.text(name), findsAtLeastNWidgets(1), reason: name);
     }
     expect(eventStyle(SkyEventType.tiangong).color, isNot(eventStyle(SkyEventType.iss).color));
     expect(t.takeException(), isNull);

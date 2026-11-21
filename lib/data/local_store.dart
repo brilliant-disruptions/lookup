@@ -6,6 +6,7 @@ import 'dart:math' show Random;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../domain/scheduling/alert_ledger.dart';
 import '../domain/aurora/aurora_rules.dart';
 import '../domain/aurora/push_plan.dart' show PushRecord;
 import '../domain/finder/finder_stats.dart';
@@ -30,7 +31,27 @@ class AuroraSnapshot {
     required this.kpNow,
     required this.forecast,
     required this.ovationProbability,
+    this.latitude,
+    this.longitude,
   });
+
+  /// "Aurora now" is only said from a reading this fresh. Older (the feed
+  /// is down, the phone's offline) is yesterday's storm.
+  static const nowMaxAge = Duration(minutes: 60);
+
+  /// Where the oval was read for; null in a snapshot saved before this was kept.
+  final double? latitude, longitude;
+
+  /// Whether [kpNow] and [ovationProbability] still say what's overhead at
+  /// [lat], [lon] at [now]: read within [nowMaxAge], and for this place.
+  bool currentFor(DateTime now, double lat, double lon) {
+    final age = now.toUtc().difference(fetchedAt);
+    if (age > nowMaxAge || age < const Duration(minutes: -5)) return false;
+    final la = latitude, lo = longitude;
+    if (la == null || lo == null) return true;
+    return (la - lat).abs() <= 0.5 && (lo - lon).abs() <= 0.5;
+  }
+
   final DateTime fetchedAt;
   final double? kpNow;
   final List<KpForecastPoint> forecast;
@@ -40,6 +61,8 @@ class AuroraSnapshot {
         'fetchedAt': fetchedAt.toIso8601String(),
         'kpNow': kpNow,
         'ovation': ovationProbability,
+        if (latitude != null) 'lat': latitude,
+        if (longitude != null) 'lon': longitude,
         'forecast': [
           for (final p in forecast)
             {'t': p.time.toIso8601String(), 'kp': p.kp, 'k': p.kind},
@@ -50,6 +73,8 @@ class AuroraSnapshot {
         fetchedAt: DateTime.parse(j['fetchedAt'] as String).toUtc(),
         kpNow: (j['kpNow'] as num?)?.toDouble(),
         ovationProbability: (j['ovation'] as num?)?.toInt() ?? 0,
+        latitude: (j['lat'] as num?)?.toDouble(),
+        longitude: (j['lon'] as num?)?.toDouble(),
         forecast: [
           for (final e in (j['forecast'] as List? ?? const []))
             KpForecastPoint(
@@ -73,6 +98,7 @@ class LocalStore {
   static const _kLaunches = 'launches';
   static const _kRareEvents = 'rareEvents';
   static const _kPlan = 'plan_ids';
+  static const _kLedger = 'alert_ledger_v1';
   static const _kAurora = 'aurora';
   static const _kClouds = 'clouds';
   static const _kLastRefresh = 'last_refresh';
@@ -344,6 +370,20 @@ class LocalStore {
   Future<void> savePlannedIds(Iterable<int> ids) =>
       _prefs.setStringList(_kPlan, [for (final i in ids) '$i']);
 
+  /// Alerts scheduled and delivered (domain/scheduling/alert_ledger.dart).
+  Future<List<AlertRecord>> loadAlertLedger() async {
+    try {
+      final raw = await _prefs.getString(_kLedger);
+      if (raw == null) return const [];
+      return [for (final j in jsonDecode(raw) as List) ?AlertRecord.fromJson(j)];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> saveAlertLedger(Iterable<AlertRecord> records) =>
+      _prefs.setString(_kLedger, jsonEncode([for (final r in records) r.toJson()]));
+
   Future<DateTime?> loadLastRefresh() async {
     final raw = await _prefs.getString(_kLastRefresh);
     return raw == null ? null : DateTime.parse(raw).toUtc();
@@ -386,6 +426,21 @@ class SeenFeedback {
   /// The picture's id in Photos, when the Log shows it from there (then
   /// [photo] is only a small thumbnail).
   final String? photoAsset;
+
+  /// The same answer, dated [when].
+  SeenFeedback caughtAt(DateTime when) => SeenFeedback(
+        eventId: eventId,
+        seen: seen,
+        at: when,
+        reason: reason,
+        type: type,
+        eventTime: eventTime,
+        peakElevationDeg: peakElevationDeg,
+        magnitude: magnitude,
+        place: place,
+        photo: photo,
+        photoAsset: photoAsset,
+      );
 
   SeenFeedback withPhoto(String? name, {String? asset}) => SeenFeedback(
         eventId: eventId,
@@ -470,10 +525,28 @@ extension FeedbackStore on LocalStore {
     final previous = (await loadFeedback()).where((x) => x.eventId == f.eventId).firstOrNull;
     // Answering again keeps a photo already attached.
     if (f.photo == null && previous?.photo != null) f = f.withPhoto(previous!.photo, asset: previous.photoAsset);
+    // Catching something again (Jupiter has one entry, whatever the night)
+    // keeps the day it was first caught: the Log's order and the patches
+    // earned along the way don't move, and nothing is announced twice.
+    if (f.seen && (previous?.seen ?? false)) f = f.caughtAt(previous!.at);
     final all = (await loadFeedback()).where((x) => x.eventId != f.eventId).toList()..add(f);
-    // Keep the last 200.
-    final trimmed = all.length > 200 ? all.sublist(all.length - 200) : all;
-    await _prefs.setString(LocalStore._kFeedback, jsonEncode([for (final x in trimmed) x.toJson()]));
+    await _prefs.setString(LocalStore._kFeedback, jsonEncode([for (final x in trimLog(all)) x.toJson()]));
+  }
+
+  /// "No, I missed it" answers are only for tuning: the newest 200 are
+  /// enough. A catch is somebody's eclipse and the patch it earned, so
+  /// catches are kept (5,000 is years of looking up every clear night).
+  static const maxMissed = 200, maxCatches = 5000;
+
+  /// [all] (oldest first) within those limits, dropping the oldest of each kind.
+  static List<SeenFeedback> trimLog(List<SeenFeedback> all) {
+    var missed = all.where((x) => !x.seen).length - maxMissed;
+    var caught = all.where((x) => x.seen).length - maxCatches;
+    if (missed <= 0 && caught <= 0) return all;
+    return [
+      for (final x in all)
+        if (x.seen ? caught-- <= 0 : missed-- <= 0) x,
+    ];
   }
 
   /// Attach (or with null, detach) a photo to the sighting for [eventId].

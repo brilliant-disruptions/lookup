@@ -57,10 +57,17 @@ class _Planner extends AlertPlanner {
     required int utcOffsetMinutes,
     Duration horizon = const Duration(hours: 48),
     AlertTuning tuning = AlertTuning.neutral,
+    Map<String, DateTime> alerted = const {},
   }) {
     given = events;
     return super.plan(
-        events: events, settings: settings, now: now, utcOffsetMinutes: utcOffsetMinutes, horizon: horizon, tuning: tuning);
+        events: events,
+        settings: settings,
+        now: now,
+        utcOffsetMinutes: utcOffsetMinutes,
+        horizon: horizon,
+        tuning: tuning,
+        alerted: alerted);
   }
 }
 

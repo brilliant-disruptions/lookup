@@ -49,6 +49,7 @@ class AlertPlanner {
     required int utcOffsetMinutes,
     Duration horizon = const Duration(hours: 48),
     AlertTuning tuning = AlertTuning.neutral,
+    Map<String, DateTime> alerted = const {},
   }) {
     final nowUtc = now.toUtc();
     final limit = nowUtc.add(horizon);
@@ -59,13 +60,25 @@ class AlertPlanner {
         .where((e) => !settings.clearSkyOnly ||
             (e.cloudCoverPercent ?? 0) <= tuning.cloudCutoffPercent)
         .where((e) => passesQuietHours(e, settings, utcOffsetMinutes))
+        .where(elementsFresh)
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    // Nightly cap: best-scored events win.
+    // Nightly cap: best-scored events win. What has already been tapped
+    // for tonight ([alerted]: event id to its peak) has used its share, or
+    // each refresh through the evening would fill the cap afresh; an event
+    // whose heads-up has gone keeps its place (its "go now" is still due).
     final perNight = <String, int>{};
+    for (final peak in alerted.values) {
+      final night = _nightKey(peak, utcOffsetMinutes);
+      perNight[night] = (perNight[night] ?? 0) + 1;
+    }
     final chosen = <SkyEvent>[];
     for (final e in candidates) {
+      if (alerted.containsKey(e.id)) {
+        chosen.add(e);
+        continue;
+      }
       final night = _nightKey(e.peak, utcOffsetMinutes);
       final n = perNight[night] ?? 0;
       if (n >= settings.maxAlertsPerNight) continue;
@@ -76,14 +89,19 @@ class AlertPlanner {
 
     final out = <PlannedAlert>[];
     for (final e in chosen) {
-      final headsUpAt = e.start.subtract(Duration(minutes: settings.leadMinutes));
-      if (headsUpAt.isAfter(nowUtc)) {
+      // Something that starts just after quiet hours end would have its
+      // heads-up inside them: it waits for them to end, and says how long
+      // is really left.
+      final headsUpAt = _afterQuiet(
+          e.start.subtract(Duration(minutes: settings.leadMinutes)), e, settings, utcOffsetMinutes);
+      final lead = e.start.difference(headsUpAt).inMinutes;
+      if (headsUpAt.isAfter(nowUtc) && lead >= 2) {
         out.add(PlannedAlert(
           notificationId: notificationIdFor(e.id, AlertKind.headsUp),
           event: e,
           fireAt: headsUpAt,
           kind: AlertKind.headsUp,
-          title: headsUpTitle(e, settings.leadMinutes),
+          title: headsUpTitle(e, lead),
           body: headsUpBody(e, miles: settings.usesMiles),
         ));
       }
@@ -91,7 +109,8 @@ class AlertPlanner {
       if (settings.goNowNudge &&
           !e.isEstimate &&
           settings.leadMinutes > 1 &&
-          goNowAt.isAfter(nowUtc)) {
+          goNowAt.isAfter(nowUtc) &&
+          _afterQuiet(goNowAt, e, settings, utcOffsetMinutes) == goNowAt) {
         out.add(PlannedAlert(
           notificationId: notificationIdFor(e.id, AlertKind.goNow),
           event: e,
@@ -126,6 +145,29 @@ class AlertPlanner {
     );
   }
 
+  /// How old a satellite's orbital elements may be at the pass for a tap to
+  /// go out. Stations drift minutes over a couple of weeks (and get
+  /// reboosted); a Starlink train is thrusting upward, so its elements go
+  /// wrong in days. Past this the pass is still listed, marked an estimate,
+  /// but nobody is sent outside for it.
+  static const stationElementsMaxAge = Duration(days: 14);
+  static const trainElementsMaxAge = Duration(days: 5);
+
+  /// Whether a pass was worked out from elements fresh enough to tap for.
+  /// Anything that isn't a satellite pass is.
+  static bool elementsFresh(SkyEvent e) {
+    final limit = switch (e.type) {
+      SkyEventType.iss || SkyEventType.tiangong => stationElementsMaxAge,
+      SkyEventType.starlinkTrain => trainElementsMaxAge,
+      _ => null,
+    };
+    if (limit == null) return true;
+    final omm = e.details['omm'];
+    final epoch = omm is Map ? DateTime.tryParse('${omm['EPOCH']}Z') : null;
+    if (epoch == null) return true;
+    return e.start.difference(epoch.toUtc()) <= limit;
+  }
+
   /// Whether they want taps for this kind at all (their switch in
   /// Settings). Also what LookUp+ asks use, so a kind they turned off is
   /// never pitched to them.
@@ -153,8 +195,21 @@ class AlertPlanner {
     final local = e.start.add(Duration(minutes: utcOffsetMinutes));
     final minuteOfDay = local.hour * 60 + local.minute;
     if (!s.quietHours.contains(minuteOfDay)) return true;
-    return s.auroraWakeMe &&
-        (e.type == SkyEventType.auroraNow || e.type == SkyEventType.lunarEclipse);
+    return _wakes(e, s);
+  }
+
+  static bool _wakes(SkyEvent e, LookUpSettings s) =>
+      s.auroraWakeMe && (e.type == SkyEventType.auroraNow || e.type == SkyEventType.lunarEclipse);
+
+  /// [at], or the end of quiet hours if it falls inside them (for anything
+  /// that isn't allowed to wake them).
+  static DateTime _afterQuiet(DateTime at, SkyEvent e, LookUpSettings s, int utcOffsetMinutes) {
+    if (_wakes(e, s)) return at;
+    final local = at.add(Duration(minutes: utcOffsetMinutes));
+    final minute = local.hour * 60 + local.minute;
+    if (!s.quietHours.contains(minute)) return at;
+    final wait = (s.quietHours.endMinute - minute) % (24 * 60);
+    return DateTime.utc(at.year, at.month, at.day, at.hour, at.minute).add(Duration(minutes: wait));
   }
 
   /// Local calendar date of "the night", where anything before local noon
@@ -225,7 +280,8 @@ class AlertPlanner {
   static String headsUpBody(SkyEvent e, {bool miles = false}) {
     if (e.type == SkyEventType.auroraNow) {
       if (e.details['crowd'] == true && e.details['body'] is String) return e.details['body'] as String;
-      return 'Find a dark spot and look north. ${_cloudNote(e)}'.trim();
+      // The oval sits toward the nearer pole: south from Hobart or Dunedin.
+      return 'Find a dark spot and look ${auroraFace(e)}. ${_cloudNote(e)}'.trim();
     }
     switch (e.type) {
       case SkyEventType.meteorShower:

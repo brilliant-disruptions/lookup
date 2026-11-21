@@ -77,7 +77,7 @@ class _Photos extends PhotoLibrary {
 
 class _Settings extends SettingsNotifier {
   @override
-  Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true, placeName: 'Nashville');
+  Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.16589, longitude: -86.78444, onboarded: true, placeName: 'Nashville');
 }
 
 void main() {
@@ -153,7 +153,7 @@ void main() {
     // The picture carries its sighting, what, when and where; and its place is set.
     final s = photos.saved.single;
     expect((s.tag!.eventId, s.tag!.title, s.tag!.place, s.tag!.at), (_jupiter.id, 'Jupiter', 'Nashville', _at));
-    expect(s.lat, 36.17);
+    expect(s.lat, 36.17, reason: 'to about a kilometre: a shared picture mustn\'t say which house');
     // The Log keeps the Photos id and only a small copy.
     final f = (await t.runAsync(store.loadFeedback))!.single;
     expect((f.eventId, f.seen, f.photoAsset), (_jupiter.id, true, 'ph-1'));

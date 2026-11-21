@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -70,22 +73,44 @@ class PaywallSheet extends ConsumerStatefulWidget {
 
 class _PaywallState extends ConsumerState<PaywallSheet> {
   List<PlusOffer>? _offers;
-  String? _error;
+
+  /// What just happened, in plain words (a purchase that didn't go
+  /// through, what Restore found), shown by the buttons. The plans stay.
+  String? _note;
   bool _busy = false;
   String _chosen = PlusProducts.yearly;
+  StreamSubscription<String>? _errors;
 
   @override
   void initState() {
     super.initState();
+    _loadOffers();
+    // The store reports a failed or declined purchase here, not from buy().
+    _errors = ref.read(plusServiceProvider).errors.listen((_) {
+      if (mounted) setState(() => _note = _notBought);
+    });
+  }
+
+  static const _notBought = 'That didn\'t go through, and you haven\'t been charged. You can try again.';
+
+  void _loadOffers() {
+    setState(() => _offers = null);
     ref.read(plusServiceProvider).offers().then((o) {
       if (!mounted) return;
       setState(() {
         _offers = o;
         if (o.isNotEmpty && !o.any((x) => x.id == _chosen)) _chosen = o.first.id;
       });
-    }).catchError((e) {
-      if (mounted) setState(() => _error = '$e');
+    }).catchError((_) {
+      // No store to ask: said in words below, with a way to try again.
+      if (mounted) setState(() => _offers = const []);
     });
+  }
+
+  @override
+  void dispose() {
+    _errors?.cancel();
+    super.dispose();
   }
 
   @override
@@ -152,19 +177,24 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
               const SizedBox(height: 22),
               const PlusPerkList(),
               const SizedBox(height: 22),
-              if (isPlus)
-                const Text('You have LookUp+. Thank you.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey))
-              else if (_error != null)
-                Text(_error!, style: const TextStyle(color: LookUpColors.warn))
-              else if (offers == null)
+              if (isPlus) ...[
+                const Text('You have LookUp+. Thank you.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey)),
+                // Where to change or cancel it: the store's own page.
+                TextButton(
+                  key: const Key('manage-subscription'),
+                  onPressed: () => openLink(context, manageSubscriptionUri),
+                  child: const Text('Manage or cancel'),
+                ),
+              ] else if (offers == null)
                 const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
-              else if (offers.isEmpty)
+              else if (offers.isEmpty) ...[
                 Text(
                   'Can\'t reach the $store right now. Check your connection and try again in a moment.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: LookUpColors.grey),
-                )
-              else ...[
+                ),
+                TextButton(key: const Key('offers-retry'), onPressed: _loadOffers, child: const Text('Try again')),
+              ] else ...[
                 for (final o in offers)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -181,20 +211,29 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
                 ],
                 const SizedBox(height: 16),
                 FilledButton(
+                  key: const Key('paywall-buy'),
                   onPressed: _busy || chosen == null ? null : () => _buy(chosen),
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
                   child: Text(
                     switch (chosen?.id) {
                       PlusProducts.yearly => 'Try 7 days free',
-                      PlusProducts.monthly => 'Continue · ${chosen!.price} a month',
-                      _ => 'Buy once · ${chosen?.price ?? ''}',
+                      _ => 'Continue · ${chosen?.price ?? ''} a month',
                     },
                     style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
+              if (_note != null && !isPlus)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(_note!, key: const Key('paywall-note'), textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.warn, height: 1.35)),
+                  ),
+                ),
               if (!isPlus)
                 TextButton(
+                  key: const Key('restore-purchases'),
                   onPressed: _busy ? null : _restore,
                   child: const Text('Restore purchases'),
                 ),
@@ -213,22 +252,40 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
   }
 
   Future<void> _buy(PlusOffer o) async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _note = null;
+    });
     try {
       await ref.read(plusServiceProvider).buy(o);
-    } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+    } catch (_) {
+      if (mounted) setState(() => _note = _notBought);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  /// Restore purchases, and say what it found: silence reads as broken.
   Future<void> _restore() async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _note = null;
+    });
+    String? said;
     try {
       await ref.read(plusServiceProvider).restore();
+      final has = (await ref.read(settingsProvider.future)).isPlus;
+      final store = defaultTargetPlatform == TargetPlatform.iOS ? 'Apple ID' : 'Google account';
+      said = has ? null : 'No LookUp+ found on this $store. If you bought it on another one, sign in with that and try again.';
+    } catch (_) {
+      said = 'Couldn\'t reach the store just now. Try again in a moment.';
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _note = said;
+        });
+      }
     }
   }
 }

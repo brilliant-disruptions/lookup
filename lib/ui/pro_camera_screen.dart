@@ -24,6 +24,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../domain/privacy/rough_place.dart';
 import '../domain/finder/firefly.dart' show towardOnScreen;
 import '../domain/finder/pointing.dart';
 import '../domain/models/sky_event.dart';
@@ -468,7 +469,7 @@ class _ProCameraState extends ConsumerState<ProCameraScreen> {
     if (!mounted) return;
     final s = ref.read(settingsProvider).value;
     final video = out.videoPath != null &&
-        (await library.saveVideo(out.videoPath!, title: _title(widget.target.name), at: _now(), lat: s?.latitude, lon: s?.longitude)).toPhotos;
+        (await library.saveVideo(out.videoPath!, title: _title(widget.target.name), at: _now(), lat: s?.latitude == null ? null : roughCoord(s!.latitude!), lon: s?.longitude == null ? null : roughCoord(s!.longitude!))).toPhotos;
     final t = out.trail;
     final words = video
         ? 'The ${out.videoSeconds.round()}-second timelapse is in your Photos, with the trail picture. It\'s in your Log.'

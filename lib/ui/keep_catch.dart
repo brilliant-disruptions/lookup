@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../data/local_store.dart';
+import '../domain/privacy/rough_place.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/log/restore.dart';
 import '../domain/photo/catch_tag.dart';
@@ -78,8 +79,10 @@ Future<SavedPicture> keepCatch(
           elevationDeg: event.peakElevationDeg,
           magnitude: (event.details['magnitude'] as num?)?.toDouble(),
         ),
-        lat: s?.latitude,
-        lon: s?.longitude,
+        // Roughly where (to about a kilometre): a picture gets shared,
+        // and it shouldn't say which house it was taken from.
+        lat: s?.latitude == null ? null : roughCoord(s!.latitude!),
+        lon: s?.longitude == null ? null : roughCoord(s!.longitude!),
       );
   // With the picture safe in Photos, the Log only needs a small copy.
   final copy = saved.assetId == null ? png : (await thumbnailPng(png) ?? png);

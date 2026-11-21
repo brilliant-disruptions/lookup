@@ -127,6 +127,13 @@ class AuroraNowDecision {
   final String reason;
 }
 
+/// How far below the horizon the Sun must be before anyone is sent out for
+/// an aurora: the end of nautical twilight. At civil twilight's end (6°)
+/// the sky is still bright enough to hide all but the strongest displays,
+/// and in a northern summer (Scotland, Scandinavia, Alaska) it never gets
+/// darker than that all night.
+const auroraDarkDeg = -12.0;
+
 /// Should we tap the user *right now*?
 AuroraNowDecision auroraNow({
   required DateTime now,
@@ -138,7 +145,7 @@ AuroraNowDecision auroraNow({
   int minProbability = 20,
   int cloudyThreshold = 60,
 }) {
-  if (!isDark(now, latDeg, lonDeg)) {
+  if (!isDark(now, latDeg, lonDeg, thresholdDeg: auroraDarkDeg)) {
     return const AuroraNowDecision(alert: false, reason: 'not dark');
   }
   final needed = kpNeededAt(latDeg, lonDeg);
