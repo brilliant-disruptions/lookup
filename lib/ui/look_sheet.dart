@@ -254,8 +254,9 @@ class _LookSheetState extends ConsumerState<LookSheet> {
     final plain = !widget.demo && !live && !over;
     final plus = ref.watch(settingsProvider).value?.isPlus ?? false;
     final tiles = <Widget>[
-      // Taking a picture is free (Pip's catch); only the Pro camera is
-      // LookUp+. So the tile carries no tag: free users get the choice.
+      // Taking a picture is free: on free it's Pip's camera, straight away,
+      // with no tag and no choice to tap through. The Pro camera (LookUp+)
+      // is mentioned once in a while after a catch (domain/plus/pro_nudge.dart).
       if (photo)
         _ActionTile(
           key: const Key('photograph-it'),
@@ -265,11 +266,10 @@ class _LookSheetState extends ConsumerState<LookSheet> {
           onTap: () {
             final s = ref.read(settingsProvider).value;
             final target = ShotTarget.ofEvent(event, s?.latitude ?? 0, s?.longitude ?? 0);
-            if (target == null) return;
-            if (plus) {
+            if (plus && target != null) {
               openProCamera(context, ref, target);
             } else {
-              _choosePhoto(context, target);
+              openLiveSkyCamera(context, ref);
             }
           },
         ),
@@ -305,47 +305,6 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       ),
     ];
   }
-
-  /// Photograph it, for free users: Pip's catch (free) or the Pro camera
-  /// (LookUp+), side by side, so a picture never looks locked.
-  Future<void> _choosePhoto(BuildContext context, ShotTarget target) => showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        isScrollControlled: true,
-        backgroundColor: LookUpColors.panel,
-        builder: (sheet) => SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text('Take a picture', style: display(22, weight: FontWeight.w700)),
-              const SizedBox(height: 14),
-              _PhotoChoice(
-                key: const Key('photo-choice-pip'),
-                pip: true,
-                title: 'Catch it with Pip',
-                tag: const Pill('Free', color: LookUpColors.good),
-                line: 'When it\'s up, point your phone, follow Pip, and tap Pip when it lands. Saved to Photos and your Log.',
-                onTap: () {
-                  Navigator.of(sheet).pop();
-                  openLiveSkyCamera(context, ref);
-                },
-              ),
-              const SizedBox(height: 10),
-              _PhotoChoice(
-                key: const Key('photo-choice-pro'),
-                icon: Icons.camera_rounded,
-                title: 'Pro camera',
-                tag: const Pill('LookUp+', color: LookUpColors.blue),
-                line: 'Picks the lens, shutter and ISO for it, keeps the sharpest frames, and can run a timelapse.',
-                onTap: () {
-                  Navigator.of(sheet).pop();
-                  openProCamera(context, ref, target);
-                },
-              ),
-            ]),
-          ),
-        ),
-      );
 
   /// Everything that isn't "where and when", folded away: the arc or the
   /// numbers, brightness and cloud, who's aboard, photo tips.
@@ -549,57 +508,6 @@ class _PipShowsYouState extends State<_PipShowsYou> {
       ),
     );
   }
-}
-
-/// One way to take the picture: Pip or an icon, a title with its tag, and a
-/// line on what you get.
-class _PhotoChoice extends StatelessWidget {
-  const _PhotoChoice({super.key, required this.title, required this.tag, required this.line, required this.onTap, this.icon, this.pip = false});
-  final String title, line;
-  final Widget tag;
-  final VoidCallback onTap;
-  final IconData? icon;
-  final bool pip;
-
-  @override
-  Widget build(BuildContext context) => Pressable(
-        semanticLabel: title,
-        onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: LookUpColors.glass,
-            borderRadius: BorderRadius.circular(Radii.md),
-            border: Border.all(color: LookUpColors.line),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 12, 14, 12),
-            child: ExcludeSemantics(
-              child: Row(children: [
-                SizedBox.square(
-                  dimension: 52,
-                  child: pip
-                      ? const ClipOval(child: OverflowBox(maxWidth: 80, maxHeight: 80, child: PipMark(size: 52)))
-                      : DecoratedBox(
-                          decoration: BoxDecoration(color: LookUpColors.violet.withValues(alpha: 0.16), shape: BoxShape.circle),
-                          child: Icon(icon, color: LookUpColors.violet),
-                        ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                      tag,
-                    ]),
-                    const SizedBox(height: 3),
-                    Text(line, style: const TextStyle(color: LookUpColors.grey, fontSize: 13.5, height: 1.3)),
-                  ]),
-                ),
-              ]),
-            ),
-          ),
-        ),
-      );
 }
 
 /// One thing to do, as a tile: a tinted circle with the icon, the word

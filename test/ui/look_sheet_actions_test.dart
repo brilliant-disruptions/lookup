@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
 import 'package:lookup/state/providers.dart';
+import 'package:lookup/state/sky_state.dart';
 import 'package:lookup/ui/kit/kit.dart';
 import 'package:lookup/ui/look_sheet.dart';
 import 'package:lookup/ui/theme.dart';
@@ -36,7 +37,7 @@ Future<void> _mount(WidgetTester t, {required bool isPlus}) async {
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
   await t.pumpWidget(ProviderScope(
-    overrides: [settingsProvider.overrideWith(() => _Settings(isPlus))],
+    overrides: [settingsProvider.overrideWith(() => _Settings(isPlus)), tonightSkyProvider.overrideWith((_) async => null)],
     child: MaterialApp(theme: buildLookUpTheme(), home: Scaffold(body: LookSheet(event: _saturn))),
   ));
   await t.pump();
@@ -86,28 +87,21 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('free: Photograph it offers Pip\'s catch, free, beside the Pro camera on LookUp+', (t) async {
+  testWidgets('free: Photograph it goes straight to Pip\'s camera: no choice to tap through, no paywall', (t) async {
     await _mount(t, isPlus: false);
     await t.tap(find.byKey(const Key('photograph-it')));
     await t.pump();
     await t.pump(const Duration(milliseconds: 500));
-    final pip = find.byKey(const Key('photo-choice-pip'));
-    final pro = find.byKey(const Key('photo-choice-pro'));
-    expect(pip, findsOneWidget);
-    expect(pro, findsOneWidget);
-    expect(find.descendant(of: pip, matching: find.text('Free')), findsOneWidget);
-    expect(find.descendant(of: pip, matching: find.textContaining('Saved to Photos and your Log')), findsOneWidget);
-    expect(find.descendant(of: pro, matching: find.text('LookUp+')), findsOneWidget);
-    expect(t.getRect(pip).top, lessThan(t.getRect(pro).top), reason: 'the free way first');
+    // The live camera's own first step (no sky worked out in this test, so it asks for a place).
+    expect(find.text('Set a location to see your sky.'), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing, reason: 'no sheet in the way');
+    expect(find.text('LookUp+'), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('LookUp+: no tag and no choice, straight to the Pro camera', (t) async {
+  testWidgets('LookUp+: no tag either', (t) async {
     await _mount(t, isPlus: true);
     expect(find.descendant(of: find.byKey(const Key('photograph-it')), matching: find.text('LookUp+')), findsNothing);
-    await t.tap(find.byKey(const Key('photograph-it')));
-    await t.pump();
-    expect(find.byKey(const Key('photo-choice-pip')), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
 }

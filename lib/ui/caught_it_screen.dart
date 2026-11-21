@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/log/catch_moment.dart';
 import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/photo/shot_plan.dart' show ShotSubject, subjectForEvent;
+import '../domain/plus/free_plan.dart' show PlusFeature;
+import '../domain/plus/pro_nudge.dart';
 import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
@@ -170,6 +173,9 @@ class CaughtItScreen extends ConsumerWidget {
                               ),
                             ],
                             if (m.nextPlus != null) ...[const SizedBox(height: 14), Rise(index: 5, child: _PlusCard(event: m.nextPlus!))],
+                            // One offer per moment: the Pro camera only when there's no sight to offer.
+                            if (subjectForEvent(event.type) case final subject? when m.nextPlus == null && !demo)
+                              _ProTip(subject: subject, catches: m.nth),
                           ],
                         ],
                       ),
@@ -489,6 +495,88 @@ class _PlusCard extends StatelessWidget {
             child: const Text('Get the tap with LookUp+'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The Pro camera, mentioned once in a while after a catch: one line on what
+/// it would have done for this, a way to see it, and "Not now". Whether it
+/// shows is decided once, when the screen opens (domain/plus/pro_nudge.dart),
+/// and showing it is remembered, so it's at most once a week.
+class _ProTip extends ConsumerStatefulWidget {
+  const _ProTip({required this.subject, required this.catches});
+  final ShotSubject subject;
+  final int catches;
+  @override
+  ConsumerState<_ProTip> createState() => _ProTipState();
+}
+
+class _ProTipState extends ConsumerState<_ProTip> {
+  late bool _show;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = ref.read(settingsProvider).value;
+    _show = s != null &&
+        showProNudge(
+          isPlus: s.isPlus,
+          subject: widget.subject,
+          catches: widget.catches,
+          now: DateTime.now(),
+          lastShown: s.proNudgeAt,
+          notNow: s.proNudgeNotNow,
+        );
+    if (_show) {
+      WidgetsBinding.instance.addPostFrameCallback(
+          (_) => ref.read(settingsProvider.notifier).edit((s) => s.copyWith(proNudgeAt: DateTime.now().toUtc())));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_show) return const SizedBox.shrink();
+    return Padding(
+      key: const Key('pro-tip'),
+      padding: const EdgeInsets.only(top: 14),
+      child: Rise(
+        index: 5,
+        child: GlassCard(
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: LookUpColors.violet.withValues(alpha: 0.16), shape: BoxShape.circle),
+                child: const Icon(Icons.camera_rounded, size: 20, color: LookUpColors.violet),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(proNudgeLine(widget.subject),
+                    style: const TextStyle(fontSize: 14, color: LookUpColors.grey, height: 1.35)),
+              ),
+            ]),
+            // Wraps rather than overflows with big text.
+            Wrap(alignment: WrapAlignment.end, children: [
+              TextButton(
+                key: const Key('pro-tip-not-now'),
+                onPressed: () {
+                  setState(() => _show = false);
+                  ref.read(settingsProvider.notifier).edit((s) => s.copyWith(proNudgeNotNow: s.proNudgeNotNow + 1));
+                },
+                style: TextButton.styleFrom(foregroundColor: LookUpColors.grey),
+                child: const Text('Not now'),
+              ),
+              TextButton(
+                key: const Key('pro-tip-see'),
+                onPressed: () => showPaywall(context, feature: PlusFeature.camera),
+                child: const Text('See the Pro camera'),
+              ),
+            ]),
+          ]),
+        ),
       ),
     );
   }

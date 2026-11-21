@@ -98,6 +98,8 @@ class LookUpSettings {
     this.skyCameraCoached = false,
     this.skyFigures = true,
     this.onboardedAt,
+    this.proNudgeAt,
+    this.proNudgeNotNow = 0,
     this.firstBadgeShown = false,
     this.nerdMode = false,
     this.miles,
@@ -170,6 +172,11 @@ class LookUpSettings {
 
   /// When onboarding finished: the "Looked up" badge's date.
   final DateTime? onboardedAt;
+
+  /// When the caught-it screen last mentioned the Pro camera, and how many
+  /// times they've said "Not now" (`domain/plus/pro_nudge.dart`).
+  final DateTime? proNudgeAt;
+  final int proNudgeNotNow;
 
   /// The first badge has had its moment on screen (once, after onboarding).
   final bool firstBadgeShown;
@@ -277,6 +284,8 @@ class LookUpSettings {
     bool? skyCameraCoached,
     bool? skyFigures,
     DateTime? onboardedAt,
+    DateTime? proNudgeAt,
+    int? proNudgeNotNow,
     bool? firstBadgeShown,
     bool? nerdMode,
     bool? miles,
@@ -326,6 +335,8 @@ class LookUpSettings {
         skyCameraCoached: skyCameraCoached ?? this.skyCameraCoached,
         skyFigures: skyFigures ?? this.skyFigures,
         onboardedAt: onboardedAt ?? this.onboardedAt,
+        proNudgeAt: proNudgeAt ?? this.proNudgeAt,
+        proNudgeNotNow: proNudgeNotNow ?? this.proNudgeNotNow,
         firstBadgeShown: firstBadgeShown ?? this.firstBadgeShown,
         nerdMode: nerdMode ?? this.nerdMode,
         miles: miles ?? this.miles,
@@ -375,6 +386,8 @@ class LookUpSettings {
         'skyCameraCoached': skyCameraCoached,
         'skyFigures': skyFigures,
         if (onboardedAt != null) 'onboardedAt': onboardedAt!.toIso8601String(),
+        if (proNudgeAt != null) 'proNudgeAt': proNudgeAt!.toIso8601String(),
+        if (proNudgeNotNow > 0) 'proNudgeNotNow': proNudgeNotNow,
         'firstBadgeShown': firstBadgeShown,
         'nerdMode': nerdMode,
         if (miles != null) 'miles': miles,
@@ -436,6 +449,8 @@ class LookUpSettings {
       skyCameraCoached: j['skyCameraCoached'] as bool? ?? d.skyCameraCoached,
       skyFigures: j['skyFigures'] as bool? ?? d.skyFigures,
       onboardedAt: DateTime.tryParse(j['onboardedAt'] as String? ?? '')?.toUtc(),
+      proNudgeAt: DateTime.tryParse(j['proNudgeAt'] as String? ?? '')?.toUtc(),
+      proNudgeNotNow: (j['proNudgeNotNow'] as num?)?.toInt() ?? 0,
       firstBadgeShown: j['firstBadgeShown'] as bool? ?? d.firstBadgeShown,
       nerdMode: j['nerdMode'] as bool? ?? d.nerdMode,
       miles: j['miles'] as bool?,
