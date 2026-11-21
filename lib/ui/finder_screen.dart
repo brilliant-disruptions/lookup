@@ -89,7 +89,7 @@ class FinderTarget {
     switch (event.type) {
       case SkyEventType.auroraNow:
       case SkyEventType.auroraOutlook:
-        return const SkyDir(0, 15);
+        return SkyDir(event.peakAzimuthDeg, 15);
       case SkyEventType.planetHighlight:
       case SkyEventType.skyObject:
       case SkyEventType.comet:

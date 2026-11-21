@@ -145,6 +145,8 @@ class PlusService {
         purchases.every((p) => p.status == PurchaseStatus.restored);
 
     var owned = false;
+    // Paid for just now (not a list of what was already owned).
+    var bought = false;
     // A purchase with no end date (none is sold now) keeps no end.
     var noEnd = false;
     DateTime? until;
@@ -168,6 +170,7 @@ class PlusService {
             // "Restored" is the store's list of what is owned now: believed
             // even past the date (Apple's billing grace), from now.
             owned = true;
+            if (!restored) bought = true;
             final end = t.expires;
             if (end == null) {
               noEnd = true;
@@ -190,7 +193,7 @@ class PlusService {
       check.found = owned;
       check.answered.complete();
     }
-    if (owned) await _tell(PlusOwned(until: noEnd ? null : until));
+    if (owned) await _tell(PlusOwned(until: noEnd ? null : until, bought: bought));
     if ((revoked || stale) && !owned) unawaited(recheck(afterRevoke: revoked));
 
     for (final p in purchases) {

@@ -29,6 +29,16 @@ class StarlinkLaunchGroup {
       minRev <= TrainDetector.maxRevForTrain &&
       meanMotion >= TrainDetector.minMeanMotionForTrain;
 
+  /// Whether it's still a train at [now]: the revolution count carried on
+  /// from the elements' date. Elements that were a train when they were
+  /// written aren't one for ever; a year on, the satellites are long spread
+  /// around their orbit.
+  bool isTrainPhaseAt(DateTime now) {
+    final days = now.toUtc().difference(latestEpoch).inMinutes / 1440;
+    return minRev + meanMotion * (days < 0 ? 0 : days) <= TrainDetector.maxRevForTrain &&
+        meanMotion >= TrainDetector.minMeanMotionForTrain;
+  }
+
   bool get isTight => minRev <= TrainDetector.maxRevForTightTrain;
 
   String get label => isTight ? 'Starlink train' : 'Starlink string';
@@ -67,8 +77,9 @@ class TrainDetector {
   static const minMeanMotionForTrain = 15.6;
 
   /// Groups [records] by launch and returns only train-phase groups, newest
-  /// first.
-  static List<StarlinkLaunchGroup> detect(Iterable<OmmRecord> records) {
+  /// first. With [now], only those still a train then
+  /// ([StarlinkLaunchGroup.isTrainPhaseAt]).
+  static List<StarlinkLaunchGroup> detect(Iterable<OmmRecord> records, {DateTime? now}) {
     final byLaunch = <String, List<OmmRecord>>{};
     for (final r in records) {
       if (!r.objectName.toUpperCase().startsWith('STARLINK')) continue;
@@ -79,7 +90,7 @@ class TrainDetector {
       for (final e in byLaunch.entries)
         if (e.value.length >= 5)
           StarlinkLaunchGroup(launchKey: e.key, members: e.value),
-    ].where((g) => g.isTrainPhase).toList()
+    ].where((g) => now == null ? g.isTrainPhase : g.isTrainPhaseAt(now)).toList()
       ..sort((a, b) => a.minRev.compareTo(b.minRev));
     return groups;
   }

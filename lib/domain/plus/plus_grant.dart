@@ -19,8 +19,12 @@ sealed class PlusNews {
 /// The store vouches for LookUp+ right now. [until] is when the paid period
 /// ends: null when the store gave no date.
 final class PlusOwned extends PlusNews {
-  const PlusOwned({this.until});
+  const PlusOwned({this.until, this.bought = false});
   final DateTime? until;
+
+  /// Bought just now on this phone, as against found already owned (a
+  /// launch check, Restore purchases, a new phone).
+  final bool bought;
 }
 
 /// The store answered, and the account owns no LookUp+: the subscription ran

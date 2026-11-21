@@ -162,3 +162,7 @@ class SkyEvent {
   String toString() => 'SkyEvent($id peak=${peak.toIso8601String()} '
       'el=${peakElevationDeg.toStringAsFixed(0)} clouds=$cloudCoverPercent)';
 }
+
+/// Which way to face for an aurora, as its event points: toward the nearer
+/// pole (north, or south from the southern hemisphere).
+String auroraFace(SkyEvent e) => e.peakAzimuthDeg > 90 && e.peakAzimuthDeg < 270 ? 'south' : 'north';

@@ -106,9 +106,9 @@ String eventSubtitle(SkyEvent e) {
   switch (e.type) {
     case SkyEventType.auroraOutlook:
       final kp = (e.details['kp'] as num?)?.toStringAsFixed(1);
-      return 'Forecast Kp $kp · look north once it\'s fully dark';
+      return 'Forecast Kp $kp · look ${auroraFace(e)} once it\'s fully dark';
     case SkyEventType.auroraNow:
-      return 'Find a dark spot and look north';
+      return 'Find a dark spot and look ${auroraFace(e)}';
     case SkyEventType.starlinkTrain:
       final n = e.details['count'];
       return 'A line of ~$n lights, ${describeArc(riseAzimuthDeg: e.riseAzimuthDeg, peakElevationDeg: e.peakElevationDeg, duration: e.duration)}';
@@ -186,7 +186,7 @@ String shareText(SkyEvent e, String? place) {
     SkyEventType.iss => 'Just watched the space station fly$where 🛰️ LookUp tapped me 10 minutes before.',
     SkyEventType.tiangong => 'Just watched Tiangong fly$where 🛰️ LookUp tapped me 10 minutes before.',
     SkyEventType.starlinkTrain => 'A Starlink train just crossed the sky$where ✨ LookUp told me when to step outside.',
-    SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora$where tonight 🌌 LookUp said to go look north.',
+    SkyEventType.auroraNow || SkyEventType.auroraOutlook => 'Aurora$where tonight 🌌 LookUp said to go look ${auroraFace(e)}.',
     SkyEventType.meteorShower => 'Caught the ${e.details['shower'] ?? 'meteor shower'}$where ☄️ LookUp told me when.',
     SkyEventType.lunarEclipse => 'Watched the lunar eclipse$where 🌕 LookUp tapped me in time.',
     SkyEventType.solarEclipse => e.details['kind'] == 'total'
