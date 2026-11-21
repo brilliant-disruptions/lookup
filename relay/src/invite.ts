@@ -44,6 +44,8 @@ export type InviteDeps = {
   pass?: PassConfig;
   defaultCard: Uint8Array;
   passImages: PassImages;
+  /** Pictures kept at once (RULES.maxInvitePictures). */
+  maxPictures?: number;
 };
 
 export const INVITE_RULES = {
@@ -173,7 +175,7 @@ export async function createInvite(b: Record<string, unknown>, base: string, dep
   const image = pngFromBase64(b.image);
   if (!inv || image === 'bad') return Response.json({ error: 'invite' }, { status: 400 });
   const code = newCode();
-  await deps.store.addInvite(code, JSON.stringify(inv), image, Date.parse(inv.end) + INVITE_RULES.keepAfterMs, now);
+  await deps.store.addInvite(code, JSON.stringify(inv), image, Date.parse(inv.end) + INVITE_RULES.keepAfterMs, now, deps.maxPictures ?? Number.MAX_SAFE_INTEGER);
   return Response.json({ url: `${base}/n/${code}`, code }, { status: 201 });
 }
 

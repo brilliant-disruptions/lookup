@@ -143,7 +143,7 @@ describe('creating an invite', () => {
 
   it('an invite saved under the old, looser rules has gone: page, calendar, pass and card', async () => {
     const lure = { ...good, look: 'Claim your free telescope at telescope-prize.shop/claim before it starts!' };
-    await store.addInvite('oldlureabc', JSON.stringify(lure), null, Date.parse(END) + INVITE_RULES.keepAfterMs, NOW);
+    await store.addInvite('oldlureabc', JSON.stringify(lure), null, Date.parse(END) + INVITE_RULES.keepAfterMs, NOW, 100);
     for (const part of ['', '/invite.ics', '/pass.pkpass', '/card.png', '/get']) {
       const res = await get(`/n/oldlureabc${part}`);
       expect(res.status, part).toBe(404);
@@ -204,12 +204,17 @@ describe('the page', () => {
     expect((await store.tallies('2026-11-03')).view).toBeLessThanOrEqual(RULES.pageLimit.n);
   });
 
-  it('only so many invites are alive at once: storage can\'t be filled with pictures', async () => {
+  it('only so many pictures are kept at once; past that an invite still works, with the default card', async () => {
     const data = JSON.stringify(good);
-    for (let i = 0; i < RULES.maxInvites; i++) await store.addInvite(`fill${i}`, data, null, now + 3600e3, now);
-    expect((await post(good)).status).toBe(503);
-    now += 2 * 3600e3; // they expire
-    expect((await post(good)).status).toBe(201);
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    for (let i = 0; i < RULES.maxInvitePictures; i++) await store.addInvite(`fill${i}`, data, png, now + 3600e3, now, RULES.maxInvitePictures);
+    const image = Buffer.from(png).toString('base64');
+    const full = (await (await post({ ...good, image })).json()) as { code: string };
+    expect(full.code).toMatch(/^[a-z2-9]{10}$/);
+    expect(new Uint8Array(await (await get(`/n/${full.code}/card.png`)).arrayBuffer())).toEqual(defaultCard);
+    now += 2 * 3600e3; // the others expire
+    const { code } = (await (await post({ ...good, image })).json()) as { code: string };
+    expect(new Uint8Array(await (await get(`/n/${code}/card.png`)).arrayBuffer())).toEqual(png);
   });
 
   // Pip is the app's guide; meeting it on the invite says what "Get

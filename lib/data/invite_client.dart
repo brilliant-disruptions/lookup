@@ -35,11 +35,21 @@ class InviteClient {
           .timeout(const Duration(seconds: 8));
       if (res.statusCode != 201) return null;
       final url = (jsonDecode(res.body) as Map)['url'];
-      return url is String ? Uri.tryParse(url) : null;
+      return url is String ? inviteLink(url) : null;
     } catch (_) {
       return null;
     }
   }
+}
+
+/// The link the relay answered with, only if it's what an invite link looks
+/// like: https, an /n/ page, nothing else attached. It goes straight into a
+/// message to the user's friends, so a relay that's wrong (or isn't ours)
+/// can't put any other address there.
+Uri? inviteLink(String url) {
+  final u = Uri.tryParse(url);
+  if (u == null || u.scheme != 'https' || u.host.isEmpty || u.userInfo.isNotEmpty || u.hasQuery || u.hasFragment) return null;
+  return RegExp(r'^/n/[a-z2-9]{10}$').hasMatch(u.path) ? u : null;
 }
 
 /// Keeps a place name to what the invite page accepts (letters, digits,

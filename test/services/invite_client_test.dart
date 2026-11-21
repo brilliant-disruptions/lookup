@@ -84,6 +84,22 @@ void main() {
     expect(sent['start'], '2026-11-03T03:05:00.000Z');
   });
 
+  test('only a real invite link is passed on: https, an /n/ page, nothing attached', () {
+    expect(inviteLink('https://lookup.app/n/abcdefghij'), isNotNull);
+    for (final bad in [
+      'http://lookup.app/n/abcdefghij',
+      'https://lookup.app/win',
+      'https://lookup.app/n/abcdefghij?next=https://evil.example',
+      'https://lookup.app/n/abcdefghij#x',
+      'https://user@lookup.app/n/abcdefghij',
+      'javascript:alert(1)',
+      'sms:+15550100',
+      'not a link',
+    ]) {
+      expect(inviteLink(bad), isNull, reason: bad);
+    }
+  });
+
   test('no link when the relay says no, is down, or isn\'t set up: the poster goes instead', () async {
     final no = InviteClient(base: 'https://relay.test', client: MockClient((_) async => http.Response('{}', 400)));
     expect(await no.create(inviteFields(_ev(SkyEventType.iss), null)), isNull);

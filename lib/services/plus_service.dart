@@ -161,6 +161,9 @@ class PlusService {
           final t = StoreTransaction.read(p.verificationData.localVerificationData);
           if (t.revoked) {
             revoked = true;
+          } else if (t.unpaid) {
+            // Play lists a purchase that hasn't been paid for (pending):
+            // not LookUp+ yet. Play sends it again when the money arrives.
           } else if (!t.upgraded && (restored || t.activeAt(now))) {
             // "Restored" is the store's list of what is owned now: believed
             // even past the date (Apple's billing grace), from now.

@@ -13,11 +13,12 @@ export interface Store {
   addReport(r: StoredReport): Promise<void>;
   reportsIn(cells: Cell[], since: number): Promise<StoredReport[]>;
   /**
-   * Counts a hit on a rate-limit key; returns how many in the window. Once
-   * [max] are there, nothing more is written (the answer is max + 1): a
-   * flood that's being turned away costs a read, never a row.
+   * Counts a hit on a rate-limit key, if there's room: false once [max] are
+   * in the window. Checked and counted in one statement, so requests
+   * arriving together can't all slip under the limit, and one that's
+   * turned away writes nothing: a flood costs a read, never a row.
    */
-  hit(key: string, now: number, windowMs: number, max: number): Promise<number>;
+  allow(key: string, now: number, windowMs: number, max: number): Promise<boolean>;
   subscribe(s: Subscriber, cells: Cell[], now: number): Promise<void>;
   unsubscribe(token: string): Promise<void>;
   /** Subscribers to any of these cells not woken since `quietSince`. */
@@ -25,9 +26,13 @@ export interface Store {
   markWoken(tokens: string[], now: number): Promise<void>;
   /** Drops reports and limits older than `before`, subscriptions not renewed since `subsBefore`, and expired invites. */
   sweep(before: number, subsBefore: number, now?: number): Promise<{ reports: number; subs: number; invites?: number }>;
-  addInvite(code: string, data: string, image: Uint8Array | null, expires: number, now: number): Promise<void>;
-  /** Invites not yet expired. */
-  inviteCount(now: number): Promise<number>;
+  /**
+   * Saves an invite. Its picture is kept only while fewer than [maxImages]
+   * live invites have one (else it gets the default card): pictures are
+   * what could fill storage, and an invite without one still works, so a
+   * flood can't stop anyone else from inviting.
+   */
+  addInvite(code: string, data: string, image: Uint8Array | null, expires: number, now: number, maxImages: number): Promise<void>;
   /** The invite's JSON, unless it has expired. */
   getInvite(code: string, now: number): Promise<{ data: string } | null>;
   inviteImage(code: string): Promise<Uint8Array | null>;
@@ -61,15 +66,12 @@ export class SqlStore implements Store {
     return (results ?? []).filter((r) => want.has(cellKey(r)));
   }
 
-  async hit(key: string, now: number, windowMs: number, max: number) {
-    const row = await this.db
-      .prepare('SELECT COUNT(*) AS n FROM limits WHERE key = ? AND at > ?')
-      .bind(key, now - windowMs)
-      .first<{ n: number }>();
-    const n = row?.n ?? 0;
-    if (n >= max) return max + 1;
-    await this.db.prepare('INSERT INTO limits (key, at) VALUES (?, ?)').bind(key, now).run();
-    return n + 1;
+  async allow(key: string, now: number, windowMs: number, max: number) {
+    const r = await this.db
+      .prepare('INSERT INTO limits (key, at) SELECT ?, ? WHERE (SELECT COUNT(*) FROM limits WHERE key = ? AND at > ?) < ?')
+      .bind(key, now, key, now - windowMs, max)
+      .run();
+    return (r.meta?.changes ?? 0) > 0;
   }
 
   async subscribe(s: Subscriber, cells: Cell[], now: number) {
@@ -115,16 +117,14 @@ export class SqlStore implements Store {
     await this.db.batch(tokens.map((t) => this.db.prepare('UPDATE subs SET woken = ? WHERE token = ?').bind(now, t)));
   }
 
-  async addInvite(code: string, data: string, image: Uint8Array | null, expires: number, now: number) {
+  async addInvite(code: string, data: string, image: Uint8Array | null, expires: number, now: number, maxImages: number) {
     await this.db
-      .prepare('INSERT INTO invites (code, data, image, created, expires) VALUES (?, ?, ?, ?, ?)')
-      .bind(code, data, image, now, expires)
+      .prepare(
+        'INSERT INTO invites (code, data, image, created, expires) SELECT ?, ?, ' +
+          'CASE WHEN (SELECT COUNT(*) FROM invites WHERE image IS NOT NULL AND expires > ?) < ? THEN ? ELSE NULL END, ?, ?',
+      )
+      .bind(code, data, now, maxImages, image, now, expires)
       .run();
-  }
-
-  async inviteCount(now: number) {
-    const row = await this.db.prepare('SELECT COUNT(*) AS n FROM invites WHERE expires > ?').bind(now).first<{ n: number }>();
-    return row?.n ?? 0;
   }
 
   async getInvite(code: string, now: number) {

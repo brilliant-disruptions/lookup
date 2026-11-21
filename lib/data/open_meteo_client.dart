@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import 'retry.dart';
 
+import '../domain/privacy/rough_place.dart';
 import '../domain/weather/cloud_forecast.dart';
 
 class OpenMeteoClient {
@@ -24,8 +25,10 @@ class OpenMeteoClient {
   Future<CloudForecast> _fetchOnce(double lat, double lon,
       {required int days, required int pastDays}) async {
     final uri = Uri.https('api.open-meteo.com', '/v1/forecast', {
-      'latitude': lat.toStringAsFixed(4),
-      'longitude': lon.toStringAsFixed(4),
+      // To about a kilometre: all a forecast grid needs, and all that
+      // leaves the phone (the privacy page and Info.plist say "rough").
+      'latitude': roughCoord(lat).toStringAsFixed(2),
+      'longitude': roughCoord(lon).toStringAsFixed(2),
       'hourly': 'cloud_cover,visibility,precipitation_probability',
       'forecast_days': '$days',
       'past_days': '$pastDays',

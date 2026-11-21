@@ -36,8 +36,8 @@ export const RULES = {
   wakeBatch: 40,
   /** Invite pages, cards and passes read per network per hour. Past it pages still load, uncounted; passes wait. */
   pageLimit: { n: 240, ms: 60 * 60 * 1000 },
-  /** Invites alive at once, everyone's together: storage can't be filled with pictures. */
-  maxInvites: 2000,
+  /** Invite pictures kept at once, everyone's together, so storage can't be filled with them. Past it an invite gets the default card. */
+  maxInvitePictures: 2000,
   /** The app asks for every cell within 250 km: up to ~170 that far north. */
   maxCells: 240,
   maxBody: 16384,
@@ -194,20 +194,19 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     const inv = { ...deps.invites, store: deps.store, now: deps.now };
     const base = deps.invites.site ?? url.origin;
     if (url.pathname.startsWith('/n/') && req.method === 'GET') {
-      const busy = (await deps.store.hit(`page:${net}`, now, RULES.pageLimit.ms, RULES.pageLimit.n)) > RULES.pageLimit.n;
+      const busy = !(await deps.store.allow(`page:${net}`, now, RULES.pageLimit.ms, RULES.pageLimit.n));
       return serveInvite(url.pathname, base, inv, req.headers.get('user-agent') ?? '', busy);
     }
     if (url.pathname === '/v1/invites' && req.method === 'POST') {
-      if ((await deps.store.hit(`invite:${net}`, now, RULES.inviteLimit.ms, RULES.inviteLimit.n)) > RULES.inviteLimit.n) return json(429, { error: 'slow down' });
+      if (!(await deps.store.allow(`invite:${net}`, now, RULES.inviteLimit.ms, RULES.inviteLimit.n))) return json(429, { error: 'slow down' });
       const b = await body(req, RULES.maxInviteBody);
       if (!b) return json(400, { error: 'invite' });
-      if ((await deps.store.inviteCount(now)) >= RULES.maxInvites) return json(503, { error: 'full' });
-      return createInvite(b, base, inv);
+      return createInvite(b, base, { ...inv, maxPictures: RULES.maxInvitePictures });
     }
   }
 
   if (url.pathname === '/v1/reports' && req.method === 'GET') {
-    if ((await deps.store.hit(`read:${net}`, now, RULES.readLimit.ms, RULES.readLimit.n)) > RULES.readLimit.n) return json(429, { error: 'slow down' });
+    if (!(await deps.store.allow(`read:${net}`, now, RULES.readLimit.ms, RULES.readLimit.n))) return json(429, { error: 'slow down' });
     const cells = cellsParam(url.searchParams.get('cells'));
     if (!cells) return json(400, { error: 'cells' });
     const rows = await deps.store.reportsIn(cells, now - RULES.windowMs);
@@ -224,13 +223,13 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
 
   if (url.pathname === '/v1/report' && req.method === 'POST') {
     // The network's limit first: a flood is turned away before its bodies are read.
-    if ((await deps.store.hit(`report:${net}`, now, RULES.ipLimit.ms, RULES.ipLimit.n)) > RULES.ipLimit.n) return json(429, { error: 'slow down' });
+    if (!(await deps.store.allow(`report:${net}`, now, RULES.ipLimit.ms, RULES.ipLimit.n))) return json(429, { error: 'slow down' });
     const b = await body(req);
     if (!b || !isCell(b.cell) || (b.how !== 'eye' && b.how !== 'camera') || !validToken(b.reporter, 16, 64)) {
       return json(400, { error: 'report' });
     }
     const reporter = await dailyHash(deps.secret, b.reporter, now);
-    if ((await deps.store.hit(`r:${reporter}`, now, RULES.reporterLimit.ms, RULES.reporterLimit.n)) > RULES.reporterLimit.n) {
+    if (!(await deps.store.allow(`r:${reporter}`, now, RULES.reporterLimit.ms, RULES.reporterLimit.n))) {
       return json(429, { error: 'already reported' });
     }
     const cell = b.cell as Cell;
@@ -240,7 +239,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   }
 
   if (url.pathname === '/v1/subscribe' && (req.method === 'POST' || req.method === 'DELETE')) {
-    if ((await deps.store.hit(`sub:${net}`, now, RULES.ipLimit.ms, RULES.ipLimit.n)) > RULES.ipLimit.n) return json(429, { error: 'slow down' });
+    if (!(await deps.store.allow(`sub:${net}`, now, RULES.ipLimit.ms, RULES.ipLimit.n))) return json(429, { error: 'slow down' });
     const b = await body(req);
     // Only what a push service really hands out: the token is stored once
     // per cell, so anything longer is somebody filling the database.

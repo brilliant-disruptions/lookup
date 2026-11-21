@@ -60,13 +60,24 @@ class OmmRecord {
         name: objectName,
       );
 
+  /// The feed's records, leaving out any that can't be used (a row with a
+  /// number missing or a date that doesn't read): one bad row mustn't stop
+  /// every pass being worked out.
   static List<OmmRecord> listFromJson(Object? decoded) {
     if (decoded is! List) return const [];
     return [
       for (final e in decoded)
-        if (e is Map) OmmRecord.fromJson(e.cast<String, Object?>()),
+        if (e is Map && usable(e)) OmmRecord.fromJson(e.cast<String, Object?>()),
     ];
   }
+
+  static const _numbers = ['MEAN_MOTION', 'ECCENTRICITY', 'INCLINATION', 'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER', 'MEAN_ANOMALY'];
+
+  /// Whether a record has everything the orbit maths reads.
+  static bool usable(Map<Object?, Object?> j) =>
+      _numbers.every((k) => j[k] is num && (j[k] as num).isFinite) &&
+      (j['MEAN_MOTION'] as num) > 0 &&
+      DateTime.tryParse('${j['EPOCH']}Z') != null;
 }
 
 /// Well-known catalog numbers.

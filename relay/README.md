@@ -56,7 +56,8 @@ GET    /v1/health
   A request that's over its limit writes nothing (`hit` counts first).
   Bodies must be `application/json` (so no web page can post through its
   visitors' browsers) and are cut off at their size limit. Push tokens must
-  look like APNs' or FCM's own. At most 2,000 invites are alive at once.
+  look like APNs' or FCM's own. At most 2,000 invite pictures are kept at
+  once; past that a new invite gets the default card.
 
   A network is an IPv4 address or an IPv6 /64 (`networkOf`), so one line
   can't claim a budget for each of its addresses.
