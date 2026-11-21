@@ -238,9 +238,9 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    later
-                        ? Kicker(offset.isNegative ? 'Earlier' : 'Later', color: LookUpColors.blue)
-                        : const Kicker('Live', color: LookUpColors.good, live: true),
+                    // One control for "now" and "live": it glows while the map
+                    // is live, and a tap brings the map back from any other time.
+                    _LiveButton(live: !later && night == null, onTap: _backToNow),
                     Flexible(
                       child: Text(
                           later
@@ -272,7 +272,6 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                 canBack: _canStep(now, -1),
                 canForward: _canStep(now, 1),
                 live: !later && night == null,
-                onNow: _backToNow,
                 onPickDate: skyThroughHistory ? () => _travel(at, lon) : null,
                 skyThen: skyThen,
                 at: at,
@@ -363,6 +362,38 @@ SkyThing _starThing(Star star, double lat, double lon) => SkyThing(
 /// set this to bring it back, with its LookUp+ gate.
 const skyThroughHistory = false;
 
+/// "Live" and "Now" in one: green and glowing while the map shows the sky
+/// right now; at any other time it's a button that returns the map to it.
+class _LiveButton extends StatelessWidget {
+  const _LiveButton({required this.live, required this.onTap});
+  final bool live;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: !live,
+      label: live ? 'Live' : 'Back to live sky',
+      excludeSemantics: true,
+      child: InkWell(
+        key: const Key('sky-live'),
+        borderRadius: BorderRadius.circular(14),
+        onTap: live ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Kicker('Live', color: live ? LookUpColors.good : LookUpColors.blue, live: live),
+            if (!live) ...[
+              const SizedBox(width: 3),
+              const Icon(Icons.my_location_rounded, size: 14, color: LookUpColors.blue),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
 /// Move the map through time: the slider for tonight ("cloudy now, but
 /// clear at 3 AM: will Saturn be up then?"), a day at a time either way, or
 /// any night from 3000 BC to 3000 AD, famous ones included. Says the
@@ -373,7 +404,6 @@ class _TimeTravel extends StatelessWidget {
     required this.onMinutes,
     required this.onStep,
     required this.live,
-    required this.onNow,
     required this.onPickDate,
     this.canBack = true,
     this.canForward = true,
@@ -385,7 +415,6 @@ class _TimeTravel extends StatelessWidget {
   final ValueChanged<double> onMinutes;
   final ValueChanged<int> onStep;
   final bool live;
-  final VoidCallback onNow;
   /// Null hides "Any night" (while the sky through history is hidden).
   final VoidCallback? onPickDate;
   final bool canBack, canForward;
@@ -404,38 +433,42 @@ class _TimeTravel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Slider(
-          value: minutes,
-          min: -span,
-          max: span,
-          divisions: (2 * span / 15).round(),
-          label: live ? 'Now' : when,
-          semanticFormatterCallback: (_) => live ? 'Now' : 'At $when',
-          onChanged: onMinutes,
-        ),
-        // Wraps to two lines on narrow phones rather than overflowing.
-        Wrap(alignment: WrapAlignment.center, children: [
-          TextButton.icon(
+        // A day back, the slider, a day forward: one row.
+        Row(children: [
+          IconButton(
+            key: const Key('day-back'),
+            tooltip: 'A day earlier',
+            visualDensity: VisualDensity.compact,
             onPressed: canBack ? () => onStep(-1) : null,
-            icon: const Icon(Icons.chevron_left_rounded, size: 18),
-            label: const Text('Day', style: small),
+            icon: const Icon(Icons.chevron_left_rounded),
           ),
-          if (onPickDate != null)
-            TextButton.icon(
+          Expanded(
+            child: Slider(
+              value: minutes,
+              min: -span,
+              max: span,
+              divisions: (2 * span / 15).round(),
+              label: live ? 'Now' : when,
+              semanticFormatterCallback: (_) => live ? 'Now' : 'At $when',
+              onChanged: onMinutes,
+            ),
+          ),
+          IconButton(
+            key: const Key('day-forward'),
+            tooltip: 'A day later',
+            visualDensity: VisualDensity.compact,
+            onPressed: canForward ? () => onStep(1) : null,
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ]),
+        if (onPickDate != null)
+          Center(
+            child: TextButton.icon(
               onPressed: onPickDate,
               icon: const Icon(Icons.history_edu_rounded, size: 18),
               label: const Text('Any night', style: small),
             ),
-          TextButton(
-            onPressed: canForward ? () => onStep(1) : null,
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Text('Day', style: small),
-              SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded, size: 18),
-            ]),
           ),
-          TextButton(onPressed: live ? null : onNow, child: const Text('Now', style: small)),
-        ]),
         Text(
           [
             skyThen == null
