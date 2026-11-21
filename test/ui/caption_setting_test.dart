@@ -68,6 +68,19 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
+  testWidgets('one switch pauses every alert, and says so', (t) async {
+    await _mount(t, plus: false);
+    final sw = find.byKey(const Key('pause-alerts'));
+    await t.ensureVisible(sw);
+    expect(find.text('One switch for a holiday or a busy week'), findsOneWidget);
+    await t.tap(find.descendant(of: sw, matching: find.byType(Switch)));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    expect(_c.read(settingsProvider).value!.alertsPaused, isTrue);
+    expect(find.text('Nothing will tap you until you turn this off'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('Settings has Help: report a problem, help, privacy, terms, and the support address', (t) async {
     await _mount(t, plus: false);
     await t.scrollUntilVisible(find.byKey(const Key('privacy-row')), 400, scrollable: find.descendant(of: find.byType(ListView).first, matching: find.byType(Scrollable)).first);

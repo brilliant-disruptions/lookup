@@ -104,6 +104,7 @@ class LookUpSettings {
     this.reviewAskedAt,
     this.reviewAsks = 0,
     this.weekAhead = true,
+    this.alertsPaused = false,
     this.plusDeclines = 0,
     this.trialOfferShown = false,
     this.missedItId,
@@ -199,6 +200,10 @@ class LookUpSettings {
 
   /// The once-a-week "Your week ahead" note (`domain/scheduling/week_ahead.dart`).
   final bool weekAhead;
+
+  /// Every tap off at once (a holiday, exams, a new baby) without touching
+  /// what they've chosen to hear about. Nothing is scheduled while it's on.
+  final bool alertsPaused;
 
   /// Soft LookUp+ asks turned down ("Not now", or the offer closed without
   /// a trial). Two and they stop (domain/plus/nudges.dart).
@@ -328,6 +333,7 @@ class LookUpSettings {
     DateTime? reviewAskedAt,
     int? reviewAsks,
     bool? weekAhead,
+    bool? alertsPaused,
     int? plusDeclines,
     bool? trialOfferShown,
     String? missedItId,
@@ -388,6 +394,7 @@ class LookUpSettings {
         reviewAskedAt: reviewAskedAt ?? this.reviewAskedAt,
         reviewAsks: reviewAsks ?? this.reviewAsks,
         weekAhead: weekAhead ?? this.weekAhead,
+        alertsPaused: alertsPaused ?? this.alertsPaused,
         plusDeclines: plusDeclines ?? this.plusDeclines,
         trialOfferShown: trialOfferShown ?? this.trialOfferShown,
         missedItId: missedItId ?? this.missedItId,
@@ -448,6 +455,7 @@ class LookUpSettings {
         if (reviewAskedAt != null) 'reviewAskedAt': reviewAskedAt!.toIso8601String(),
         if (reviewAsks > 0) 'reviewAsks': reviewAsks,
         if (!weekAhead) 'weekAhead': false,
+        if (alertsPaused) 'alertsPaused': true,
         if (plusDeclines > 0) 'plusDeclines': plusDeclines,
         if (trialOfferShown) 'trialOfferShown': true,
         if (missedItId != null) 'missedItId': missedItId,
@@ -520,6 +528,7 @@ class LookUpSettings {
       reviewAskedAt: DateTime.tryParse(j['reviewAskedAt'] as String? ?? '')?.toUtc(),
       reviewAsks: (j['reviewAsks'] as num?)?.toInt() ?? 0,
       weekAhead: j['weekAhead'] as bool? ?? true,
+      alertsPaused: j['alertsPaused'] as bool? ?? false,
       plusDeclines: (j['plusDeclines'] as num?)?.toInt() ?? 0,
       trialOfferShown: j['trialOfferShown'] as bool? ?? false,
       missedItId: j['missedItId'] as String?,

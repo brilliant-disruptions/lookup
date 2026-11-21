@@ -4,6 +4,11 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- A heads-up ten minutes before a pass has to arrive on time: without
+         this Android may hold it back for minutes while the phone dozes.
+         The user grants it (Settings > Alerts > On-time alerts); without it
+         alerts still go out, at Android's convenience. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- The finder's camera view and Catch it's long exposures. -->
     <uses-permission android:name="android.permission.CAMERA"/>

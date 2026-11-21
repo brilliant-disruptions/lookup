@@ -242,7 +242,26 @@ void main() {
     final note = WeekAhead.of(events: [ev('iss:q', SkyEventType.iss, at, clouds: 0)], settings: on, now: now);
     expect(note, isNull, reason: 'nothing it would tap for, so nothing to say');
     final evening = DateTime(sunday.year, sunday.month, sunday.day + 9, 19, 50).toUtc();
-    expect(WeekAhead.of(events: [ev('iss:e', SkyEventType.iss, evening, clouds: 0)], settings: on, now: now)!.body,
+    final saturday = sunday.subtract(const Duration(hours: 20)).toUtc();
+    expect(WeekAhead.of(events: [ev('iss:e', SkyEventType.iss, evening, clouds: 0)], settings: on, now: saturday)!.body,
         contains('Pip will tap you'));
+  });
+
+  group('paused', () {
+    const s = LookUpSettings(isPlus: true, alertsPaused: true);
+    final now = DateTime.utc(2026, 10, 21, 17);
+    final e = ev('iss:a', SkyEventType.iss, DateTime.utc(2026, 10, 21, 19), el: 80, clouds: 0);
+
+    test('nothing is planned, whatever is switched on', () {
+      expect(planner.plan(events: [e], settings: s, now: now, utcOffsetMinutes: 0), isEmpty);
+      expect(planner.plan(events: [e], settings: s.copyWith(alertsPaused: false), now: now, utcOffsetMinutes: 0), isNotEmpty);
+    });
+
+    test('the choice is kept, and what they chose to hear about is untouched', () {
+      final back = LookUpSettings.fromJson(s.copyWith(starlinkEnabled: false).toJson());
+      expect(back.alertsPaused, isTrue);
+      expect(back.starlinkEnabled, isFalse);
+      expect(LookUpSettings.fromJson(const LookUpSettings().toJson()).alertsPaused, isFalse);
+    });
   });
 }

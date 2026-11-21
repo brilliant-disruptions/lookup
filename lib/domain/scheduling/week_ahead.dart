@@ -33,7 +33,7 @@ abstract final class WeekAhead {
   }
 
   static WeekAheadNote? of({required Iterable<SkyEvent> events, required LookUpSettings settings, required DateTime now}) {
-    if (!settings.weekAhead || !settings.onboarded) return null;
+    if (!settings.weekAhead || !settings.onboarded || settings.alertsPaused) return null;
     final at = nextSend(now);
     if (settings.quietHours.contains(minute)) return null;
     bool wanted(SkyEvent e) =>
@@ -50,6 +50,11 @@ abstract final class WeekAhead {
     final end = at.add(const Duration(days: 7));
     final week = ahead.where((e) => e.start.isBefore(end)).toList();
     if (week.isEmpty) {
+      // Passes are only worked out a week ahead, so "quiet" can only be said
+      // once most of that week is in view (from the day before it starts).
+      // Written on a Monday, the note would see a few hours of the week it
+      // describes and call it quiet with five station passes still to come.
+      if (now.toUtc().isBefore(at.subtract(const Duration(days: 1)))) return null;
       final next = ahead.first;
       return WeekAheadNote(
         at: at,

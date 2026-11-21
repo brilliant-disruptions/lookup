@@ -448,7 +448,7 @@ class RefreshService {
   /// 3-hour bucket (the event id carries the bucket).
   Future<void> _fireAuroraNow(
       List<SkyEvent> events, LookUpSettings settings, int offset, DateTime now) async {
-    if (!settings.isPlus) return;
+    if (!settings.isPlus || settings.alertsPaused) return;
     for (final e in events.where((e) => e.type == SkyEventType.auroraNow)) {
       if (!AlertPlanner.passesQuietHours(e, settings, offset)) continue;
       final id = AlertPlanner.notificationIdFor(e.id, AlertKind.headsUp);

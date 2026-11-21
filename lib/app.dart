@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/night_state.dart';
 import 'state/providers.dart';
 import 'ui/kit/load_trouble.dart';
-import 'ui/format.dart' show displayMiles;
+import 'ui/format.dart' show displayMiles, use24HourClock;
 import 'ui/home_shell.dart';
 import 'ui/onboarding_screen.dart';
 import 'ui/theme.dart';
@@ -26,6 +26,8 @@ class LookUpApp extends ConsumerWidget {
       // Its own Consumer, so a new light reading repaints only the filter.
       builder: (context, child) => Consumer(
         builder: (context, ref, child) {
+          // Times follow the phone's clock: "21:05" where it's set to 24-hour.
+          use24HourClock = MediaQuery.alwaysUse24HourFormatOf(context);
           // The first time it turns red by itself this session, say why.
           ref.listen(nightVisionRedProvider, (was, red) {
             if (!red || _hinted || ref.read(nightVisionDragProvider) != null) return;

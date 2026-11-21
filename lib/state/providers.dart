@@ -195,6 +195,10 @@ final homeProvider = AsyncNotifierProvider<HomeNotifier, HomeData>(HomeNotifier.
 /// Re-checked when the app comes back to the foreground.
 final alertsEnabledProvider = FutureProvider<bool?>((ref) => ref.watch(notificationServiceProvider).alertsEnabled());
 
+/// Android: whether alerts can be scheduled to the minute (null elsewhere,
+/// where they always are).
+final exactTimingProvider = FutureProvider<bool?>((ref) => ref.watch(notificationServiceProvider).exactTimingAllowed());
+
 /// Ticks once a second for countdowns.
 final clockProvider = StreamProvider<DateTime>(
     (_) => Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now()));

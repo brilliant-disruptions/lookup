@@ -19,4 +19,34 @@ void main() {
     expect(nerdRaDec(88.79, 7.41), 'RA 5h 55.2m · Dec 7.4°');
     expect(nerdRaDec(83.82, -5.39), 'RA 5h 35.3m · Dec \u22125.4°');
   });
+
+  // The formatter puts a narrow no-break space before AM and PM.
+  String plain(String s) => s.replaceAll('\u202f', ' ');
+
+  test('times follow the phone\'s clock: 24-hour where it\'s set', () {
+    final nine = DateTime(2026, 11, 21, 21, 5).toUtc();
+    addTearDown(() => use24HourClock = false);
+    use24HourClock = false;
+    expect(plain(fmtTime(nine)), '9:05 PM');
+    use24HourClock = true;
+    expect(fmtTime(nine), '21:05');
+    expect(fmtTimeSeconds(nine), '21:05:00');
+    expect(fmtDayShortTime(nine), endsWith('21:05'));
+  });
+
+  test('a row\'s day and time, short: today, yesterday, a weekday', () {
+    final now = DateTime.now();
+    DateTime at(int days) => DateTime(now.year, now.month, now.day + days, 4, 52).toUtc();
+    expect(plain(fmtDayShortTime(at(0))), 'Today 4:52 AM');
+    expect(plain(fmtDayShortTime(at(-1))), 'Yesterday 4:52 AM');
+    expect(plain(fmtDayShortTime(at(-3))), matches(RegExp(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) 4:52 AM$')));
+  });
+
+  test('noon to five is the afternoon, not tonight', () {
+    final now = DateTime.now();
+    expect(fmtDay(DateTime(now.year, now.month, now.day, 14, 15).toUtc()), 'This afternoon');
+    expect(fmtDay(DateTime(now.year, now.month, now.day, 21).toUtc()), 'Tonight');
+    expect(fmtDay(DateTime(now.year, now.month, now.day + 1, 14).toUtc()), 'Tomorrow afternoon');
+    expect(fmtDay(DateTime(now.year, now.month, now.day, 5).toUtc()), 'This morning');
+  });
 }

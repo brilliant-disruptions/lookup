@@ -6,7 +6,11 @@ import '../domain/sky/calendar.dart';
 import '../domain/sky/direction.dart';
 import '../domain/units.dart';
 
-String fmtTime(DateTime utc) => DateFormat.jm().format(utc.toLocal());
+/// Whether the phone is set to the 24-hour clock (set from the app's
+/// MediaQuery, `app.dart`): then times read "21:05", not "9:05 PM".
+bool use24HourClock = false;
+
+String fmtTime(DateTime utc) => (use24HourClock ? DateFormat.Hm() : DateFormat.jm()).format(utc.toLocal());
 
 /// "9:00 PM" today; with the date on any other day: "Mar 3, 1610, 9:00 PM".
 String fmtMoment(DateTime utc) {
@@ -25,7 +29,7 @@ String fmtSkyMoment(DateTime utc, double lonDeg) {
 }
 
 /// To the second, for transits that last under one.
-String fmtTimeSeconds(DateTime utc) => DateFormat.jms().format(utc.toLocal());
+String fmtTimeSeconds(DateTime utc) => (use24HourClock ? DateFormat.Hms() : DateFormat.jms()).format(utc.toLocal());
 
 /// "0.8 s", "2.4 s".
 String fmtSeconds(Duration d) => '${(d.inMilliseconds / 1000).toStringAsFixed(1)} s';
