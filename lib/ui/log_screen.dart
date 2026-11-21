@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
 import '../domain/log/sighting.dart';
-import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
 import 'format.dart';
+import 'badges/badge_board.dart';
 import 'keep_catch.dart';
 import 'kit/kit.dart';
 import 'settings_screen.dart';
@@ -99,16 +99,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                     ),
                 ])
               else if (_tab == 1)
-                GridView.count(
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  padding: EdgeInsets.zero,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.78,
-                  children: [for (final (i, b) in l.badges.indexed) Rise(index: i, child: _BadgeTile(b))],
-                ),
+                BadgeBoard(log: l),
             ],
           ),
         ),
@@ -169,53 +160,6 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         SkyEventType.nova => 'Nova',
         null => 'Sky event',
       };
-}
-
-class _BadgeTile extends StatelessWidget {
-  const _BadgeTile(this.b);
-  final Badge b;
-  @override
-  Widget build(BuildContext context) {
-    final earned = b.earned;
-    return Semantics(
-      label: '${b.title}${earned ? ', earned' : ', not yet earned'}. ${b.description}',
-      excludeSemantics: true,
-      child: Container(
-        decoration: BoxDecoration(
-          color: LookUpColors.glass,
-          borderRadius: BorderRadius.circular(Radii.lg),
-          border: Border.all(color: earned ? LookUpColors.gold.withValues(alpha: 0.35) : LookUpColors.line),
-        ),
-        padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
-        child: Column(children: [
-          EventGlyph(
-            icon: earned ? Icons.workspace_premium_rounded : Icons.lock_outline_rounded,
-            color: earned ? LookUpColors.gold : LookUpColors.greyDim,
-            size: 40,
-          ),
-          const SizedBox(height: 10),
-          Text(b.title,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                  letterSpacing: -0.2,
-                  color: earned ? LookUpColors.white : LookUpColors.grey)),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Text(b.description,
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, height: 1.3, color: LookUpColors.greyDim)),
-          ),
-        ]),
-      ),
-    );
-  }
 }
 
 /// A small square of the sighting's photo, or nothing.

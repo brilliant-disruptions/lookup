@@ -15,6 +15,7 @@ import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
+import 'badges/badge_board.dart';
 import 'kit/kit.dart';
 import 'share_card.dart';
 import 'soft_asks.dart';
@@ -374,27 +375,18 @@ class _BadgeUnlocked extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const RadialGradient(colors: [Color(0xFFFFE6A6), LookUpColors.gold]),
-              boxShadow: [BoxShadow(color: LookUpColors.gold.withValues(alpha: 0.45), blurRadius: 18)],
-            ),
-            child: const Icon(Icons.military_tech_rounded, color: Color(0xFF5A3D00), size: 26),
-          ),
+          PatchArrives(key: Key('unlocked-${badge.id}'), b: badge, size: 64, delay: Duration(milliseconds: 350 + 200 * index), animate: animate),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Badge unlocked',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: LookUpColors.gold),
+                Text(
+                  badge.tier != null && badge.steps.length > 1 ? 'Up a level' : 'New patch',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: LookUpColors.gold),
                 ),
                 const SizedBox(height: 2),
-                Text(badge.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(badge.fullTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 Text(badge.description, style: const TextStyle(fontSize: 13, color: LookUpColors.grey, height: 1.3)),
               ],
             ),

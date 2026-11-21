@@ -6,6 +6,8 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import '../domain/log/sky_log.dart' show BadgeArt;
+import 'badges/patch.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
 
@@ -34,7 +36,7 @@ class FirstBadgeSheet extends StatelessWidget {
             const Kicker('Your first badge', color: LookUpColors.gold),
             const SizedBox(height: 10),
             Row(children: [
-              const EventGlyph(icon: Icons.workspace_premium_rounded, color: LookUpColors.gold, size: 48),
+              const BadgePatch(key: Key('first-badge-patch'), art: BadgeArt.pip, size: 64),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -47,7 +49,7 @@ class FirstBadgeSheet extends StatelessWidget {
             ]),
             const SizedBox(height: 18),
             const Text(
-              'Next badge: point your phone up, follow Pip, and when it lands on something, tap Pip to catch it.',
+              'Your first patch is on the board. Next: point your phone up, follow Pip, and when it lands on something, tap Pip to catch it.',
               style: TextStyle(fontSize: 15, height: 1.4),
             ),
             const SizedBox(height: 20),
