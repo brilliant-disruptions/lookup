@@ -79,15 +79,35 @@ void main() {
     }
     expect(t.getCenter(photo).dy, closeTo(t.getCenter(cal).dy, 0.5));
     expect(t.getCenter(cal).dy, closeTo(t.getCenter(invite).dy, 0.5));
-    expect(t.getSize(photo).height, closeTo(t.getSize(cal).height, 0.5), reason: 'the same size, though one has a tag');
-    expect(find.descendant(of: photo, matching: find.text('LookUp+')), findsOneWidget, reason: 'free: it says it is paid');
+    expect(t.getSize(photo).height, closeTo(t.getSize(cal).height, 0.5), reason: 'the same size');
+    expect(find.descendant(of: photo, matching: find.text('LookUp+')), findsNothing,
+        reason: 'pictures are free (Pip\'s catch); a paid tag here reads as "you can\'t take pictures"');
     expect(find.byType(OutlinedButton), findsNothing, reason: 'no plain outlined buttons left');
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('LookUp+: no tag on Photograph it', (t) async {
+  testWidgets('free: Photograph it offers Pip\'s catch, free, beside the Pro camera on LookUp+', (t) async {
+    await _mount(t, isPlus: false);
+    await t.tap(find.byKey(const Key('photograph-it')));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 500));
+    final pip = find.byKey(const Key('photo-choice-pip'));
+    final pro = find.byKey(const Key('photo-choice-pro'));
+    expect(pip, findsOneWidget);
+    expect(pro, findsOneWidget);
+    expect(find.descendant(of: pip, matching: find.text('Free')), findsOneWidget);
+    expect(find.descendant(of: pip, matching: find.textContaining('Saved to Photos and your Log')), findsOneWidget);
+    expect(find.descendant(of: pro, matching: find.text('LookUp+')), findsOneWidget);
+    expect(t.getRect(pip).top, lessThan(t.getRect(pro).top), reason: 'the free way first');
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('LookUp+: no tag and no choice, straight to the Pro camera', (t) async {
     await _mount(t, isPlus: true);
     expect(find.descendant(of: find.byKey(const Key('photograph-it')), matching: find.text('LookUp+')), findsNothing);
+    await t.tap(find.byKey(const Key('photograph-it')));
+    await t.pump();
+    expect(find.byKey(const Key('photo-choice-pip')), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
 }

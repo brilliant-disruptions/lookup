@@ -196,7 +196,9 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
                 key: const Key('photograph-it'),
                 onPressed: () => openProCamera(context, ref, ShotTarget.ofThing(t)),
                 icon: const Icon(Icons.camera_rounded, size: 18),
-                label: Text((s?.isPlus ?? false) ? 'Photograph it' : 'Photograph it · LookUp+'),
+                // Free: "Catch it with Pip" is the picture; only the Pro camera is paid,
+                // so say that, not that photographs are.
+                label: Text((s?.isPlus ?? false) ? 'Photograph it' : 'Pro camera · LookUp+'),
               ),
             ]),
         ]),
