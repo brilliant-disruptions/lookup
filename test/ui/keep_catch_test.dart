@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/data/local_store.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
+import 'package:lookup/domain/log/restore.dart';
 import 'package:lookup/domain/photo/catch_tag.dart';
 import 'package:lookup/services/photo_library.dart';
 import 'package:lookup/services/photo_store.dart';
@@ -69,6 +70,9 @@ class _Photos extends PhotoLibrary {
   Future<void> manageLimited() async {}
   @override
   Future<void> openSettings() async {}
+  List<FoundCatch> found = [];
+  @override
+  Future<List<FoundCatch>> albumCatches({int max = 300}) async => found;
 }
 
 class _Settings extends SettingsNotifier {
@@ -200,5 +204,24 @@ void main() {
     expect(photosAccessLine(PhotosAccess.limited), contains('as recommended'));
     expect(photosAccessLine(PhotosAccess.full), contains('Limited is enough'));
     expect(photosAccessLine(PhotosAccess.denied), contains('Choose Limited'));
+  });
+
+  testWidgets('on a new phone, catches come back from the LookUp album, once', (t) async {
+    final photos = _Photos(PhotosAccess.limited, pic: _png)
+      ..found = [
+        (assetId: 'ph-9', tag: CatchTag(eventId: 'iss:old', title: 'The space station', at: _at, type: 'iss', place: 'Nashville')),
+      ];
+    late WidgetRef r;
+    await t.pumpWidget(ProviderScope(
+      overrides: [photoLibraryProvider.overrideWithValue(photos), storeProvider.overrideWithValue(store)],
+      child: MaterialApp(home: Consumer(builder: (context, ref, _) {
+        r = ref;
+        return const Scaffold();
+      })),
+    ));
+    expect(await t.runAsync(() => restoreCatches(r)), 1);
+    final f = (await t.runAsync(store.loadFeedback))!.single;
+    expect((f.eventId, f.seen, f.type, f.photoAsset), ('iss:old', true, SkyEventType.iss, 'ph-9'));
+    expect(await t.runAsync(() => restoreCatches(r)), 0, reason: 'already there');
   });
 }

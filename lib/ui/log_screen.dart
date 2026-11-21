@@ -71,10 +71,16 @@ class _LogScreenState extends ConsumerState<LogScreen> {
               if (l.total == 0)
                 const Padding(
                   padding: EdgeInsets.fromLTRB(4, 20, 4, 0),
-                  child: Text(
-                    'Nothing logged yet. After each event LookUp asks "Did you see it?". Every yes lands here.',
-                    style: TextStyle(color: LookUpColors.grey, height: 1.45),
-                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Text(
+                      'Nothing caught yet. Tap Pip, follow it to something in the sky, and tap Pip again to catch it. Every catch lands here.',
+                      style: TextStyle(color: LookUpColors.grey, height: 1.45),
+                    ),
+                    SizedBox(height: 12),
+                    Text('New phone? Your catches are still in your LookUp album.', style: TextStyle(color: LookUpColors.grey, fontSize: 13.5)),
+                    SizedBox(height: 8),
+                    BringBackCatches(),
+                  ]),
                 ),
               const SizedBox(height: 24),
               SegmentedTabs(

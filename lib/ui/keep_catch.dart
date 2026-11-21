@@ -18,6 +18,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../data/local_store.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/log/restore.dart';
 import '../domain/photo/catch_tag.dart';
 import '../services/photo_library.dart';
 import '../services/photo_store.dart';
@@ -68,7 +69,15 @@ Future<SavedPicture> keepCatch(
   final saved = await ref.read(photoLibraryProvider).save(
         png,
         name: 'LookUp-${at.millisecondsSinceEpoch}',
-        tag: CatchTag(eventId: event.id, title: title, at: at, place: place),
+        tag: CatchTag(
+          eventId: event.id,
+          title: title,
+          at: at,
+          place: place,
+          type: event.type.name,
+          elevationDeg: event.peakElevationDeg,
+          magnitude: (event.details['magnitude'] as num?)?.toDouble(),
+        ),
         lat: s?.latitude,
         lon: s?.longitude,
       );
@@ -80,6 +89,34 @@ Future<SavedPicture> keepCatch(
   await store.setPhoto(event.id, name, asset: saved.assetId);
   ref.invalidate(skyLogProvider);
   return saved;
+}
+
+/// Brings catches back into the Log from the LookUp album (a new phone,
+/// or a reinstall): each picture's sighting, with its Photos id and a
+/// small copy. Returns how many came back.
+Future<int> restoreCatches(WidgetRef ref) async {
+  final lib = ref.read(photoLibraryProvider);
+  final store = ref.read(storeProvider);
+  final have = {for (final f in await store.loadFeedback()) f.eventId};
+  final found = restorable(await lib.albumCatches(), have);
+  for (final (:sighting, :assetId) in found) {
+    final s = sighting;
+    await store.addFeedback(SeenFeedback(
+      eventId: s.eventId,
+      seen: true,
+      at: s.at,
+      type: s.type,
+      eventTime: s.eventTime,
+      peakElevationDeg: s.peakElevationDeg,
+      magnitude: s.magnitude,
+      place: s.place,
+    ));
+    final small = await lib.picture(assetId, px: 480);
+    final name = small == null ? null : await const PhotoStore().saveBytes(s.eventId, small, ext: '.jpg');
+    await store.setPhoto(s.eventId, name, asset: assetId);
+  }
+  if (found.isNotEmpty) ref.invalidate(skyLogProvider);
+  return found.length;
 }
 
 /// A small PNG of [png], [px] wide at most.
@@ -229,3 +266,47 @@ class _SightingPictureState extends ConsumerState<SightingPicture> {
         },
       );
 }
+
+/// "Bring back my catches": finds catches in the LookUp album that the Log
+/// doesn't have (a new phone, a reinstall) and puts them back.
+class BringBackCatches extends ConsumerStatefulWidget {
+  const BringBackCatches({super.key});
+
+  @override
+  ConsumerState<BringBackCatches> createState() => _BringBackCatchesState();
+}
+
+class _BringBackCatchesState extends ConsumerState<BringBackCatches> {
+  bool _busy = false;
+
+  Future<void> _go() async {
+    setState(() => _busy = true);
+    try {
+      final a = await askAboutPhotos(context, ref);
+      if (!mounted) return;
+      final n = a == PhotosAccess.denied ? -1 : await restoreCatches(ref);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(switch (n) {
+          -1 => 'Allow Photos for LookUp in Settings to find your catches.',
+          0 => 'Nothing new in your LookUp album to bring back.',
+          1 => 'Brought back 1 catch.',
+          _ => 'Brought back $n catches.',
+        }),
+      ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => OutlinedButton.icon(
+        key: const Key('bring-back-catches'),
+        onPressed: _busy ? null : _go,
+        icon: _busy
+            ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.restore_page_rounded, size: 18),
+        label: const Text('Bring back my catches from Photos'),
+      );
+}
+

@@ -25,6 +25,7 @@ import 'dart:typed_data';
 import 'package:gal/gal.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../domain/log/restore.dart' show FoundCatch;
 import '../domain/photo/catch_tag.dart';
 
 /// What LookUp may do with Photos.
@@ -81,6 +82,11 @@ abstract class PhotoLibrary {
   /// Opens iOS's picker to change a Limited selection.
   Future<void> manageLimited();
 
+  /// LookUp's own pictures in the album that carry a catch's details
+  /// (`CatchTag`), newest first, at most [max]: for bringing the Log back
+  /// on a new phone.
+  Future<List<FoundCatch>> albumCatches({int max = 300});
+
   /// Opens LookUp's page in the phone's Settings (to change Photos access).
   Future<void> openSettings();
 
@@ -136,13 +142,38 @@ class DevicePhotoLibrary extends PhotoLibrary {
 
   /// The LookUp album on iPhone, made the first time (Android files them
   /// by folder instead).
-  Future<AssetPathEntity?> _lookUpAlbum() async {
+  Future<AssetPathEntity?> _lookUpAlbum({bool create = true}) async {
     if (!Platform.isIOS) return null;
     if (_album != null) return _album;
     final paths = await PhotoManager.getAssetPathList(type: RequestType.common, hasAll: false);
     _album = paths.where((p) => p.name == PhotoLibrary.album).firstOrNull ??
-        await PhotoManager.editor.darwin.createAlbum(PhotoLibrary.album);
+        (create ? await PhotoManager.editor.darwin.createAlbum(PhotoLibrary.album) : null);
     return _album;
+  }
+
+  @override
+  Future<List<FoundCatch>> albumCatches({int max = 300}) async {
+    try {
+      if (!await _ready()) return const [];
+      // iPhone: the album; Android: the Pictures/LookUp folder, which the
+      // gallery lists by its name too.
+      final album = Platform.isIOS
+          ? await _lookUpAlbum(create: false)
+          : (await PhotoManager.getAssetPathList(type: RequestType.image, hasAll: false))
+              .where((p) => p.name == PhotoLibrary.album)
+              .firstOrNull;
+      if (album == null) return const [];
+      final out = <FoundCatch>[];
+      for (final a in await album.getAssetListPaged(page: 0, size: max)) {
+        if (a.type != AssetType.image) continue;
+        final bytes = await a.originBytes;
+        final tag = bytes == null ? null : catchTagOf(bytes);
+        if (tag != null) out.add((assetId: a.id, tag: tag));
+      }
+      return out;
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<void> _file(AssetEntity a) async {

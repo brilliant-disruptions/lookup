@@ -211,6 +211,7 @@ class SettingsScreen extends ConsumerWidget {
                 : 'What, when and where, and "LookUp". LookUp+ can turn it off.',
           ),
           const _PhotosRow(),
+          const Padding(padding: EdgeInsets.fromLTRB(16, 4, 16, 10), child: BringBackCatches()),
           _ScrollHere(
             when: focusNightVision,
             child: _Switch(

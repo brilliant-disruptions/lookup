@@ -12,7 +12,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 class CatchTag {
-  const CatchTag({required this.eventId, required this.title, required this.at, this.place});
+  const CatchTag({required this.eventId, required this.title, required this.at, this.place, this.type, this.elevationDeg, this.magnitude});
 
   /// The sighting it belongs to (the Log's event id).
   final String eventId;
@@ -21,6 +21,11 @@ class CatchTag {
   final String title;
   final DateTime at;
   final String? place;
+
+  /// What kind of sight (a `SkyEventType` name), how high it got and how
+  /// bright it was: enough to rebuild the Log's sighting, badges included.
+  final String? type;
+  final double? elevationDeg, magnitude;
 
   /// One line for Photos' caption-like fields and anyone reading the file.
   String get description => [title, if (place != null && place!.isNotEmpty) place!, 'caught with LookUp'].join(' · ');
@@ -40,7 +45,10 @@ class CatchTag {
         ' xmp:CreateDate="${at.toUtc().toIso8601String()}"'
         ' lookup:eventId="${esc(eventId)}"'
         ' lookup:title="${esc(title)}"'
-        '${place == null ? '' : ' lookup:place="${esc(place!)}"'}>'
+        '${place == null ? '' : ' lookup:place="${esc(place!)}"'}'
+        '${type == null ? '' : ' lookup:type="${esc(type!)}"'}'
+        '${elevationDeg == null ? '' : ' lookup:el="${elevationDeg!.toStringAsFixed(1)}"'}'
+        '${magnitude == null ? '' : ' lookup:mag="${magnitude!.toStringAsFixed(1)}"'}>'
         '<dc:title><rdf:Alt><rdf:li xml:lang="x-default">${esc(title)}</rdf:li></rdf:Alt></dc:title>'
         '<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${esc(description)}</rdf:li></rdf:Alt></dc:description>'
         '</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>';
@@ -58,7 +66,15 @@ class CatchTag {
     if (id == null || title == null || at == null) return null;
     final when = DateTime.tryParse(at);
     if (when == null) return null;
-    return CatchTag(eventId: id, title: title, at: when.toUtc(), place: attr('place'));
+    return CatchTag(
+      eventId: id,
+      title: title,
+      at: when.toUtc(),
+      place: attr('place'),
+      type: attr('type'),
+      elevationDeg: double.tryParse(attr('el') ?? ''),
+      magnitude: double.tryParse(attr('mag') ?? ''),
+    );
   }
 
   static String _unesc(String s) =>
