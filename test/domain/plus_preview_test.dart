@@ -34,6 +34,21 @@ void main() {
     expect(p.count, 4);
   });
 
+  test('a kind they turned off is never shown as a reason to buy', () {
+    final events = [
+      ev('starlink:1', SkyEventType.starlinkTrain, const Duration(days: 1)),
+      ev('aurora:1', SkyEventType.auroraNow, const Duration(hours: 3)),
+      ev('tiangong:1', SkyEventType.tiangong, const Duration(days: 2)),
+    ];
+    // Tiangong is off by default; aurora and Starlink are on.
+    expect([for (final e in PlusPreview.of(events, now, wants: const LookUpSettings()).soonest) e.id], ['aurora:1', 'starlink:1']);
+    final off = PlusPreview.of(events, now, wants: const LookUpSettings(auroraEnabled: false, starlinkEnabled: false));
+    expect(off.count, 0);
+    expect(off.soonest, isEmpty);
+    // Without settings (the paywall's own list), everything Plus-only.
+    expect(PlusPreview.of(events, now).count, 3);
+  });
+
   test('shown to free users unless they said not now this week; never to Plus', () {
     expect(PlusPreview.show(isPlus: false, snoozedUntil: null, now: now), isTrue);
     expect(PlusPreview.show(isPlus: true, snoozedUntil: null, now: now), isFalse);

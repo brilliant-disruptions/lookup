@@ -784,11 +784,43 @@ class _OfferPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final p = PlusPreview.of(ref.watch(homeProvider).value?.events ?? const <SkyEvent>[], DateTime.now());
     final s = ref.watch(settingsProvider).value;
-    // What they just asked Pip for that free doesn't tap for.
-    final picked = [if (s?.auroraEnabled ?? false) 'aurora', if (s?.starlinkEnabled ?? false) 'Starlink trains'];
+    final p = PlusPreview.of(ref.watch(homeProvider).value?.events ?? const <SkyEvent>[], DateTime.now(), wants: s);
+    final aurora = s?.auroraEnabled ?? false, starlink = s?.starlinkEnabled ?? false;
+    // The kinds still switched on that free doesn't tap for. They may have
+    // left them on rather than picked them, so the words never say "you
+    // asked"; and a kind they turned off is never pitched.
+    final picked = [if (aurora) 'aurora', if (starlink) 'Starlink trains'];
     final asked = picked.join(' and ');
+    final title = picked.isNotEmpty
+        ? '${asked[0].toUpperCase()}${asked.substring(1)} ${picked.length == 1 && aurora ? 'is' : 'are'} LookUp+'
+        : p.count > 0
+            ? 'There\'s more coming over you'
+            : 'Want more from your sky?';
+    final body = picked.isNotEmpty
+        ? 'Pip\'s set to watch for $asked. Free taps you for the space station, meteor showers, eclipses and the Moon; '
+            '${p.count == 0 ? 'LookUp+ adds ${picked.length == 1 ? 'this' : 'these'}.' : 'LookUp+ adds these, and they\'re coming:'}'
+        : p.count > 0
+            ? 'Free taps you for what you picked. ${p.count == 1 ? 'Here\'s one' : 'Here are ${p.count}'} it won\'t, this month:'
+            : 'Free taps you for what you picked. LookUp+ is the rest of what Pip can do:';
+    // Before any dated sights are known: what LookUp+ adds of what's on.
+    final rows = [
+      if (aurora)
+        const _OfferRow(
+            glyph: EventGlyph(icon: Icons.waves_rounded, color: LookUpColors.good, size: 34),
+            title: 'Aurora, the moment it\'s visible',
+            line: 'Live alerts from here, not a forecast'),
+      if (starlink)
+        const _OfferRow(
+            glyph: EventGlyph(icon: Icons.linear_scale_rounded, color: LookUpColors.violet, size: 34),
+            title: 'Starlink trains',
+            line: 'A tap before each one goes over'),
+      if (picked.isNotEmpty)
+        const _OfferRow(
+            glyph: EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.blue, size: 34),
+            title: 'Where to go tonight',
+            line: 'Clearer, darker skies near you'),
+    ];
     return Scaffold(
       body: SkyBackdrop(
         child: SafeArea(
@@ -803,55 +835,42 @@ class _OfferPage extends ConsumerWidget {
               Rise(
                 index: 1,
                 child: Text(
-                  picked.isNotEmpty
-                      ? '${asked[0].toUpperCase()}${asked.substring(1)} ${picked.length == 1 && picked.first == 'aurora' ? 'is' : 'are'} LookUp+'
-                      : p.count == 0
-                          ? 'Want a tap for everything up there?'
-                          : 'There\'s more coming over you',
+                  title,
                   key: const Key('trial-offer-title'),
                   style: display(32, weight: FontWeight.w700, height: 1.1),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                picked.isNotEmpty
-                    ? 'You asked Pip to watch for $asked. Free taps you for the space station, meteor showers, eclipses and the Moon; '
-                        '${p.count == 0 ? 'LookUp+ adds these.' : 'LookUp+ adds these, and they\'re coming:'}'
-                    : p.count == 0
-                        ? 'Free taps you for the space station, meteor showers and eclipses. LookUp+ adds the rest.'
-                        : 'Free taps you for the space station. ${p.count == 1 ? 'Here\'s one' : 'Here are ${p.count}'} it won\'t, this month:',
+                body,
+                key: const Key('trial-offer-body'),
                 style: const TextStyle(color: LookUpColors.grey, height: 1.45),
               ),
-              const SizedBox(height: 16),
-              Rise(
-                index: 2,
-                child: GlassCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  child: Column(children: [
-                    if (p.count > 0)
-                      for (final e in p.soonest)
-                        _OfferRow(glyph: EventGlyph.of(e, size: 34), title: eventTitle(e), line: '${fmtDay(e.start)}, ${fmtTime(e.start)}')
-                    else ...[
-                      _OfferRow(
-                          glyph: const EventGlyph(icon: Icons.waves_rounded, color: LookUpColors.good, size: 34),
-                          title: 'Aurora, the moment it\'s visible',
-                          line: 'Live alerts from here, not a forecast'),
-                      _OfferRow(
-                          glyph: const EventGlyph(icon: Icons.linear_scale_rounded, color: LookUpColors.violet, size: 34),
-                          title: 'Starlink trains and Tiangong',
-                          line: 'A tap before each one goes over'),
-                      _OfferRow(
-                          glyph: const EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.blue, size: 34),
-                          title: 'Where to go tonight',
-                          line: 'Clearer, darker skies near you'),
-                    ],
-                  ]),
+              if (p.count > 0 || rows.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Rise(
+                  index: 2,
+                  child: GlassCard(
+                    key: const Key('trial-offer-sights'),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Column(children: [
+                      if (p.count > 0)
+                        for (final e in p.soonest)
+                          _OfferRow(glyph: EventGlyph.of(e, size: 34), title: eventTitle(e), line: '${fmtDay(e.start)}, ${fmtTime(e.start)}')
+                      else
+                        ...rows,
+                    ]),
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 18),
-              const Kicker('Also with LookUp+'),
-              const SizedBox(height: 8),
-              const PlusPerkGrid(key: Key('trial-offer-perks'), except: {'alerts'}),
+              // With nothing above, the alerts perk is the first thing LookUp+ adds.
+              if (p.count > 0 || rows.isNotEmpty) ...[
+                const Kicker('Also with LookUp+'),
+                const SizedBox(height: 8),
+                const PlusPerkGrid(key: Key('trial-offer-perks'), except: {'alerts'}),
+              ] else
+                const PlusPerkGrid(key: Key('trial-offer-perks')),
                 ]),
               ),
             ),

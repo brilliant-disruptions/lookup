@@ -268,7 +268,9 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('why dusk and dawn, what Pip tells you about, the alert ask, the offer: then done', (t) async {
+  /// From the start to the offer, turning off the switches named in [off]
+  /// on the "What should Pip tell you about?" page.
+  Future<void> toOffer(WidgetTester t, {Set<String> off = const {}}) async {
     await pump(t, grantLocation: true);
     await toSky(t);
     await catchJupiter(t);
@@ -290,11 +292,13 @@ void main() {
     expect(find.text('LookUp+'), findsNothing, reason: 'LookUp+ is said once, on the offer');
     expect(find.textContaining('free trial'), findsNothing);
     expect(container.read(settingsProvider).value!.auroraEnabled, isTrue);
-    await t.ensureVisible(find.byKey(const Key('pick-aurora')));
-    await settle(t, 1);
-    await t.tap(find.byKey(const Key('pick-aurora')));
-    await settle(t, 1);
-    expect(container.read(settingsProvider).value!.auroraEnabled, isFalse);
+    expect(container.read(settingsProvider).value!.starlinkEnabled, isTrue);
+    for (final k in off) {
+      await t.ensureVisible(find.byKey(Key('pick-$k')));
+      await settle(t, 1);
+      await t.tap(find.byKey(Key('pick-$k')));
+      await settle(t, 1);
+    }
     await t.ensureVisible(find.text('Next'));
     await t.tap(find.text('Next'));
     await settle(t, 3);
@@ -304,20 +308,48 @@ void main() {
     await t.tap(find.text('Tap me 10 minutes before'));
     await settle(t, 4);
     expect(notifications.asked, 1);
-    // Once, the offer (not the paywall), built on what they picked: aurora off, Starlink on.
+    // Once, the offer (not the paywall).
     expect(find.byKey(const Key('trial-offer')), findsOneWidget);
+    expect(find.byType(PaywallSheet), findsNothing);
+  }
+
+  testWidgets('why dusk and dawn, what Pip tells you about, the alert ask, the offer: then done', (t) async {
+    await toOffer(t, off: {'aurora'});
+    expect(container.read(settingsProvider).value!.auroraEnabled, isFalse);
+    // Built on what's on: aurora off, Starlink on, and the real train coming.
     expect(find.text('Starlink trains are LookUp+'), findsOneWidget);
-    expect(find.textContaining('You asked Pip to watch for Starlink trains'), findsOneWidget);
+    expect(find.textContaining('Pip\'s set to watch for Starlink trains'), findsOneWidget);
+    expect(find.textContaining('aurora', findRichText: true), findsNothing, reason: 'turned off, so never pitched');
+    expect(find.descendant(of: find.byKey(const Key('trial-offer-sights')), matching: find.textContaining('Starlink')), findsOneWidget);
     // And everything else LookUp+ adds, once, here.
     for (final k in ['camera', 'timelapse', 'whereToGo', 'planAhead', 'places', 'history', 'transits']) {
       expect(find.byKey(Key('perk-$k')), findsOneWidget, reason: k);
     }
     expect(find.byKey(const Key('perk-alerts')), findsNothing, reason: 'the alerts are said above it');
-    expect(find.byType(PaywallSheet), findsNothing);
     await t.tap(find.byKey(const Key('trial-offer-not-now')));
     await settle(t);
     final s = container.read(settingsProvider).value!;
     expect((s.onboarded, s.trialOfferShown, s.plusDeclines), (true, true, 1));
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('switches left as they were: the offer names them without saying they asked', (t) async {
+    await toOffer(t);
+    expect(find.text('Aurora and Starlink trains are LookUp+'), findsOneWidget);
+    expect(find.textContaining('Pip\'s set to watch for aurora and Starlink trains'), findsOneWidget);
+    expect(find.textContaining('You asked'), findsNothing, reason: 'leaving a switch on isn\'t asking');
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('aurora and Starlink both turned off: neither is pitched, the rest of LookUp+ is', (t) async {
+    await toOffer(t, off: {'aurora', 'starlink'});
+    expect(find.text('Want more from your sky?'), findsOneWidget);
+    expect(find.textContaining('Starlink'), findsNothing, reason: 'the coming train is one they said no to');
+    expect(find.textContaining('urora'), findsNothing);
+    expect(find.byKey(const Key('trial-offer-sights')), findsNothing);
+    for (final k in ['alerts', 'camera', 'timelapse', 'whereToGo', 'planAhead', 'places', 'history', 'transits']) {
+      expect(find.byKey(Key('perk-$k')), findsOneWidget, reason: k);
+    }
     await t.pumpWidget(const SizedBox());
   });
 

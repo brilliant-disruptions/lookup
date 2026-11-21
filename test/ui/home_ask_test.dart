@@ -83,6 +83,16 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
+  testWidgets('a sight they turned off is never pitched: no storm without aurora, no missed Starlink without Starlink', (t) async {
+    final base = LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true, onboardedAt: _now.subtract(const Duration(days: 30)));
+    await _mount(t, events: [_storm], s: base.copyWith(auroraEnabled: false));
+    expect(find.byKey(const Key('home-ask-storm')), findsNothing);
+    await t.pumpWidget(const SizedBox());
+    await _mount(t, recent: [_missed], s: base.copyWith(starlinkEnabled: false));
+    expect(find.byKey(const Key('home-ask-missedIt')), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('in the first two days only a storm is said', (t) async {
     final fresh = LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true, onboardedAt: _now.subtract(const Duration(hours: 20)));
     await _mount(t, recent: [_missed], s: fresh);

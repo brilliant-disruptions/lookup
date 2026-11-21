@@ -28,7 +28,7 @@ class PlusNearYouCard extends ConsumerWidget {
     if (s.isPlus || (!chosen && !PlusPreview.show(isPlus: s.isPlus, snoozedUntil: s.plusCardSnoozedUntil, now: now))) {
       return const SizedBox.shrink();
     }
-    final p = PlusPreview.of(events, now);
+    final p = PlusPreview.of(events, now, wants: s);
     final title = switch (p.count) {
       0 => 'More to see than the station',
       1 => '1 more tap coming that free won\'t send',

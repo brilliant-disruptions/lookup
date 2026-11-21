@@ -54,7 +54,7 @@ class AlertPlanner {
     final limit = nowUtc.add(horizon);
     final candidates = events
         .where((e) => e.start.isAfter(nowUtc) && e.start.isBefore(limit))
-        .where((e) => e.type.pushes && _typeEnabled(e.type, settings))
+        .where((e) => e.type.pushes && typeEnabled(e.type, settings))
         .where((e) => settings.isPlus || !e.plusOnly)
         .where((e) => !settings.clearSkyOnly ||
             (e.cloudCoverPercent ?? 0) <= tuning.cloudCutoffPercent)
@@ -126,7 +126,10 @@ class AlertPlanner {
     );
   }
 
-  static bool _typeEnabled(SkyEventType t, LookUpSettings s) => switch (t) {
+  /// Whether they want taps for this kind at all (their switch in
+  /// Settings). Also what LookUp+ asks use, so a kind they turned off is
+  /// never pitched to them.
+  static bool typeEnabled(SkyEventType t, LookUpSettings s) => switch (t) {
         SkyEventType.iss => s.issEnabled,
         SkyEventType.tiangong => s.tiangongEnabled,
         SkyEventType.starlinkTrain => s.starlinkEnabled,

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/plus/free_plan.dart';
+import '../domain/scheduling/alert_planner.dart';
 import '../domain/plus/missed_it.dart';
 import '../domain/plus/nudges.dart';
 import '../domain/plus/plus_preview.dart';
@@ -68,10 +69,12 @@ class _HomeAskState extends ConsumerState<HomeAsk> with AutomaticKeepAliveClient
     _decided = true;
     final now = DateTime.now();
     final d = widget.home;
-    final storm = stormTonight(d.events, now);
-    final missed = missedIt(recent: d.recent, now: now, toldId: s.missedItId, toldAt: s.missedItAt);
+    // Only kinds they still want: a sight they turned off is never pitched.
+    bool wanted(SkyEvent e) => AlertPlanner.typeEnabled(e.type, s);
+    final storm = s.auroraEnabled ? stormTonight(d.events, now) : null; // built from the outlook, which never pushes
+    final missed = missedIt(recent: d.recent.where(wanted).toList(), now: now, toldId: s.missedItId, toldAt: s.missedItAt);
     final nearYou = PlusPreview.show(isPlus: s.isPlus, snoozedUntil: s.plusCardSnoozedUntil, now: now) &&
-        PlusPreview.of(d.events, now).count > 0;
+        PlusPreview.of(d.events, now, wants: s).count > 0;
     final pick = NudgeBudget.pickForHome([
       if (storm != null && softAskAllowed(ref, SoftAsk.storm, s, now: now)) SoftAsk.storm,
       if (missed != null && softAskAllowed(ref, SoftAsk.missedIt, s, now: now)) SoftAsk.missedIt,
