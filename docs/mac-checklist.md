@@ -80,6 +80,24 @@ Run on a device (⌘R) and try:
 - **Alert buttons.** Settings → *Preview an alert*. Long-press the
   notification: *Find it*, *Remind me in 5 min*, and on the go-now alert
   *Catch it*, which opens LookUp straight into the camera with Pip.
+- **New in this round, check on a phone:**
+  - *Report a problem* (Settings › Help) opens Mail with the version filled
+    in; *Privacy Policy* and *Terms of Use* open in Safari, also from the
+    paywall and the onboarding offer, which shows the store's yearly price.
+  - The rating prompt: in a development build iOS shows it every time, in
+    TestFlight never; just check it appears after closing a caught-it
+    screen once you have 3 catches and the app is 3 days old (or shorten
+    `ReviewAsk.settleIn` for the test).
+  - *Your week ahead* arrives Sunday at 5:40 PM, and turning it off in
+    Settings › Alerts cancels it.
+  - **Bring back my catches:** on a second iPhone signed in to the same
+    iCloud Photos, install, choose Limit Access, and tap *Bring back my
+    catches from Photos* on the empty Log. **Check whether the LookUp
+    album made on the first phone is visible under Limited access** (Apple
+    lets an app read albums it made; on a new install it may count as a
+    different app's album). If it isn't, the sheet should suggest choosing
+    the album's photos in the Limited picker, or Full access just for the
+    restore: tell me and I'll change the words.
 - **Saving to Photos (the LookUp album).** On a fresh install, catch the
   Moon or a planet (point until Pip lands, tap Pip). LookUp's own sheet
   should come first, recommending *Limit Access…*; then iOS asks. Check:
@@ -147,11 +165,35 @@ Xcode Cloud picks it up and the next TestFlight build has all of it.
 
 ## App Store Connect bits
 
-- **App Privacy:** *Location → Coarse Location*, used for *App
-  Functionality*, **not** linked to the user, **not** used for tracking.
-  (Your rough coordinates go to Open-Meteo for the cloud forecast; nothing
-  else leaves the phone.) Everything else: *Data Not Collected*.
-- **Listing copy and screenshots:** see [`app-store-listing.md`](app-store-listing.md).
+In order, before the first submission:
+
+1. **Deploy the relay** (`cd relay && npm run deploy`, see `relay/README.md`)
+   so the privacy and support pages are live, then open
+   `…workers.dev/privacy` and `/support` in a browser.
+2. **Agreements:** sign the *Paid Applications* agreement and add banking
+   and tax details (subscriptions can't be tested in TestFlight without it).
+3. **Subscriptions:** a subscription group *LookUp+* with
+   `lookup_plus_monthly` ($3.99) and `lookup_plus_yearly` ($24.99, with a
+   7-day free trial as its introductory offer), and a non-consumable
+   `lookup_plus_lifetime` ($59.99). Ids must match `PlusProducts` exactly.
+   Give each a review screenshot (the paywall) and a description.
+4. **App information:** Privacy Policy URL and Support URL from
+   [`app-store-listing.md`](app-store-listing.md#links); keep Apple's
+   standard EULA and add the Terms of Use line to the end of the
+   description.
+5. **App Privacy:** *Location → Coarse Location*, used for *App
+   Functionality*, **not** linked to the user, **not** used for tracking
+   (rough coordinates go to Open-Meteo for the cloud forecast; Seen near you
+   sends only half-degree squares). Photos never leave the phone, so they
+   aren't "collected". Everything else: *Data Not Collected*. Must match
+   `ios/Runner/PrivacyInfo.xcprivacy` and the privacy page
+   (`relay/src/pages.ts`); change all three together.
+6. **Listing copy and the ten screenshots:** see
+   [`app-store-listing.md`](app-store-listing.md) (screenshots in
+   `test/screenshots/goldens/appstore/`).
+7. **Review notes:** say the camera and Photos are used only for catching
+   sky pictures into the LookUp album, and that LookUp+ can be tested with
+   the sandbox products.
 
 - **Privacy manifest.** The app's own Swift reads `UserDefaults`
   (`LookUpIntents.swift`, the widget's app group), which Apple counts as a
