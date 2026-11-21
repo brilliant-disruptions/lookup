@@ -6,7 +6,7 @@ import type { Invite } from './invite';
 const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
 /** RFC 5545 text: backslash, semicolon, comma and newlines escaped. */
-const text = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const text = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 
 /** Lines longer than 75 octets continue on the next, indented by a space. */
 function fold(line: string): string {

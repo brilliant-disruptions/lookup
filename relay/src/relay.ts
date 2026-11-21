@@ -32,6 +32,12 @@ export const RULES = {
   reporterLimit: { n: 1, ms: 5 * 60 * 1000 },
   ipLimit: { n: 30, ms: 60 * 60 * 1000 },
   readLimit: { n: 240, ms: 60 * 60 * 1000 },
+  /** Phones woken per report: what one run can push inside the platform's limits. The rest go with the next report. */
+  wakeBatch: 40,
+  /** Invite pages, cards and passes read per network per hour. Past it pages still load, uncounted; passes wait. */
+  pageLimit: { n: 240, ms: 60 * 60 * 1000 },
+  /** Invites alive at once, everyone's together: storage can't be filled with pictures. */
+  maxInvites: 2000,
   /** The app asks for every cell within 250 km: up to ~170 that far north. */
   maxCells: 240,
   maxBody: 16384,
@@ -87,9 +93,42 @@ export function networkOf(ip: string): string {
   return `${groups.slice(0, 4).map((g) => (parseInt(g, 16) || 0).toString(16)).join(':')}::/64`;
 }
 
+/** The request's bytes as text, or null once they pass [max]: never more than that is held. */
+async function readCapped(req: Request, max: number): Promise<string | null> {
+  if (Number(req.headers.get('content-length') ?? 0) > max) return null;
+  if (!req.body) return '';
+  const reader = req.body.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    parts.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) {
+    all.set(p, at);
+    at += p.byteLength;
+  }
+  return new TextDecoder().decode(all);
+}
+
+/**
+ * A JSON object body. Only as application/json: a web page can't send that
+ * from a visitor's browser without a CORS preflight, which this relay never
+ * answers, so nobody's site can post reports (or invites) through the people
+ * reading it.
+ */
 async function body(req: Request, max: number = RULES.maxBody): Promise<Record<string, unknown> | null> {
-  const text = await req.text();
-  if (text.length > max) return null;
+  if (!/^application\/json\b/i.test(req.headers.get('content-type') ?? '')) return null;
+  const text = await readCapped(req, max);
+  if (text === null) return null;
   try {
     const v = JSON.parse(text);
     return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -120,6 +159,14 @@ function cellsBody(v: unknown): Cell[] | null {
 const validToken = (t: unknown, min: number, max: number): t is string =>
   typeof t === 'string' && t.length >= min && t.length <= max && /^[A-Za-z0-9_:\-.]+$/.test(t);
 
+/** A push address as each service issues it: APNs device tokens are hex, FCM's are a few hundred characters. */
+const pushToken = (t: unknown, platform?: unknown): t is string =>
+  platform === 'apns'
+    ? typeof t === 'string' && /^[0-9a-f]{64,200}$/i.test(t)
+    : platform === 'fcm'
+      ? validToken(t, 32, 1024)
+      : pushToken(t, 'apns') || pushToken(t, 'fcm');
+
 export async function handle(req: Request, deps: Deps): Promise<Response> {
   const url = new URL(req.url);
   const now = deps.now();
@@ -146,34 +193,44 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   if (deps.invites) {
     const inv = { ...deps.invites, store: deps.store, now: deps.now };
     const base = deps.invites.site ?? url.origin;
-    if (url.pathname.startsWith('/n/') && req.method === 'GET') return serveInvite(url.pathname, base, inv, req.headers.get('user-agent') ?? '');
+    if (url.pathname.startsWith('/n/') && req.method === 'GET') {
+      const busy = (await deps.store.hit(`page:${net}`, now, RULES.pageLimit.ms, RULES.pageLimit.n)) > RULES.pageLimit.n;
+      return serveInvite(url.pathname, base, inv, req.headers.get('user-agent') ?? '', busy);
+    }
     if (url.pathname === '/v1/invites' && req.method === 'POST') {
-      if ((await deps.store.hit(`invite:${net}`, now, RULES.inviteLimit.ms)) > RULES.inviteLimit.n) return json(429, { error: 'slow down' });
+      if ((await deps.store.hit(`invite:${net}`, now, RULES.inviteLimit.ms, RULES.inviteLimit.n)) > RULES.inviteLimit.n) return json(429, { error: 'slow down' });
       const b = await body(req, RULES.maxInviteBody);
       if (!b) return json(400, { error: 'invite' });
+      if ((await deps.store.inviteCount(now)) >= RULES.maxInvites) return json(503, { error: 'full' });
       return createInvite(b, base, inv);
     }
   }
 
   if (url.pathname === '/v1/reports' && req.method === 'GET') {
-    if ((await deps.store.hit(`read:${net}`, now, RULES.readLimit.ms)) > RULES.readLimit.n) return json(429, { error: 'slow down' });
+    if ((await deps.store.hit(`read:${net}`, now, RULES.readLimit.ms, RULES.readLimit.n)) > RULES.readLimit.n) return json(429, { error: 'slow down' });
     const cells = cellsParam(url.searchParams.get('cells'));
     if (!cells) return json(400, { error: 'cells' });
     const rows = await deps.store.reportsIn(cells, now - RULES.windowMs);
+    // `r` only tells one person from another within this answer (the phone
+    // counts people): a number that means nothing in the next one, so
+    // nobody can be followed from place to place by it.
+    const people = new Map<string, string>();
+    const who = (reporter: string) => people.get(reporter) ?? (people.set(reporter, `p${people.size + 1}`), people.get(reporter)!);
     return json(200, {
       now: new Date(now).toISOString(),
-      reports: rows.map((r) => ({ la: r.la, lo: r.lo, at: new Date(r.at).toISOString(), how: r.how, r: r.reporter })),
+      reports: rows.map((r) => ({ la: r.la, lo: r.lo, at: new Date(r.at).toISOString(), how: r.how, r: who(r.reporter) })),
     });
   }
 
   if (url.pathname === '/v1/report' && req.method === 'POST') {
+    // The network's limit first: a flood is turned away before its bodies are read.
+    if ((await deps.store.hit(`report:${net}`, now, RULES.ipLimit.ms, RULES.ipLimit.n)) > RULES.ipLimit.n) return json(429, { error: 'slow down' });
     const b = await body(req);
     if (!b || !isCell(b.cell) || (b.how !== 'eye' && b.how !== 'camera') || !validToken(b.reporter, 16, 64)) {
       return json(400, { error: 'report' });
     }
     const reporter = await dailyHash(deps.secret, b.reporter, now);
-    if ((await deps.store.hit(`report:${net}`, now, RULES.ipLimit.ms)) > RULES.ipLimit.n) return json(429, { error: 'slow down' });
-    if ((await deps.store.hit(`r:${reporter}`, now, RULES.reporterLimit.ms)) > RULES.reporterLimit.n) {
+    if ((await deps.store.hit(`r:${reporter}`, now, RULES.reporterLimit.ms, RULES.reporterLimit.n)) > RULES.reporterLimit.n) {
       return json(429, { error: 'already reported' });
     }
     const cell = b.cell as Cell;
@@ -183,9 +240,11 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   }
 
   if (url.pathname === '/v1/subscribe' && (req.method === 'POST' || req.method === 'DELETE')) {
+    if ((await deps.store.hit(`sub:${net}`, now, RULES.ipLimit.ms, RULES.ipLimit.n)) > RULES.ipLimit.n) return json(429, { error: 'slow down' });
     const b = await body(req);
-    if (!b || !validToken(b.token, 32, 4096)) return json(400, { error: 'token' });
-    if ((await deps.store.hit(`sub:${net}`, now, RULES.ipLimit.ms)) > RULES.ipLimit.n) return json(429, { error: 'slow down' });
+    // Only what a push service really hands out: the token is stored once
+    // per cell, so anything longer is somebody filling the database.
+    if (!b || !pushToken(b.token, req.method === 'DELETE' ? undefined : b.platform)) return json(400, { error: 'token' });
     if (req.method === 'DELETE') {
       await deps.store.unsubscribe(b.token);
       return json(204, null);
@@ -217,21 +276,29 @@ export async function wakeNear(cell: Cell, deps: Deps): Promise<number> {
   const area = cellsNear(cell, RULES.radiusKm);
   const reports = await deps.store.reportsIn(area, now - RULES.windowMs);
   if (!worthWaking(cell, reports)) return 0;
-  const subs = await deps.store.toWake(area, now - RULES.quietMs);
+  // Only as many as this run can really push: marking everyone and then
+  // running out of budget would silence the rest for half an hour without
+  // ever telling them. Whoever's left is woken by the next report.
+  const subs = (await deps.store.toWake(area, now - RULES.quietMs)).slice(0, RULES.wakeBatch);
   if (subs.length === 0) return 0;
   await deps.store.markWoken(
     subs.map((s) => s.token),
     now,
   );
-  let sent = 0;
-  for (const s of subs) {
-    const p = deps.pushers[s.platform];
-    if (!p) continue;
-    const r = await p.send(s);
-    if (r === 'ok') sent++;
-    if (r === 'gone') await deps.store.unsubscribe(s.token);
-  }
-  return sent;
+  const results = await Promise.all(
+    subs.map(async (s) => {
+      const p = deps.pushers[s.platform];
+      if (!p) return 'skipped';
+      try {
+        const r = await p.send(s);
+        if (r === 'gone') await deps.store.unsubscribe(s.token);
+        return r;
+      } catch {
+        return 'failed';
+      }
+    }),
+  );
+  return results.filter((r) => r === 'ok').length;
 }
 
 /** Every ten minutes: forget old reports, limits and lapsed subscriptions. */

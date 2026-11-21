@@ -12,8 +12,12 @@ export type Subscriber = { token: string; platform: Platform; sandbox: boolean }
 export interface Store {
   addReport(r: StoredReport): Promise<void>;
   reportsIn(cells: Cell[], since: number): Promise<StoredReport[]>;
-  /** Counts a hit on a rate-limit key; returns how many in the window. */
-  hit(key: string, now: number, windowMs: number): Promise<number>;
+  /**
+   * Counts a hit on a rate-limit key; returns how many in the window. Once
+   * [max] are there, nothing more is written (the answer is max + 1): a
+   * flood that's being turned away costs a read, never a row.
+   */
+  hit(key: string, now: number, windowMs: number, max: number): Promise<number>;
   subscribe(s: Subscriber, cells: Cell[], now: number): Promise<void>;
   unsubscribe(token: string): Promise<void>;
   /** Subscribers to any of these cells not woken since `quietSince`. */
@@ -22,6 +26,8 @@ export interface Store {
   /** Drops reports and limits older than `before`, subscriptions not renewed since `subsBefore`, and expired invites. */
   sweep(before: number, subsBefore: number, now?: number): Promise<{ reports: number; subs: number; invites?: number }>;
   addInvite(code: string, data: string, image: Uint8Array | null, expires: number, now: number): Promise<void>;
+  /** Invites not yet expired. */
+  inviteCount(now: number): Promise<number>;
   /** The invite's JSON, unless it has expired. */
   getInvite(code: string, now: number): Promise<{ data: string } | null>;
   inviteImage(code: string): Promise<Uint8Array | null>;
@@ -55,13 +61,15 @@ export class SqlStore implements Store {
     return (results ?? []).filter((r) => want.has(cellKey(r)));
   }
 
-  async hit(key: string, now: number, windowMs: number) {
-    await this.db.prepare('INSERT INTO limits (key, at) VALUES (?, ?)').bind(key, now).run();
+  async hit(key: string, now: number, windowMs: number, max: number) {
     const row = await this.db
       .prepare('SELECT COUNT(*) AS n FROM limits WHERE key = ? AND at > ?')
       .bind(key, now - windowMs)
       .first<{ n: number }>();
-    return row?.n ?? 0;
+    const n = row?.n ?? 0;
+    if (n >= max) return max + 1;
+    await this.db.prepare('INSERT INTO limits (key, at) VALUES (?, ?)').bind(key, now).run();
+    return n + 1;
   }
 
   async subscribe(s: Subscriber, cells: Cell[], now: number) {
@@ -112,6 +120,11 @@ export class SqlStore implements Store {
       .prepare('INSERT INTO invites (code, data, image, created, expires) VALUES (?, ?, ?, ?, ?)')
       .bind(code, data, image, now, expires)
       .run();
+  }
+
+  async inviteCount(now: number) {
+    const row = await this.db.prepare('SELECT COUNT(*) AS n FROM invites WHERE expires > ?').bind(now).first<{ n: number }>();
+    return row?.n ?? 0;
   }
 
   async getInvite(code: string, now: number) {

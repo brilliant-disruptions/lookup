@@ -10,15 +10,29 @@ import 'package:lookup/ui/share_card.dart';
 /// The relay's checks (relay/src/invite.ts): what it accepts as words, and
 /// what it turns away as a link, an address or a phone number. The same
 /// patterns as `linkish` there; keep the two in step.
-final _relayText = RegExp(r"^[\p{L}\p{N} .,;:'’()°%\-–—!?&/+]+$", unicode: true);
+final _relayText = RegExp(r"^[\p{L}\p{Nd} .,;:'’()°%\-–—!?&/+]+$", unicode: true);
 const _digit = r'\p{Nd}';
 const _sep = r'[ .()/+\-–—]';
 final _date = RegExp(
     '(?<!$_digit)(?:$_digit{4}[-/.]$_digit{1,2}[-/.]$_digit{1,2}|$_digit{1,2}[-/.]$_digit{1,2}[-/.]$_digit{4})(?!$_digit)',
     unicode: true);
 final _numbers = RegExp('$_digit(?:$_sep*$_digit)*', unicode: true);
-final _decimal = RegExp('^$_digit+\\.$_digit+\$', unicode: true);
+final _decimal = RegExp('^$_digit{1,3}\\.$_digit{1,5}\$', unicode: true);
 int _digits(String s) => RegExp(_digit, unicode: true).allMatches(s).length;
+
+bool _realDate(String s) {
+  final p = [for (final x in s.split(RegExp(r'[-/.]'))) RegExp(r'^[0-9]+$').hasMatch(x) ? int.parse(x) : -1];
+  final yearFirst = s.indexOf(RegExp(r'[-/.]')) == 4;
+  final (y, a, b) = yearFirst ? (p[0], p[1], p[2]) : (p[2], p[0], p[1]);
+  if (y < 1900 || y > 2100 || a < 1 || b < 1) return false;
+  return yearFirst ? a <= 12 && b <= 31 : (a <= 12 && b <= 31) || (a <= 31 && b <= 12);
+}
+
+bool _disguised(String s) =>
+    RegExp('[ꓸꞏ]', unicode: true).hasMatch(s) ||
+    RegExp(r'\p{L}(?![0-9])\p{Nd}\p{L}', unicode: true).hasMatch(s) ||
+    RegExp(r'\p{L}+', unicode: true).allMatches(s).map((m) => m[0]!).any((w) =>
+        RegExp(r'\p{Script=Latin}', unicode: true).hasMatch(w) && RegExp(r'[^\p{Script=Latin}]', unicode: true).hasMatch(w));
 
 bool _relayLinkish(String s) =>
     RegExp(r'://|www\.', caseSensitive: false).hasMatch(s) ||
@@ -27,7 +41,9 @@ bool _relayLinkish(String s) =>
     _numbers
         .allMatches(s)
         .map((m) => m[0]!)
-        .any((run) => !_decimal.hasMatch(run) && _digits(run.replaceAll(_date, ' ')) >= 7);
+        .any((run) =>
+            !_decimal.hasMatch(run) && _digits(run.replaceAllMapped(_date, (m) => _realDate(m[0]!) ? ' ' : m[0]!)) >= 7) ||
+    _disguised(s);
 
 SkyEvent _ev(SkyEventType type, {Map<String, Object?> details = const {}}) {
   final start = DateTime.utc(2026, 11, 3, 3, 5);
@@ -132,6 +148,11 @@ void main() {
       'Call +1 (900) 555-0100 before it starts',
       'Call 555-0100',
       'Home 2026-11-03 555 0100',
+      'Call 800.5550199 now',
+      'Call 5551-23-45 67',
+      'exampleꓸcom/win',
+      'Prizes at example٠com',
+      'Prizes at exаmple com',
     ]) {
       expect(_relayLinkish(lure), isTrue, reason: lure);
     }
@@ -140,6 +161,9 @@ void main() {
       'Meet 2026-11-03 21:05. Look 12° above the horizon at 9.30 p.m., magnitude -3.9.',
       'Use eclipse glasses (ISO 12312-2) until the Sun is fully covered.',
       'Comet C/2026 O1',
+      'Dark site 44.12345, -71.23456',
+      'Peaks 21.11.2026 at 21:05, about 384.4 thousand km away.',
+      'Москва',
     ]) {
       expect(_relayLinkish(fine), isFalse, reason: fine);
     }
