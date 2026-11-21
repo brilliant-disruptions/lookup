@@ -84,16 +84,19 @@ PipPose pipPose(
   bool dim = false,
   bool blinking = false,
   bool still = false,
+  bool character = false,
 }) {
   if (still) return PipPose(size: dim ? 0.8 : 1, blink: dim ? 0.6 : 1);
+  // The character stays round at rest; only the plain dot sits flatter.
+  PipPose rest(double s) => _resting(s, flat: !character);
   var p = switch (state) {
     PipState.idle => _idle(seconds),
     PipState.searching => _searching(seconds),
-    PipState.resting => _resting(seconds),
-    PipState.hello => since < pipHelloLength ? _hello(seconds, since) : _resting(seconds),
-    PipState.found => since < pipFoundLength ? _found(seconds, since) : _resting(seconds),
+    PipState.resting => rest(seconds),
+    PipState.hello => since < pipHelloLength ? _hello(seconds, since) : rest(seconds),
+    PipState.found => since < pipFoundLength ? _found(seconds, since) : rest(seconds),
     // The greeting does the moving; the light only hovers gently under it.
-    PipState.greet => since < pipGreetLength ? PipPose(offset: fireflyHover(seconds, landed: true)) : _resting(seconds),
+    PipState.greet => since < pipGreetLength ? PipPose(offset: fireflyHover(seconds, landed: true)) : rest(seconds),
   };
   if (blinking) p = _with(p, blink: 0.55 + 0.45 * math.cos(seconds * 2 * math.pi * 2.5));
   if (dim) p = _cantSee(p, seconds);
@@ -117,14 +120,15 @@ PipPose _searching(double s) {
   );
 }
 
-PipPose _resting(double s) {
+PipPose _resting(double s, {bool flat = true}) {
   // A soft glow every 5 s, over a dimmer base.
   final ph = (s % 5) / 5;
   final glow = ph < 0.2 ? math.sin(ph / 0.2 * math.pi) : 0.0;
   return PipPose(
     offset: fireflyHover(s, landed: true),
-    stretch: 1.1, // across: sits flatter
-    squash: 0.9,
+    // The dot sits a little flatter; the character stays round.
+    stretch: flat ? 1.1 : 1,
+    squash: flat ? 0.9 : 1,
     blink: 0.7 + 0.3 * glow,
   );
 }

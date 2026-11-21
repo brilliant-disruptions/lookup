@@ -146,6 +146,9 @@ class _PipMarkState extends State<PipMark> with SingleTickerProviderStateMixin {
 /// How long a [PipMark.flyFrom] flight takes.
 const pipFlight = 0.9;
 
+/// When the character's found-it ring has faded away (seconds).
+const pipFoundRingFade = 1.1;
+
 class PipMarkPainter extends CustomPainter {
   PipMarkPainter({
     required this.state,
@@ -173,7 +176,7 @@ class PipMarkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final scale = size.shortestSide / 48;
     final home = size.center(Offset.zero);
-    var pose = pipPose(state, seconds, since: sinceState, dim: dim, blinking: blinking, still: still);
+    var pose = pipPose(state, seconds, since: sinceState, dim: dim, blinking: blinking, still: still, character: !asDot);
     var at = home + pose.offset * scale;
     final from = flyFrom;
     final f = sinceFlew;
@@ -186,9 +189,17 @@ class PipMarkPainter extends CustomPainter {
         paintSparkTrail(canvas, fireflyCurl(at, start), scale: scale, strength: 1 - k);
       }
     }
-    // The lock ring and burst when it's found something.
+    // The lock ring and burst when it's found something. Marking a spot (the
+    // dot) the ring stays; the character only flashes it, then it fades.
     if (state == PipState.found && !dim) {
-      paintFireflyLanding(canvas, home, still ? 1 : sinceState, scale: scale * 0.9);
+      if (asDot) {
+        paintFireflyLanding(canvas, home, still ? 1 : sinceState, scale: scale * 0.9);
+      } else if (!still && sinceState < pipFoundRingFade) {
+        final fade = (1 - (sinceState - 0.6) / (pipFoundRingFade - 0.6)).clamp(0.0, 1.0);
+        canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, fade));
+        paintFireflyLanding(canvas, home, sinceState, scale: scale * 0.9);
+        canvas.restore();
+      }
     }
     final s = scale * pose.size;
     final greeting = state == PipState.greet && sinceState < pipGreetLength;

@@ -1,6 +1,9 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lookup/ui/kit/pip_mark.dart' show PipMarkPainter;
 import 'package:lookup/ui/kit/pip_motion.dart';
 
 void main() {
@@ -272,6 +275,38 @@ void main() {
         expect(g.lookX, 0);
         expect(g.size, 1);
       }
+    });
+  });
+
+  group('round at rest, no ring left behind', () {
+    test('the character stays round after a hello or a landing; only the dot sits flatter', () {
+      for (final st in [PipState.resting, PipState.greet, PipState.found, PipState.hello]) {
+        final p = pipPose(st, 12, since: 30, character: true);
+        expect((p.stretch, p.squash), (1.0, 1.0), reason: '$st');
+      }
+      expect(pipPose(PipState.resting, 12).stretch, greaterThan(1), reason: 'the dot marking a spot');
+    });
+
+    Future<ui.Image> paintMark({required bool asDot, required double since}) async {
+      final rec = ui.PictureRecorder();
+      PipMarkPainter(state: PipState.found, seconds: 12, sinceState: since, asDot: asDot)
+          .paint(ui.Canvas(rec), const ui.Size(96, 96));
+      return rec.endRecording().toImage(96, 96);
+    }
+
+    Future<int> ringAlpha(ui.Image img) async {
+      // On the ring, straight below the middle (radius 18 × scale 2 × 0.9).
+      final d = (await img.toByteData())!;
+      final i = ((48 + 32) * 96 + 48) * 4;
+      return d.getUint8(i + 3);
+    }
+
+    test('the character\'s found-it ring flashes, then fades away; marking a spot it stays', () async {
+      final flash = await ringAlpha(await paintMark(asDot: false, since: 0.45));
+      final later = await ringAlpha(await paintMark(asDot: false, since: 5));
+      final dot = await ringAlpha(await paintMark(asDot: true, since: 5));
+      expect(flash, greaterThan(later + 80), reason: 'the ring is there just after landing');
+      expect(dot, greaterThan(later + 80), reason: 'the dot keeps its lock ring');
     });
   });
 }
