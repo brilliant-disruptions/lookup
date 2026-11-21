@@ -215,8 +215,7 @@ class FloatingTabBar extends StatelessWidget {
   final int index;
   final ValueChanged<int> onSelect;
 
-  /// The capsule's last slot, on the right (Pip): inside the bar, not
-  /// beside it, so it takes no more room than a tab.
+  /// Sits beside the capsule on the right as its own round button (Pip).
   final Widget? trailing;
 
   @override
@@ -225,7 +224,10 @@ class FloatingTabBar extends StatelessWidget {
         minimum: const EdgeInsets.only(bottom: 10),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _capsule(),
+          child: Row(children: [
+            Expanded(child: _capsule()),
+            if (trailing case final t?) ...[const SizedBox(width: 10), t],
+          ]),
         ),
       );
 
@@ -282,7 +284,6 @@ class FloatingTabBar extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (trailing case final t?) ...[const SizedBox(width: 4), t],
                 ]),
               ),
             ),

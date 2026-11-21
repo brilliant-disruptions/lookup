@@ -17,9 +17,8 @@ import 'pip_motion.dart';
 const _ink = Color(0xFF0B1328);
 
 /// Paints Pip at [at] as [g] has it. [blink] and [scale] are as for
-/// [paintFirefly]; [scale] 1 is a 48-pixel Pip. [glow] scales the halo
-/// round it: less where Pip sits in a small slot (the tab bar).
-void paintPipGreeting(Canvas canvas, Offset at, PipGreeting g, {double blink = 0.75, double scale = 1, double glow = 1}) {
+/// [paintFirefly]; [scale] 1 is a 48-pixel Pip.
+void paintPipGreeting(Canvas canvas, Offset at, PipGreeting g, {double blink = 0.75, double scale = 1}) {
   if (g.dot) {
     paintFirefly(canvas, at, blink: blink, scale: scale);
     return;
@@ -39,10 +38,10 @@ void paintPipGreeting(Canvas canvas, Offset at, PipGreeting g, {double blink = 0
   final r = (4.5 + 5.5 * grown) * scale * g.size;
   canvas.drawCircle(
       at,
-      r + 22 * scale * glow,
+      r + 22 * scale,
       Paint()
-        ..color = fireflyGlow.withValues(alpha: (0.18 + 0.28 * blink) * glow)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 * scale * glow));
+        ..color = fireflyGlow.withValues(alpha: 0.18 + 0.28 * blink)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 * scale));
 
   // The body: round, or wobbling like water.
   final body = Path();

@@ -1,6 +1,4 @@
-/// Pip at the right end of the tab bar, in a slot the size of a tab: the
-/// way into the camera from anywhere in the app. Its glow stays inside the
-/// slot, so it never spills over the page.
+/// Pip beside the tab bar: the way into the camera from anywhere in the app.
 /// It sits there as the character (breathing, glancing, blinking), says hi
 /// now and then (a ripple and a droplet), squishes when touched, and a tap
 /// opens the live sky through the camera, where it becomes the dot that
@@ -21,12 +19,12 @@ final pipCameHome = ValueNotifier<int>(0);
 
 /// Where the button's centre is on a [screen]-sized view with [padding], as
 /// an offset from the centre (x right, y down): Pip flies out from here when
-/// the camera opens and back here when it closes. It's the last slot of
-/// [FloatingTabBar]'s capsule: 16 in from the screen's edge plus the
-/// capsule's 5 of padding, and the bar's bottom inset is at least 10.
+/// the camera opens and back here when it closes. It sits 16 in from the
+/// right, on the tab bar's row ([FloatingTabBar]'s bottom inset is at least
+/// 10).
 ({double x, double y}) pipHomeOffset(Size screen, EdgeInsets padding) => (
-      x: screen.width / 2 - 16 - 5 - PipButton.size / 2,
-      y: screen.height / 2 - (padding.bottom < 10 ? 10 : padding.bottom) - 5 - PipButton.size / 2,
+      x: screen.width / 2 - 16 - PipButton.size / 2,
+      y: screen.height / 2 - (padding.bottom < 10 ? 10 : padding.bottom) - PipButton.size / 2,
     );
 
 class PipButton extends StatefulWidget {
@@ -37,8 +35,7 @@ class PipButton extends StatefulWidget {
   /// How often Pip says hi on its own while it's on screen; null never.
   final Duration? waveEvery;
 
-  /// As tall as a tab.
-  static const size = 54.0;
+  static const size = 64.0;
 
   @override
   State<PipButton> createState() => _PipButtonState();
@@ -102,25 +99,21 @@ class _PipButtonState extends State<PipButton> {
             HapticFeedback.selectionClick();
             _wave();
           },
-          child: SizedBox.square(
-            dimension: PipButton.size,
-            // The glow stays in its slot; the ripple of a hello is cut at
-            // the edge, which reads as the slot lighting up.
-            child: ClipOval(
-              child: ColoredBox(
-                color: LookUpColors.good.withValues(alpha: 0.07),
-                child: OverflowBox(
-                  maxWidth: 96,
-                  maxHeight: 96,
-                  child: PipMark(
-                    size: 52,
-                    glow: 0.4,
-                    state: _state,
-                    replay: _replay,
-                    poke: _pokes,
-                  ),
-                ),
-              ),
+          child: Container(
+            width: PipButton.size,
+            height: PipButton.size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: LookUpColors.panelRaised.withValues(alpha: 0.96),
+              border: Border.all(color: LookUpColors.line),
+              boxShadow: const [BoxShadow(color: Color(0x80000000), blurRadius: 30, offset: Offset(0, 10))],
+            ),
+            alignment: Alignment.center,
+            child: PipMark(
+              size: 60,
+              state: _state,
+              replay: _replay,
+              poke: _pokes,
             ),
           ),
         ),

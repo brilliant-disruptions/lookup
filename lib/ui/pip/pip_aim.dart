@@ -65,7 +65,7 @@ class PipAim extends StatefulWidget {
     this.ringRadius = 44,
     this.launchFrom,
     this.homeward = false,
-    this.homeScale = 52 / 48,
+    this.homeScale = 1.25,
   });
 
   final PipMode mode;
@@ -305,7 +305,7 @@ class _PipPainter extends CustomPainter {
       required this.sinceLanded,
       this.character = 0,
       this.seconds = 0,
-      this.homeScale = 52 / 48,
+      this.homeScale = 1.25,
       this.look = (x: 0, y: 0)});
   final Offset at;
   final ({double radius, bool on})? ring;
