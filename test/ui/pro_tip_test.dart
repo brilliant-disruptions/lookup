@@ -5,6 +5,7 @@ import 'package:lookup/domain/log/sighting.dart';
 import 'package:lookup/domain/log/sky_log.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/models/sky_event.dart';
+import 'package:lookup/domain/plus/nudges.dart';
 import 'package:lookup/services/plus_service.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/ui/caught_it_screen.dart';
@@ -54,7 +55,7 @@ class _FakePlus implements PlusService {
 
 late ProviderContainer _c;
 
-Future<void> _mount(WidgetTester t, SkyEvent caught, {bool isPlus = false, int earlier = 2, DateTime? shownAt, int notNow = 0}) async {
+Future<void> _mount(WidgetTester t, SkyEvent caught, {bool isPlus = false, int earlier = 2, DateTime? shownAt, int notNow = 0, SoftAsk? session}) async {
   t.view.physicalSize = const Size(1179, 4000);
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
@@ -73,6 +74,7 @@ Future<void> _mount(WidgetTester t, SkyEvent caught, {bool isPlus = false, int e
   ]);
   addTearDown(_c.dispose);
   await _c.read(settingsProvider.future);
+  if (session != null) _c.read(softAskSessionProvider.notifier).claim(session);
   await t.pumpWidget(UncontrolledProviderScope(
     container: _c,
     child: MaterialApp(theme: buildLookUpTheme(), home: CaughtItScreen(event: caught, animate: false)),
@@ -117,5 +119,11 @@ void main() {
       expect(find.byKey(const Key('pro-tip')), findsNothing, reason: what);
       await t.pumpWidget(const SizedBox());
     }
+  });
+
+  testWidgets('quiet when Home\'s card already had this session, or in the first two days', (t) async {
+    await _mount(t, _saturn, session: SoftAsk.missedIt);
+    expect(find.byKey(const Key('pro-tip')), findsNothing);
+    await t.pumpWidget(const SizedBox());
   });
 }

@@ -24,6 +24,7 @@ import '../../domain/sky/direction.dart';
 import '../../domain/sky/wmm.dart';
 import '../../services/orientation.dart';
 import '../../services/photo_store.dart';
+import '../../domain/plus/free_plan.dart';
 import '../../state/providers.dart';
 import '../../state/sky_state.dart';
 import '../caught_it_screen.dart';
@@ -208,12 +209,15 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
       if (!mounted) return;
       if (shot == null || still == null) return say('Couldn\'t take the picture.');
       final now = DateTime.now();
+      final settings = ref.read(settingsProvider).value;
       final png = await composeSkyPicture(
         photo: shot,
         screen: MediaQuery.sizeOf(context),
         overlay: still(),
         title: c?.name ?? 'The night sky',
         line: '${fmtDay(now.toUtc())} · ${fmtTime(now.toUtc())}${place == null ? '' : ' · $place'}',
+        // Always on free; LookUp+ can turn it off in Settings.
+        caption: FreePlan.caption(isPlus: settings?.isPlus ?? false, wanted: settings?.photoCaption ?? true),
       );
       if (!mounted) return;
       if (png == null) return say('Couldn\'t take the picture.');

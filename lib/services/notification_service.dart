@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -332,4 +333,28 @@ class NotificationService {
           notificationDetails: detailsFor(kind), payload: payload);
 
   Future<void> cancelAll() => _plugin.cancelAll();
+
+  /// The one trial reminder's id: far from the hashed alert ids.
+  static const trialReminderId = 2147480001;
+
+  /// "Your LookUp+ trial ends in 2 days", at [at] (domain/plus/trial_reminder.dart).
+  /// On its own quiet channel: it's about the account, not the sky, so no
+  /// chime and not time-sensitive.
+  Future<void> scheduleTrialReminder(DateTime at, {required DateTime ends, required bool iOS}) async {
+    await ensureTimeZone();
+    final store = iOS ? 'App Store' : 'Google Play';
+    final day = DateFormat('EEEE').format(ends.toLocal());
+    await _plugin.zonedSchedule(
+      id: trialReminderId,
+      title: 'Your LookUp+ trial ends in 2 days',
+      body: 'Keep it and nothing changes. To stop, cancel in your $store subscriptions before $day.',
+      scheduledDate: tz.TZDateTime.from(at, tz.local),
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails('lookup_account', 'Your LookUp+',
+            channelDescription: 'A reminder before a free trial ends', importance: Importance.defaultImportance),
+        iOS: DarwinNotificationDetails(presentAlert: true, presentBanner: true, presentSound: false),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
 }

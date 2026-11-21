@@ -100,6 +100,11 @@ class LookUpSettings {
     this.onboardedAt,
     this.proNudgeAt,
     this.proNudgeNotNow = 0,
+    this.plusDeclines = 0,
+    this.trialOfferShown = false,
+    this.missedItId,
+    this.missedItAt,
+    this.photoCaption = true,
     this.firstBadgeShown = false,
     this.nerdMode = false,
     this.miles,
@@ -177,6 +182,21 @@ class LookUpSettings {
   /// times they've said "Not now" (`domain/plus/pro_nudge.dart`).
   final DateTime? proNudgeAt;
   final int proNudgeNotNow;
+
+  /// Soft LookUp+ asks turned down ("Not now", or the offer closed without
+  /// a trial). Two and they stop (domain/plus/nudges.dart).
+  final int plusDeclines;
+
+  /// The one-time trial offer at the end of onboarding has been shown.
+  final bool trialOfferShown;
+
+  /// The last "You missed it" (domain/plus/missed_it.dart): which, and when.
+  final String? missedItId;
+  final DateTime? missedItAt;
+
+  /// The "LookUp" caption along the foot of photos. Only LookUp+ can turn
+  /// it off ([PlusFeature.noCaption]).
+  final bool photoCaption;
 
   /// The first badge has had its moment on screen (once, after onboarding).
   final bool firstBadgeShown;
@@ -286,6 +306,11 @@ class LookUpSettings {
     DateTime? onboardedAt,
     DateTime? proNudgeAt,
     int? proNudgeNotNow,
+    int? plusDeclines,
+    bool? trialOfferShown,
+    String? missedItId,
+    DateTime? missedItAt,
+    bool? photoCaption,
     bool? firstBadgeShown,
     bool? nerdMode,
     bool? miles,
@@ -337,6 +362,11 @@ class LookUpSettings {
         onboardedAt: onboardedAt ?? this.onboardedAt,
         proNudgeAt: proNudgeAt ?? this.proNudgeAt,
         proNudgeNotNow: proNudgeNotNow ?? this.proNudgeNotNow,
+        plusDeclines: plusDeclines ?? this.plusDeclines,
+        trialOfferShown: trialOfferShown ?? this.trialOfferShown,
+        missedItId: missedItId ?? this.missedItId,
+        missedItAt: missedItAt ?? this.missedItAt,
+        photoCaption: photoCaption ?? this.photoCaption,
         firstBadgeShown: firstBadgeShown ?? this.firstBadgeShown,
         nerdMode: nerdMode ?? this.nerdMode,
         miles: miles ?? this.miles,
@@ -388,6 +418,11 @@ class LookUpSettings {
         if (onboardedAt != null) 'onboardedAt': onboardedAt!.toIso8601String(),
         if (proNudgeAt != null) 'proNudgeAt': proNudgeAt!.toIso8601String(),
         if (proNudgeNotNow > 0) 'proNudgeNotNow': proNudgeNotNow,
+        if (plusDeclines > 0) 'plusDeclines': plusDeclines,
+        if (trialOfferShown) 'trialOfferShown': true,
+        if (missedItId != null) 'missedItId': missedItId,
+        if (missedItAt != null) 'missedItAt': missedItAt!.toIso8601String(),
+        if (!photoCaption) 'photoCaption': false,
         'firstBadgeShown': firstBadgeShown,
         'nerdMode': nerdMode,
         if (miles != null) 'miles': miles,
@@ -451,6 +486,11 @@ class LookUpSettings {
       onboardedAt: DateTime.tryParse(j['onboardedAt'] as String? ?? '')?.toUtc(),
       proNudgeAt: DateTime.tryParse(j['proNudgeAt'] as String? ?? '')?.toUtc(),
       proNudgeNotNow: (j['proNudgeNotNow'] as num?)?.toInt() ?? 0,
+      plusDeclines: (j['plusDeclines'] as num?)?.toInt() ?? 0,
+      trialOfferShown: j['trialOfferShown'] as bool? ?? false,
+      missedItId: j['missedItId'] as String?,
+      missedItAt: DateTime.tryParse(j['missedItAt'] as String? ?? '')?.toUtc(),
+      photoCaption: j['photoCaption'] as bool? ?? true,
       firstBadgeShown: j['firstBadgeShown'] as bool? ?? d.firstBadgeShown,
       nerdMode: j['nerdMode'] as bool? ?? d.nerdMode,
       miles: j['miles'] as bool?,

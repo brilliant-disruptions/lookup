@@ -9,14 +9,15 @@ import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/photo/shot_plan.dart' show ShotSubject, subjectForEvent;
 import '../domain/plus/free_plan.dart' show PlusFeature;
+import '../domain/plus/nudges.dart';
 import '../domain/plus/pro_nudge.dart';
 import '../services/widget_service.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'format.dart';
 import 'kit/kit.dart';
-import 'paywall_sheet.dart';
 import 'share_card.dart';
+import 'soft_asks.dart';
 import 'theme.dart';
 
 /// The moment someone says "Yes, I saw it". It used to be one line on the
@@ -172,10 +173,9 @@ class CaughtItScreen extends ConsumerWidget {
                                 ),
                               ),
                             ],
-                            if (m.nextPlus != null) ...[const SizedBox(height: 14), Rise(index: 5, child: _PlusCard(event: m.nextPlus!))],
-                            // One offer per moment: the Pro camera only when there's no sight to offer.
-                            if (subjectForEvent(event.type) case final subject? when m.nextPlus == null && !demo)
-                              _ProTip(subject: subject, catches: m.nth),
+                            // One offer per moment, within the shared budget: a dated sight
+                            // free won't tap them for, else what the Pro camera would do.
+                            if (!demo) _CaughtAsk(nextPlus: m.nextPlus, subject: subjectForEvent(event.type), catches: m.nth),
                           ],
                         ],
                       ),
@@ -453,11 +453,11 @@ class _NextCard extends StatelessWidget {
 }
 
 /// The one LookUp+ offer: a real, dated Plus-only sight free won't tap for.
-class _PlusCard extends StatelessWidget {
+class _PlusCard extends ConsumerWidget {
   const _PlusCard({required this.event});
   final SkyEvent event;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tint = eventStyle(event.type, details: event.details).color;
     return GlassCard(
       tint: tint,
@@ -487,7 +487,7 @@ class _PlusCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           OutlinedButton(
-            onPressed: () => showPaywall(context, reason: event),
+            onPressed: () => openSoftPaywall(context, ref, reason: event),
             style: OutlinedButton.styleFrom(
               foregroundColor: LookUpColors.white,
               side: BorderSide(color: tint.withValues(alpha: 0.6)),
@@ -500,43 +500,57 @@ class _PlusCard extends StatelessWidget {
   }
 }
 
-/// The Pro camera, mentioned once in a while after a catch: one line on what
-/// it would have done for this, a way to see it, and "Not now". Whether it
-/// shows is decided once, when the screen opens (domain/plus/pro_nudge.dart),
-/// and showing it is remembered, so it's at most once a week.
-class _ProTip extends ConsumerStatefulWidget {
-  const _ProTip({required this.subject, required this.catches});
-  final ShotSubject subject;
+/// After a catch, at most one LookUp+ offer, decided once when the screen
+/// opens and held to the shared budget (domain/plus/nudges.dart): a dated
+/// Plus-only sight coming over them, else the Pro camera line
+/// (domain/plus/pro_nudge.dart: never the first catch, never a pass, weekly,
+/// never after two "Not now"s). Showing the Pro line is remembered.
+class _CaughtAsk extends ConsumerStatefulWidget {
+  const _CaughtAsk({required this.nextPlus, required this.subject, required this.catches});
+  final SkyEvent? nextPlus;
+  final ShotSubject? subject;
   final int catches;
   @override
-  ConsumerState<_ProTip> createState() => _ProTipState();
+  ConsumerState<_CaughtAsk> createState() => _CaughtAskState();
 }
 
-class _ProTipState extends ConsumerState<_ProTip> {
-  late bool _show;
+class _CaughtAskState extends ConsumerState<_CaughtAsk> {
+  SoftAsk? _ask;
+  bool _show = false;
 
   @override
   void initState() {
     super.initState();
     final s = ref.read(settingsProvider).value;
-    _show = s != null &&
-        showProNudge(
-          isPlus: s.isPlus,
-          subject: widget.subject,
-          catches: widget.catches,
-          now: DateTime.now(),
-          lastShown: s.proNudgeAt,
-          notNow: s.proNudgeNotNow,
-        );
-    if (_show) {
+    if (s == null) return;
+    final now = DateTime.now();
+    if (widget.nextPlus != null && softAskAllowed(ref, SoftAsk.caughtSight, s, now: now)) {
+      _ask = SoftAsk.caughtSight;
+    } else if (widget.subject case final subject?
+        when softAskAllowed(ref, SoftAsk.proTip, s, now: now) &&
+            showProNudge(
+              isPlus: s.isPlus,
+              subject: subject,
+              catches: widget.catches,
+              now: now,
+              lastShown: s.proNudgeAt,
+              notNow: s.proNudgeNotNow,
+            )) {
+      _ask = SoftAsk.proTip;
       WidgetsBinding.instance.addPostFrameCallback(
           (_) => ref.read(settingsProvider.notifier).edit((s) => s.copyWith(proNudgeAt: DateTime.now().toUtc())));
     }
+    _show = _ask != null;
+    if (_ask case final a?) claimSoftAsk(ref, a);
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_show) return const SizedBox.shrink();
+    if (_ask == SoftAsk.caughtSight) {
+      return Padding(padding: const EdgeInsets.only(top: 14), child: Rise(index: 5, child: _PlusCard(event: widget.nextPlus!)));
+    }
+    final subject = widget.subject!;
     return Padding(
       key: const Key('pro-tip'),
       padding: const EdgeInsets.only(top: 14),
@@ -554,7 +568,7 @@ class _ProTipState extends ConsumerState<_ProTip> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(proNudgeLine(widget.subject),
+                child: Text(proNudgeLine(subject),
                     style: const TextStyle(fontSize: 14, color: LookUpColors.grey, height: 1.35)),
               ),
             ]),
@@ -565,13 +579,14 @@ class _ProTipState extends ConsumerState<_ProTip> {
                 onPressed: () {
                   setState(() => _show = false);
                   ref.read(settingsProvider.notifier).edit((s) => s.copyWith(proNudgeNotNow: s.proNudgeNotNow + 1));
+                  declineSoftAsk(ref);
                 },
                 style: TextButton.styleFrom(foregroundColor: LookUpColors.grey),
                 child: const Text('Not now'),
               ),
               TextButton(
                 key: const Key('pro-tip-see'),
-                onPressed: () => showPaywall(context, feature: PlusFeature.camera),
+                onPressed: () => openSoftPaywall(context, ref, feature: PlusFeature.camera),
                 child: const Text('See the Pro camera'),
               ),
             ]),

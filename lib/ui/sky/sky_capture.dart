@@ -21,6 +21,7 @@ Future<Uint8List?> composeSkyPicture({
   required CustomPainter overlay,
   required String title,
   required String line,
+  bool caption = true,
 }) async {
   final ui.Image img;
   try {
@@ -48,7 +49,7 @@ Future<Uint8List?> composeSkyPicture({
   overlay.paint(c, screen);
   c.restore();
 
-  paintCaption(c, out, title, line);
+  if (caption) paintCaption(c, out, title, line);
   final picture = await rec.endRecording().toImage(out.width.round(), out.height.round());
   final bytes = await picture.toByteData(format: ui.ImageByteFormat.png);
   return bytes?.buffer.asUint8List();
@@ -79,15 +80,17 @@ void paintCaption(Canvas c, Size size, String title, String line) {
   text('LookUp', Offset(w - unit, h - unit * 1.9), unit * 0.8, FontWeight.w700, const Color(0xCCFFFFFF), right: true);
 }
 
-/// [rgba] ([width]×[height]) with the caption along its foot, as PNG.
-Future<Uint8List?> captionedPng(Uint8List rgba, int width, int height, {required String title, required String line}) async {
+/// [rgba] ([width]×[height]) with the caption along its foot (unless
+/// [caption] is off: LookUp+ only), as PNG.
+Future<Uint8List?> captionedPng(Uint8List rgba, int width, int height,
+    {required String title, required String line, bool caption = true}) async {
   final buffer = await ui.ImmutableBuffer.fromUint8List(rgba);
   final desc = ui.ImageDescriptor.raw(buffer, width: width, height: height, pixelFormat: ui.PixelFormat.rgba8888);
   final img = (await (await desc.instantiateCodec()).getNextFrame()).image;
   final rec = ui.PictureRecorder();
   final c = Canvas(rec);
   c.drawImage(img, Offset.zero, Paint());
-  paintCaption(c, Size(width.toDouble(), height.toDouble()), title, line);
+  if (caption) paintCaption(c, Size(width.toDouble(), height.toDouble()), title, line);
   final out = await rec.endRecording().toImage(width, height);
   final bytes = await out.toByteData(format: ui.ImageByteFormat.png);
   return bytes?.buffer.asUint8List();

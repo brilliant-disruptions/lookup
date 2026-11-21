@@ -12,6 +12,7 @@ import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'places_screen.dart';
 import 'settings_screen.dart';
+import 'soft_asks.dart';
 import 'theme.dart';
 import 'tour.dart';
 import 'verdict_card.dart';
@@ -67,6 +68,8 @@ class NowScreen extends ConsumerWidget {
                   ),
                 ),
                 if (!d.needsLocation && !d.noData) ..._comingUp(context, ref, d),
+                // At most one soft LookUp+ ask, by the shared budget; usually nothing.
+                if (!d.needsLocation && !d.noData) HomeAsk(home: d),
                 if (d.errors.isNotEmpty && !d.needsLocation)
                   const Padding(
                     padding: EdgeInsets.only(top: 20),

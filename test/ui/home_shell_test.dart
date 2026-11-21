@@ -23,6 +23,7 @@ import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/year_card.dart';
 import 'package:lookup/services/notification_service.dart' show AlertAction;
 import 'package:lookup/ui/finder_screen.dart';
+import 'package:lookup/ui/paywall_sheet.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -167,6 +168,43 @@ void main() {
     await t.tap(find.byTooltip('Settings'));
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
     expect(find.text('What to tell me about'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(minutes: 1));
+  });
+
+  testWidgets('Explore: a week either side is free; further, and the locked famous nights, ask for LookUp+', (t) async {
+    await pump(t);
+    await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Explore')));
+    await t.pump(const Duration(seconds: 1));
+    await t.pump();
+    final forward = find.widgetWithIcon(TextButton, Icons.chevron_right_rounded);
+    await t.scrollUntilVisible(forward, 200,
+        scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+    // The strip moves as the night changes, so press the button itself.
+    void dayOn() => t.widget<TextButton>(forward).onPressed!();
+    for (var i = 0; i < 7; i++) {
+      dayOn();
+      await t.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.byType(PaywallSheet), findsNothing, reason: 'a week ahead is free');
+    dayOn();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
+    expect(find.byType(PaywallSheet), findsOneWidget, reason: 'the eighth day is LookUp+');
+    expect(find.textContaining('Go to any night from 3000 BC'), findsOneWidget);
+    Navigator.of(t.element(find.byType(PaywallSheet))).pop();
+    await t.pump(const Duration(milliseconds: 600));
+
+    t.widget<TextButton>(find.widgetWithText(TextButton, 'Any night')).onPressed!();
+    await t.pump(const Duration(milliseconds: 600));
+    final titanic = find.widgetWithText(ListRow, 'The night the Titanic struck');
+    expect(find.descendant(of: titanic, matching: find.text('LookUp+')), findsOneWidget);
+    expect(find.descendant(of: find.widgetWithText(ListRow, 'The first step on the Moon'), matching: find.text('LookUp+')), findsNothing,
+        reason: 'Apollo 11 is one of the free famous nights');
+    t.widget<ListRow>(titanic).onTap!();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
+    expect(find.byType(PaywallSheet), findsOneWidget);
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
   });

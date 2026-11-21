@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/sky_event.dart';
 import '../../domain/plan/night_plan.dart';
+import '../../domain/plus/free_plan.dart';
 import '../../domain/sky/calendar.dart';
 import '../../domain/sky/catalog.dart';
 import '../../domain/sky/history.dart';
@@ -11,6 +12,7 @@ import '../../state/providers.dart';
 import '../../state/sky_state.dart';
 import '../format.dart';
 import '../look_sheet.dart';
+import '../paywall_sheet.dart';
 import '../kit/kit.dart';
 import '../places_screen.dart';
 import '../settings_screen.dart';
@@ -73,12 +75,25 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
   void _step(DateTime now, int days) {
     final to = (_anchor ?? now.toUtc()).add(Duration(days: days));
     if (to.isBefore(skyTimeFirst) || to.isAfter(skyTimeLast)) return;
+    // Free goes a week either side of now (FreePlan.canVisit); past that is
+    // LookUp+, asked for here because they chose to go further.
+    if (!FreePlan.canVisit(to, DateTime.now(), isPlus: hasPlus(context))) {
+      showPaywall(context, feature: PlusFeature.history);
+      return;
+    }
     setState(() => _anchor = to);
   }
 
   Future<void> _travel(DateTime at, double lon) async {
-    final go = await showTimeTravelSheet(context, at: at, lonDeg: lon);
+    final plus = hasPlus(context);
+    final go = await showTimeTravelSheet(context, at: at, lonDeg: lon, isPlus: plus);
     if (go == null || !mounted) return;
+    final n = go.night;
+    final free = n != null ? FreePlan.canVisitFamous(n.id, isPlus: plus) : FreePlan.canVisit(go.utc, DateTime.now(), isPlus: plus);
+    if (!free) {
+      await showPaywall(context, feature: PlusFeature.history);
+      return;
+    }
     setState(() {
       _night = go.night;
       _minutes = 0;

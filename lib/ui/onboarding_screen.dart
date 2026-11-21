@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/providers.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/plus/plus_preview.dart';
 import 'format.dart';
 import 'intro_scene.dart';
 import 'kit/kit.dart';
+import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
 
@@ -22,7 +24,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingScreen> createState() => _OnboardingState();
 }
 
-enum _Step { intro, noLocation, looking, sights, ask }
+enum _Step { intro, noLocation, looking, sights, ask, offer }
 
 class _OnboardingState extends ConsumerState<OnboardingScreen> {
   _Step _step = _Step.intro;
@@ -92,7 +94,36 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
       }
     }
     if (!mounted) return;
-    await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(onboarded: true, onboardedAt: DateTime.now().toUtc()));
+    // Once, and never to someone who already has LookUp+: what LookUp+ would
+    // tap them for. Most trials start on day one; this is that moment.
+    final s = await ref.read(settingsProvider.future);
+    if (!s.isPlus && !s.trialOfferShown) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _step = _Step.offer;
+        });
+      }
+      return;
+    }
+    await _done();
+  }
+
+  Future<void> _done() => ref
+      .read(settingsProvider.notifier)
+      .edit((s) => s.copyWith(onboarded: true, onboardedAt: DateTime.now().toUtc(), trialOfferShown: true));
+
+  /// The offer's two ways out: a trial (through the paywall), or "Not now",
+  /// which counts as a decline for the soft asks (domain/plus/nudges.dart).
+  Future<void> _offer({required bool tryIt}) async {
+    if (tryIt) {
+      await showPaywall(context, headline: 'Every tap, for everything up there. Free for 7 days.');
+      if (!mounted) return;
+    }
+    if (!(ref.read(settingsProvider).value?.isPlus ?? false)) {
+      await ref.read(settingsProvider.notifier).edit((s) => s.copyWith(plusDeclines: s.plusDeclines + 1));
+    }
+    await _done();
   }
 
   @override
@@ -103,6 +134,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
           looking: _step == _Step.looking, onContinue: () => setState(() => _step = _Step.ask));
     }
     if (_step == _Step.ask) return _AskPage(busy: _busy, onFinish: _finish);
+    if (_step == _Step.offer) return _OfferPage(onTry: () => _offer(tryIt: true), onNotNow: () => _offer(tryIt: false));
     return Scaffold(
       body: SkyBackdrop(
         stars: false,
@@ -388,4 +420,101 @@ class _AskPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The one-time LookUp+ offer at the end of setting up: the real taps it
+/// would send over them this month (or, before those are known, what it
+/// adds), a 7-day trial, and a plain "Not now". Never again after this.
+class _OfferPage extends ConsumerWidget {
+  const _OfferPage({required this.onTry, required this.onNotNow});
+  final VoidCallback onTry, onNotNow;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = PlusPreview.of(ref.watch(homeProvider).value?.events ?? const <SkyEvent>[], DateTime.now());
+    return Scaffold(
+      body: SkyBackdrop(
+        child: SafeArea(
+          child: _FillOrScroll(
+            child: Column(key: const Key('trial-offer'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Spacer(),
+              const Center(child: PipMark(size: 72)),
+              const SizedBox(height: 6),
+              Rise(index: 0, child: const Kicker('LookUp+', color: LookUpColors.blue)),
+              const SizedBox(height: 10),
+              Rise(
+                index: 1,
+                child: Text(
+                  p.count == 0 ? 'Want a tap for everything up there?' : 'There\'s more coming over you',
+                  style: display(32, weight: FontWeight.w700, height: 1.1),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                p.count == 0
+                    ? 'Free taps you for the space station, meteor showers and eclipses. LookUp+ adds the rest.'
+                    : 'Free taps you for the space station. ${p.count == 1 ? 'Here\'s one' : 'Here are ${p.count}'} it won\'t, this month:',
+                style: const TextStyle(color: LookUpColors.grey, height: 1.45),
+              ),
+              const SizedBox(height: 16),
+              Rise(
+                index: 2,
+                child: GlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  child: Column(children: [
+                    if (p.count > 0)
+                      for (final e in p.soonest)
+                        _OfferRow(glyph: EventGlyph.of(e, size: 34), title: eventTitle(e), line: '${fmtDay(e.start)}, ${fmtTime(e.start)}')
+                    else ...[
+                      _OfferRow(
+                          glyph: const EventGlyph(icon: Icons.waves_rounded, color: LookUpColors.good, size: 34),
+                          title: 'Aurora, the moment it\'s visible',
+                          line: 'Live alerts from here, not a forecast'),
+                      _OfferRow(
+                          glyph: const EventGlyph(icon: Icons.linear_scale_rounded, color: LookUpColors.violet, size: 34),
+                          title: 'Starlink trains and Tiangong',
+                          line: 'A tap before each one goes over'),
+                      _OfferRow(
+                          glyph: const EventGlyph(icon: Icons.near_me_rounded, color: LookUpColors.blue, size: 34),
+                          title: 'Where to go tonight',
+                          line: 'Clearer, darker skies near you'),
+                    ],
+                  ]),
+                ),
+              ),
+              const Spacer(flex: 2),
+              FilledButton(
+                key: const Key('trial-offer-try'),
+                onPressed: onTry,
+                child: const Text('Try 7 days free'),
+              ),
+              TextButton(key: const Key('trial-offer-not-now'), onPressed: onNotNow, child: const Text('Not now')),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OfferRow extends StatelessWidget {
+  const _OfferRow({required this.glyph, required this.title, required this.line});
+  final Widget glyph;
+  final String title, line;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(children: [
+          glyph,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              Text(line, style: const TextStyle(fontSize: 13, color: LookUpColors.grey)),
+            ]),
+          ),
+          const Icon(Icons.notifications_active_outlined, size: 18, color: LookUpColors.blue),
+        ]),
+      );
 }

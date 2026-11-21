@@ -487,7 +487,9 @@ class _ProCameraState extends ConsumerState<ProCameraScreen> {
     final s = ref.read(settingsProvider).value;
     final place = s?.placeName;
     final png = await captionedPng(rgba, width, height,
-        title: _title(widget.target.name), line: '${fmtDay(now)} · ${fmtTime(now)}${place == null ? '' : ' · $place'}');
+        title: _title(widget.target.name),
+        line: '${fmtDay(now)} · ${fmtTime(now)}${place == null ? '' : ' · $place'}',
+        caption: FreePlan.caption(isPlus: s?.isPlus ?? false, wanted: s?.photoCaption ?? true));
     if (png == null || !mounted) return _fail('Couldn\'t make the picture.');
     final e = widget.target.asEvent(now, _lat, _lon);
     final saved = await ref.read(photoLibraryProvider).save(png, name: 'LookUp-${now.millisecondsSinceEpoch}');

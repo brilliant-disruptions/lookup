@@ -5,6 +5,7 @@ library;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import '../../domain/plus/free_plan.dart';
 import '../../domain/sky/calendar.dart';
 import '../../domain/sky/history.dart';
 import '../kit/kit.dart';
@@ -17,18 +18,21 @@ final skyTimeLast = utcFromJulianDay(julianDay(3000, 12, 31));
 /// Where a visit takes the map: a famous night, or a moment at home.
 typedef TimeTravel = ({FamousNight? night, DateTime utc});
 
-Future<TimeTravel?> showTimeTravelSheet(BuildContext context, {required DateTime at, required double lonDeg}) =>
+/// [isPlus] marks what free can't visit (FreePlan.canVisit / canVisitFamous);
+/// the sky screen asks for LookUp+ if one is picked.
+Future<TimeTravel?> showTimeTravelSheet(BuildContext context, {required DateTime at, required double lonDeg, bool isPlus = true}) =>
     showModalBottomSheet<TimeTravel>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _TimeTravelSheet(at: at.toUtc(), lonDeg: lonDeg),
+      builder: (_) => _TimeTravelSheet(at: at.toUtc(), lonDeg: lonDeg, isPlus: isPlus),
     );
 
 class _TimeTravelSheet extends StatefulWidget {
-  const _TimeTravelSheet({required this.at, required this.lonDeg});
+  const _TimeTravelSheet({required this.at, required this.lonDeg, required this.isPlus});
   final DateTime at;
   final double lonDeg;
+  final bool isPlus;
   @override
   State<_TimeTravelSheet> createState() => _TimeTravelSheetState();
 }
@@ -125,11 +129,18 @@ class _TimeTravelSheetState extends State<_TimeTravelSheet> {
                   title: n.title,
                   subtitle: '${n.place} · ${HistoricDate.fromJulianDay(julianDay(n.year, n.month, n.day)).dateLabel}',
                   subtitleLines: 1,
+                  trailing: FreePlan.canVisitFamous(n.id, isPlus: widget.isPlus) ? null : const Pill('LookUp+', color: LookUpColors.blue),
                   onTap: () => Navigator.of(context).pop<TimeTravel>((night: n, utc: n.utc)),
                 ),
             ]),
             const SizedBox(height: 24),
             const Kicker('Or pick a date'),
+            if (!widget.isPlus)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('Free goes a week either side of tonight. LookUp+ goes anywhere from 3000 BC to 3000 AD.',
+                    style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4)),
+              ),
             const SizedBox(height: 10),
             Row(children: [
               Expanded(

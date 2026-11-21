@@ -31,6 +31,14 @@ enum PlusFeature {
   /// and timelapses that start and stop by themselves. Pip's quick catch
   /// (point, tap, logged) stays free: it's how anyone fills their Log.
   camera,
+
+  /// The sky through history: free goes a week either side of now and to a
+  /// few famous nights; LookUp+ goes anywhere from 3000 BC to 3000 AD.
+  history,
+
+  /// Photos without the "LookUp" caption along the foot. Free keeps it:
+  /// every shared catch says where it came from.
+  noCaption,
 }
 
 abstract final class FreePlan {
@@ -44,12 +52,26 @@ abstract final class FreePlan {
 
   static bool canAddPlace(int saved, {required bool isPlus}) => isPlus || saved < savedPlaces;
 
+  /// How far either side of now free can take the sky.
+  static const historyDays = 7;
+
+  /// The famous nights free can visit: one ancient, one science, one space.
+  static const freeFamousNights = {'giza', 'galileo', 'apollo11'};
+
+  static bool canVisit(DateTime utc, DateTime now, {required bool isPlus}) =>
+      isPlus || utc.toUtc().difference(now.toUtc()).abs() <= const Duration(days: historyDays);
+
+  static bool canVisitFamous(String id, {required bool isPlus}) => isPlus || freeFamousNights.contains(id);
+
+  /// Whether a photo gets the "LookUp" caption: always on free.
+  static bool caption({required bool isPlus, required bool wanted}) => !isPlus || wanted;
+
   /// Features that are all-or-nothing on free.
   static bool canUse(PlusFeature f, {required bool isPlus}) =>
       isPlus ||
       switch (f) {
-        PlusFeature.whereToGo || PlusFeature.transits || PlusFeature.alerts || PlusFeature.camera => false,
-        // Limited rather than locked; see canPlanNight / canAddPlace.
-        PlusFeature.planAhead || PlusFeature.places => true,
+        PlusFeature.whereToGo || PlusFeature.transits || PlusFeature.alerts || PlusFeature.camera || PlusFeature.noCaption => false,
+        // Limited rather than locked; see canPlanNight / canAddPlace / canVisit.
+        PlusFeature.planAhead || PlusFeature.places || PlusFeature.history => true,
       };
 }

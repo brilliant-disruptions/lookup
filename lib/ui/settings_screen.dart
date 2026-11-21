@@ -8,6 +8,7 @@ import '../domain/models/settings.dart';
 import '../domain/sky/skyglow.dart';
 import '../domain/sky/visibility.dart';
 import '../services/widget_service.dart';
+import '../domain/plus/free_plan.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'credits_screen.dart';
@@ -180,6 +181,18 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: (v) => set((s) => s.copyWith(nerdMode: v)),
             title: 'Nerd mode',
             subtitle: 'Degrees, magnitudes and sky coordinates beside the words',
+          ),
+          // On for everyone; only LookUp+ can turn it off (PlusFeature.noCaption).
+          _Switch(
+            key: const Key('photo-caption'),
+            icon: Icons.closed_caption_rounded,
+            color: LookUpColors.gold,
+            value: FreePlan.caption(isPlus: s.isPlus, wanted: s.photoCaption),
+            onChanged: (v) => s.isPlus ? set((s) => s.copyWith(photoCaption: v)) : showPaywall(context, feature: PlusFeature.noCaption),
+            title: 'Caption on photos',
+            subtitle: s.isPlus
+                ? 'What, when and where along the foot of each picture'
+                : 'What, when and where, and "LookUp". LookUp+ can turn it off.',
           ),
           _ScrollHere(
             when: focusNightVision,
@@ -433,6 +446,7 @@ class _Row extends StatelessWidget {
 
 class _Switch extends StatelessWidget {
   const _Switch({
+    super.key,
     required this.value,
     required this.onChanged,
     required this.title,

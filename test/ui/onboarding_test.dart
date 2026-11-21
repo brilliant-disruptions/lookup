@@ -14,9 +14,12 @@ import 'package:lookup/ui/kit/kit.dart';
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/theme.dart';
 
+/// What settings start as; the offer tests change it.
+var _start = const LookUpSettings();
+
 class _Settings extends SettingsNotifier {
   @override
-  Future<LookUpSettings> build() async => const LookUpSettings();
+  Future<LookUpSettings> build() async => _start;
   @override
   Future<void> edit(LookUpSettings Function(LookUpSettings) f) async =>
       state = AsyncData(f(state.value ?? await future));
@@ -171,9 +174,18 @@ void main() {
     await settle(t, 4);
     expect(notifications.asked, 1);
     expect(home.refreshes, 3); // alerts planned again now they can land
-    // No paywall in first run, even with a Plus-only train coming.
+    // Then, once, what LookUp+ would add: the real Plus-only train coming. An
+    // offer page, not the paywall: that only opens if they choose to try.
+    expect(find.byKey(const Key('trial-offer')), findsOneWidget);
+    expect(find.text('Starlink train'), findsOneWidget);
     expect(find.text('Restore purchases'), findsNothing);
-    expect(container.read(settingsProvider).value?.onboarded, isTrue);
+    expect(container.read(settingsProvider).value?.onboarded, isFalse);
+    await t.tap(find.byKey(const Key('trial-offer-not-now')));
+    await settle(t);
+    final s = container.read(settingsProvider).value!;
+    expect(s.onboarded, isTrue);
+    expect(s.trialOfferShown, isTrue, reason: 'once, never again');
+    expect(s.plusDeclines, 1, reason: '"Not now" counts toward the soft asks stopping');
     await t.pumpWidget(const SizedBox());
   });
 
@@ -291,7 +303,32 @@ void main() {
     await t.pump();
     await t.pump();
     expect(notifications.asked, 0);
+    await settle(t);
+    await t.tap(find.byKey(const Key('trial-offer-not-now')));
+    await settle(t);
     expect(container.read(settingsProvider).value?.onboarded, isTrue);
     await t.pumpWidget(const SizedBox());
   });
+
+  for (final (what, start) in [
+    ('LookUp+ already', const LookUpSettings(isPlus: true)),
+    ('already seen once', const LookUpSettings(trialOfferShown: true)),
+  ]) {
+    testWidgets('no trial offer: $what', (t) async {
+      _start = start;
+      addTearDown(() => _start = const LookUpSettings());
+      await pump(t, grantLocation: true);
+      await t.tap(find.text('Show me what\'s over me'));
+      await settle(t);
+      await t.tap(find.text('Continue'));
+      await settle(t, 4);
+      await t.tap(find.text('Not now'));
+      await t.pump();
+      await t.pump();
+      expect(find.byKey(const Key('trial-offer')), findsNothing);
+      expect(container.read(settingsProvider).value?.onboarded, isTrue);
+      expect(container.read(settingsProvider).value?.plusDeclines, 0);
+      await t.pumpWidget(const SizedBox());
+    });
+  }
 }

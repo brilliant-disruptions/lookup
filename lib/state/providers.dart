@@ -1,5 +1,6 @@
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,8 @@ import '../domain/log/sky_log.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
+import '../domain/plus/nudges.dart' show SoftAsk;
+import '../domain/plus/trial_reminder.dart';
 import '../domain/plus/plus_grant.dart';
 import '../domain/units.dart';
 import '../services/ambient_light.dart';
@@ -213,6 +216,18 @@ class AlertTaps extends Notifier<AlertTap?> {
 
 final alertTapProvider = NotifierProvider<AlertTaps, AlertTap?>(AlertTaps.new);
 
+/// The soft LookUp+ ask this app session has shown, if any: the budget in
+/// domain/plus/nudges.dart allows one per session, and this is that one.
+class SoftAskSession extends Notifier<SoftAsk?> {
+  @override
+  SoftAsk? build() => null;
+
+  /// Takes the slot, unless another ask already has it.
+  void claim(SoftAsk a) => state ??= a;
+}
+
+final softAskSessionProvider = NotifierProvider<SoftAskSession, SoftAsk?>(SoftAskSession.new);
+
 /// Store billing. What the store says flows into settings (isPlus and its
 /// end date, domain/plus/plus_grant.dart), and a change either way triggers
 /// a re-plan so Plus-only alerts are scheduled, or dropped, right away.
@@ -223,6 +238,16 @@ final plusServiceProvider = Provider<PlusService>((ref) {
       final before = await ref.read(settingsProvider.future);
       final after = PlusGrant.apply(before, news, now);
       if (identical(after, before)) return;
+      // A trial starting: the reminder the paywall promises, 2 days before it ends.
+      final remind = trialReminderAt(before, news, now);
+      if (remind != null && news is PlusOwned) {
+        try {
+          await ref.read(notificationServiceProvider).scheduleTrialReminder(remind,
+              ends: news.until!, iOS: defaultTargetPlatform == TargetPlatform.iOS);
+        } catch (_) {
+          // A reminder that can't be set must never cost the purchase.
+        }
+      }
       await ref.read(settingsProvider.notifier).edit((s) => PlusGrant.apply(s, news, now));
       if (after.isPlus != before.isPlus) await ref.read(homeProvider.notifier).refresh();
     },
