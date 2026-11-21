@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 
 import '../domain/models/sky_event.dart';
+import '../domain/plan/bar_layout.dart';
 import '../domain/plan/week_view.dart';
 import 'format.dart';
 import 'kit/kit.dart';
@@ -43,6 +44,7 @@ const _labelWidth = 48.0, _labelGap = 10.0;
 
 /// Each night's bar, and the room between one night and the next.
 const _barHeight = 40.0, _rowGap = 12.0;
+const _barDark = Color(0xFF0D1530);
 
 /// Every night as one bar from 5 PM to 7 AM: cloud shaded in, a marker at
 /// each sight's time. Last week sits above (faded, what went over), tonight
@@ -216,25 +218,10 @@ class _NightBar extends StatelessWidget {
   final ValueChanged<SkyEvent> onPick;
 
   static const _size = 26.0;
+  static const _laneStep = _size + 4;
 
-  /// Room between neighbouring markers and at the bar's ends.
-  static const _gap = 3.0, _edge = 2.0;
-
-  /// Each marker's left edge, icon centred on its time.
-  List<double> _iconLefts(double w) {
-    final xs = <double>[];
-    for (final e in n.events) {
-      var x = barPosition(e.start) * w;
-      if (xs.isNotEmpty) x = math.max(x, xs.last + _size * 0.8);
-      xs.add(x.clamp(_size / 2 + _edge, w - _size / 2 - _edge));
-    }
-    return [for (final x in xs) x - _size / 2];
-  }
-
-  /// Named markers, each starting at its time; pushed right past the one
-  /// before, then back left from the bar's end. Null when they can't all fit.
-  ({List<double> lefts, List<double> labelWidths})? _namedLayout(BuildContext context, double w) {
-    if (n.events.isEmpty) return null;
+  /// The night's markers laid out for a bar this wide.
+  ({List<BarSlot> slots, List<double> labels}) _slots(BuildContext context, double w) {
     final style = DefaultTextStyle.of(context).style.merge(_Marker.labelStyle);
     final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.15);
     final labels = [
@@ -248,20 +235,13 @@ class _NightBar extends StatelessWidget {
             .width
             .ceilToDouble()
     ];
-    final widths = [for (final l in labels) _Marker.widthFor(l)];
-    final lefts = <double>[];
-    for (var i = 0; i < n.events.length; i++) {
-      var x = math.max(barPosition(n.events[i].start) * w - _size / 2, _edge);
-      if (i > 0) x = math.max(x, lefts[i - 1] + widths[i - 1] + _gap);
-      lefts.add(x);
-    }
-    var limit = w - _edge;
-    for (var i = n.events.length - 1; i >= 0; i--) {
-      lefts[i] = math.min(lefts[i], limit - widths[i]);
-      limit = lefts[i] - _gap;
-    }
-    if (lefts.first < _edge) return null;
-    return (lefts: lefts, labelWidths: labels);
+    final slots = layoutBar(
+      timeX: [for (final e in n.events) barPosition(e.start) * w],
+      namedWidth: [for (final l in labels) _Marker.widthFor(l)],
+      width: w,
+      icon: _size,
+    );
+    return (slots: slots, labels: labels);
   }
 
   @override
@@ -273,35 +253,49 @@ class _NightBar extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => onNight(n.date),
-          child: Container(
-            height: _barHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: selected ? LookUpColors.blue.withValues(alpha: 0.7) : LookUpColors.line),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LayoutBuilder(builder: (context, box) {
-                final w = box.maxWidth;
-                // Named where there's room ("ISS", "Tiangong"), else just
-                // the icons, nudged apart when they'd overlap.
-                final named = _namedLayout(context, w);
-                final xs = named?.lefts ?? _iconLefts(w);
-                return Stack(children: [
+          child: LayoutBuilder(builder: (context, box) {
+            final w = box.maxWidth - 2; // inside the border
+            final laid = _slots(context, w);
+            final slots = laid.slots;
+            final lanes = slots.isEmpty ? 1 : slots.map((s) => s.lane).reduce(math.max) + 1;
+            final h = _barHeight + (lanes - 1) * _laneStep;
+            return Container(
+              height: h,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: selected ? LookUpColors.blue.withValues(alpha: 0.7) : LookUpColors.line),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(children: [
                   Positioned.fill(child: CustomPaint(painter: _BarPainter(n.clouds))),
+                  // Each sight's exact time, behind every marker so a line
+                  // never runs across another sight.
                   for (var i = 0; i < n.events.length; i++)
                     Positioned(
-                      left: xs[i],
-                      top: (_barHeight - 2 - _size) / 2,
+                      left: slots[i].tick - 1,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 2,
+                        color: eventStyle(n.events[i].type, details: n.events[i].details)
+                            .color
+                            .withValues(alpha: n.events[i].type.pushes || n.events[i].id == pick?.id ? 0.55 : 0.3),
+                      ),
+                    ),
+                  for (var i = 0; i < n.events.length; i++)
+                    Positioned(
+                      left: slots[i].left,
+                      top: 6 + slots[i].lane * _laneStep,
                       child: _Marker(n.events[i],
                           selected: n.events[i].id == pick?.id,
                           onTap: onPick,
-                          labelWidth: named?.labelWidths[i]),
+                          labelWidth: slots[i].named ? laid.labels[i] : null),
                     ),
-                ]);
-              }),
-            ),
-          ),
+                ]),
+              ),
+            );
+          }),
         ),
       );
 }
@@ -339,16 +333,20 @@ class _Marker extends StatelessWidget {
       excludeSemantics: true,
       child: GestureDetector(
         onTap: () => onTap(e),
-        child: Opacity(
-          opacity: e.type.pushes || selected ? 1 : 0.5,
-          child: Container(
-            width: label == null ? _NightBar._size : widthFor(label),
-            height: _NightBar._size,
-            decoration: BoxDecoration(
-              color: selected ? s.color : s.color.withValues(alpha: 0.24),
-              borderRadius: BorderRadius.circular(6),
-              border: selected ? Border.all(color: LookUpColors.white, width: 2) : null,
-            ),
+        child: Container(
+          width: label == null ? _NightBar._size : widthFor(label),
+          height: _NightBar._size,
+          decoration: BoxDecoration(
+            // Opaque even when faded, so a time line never shows through
+            // another sight's marker.
+            color: selected
+                ? s.color
+                : Color.alphaBlend(s.color.withValues(alpha: 0.24 * (e.type.pushes ? 1 : 0.5)), _barDark),
+            borderRadius: BorderRadius.circular(6),
+            border: selected ? Border.all(color: LookUpColors.white, width: 2) : null,
+          ),
+          child: Opacity(
+            opacity: e.type.pushes || selected ? 1 : 0.5,
             child: label == null
                 ? icon
                 : Row(children: [
