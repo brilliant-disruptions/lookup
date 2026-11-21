@@ -173,9 +173,9 @@ In order, before the first submission:
 2. **Agreements:** sign the *Paid Applications* agreement and add banking
    and tax details (subscriptions can't be tested in TestFlight without it).
 3. **Subscriptions:** a subscription group *LookUp+* with
-   `lookup_plus_monthly` ($3.99) and `lookup_plus_yearly` ($24.99, with a
-   7-day free trial as its introductory offer), and a non-consumable
-   `lookup_plus_lifetime` ($59.99). Ids must match `PlusProducts` exactly.
+   `lookup_plus_monthly` ($4.99) and `lookup_plus_yearly` ($29.99, with a
+   7-day free trial as its introductory offer). No lifetime purchase. Ids
+   must match `PlusProducts` exactly.
    Give each a review screenshot (the paywall) and a description.
 4. **App information:** Privacy Policy URL and Support URL from
    [`app-store-listing.md`](app-store-listing.md#links); keep Apple's

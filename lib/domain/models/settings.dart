@@ -167,8 +167,8 @@ class LookUpSettings {
   final int maxAlertsPerNight;
   final bool isPlus;
 
-  /// When the paid period the store last vouched for ends. Null for the
-  /// lifetime purchase, and for a LookUp+ saved before this was recorded.
+  /// When the paid period the store last vouched for ends. Null when the
+  /// store gave no date, and for a LookUp+ saved before this was recorded.
   /// The rules are in domain/plus/plus_grant.dart.
   final DateTime? plusUntil;
 

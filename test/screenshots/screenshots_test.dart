@@ -28,7 +28,8 @@ import 'package:lookup/ui/plus_card.dart';
 import 'package:lookup/ui/look_up_now_screen.dart';
 import 'package:lookup/services/alert_art.dart';
 import 'package:lookup/ui/starter_card.dart';
-import 'package:lookup/ui/kit/kit.dart' show FloatingTabBar, PipMark, SkyBackdrop;
+import 'package:lookup/ui/kit/kit.dart' show FloatingTabBar, PipMark, PipMood, SkyBackdrop;
+import 'package:lookup/ui/kit/firefly_mark.dart' show fireflyGlow;
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
 import 'package:lookup/ui/demo.dart';
@@ -892,6 +893,12 @@ void main() {
           SatellitesTonightScreen(), tint: LookUpColors.cyan),
     ];
 
+    // How Pip feels on each image as it flies through them (eyes only).
+    const moods = [
+      PipMood.happy, PipMood.curious, PipMood.happy, PipMood.amazed, PipMood.wink,
+      PipMood.happy, PipMood.curious, PipMood.happy, PipMood.amazed, PipMood.happy,
+    ];
+
     // 1. Each screen on its own, as a phone shows it, captured.
     final screens = <ui.Image>[];
     for (final s in shots) {
@@ -926,9 +933,11 @@ void main() {
       await t.pumpWidget(MaterialApp(
         theme: LookUpApp.theme,
         debugShowCheckedModeBanner: false,
-        home: _StoreSlice(index: i, shots: shots, screens: screens),
+        home: _StoreSlice(index: i, shots: shots, screens: screens, moods: moods),
       ));
       await t.pump();
+      // Let Pip's feeling ease in.
+      await t.pump(const Duration(milliseconds: 700));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/appstore/${shots[i].name}.png'));
     }
   });
@@ -1151,10 +1160,11 @@ double _phoneLeft(int i) => i * _storeW + _storeW * 0.5;
 /// previous phone running in from the left, this one running off the right,
 /// and this image's words.
 class _StoreSlice extends StatelessWidget {
-  const _StoreSlice({required this.index, required this.shots, required this.screens});
+  const _StoreSlice({required this.index, required this.shots, required this.screens, required this.moods});
   final int index;
   final List<_StoreShot> shots;
   final List<ui.Image> screens;
+  final List<PipMood> moods;
 
   @override
   Widget build(BuildContext context) {
@@ -1166,6 +1176,8 @@ class _StoreSlice extends StatelessWidget {
         Positioned.fill(
           child: CustomPaint(painter: _StoreSky(x0: x0, tints: [for (final s in shots) s.tint], count: shots.length)),
         ),
+        // Pip's trail, under the phones: it comes out from behind the last one.
+        Positioned.fill(child: CustomPaint(painter: _PipTrail(x0: x0, count: shots.length))),
         for (final j in [index - 1, index])
           if (j >= 0)
             Positioned(
@@ -1181,6 +1193,12 @@ class _StoreSlice extends StatelessWidget {
                 child: _StorePhone(screen: screens[j]),
               ),
             ),
+        // Pip, flying the pass from image to image, in the gap between phones.
+        Positioned(
+          left: _pipAt(index).dx - x0 - _pipSize(index) / 2,
+          top: _pipAt(index).dy - _pipSize(index) / 2,
+          child: PipMark(key: ValueKey(index), size: _pipSize(index), mood: moods[index]),
+        ),
         Positioned(
           left: 0,
           right: 0,
@@ -1200,6 +1218,56 @@ class _StoreSlice extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// The pass's line across the panorama, at [x].
+double _passY(double x) => _storeH * (0.52 - 0.22 * math.sin(x / (_storeW * 1.35) * math.pi + 0.6));
+
+/// Pip on image [i]: on the pass, in the gap where one phone ends and the
+/// next begins. Bigger on "Meet Pip".
+Offset _pipAt(int i) {
+  // "Meet Pip": it comes up off the pass to say hello under the words.
+  if (i == 2) return Offset(i * _storeW + _storeW / 2, 250);
+  final x = i * _storeW + 188;
+  return Offset(x, _passY(x) - 8);
+}
+
+double _pipSize(int i) => i == 2 ? 132 : 84;
+
+/// Pip's trail along the pass: a few droplets of its light behind each place
+/// it sits, fading back toward the last one.
+class _PipTrail extends CustomPainter {
+  const _PipTrail({required this.x0, required this.count});
+  final double x0;
+  final int count;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.translate(-x0, 0);
+    for (var i = 0; i < count; i++) {
+      final head = _pipAt(i);
+      for (var k = 1; k <= 9; k++) {
+        final x = head.dx - _pipSize(i) * 0.35 - k * 15;
+        // Off the pass (Meet Pip), the drops curve up from the line to it.
+        final c = Offset.lerp(Offset(x, _passY(x) - 8), Offset(x, head.dy), math.pow(1 - k / 10, 2).toDouble())!;
+        final a = 0.55 * (1 - k / 10);
+        final r = 6.5 * (1 - k / 12);
+        if (c.dx < x0 - 20 || c.dx > x0 + _storeW + 20) continue;
+        canvas.drawCircle(
+            c,
+            r * 3,
+            Paint()
+              ..shader = RadialGradient(colors: [fireflyGlow.withValues(alpha: a * 0.5), fireflyGlow.withValues(alpha: 0)])
+                  .createShader(Rect.fromCircle(center: c, radius: r * 3)));
+        canvas.drawCircle(c, r, Paint()..color = fireflyGlow.withValues(alpha: a));
+      }
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_PipTrail o) => o.x0 != x0;
 }
 
 /// A phone: bezel, the captured screen, the Dynamic Island.
@@ -1277,7 +1345,7 @@ class _StoreSky extends CustomPainter {
     // The pass: one long gentle wave across the panorama, dashed.
     final path = Path();
     for (var x = -40.0; x <= _storeW * count + 40; x += 6) {
-      final y = _storeH * (0.52 - 0.22 * math.sin(x / (_storeW * 1.35) * math.pi + 0.6));
+      final y = _passY(x);
       x == -40 ? path.moveTo(x, y) : path.lineTo(x, y);
     }
     final pen = Paint()

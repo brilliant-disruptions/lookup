@@ -56,7 +56,6 @@ class _FakePlus implements PlusService {
   Future<List<PlusOffer>> offers() async => [
         _offer(PlusProducts.yearly, r'$29.99', 29.99),
         _offer(PlusProducts.monthly, r'$5.99', 5.99),
-        _offer(PlusProducts.lifetime, r'$59.99', 59.99),
       ];
   @override
   Future<void> buy(PlusOffer offer) async => bought.add(offer.id);

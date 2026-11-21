@@ -111,14 +111,12 @@ void main() {
       expect(news.single, isA<PlusOwned>().having((o) => o.until, 'until', _now.add(const Duration(days: 12))));
     });
 
-    test('the lifetime purchase has no end, whatever else is owned', () async {
-      store.owns = [
-        _tx(PlusProducts.yearly, endsIn: const Duration(days: 40)),
-        _tx(PlusProducts.lifetime),
-      ];
+    test('only the yearly and monthly plans are LookUp+; nothing else is sold, so nothing else counts', () async {
+      expect(PlusProducts.all, {PlusProducts.yearly, PlusProducts.monthly});
+      store.owns = [_tx('lookup_plus_lifetime')];
       await plus.start(check: false);
       await plus.recheck();
-      expect(news.single, isA<PlusOwned>().having((o) => o.until, 'until', isNull));
+      expect(news.whereType<PlusOwned>(), isEmpty);
     });
 
     test('nothing owned (a trial cancelled and run out, a lapsed month) is said plainly', () async {
@@ -207,16 +205,16 @@ void main() {
     test('a refund: the store is asked, and with nothing left LookUp+ is taken back', () async {
       await plus.start(check: false);
       store.send([
-        _tx(PlusProducts.lifetime, status: PurchaseStatus.purchased, revoked: true, pending: true),
+        _tx(PlusProducts.yearly, status: PurchaseStatus.purchased, endsIn: const Duration(days: 300), revoked: true, pending: true),
       ]);
       await settle();
       expect(store.restores, 1);
       expect(news.single, isA<PlusRevoked>());
-      expect(store.completed, [PlusProducts.lifetime], reason: 'still finished, or StoreKit sends it again');
+      expect(store.completed, [PlusProducts.yearly], reason: 'still finished, or StoreKit sends it again');
     });
 
     test('a refund of one plan while another is still owned keeps LookUp+', () async {
-      store.owns = [_tx(PlusProducts.lifetime)];
+      store.owns = [_tx(PlusProducts.yearly, endsIn: const Duration(days: 200))];
       await plus.start(check: false);
       store.send([
         _tx(PlusProducts.monthly, status: PurchaseStatus.purchased, endsIn: const Duration(days: 9), revoked: true),

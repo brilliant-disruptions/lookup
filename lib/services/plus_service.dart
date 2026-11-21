@@ -21,11 +21,12 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import '../data/local_store.dart';
 import '../domain/plus/plus_grant.dart';
 
+/// LookUp+ is sold two ways, by the year and by the month; there's no
+/// one-time purchase.
 abstract final class PlusProducts {
   static const monthly = 'lookup_plus_monthly';
   static const yearly = 'lookup_plus_yearly';
-  static const lifetime = 'lookup_plus_lifetime';
-  static const all = {monthly, yearly, lifetime};
+  static const all = {monthly, yearly};
 }
 
 class PlusOffer {
@@ -36,9 +37,8 @@ class PlusOffer {
   final ProductDetails details;
 
   String get cadence => switch (id) {
-        PlusProducts.monthly => 'per month',
         PlusProducts.yearly => 'per year',
-        _ => 'once, forever',
+        _ => 'per month',
       };
 }
 
@@ -89,7 +89,7 @@ class PlusService {
   Future<List<PlusOffer>> offers() async {
     if (!await _iap.isAvailable()) return const [];
     final res = await _iap.queryProductDetails(PlusProducts.all);
-    final order = [PlusProducts.yearly, PlusProducts.monthly, PlusProducts.lifetime];
+    final order = [PlusProducts.yearly, PlusProducts.monthly];
     final list = [
       for (final p in res.productDetails)
         PlusOffer(id: p.id, title: p.title, price: p.price, details: p),
@@ -145,7 +145,8 @@ class PlusService {
         purchases.every((p) => p.status == PurchaseStatus.restored);
 
     var owned = false;
-    var lifetime = false;
+    // A purchase with no end date (none is sold now) keeps no end.
+    var noEnd = false;
     DateTime? until;
     // A purchase that no longer counts came by itself (a refund, or an old
     // period delivered late): ask what is owned now.
@@ -166,7 +167,7 @@ class PlusService {
             owned = true;
             final end = t.expires;
             if (end == null) {
-              lifetime = true;
+              noEnd = true;
             } else {
               final e = end.isAfter(now) ? end : now;
               if (until == null || e.isAfter(until)) until = e;
@@ -186,7 +187,7 @@ class PlusService {
       check.found = owned;
       check.answered.complete();
     }
-    if (owned) await _tell(PlusOwned(until: lifetime ? null : until));
+    if (owned) await _tell(PlusOwned(until: noEnd ? null : until));
     if ((revoked || stale) && !owned) unawaited(recheck(afterRevoke: revoked));
 
     for (final p in purchases) {

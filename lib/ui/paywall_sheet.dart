@@ -340,8 +340,7 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, note) = switch (offer.id) {
       PlusProducts.yearly => ('Yearly', _perMonth(offer)),
-      PlusProducts.monthly => ('Monthly', null),
-      _ => ('Lifetime', 'Pay once, keep it forever'),
+      _ => ('Monthly', null),
     };
     final save = offer.id == PlusProducts.yearly ? _saving(offer, monthly) : null;
     return Semantics(
