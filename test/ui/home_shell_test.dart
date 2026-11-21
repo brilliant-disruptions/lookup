@@ -177,17 +177,17 @@ void main() {
     await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Explore')));
     await t.pump(const Duration(seconds: 1));
     await t.pump();
-    final forward = find.widgetWithIcon(TextButton, Icons.chevron_right_rounded);
+    final forward = find.byKey(const ValueKey('day-forward'));
     await t.scrollUntilVisible(forward, 200,
         scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
     expect(find.widgetWithText(TextButton, 'Any night'), findsNothing);
     expect(find.textContaining('3000 BC'), findsNothing);
     // The strip moves as the night changes, so press the button itself.
     for (var i = 0; i < 7; i++) {
-      t.widget<TextButton>(forward).onPressed!();
+      t.widget<IconButton>(forward).onPressed!();
       await t.pump(const Duration(milliseconds: 200));
     }
-    expect(t.widget<TextButton>(forward).onPressed, isNull, reason: 'a week ahead is as far as it goes');
+    expect(t.widget<IconButton>(forward).onPressed, isNull, reason: 'a week ahead is as far as it goes');
     expect(find.byType(PaywallSheet), findsNothing, reason: 'and it never asks for LookUp+');
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
