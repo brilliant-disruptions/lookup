@@ -199,7 +199,7 @@ class BadgeSheet extends ConsumerWidget {
               key: const Key('badge-next-chance'),
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Row(children: [
-                const PipMark(size: 26),
+                const PipMark(size: 26, mood: PipMood.curious),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

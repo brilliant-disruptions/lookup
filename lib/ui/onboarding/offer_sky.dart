@@ -127,7 +127,7 @@ class _OfferSkyState extends State<OfferSky> with SingleTickerProviderStateMixin
             curve: Curves.easeInOutCubic,
             left: pip.dx - 20,
             top: pip.dy - 20,
-            child: IgnorePointer(child: PipMark(size: 40, poke: _pokes)),
+            child: IgnorePointer(child: PipMark(size: 40, poke: _pokes, mood: widget.lit.isEmpty ? PipMood.curious : PipMood.happy)),
           ),
         ]),
       );

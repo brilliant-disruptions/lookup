@@ -90,8 +90,12 @@ class _Home extends HomeNotifier {
 class _Location implements LocationService {
   _Location(this.grant);
   final bool grant;
+  int asked = 0;
   @override
-  Future<bool> requestPermission() async => grant;
+  Future<bool> requestPermission() async {
+    asked++;
+    return grant;
+  }
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
@@ -139,6 +143,7 @@ void main() {
   late _Home home;
   late _Notifications notifications;
   late _Refresh refresh;
+  late _Location location;
   var clock = DateTime.now();
   setUp(() {
     clock = DateTime.now();
@@ -146,7 +151,7 @@ void main() {
   });
   tearDown(() => onboardingClock = DateTime.now);
 
-  Future<void> pump(WidgetTester t, {required bool grantLocation, List<SkyThing>? things}) async {
+  Future<void> pump(WidgetTester t, {required bool grantLocation, List<SkyThing>? things, bool preview = false}) async {
     t.view.physicalSize = const Size(1179, 2556);
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
@@ -156,7 +161,7 @@ void main() {
     container = ProviderContainer(overrides: [
       settingsProvider.overrideWith(_Settings.new),
       homeProvider.overrideWith(() => home),
-      locationServiceProvider.overrideWithValue(_Location(grantLocation)),
+      locationServiceProvider.overrideWithValue(location = _Location(grantLocation)),
       notificationServiceProvider.overrideWithValue(notifications),
       clockProvider.overrideWith((_) => Stream.value(DateTime.now())),
       plusServiceProvider.overrideWithValue(_FakePlus()),
@@ -167,7 +172,13 @@ void main() {
     addTearDown(container.dispose);
     await t.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(theme: buildLookUpTheme(), home: const OnboardingScreen()),
+      child: MaterialApp(
+        theme: buildLookUpTheme(),
+        home: preview
+            // Settings, with the Replay the intro row's own call behind a button.
+            ? Consumer(builder: (context, ref, _) => Scaffold(body: Center(child: TextButton(onPressed: () => openIntroPreview(context, ref), child: const Text('Replay the intro')))))
+            : const OnboardingScreen(),
+      ),
     ));
     for (var i = 0; i < 6; i++) {
       await t.pump(const Duration(milliseconds: 300));
@@ -395,6 +406,66 @@ void main() {
     for (final k in ['alerts', 'planAhead', 'places', 'transits', 'noCaption']) {
       expect(find.byKey(Key('perk-$k')), findsOneWidget, reason: k);
     }
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('replaying the intro from Settings: every page, the offer too, and nothing saved or asked', (t) async {
+    // Someone set up long ago, on LookUp+, who has seen the offer.
+    final before = _here.copyWith(onboarded: true, isPlus: true, trialOfferShown: true, plusDeclines: 1, auroraEnabled: true);
+    _start = before;
+    addTearDown(() => _start = _here);
+    await pump(t, grantLocation: true, preview: true);
+    expect(refresh.prefetched, 0);
+    await t.tap(find.text('Replay the intro'));
+    await settle(t, 3);
+    expect(find.text('Preview · nothing is saved'), findsOneWidget);
+    await toSky(t);
+    expect(location.asked, 0, reason: 'no location prompt: their place is known');
+    expect(home.refreshes, 0, reason: 'no refresh: it shows the sky they already have');
+    await catchJupiter(t);
+    await t.tap(find.text('Next'));
+    await settle(t, 3);
+    await catchStation(t);
+    await t.tap(find.text('Next'));
+    await settle(t, 3);
+    t.widget<Slider>(find.byKey(const Key('twilight-slider'))).onChanged!(19);
+    await settle(t, 2);
+    await t.tap(find.text('Next'));
+    await settle(t, 3);
+    // A choice on the alerts page goes into the preview's copy, not their settings.
+    await t.ensureVisible(find.byKey(const Key('pick-aurora')));
+    await settle(t, 1);
+    await t.tap(find.byKey(const Key('pick-aurora')));
+    await settle(t, 1);
+    await t.ensureVisible(find.text('Next'));
+    await t.tap(find.text('Next'));
+    await settle(t, 3);
+    await t.tap(find.text('Tap me 10 minutes before'));
+    await settle(t, 4);
+    expect(notifications.asked, 0, reason: 'no alerts prompt');
+    // The offer shows as it does for someone new, though they have LookUp+.
+    expect(find.byKey(const Key('trial-offer')), findsOneWidget);
+    await t.tap(find.byKey(const Key('trial-offer-try')));
+    await settle(t, 3);
+    expect(find.byType(PaywallSheet), findsNothing, reason: 'nothing is sold in a preview');
+    expect(find.byKey(const Key('trial-offer')), findsNothing, reason: 'the end just closes it');
+    expect(find.text('Replay the intro'), findsOneWidget);
+    final after = container.read(settingsProvider).value!;
+    expect((after.onboarded, after.isPlus, after.trialOfferShown, after.plusDeclines, after.auroraEnabled), (true, true, true, 1, true),
+        reason: 'their settings are exactly as they were');
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the preview can be left from any page', (t) async {
+    await pump(t, grantLocation: true, preview: true);
+    await t.tap(find.text('Replay the intro'));
+    await settle(t, 3);
+    await t.tap(find.byKey(const Key('onboarding-wake')));
+    await settle(t, 3);
+    await t.tap(find.byKey(const Key('intro-preview-close')));
+    await settle(t, 3);
+    expect(find.text('Replay the intro'), findsOneWidget);
+    expect(find.text('Preview · nothing is saved'), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
 

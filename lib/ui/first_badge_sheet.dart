@@ -31,7 +31,7 @@ class FirstBadgeSheet extends StatelessWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Center(child: PipMark(key: Key('first-badge-pip'), size: 120, state: PipState.greet)),
+            const Center(child: PipMark(key: Key('first-badge-pip'), size: 120, state: PipState.greet, mood: PipMood.happy)),
             const SizedBox(height: 4),
             const Kicker('Your first badge', color: LookUpColors.gold),
             const SizedBox(height: 10),

@@ -39,7 +39,12 @@ import 'theme.dart';
 ///
 /// Every catch here is practice: nothing reaches the Log.
 class OnboardingScreen extends ConsumerStatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({super.key, this.preview = false});
+
+  /// Replaying the intro from Settings (`openIntroPreview`): nothing sticks.
+  /// No permission prompts, no refresh, no paywall; choices go into a
+  /// throwaway copy of the settings; the end just closes it.
+  final bool preview;
   @override
   ConsumerState<OnboardingScreen> createState() => _OnboardingState();
 }
@@ -59,12 +64,19 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
     super.initState();
     // The satellites and launches don't depend on where the user is: fetch
     // them while Pip says hello, so the sky only waits for the location.
-    unawaited(ref.read(refreshServiceProvider).prefetch().catchError((_) {}));
+    // (A preview uses what's already there.)
+    if (!widget.preview) unawaited(ref.read(refreshServiceProvider).prefetch().catchError((_) {}));
   }
 
   void _go(_Step s) => setState(() => _step = s);
 
   Future<void> _showMe() async {
+    if (widget.preview) {
+      // Their place is already known: no prompt, straight to their sky.
+      final s = await ref.read(settingsProvider.future);
+      if (!mounted) return;
+      return s.hasLocation ? _look() : _go(_Step.noLocation);
+    }
     setState(() => _busy = true);
     final ok = await ref.read(locationServiceProvider).requestPermission();
     if (!mounted) return;
@@ -73,6 +85,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _pickTown() async {
+    if (widget.preview) return _look();
     await openPlaces(context);
     if (!mounted) return;
     final s = await ref.read(settingsProvider.future);
@@ -93,11 +106,12 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
       // Let the stored (empty) data finish loading first, or it can land
       // after the refresh and hide what it found.
       await ref.read(homeProvider.future);
-      await ref.read(homeProvider.notifier).refresh(quick: true);
+      // A preview shows the sky they already have; no refresh, nothing saved.
+      if (!widget.preview) await ref.read(homeProvider.notifier).refresh(quick: true);
     } catch (_) {
       // Offline: the pages after this say so, and the shell retries.
     }
-    unawaited(ref.read(homeProvider.notifier).refresh().catchError((_) {}));
+    if (!widget.preview) unawaited(ref.read(homeProvider.notifier).refresh().catchError((_) {}));
     if (!mounted || _step != _Step.looking) return;
     // Allowed, but no fix came (indoors, airplane mode): a town instead of a wait.
     final s = await ref.read(settingsProvider.future);
@@ -115,7 +129,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _finish({required bool alerts}) async {
     setState(() => _busy = true);
-    if (alerts) {
+    if (alerts && !widget.preview) {
       final granted = await ref.read(notificationServiceProvider).requestPermission();
       // Alerts were planned before permission; plan them again now they can land.
       // A refresh still running (onboarding's Starlink one) plans at its end,
@@ -133,7 +147,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
     // Once, and never to someone who already has LookUp+: what LookUp+ would
     // tap them for. Most trials start on day one; this is that moment.
     final s = await ref.read(settingsProvider.future);
-    if (!s.isPlus && !s.trialOfferShown) {
+    if (widget.preview || (!s.isPlus && !s.trialOfferShown)) {
       if (mounted) {
         setState(() {
           _busy = false;
@@ -145,13 +159,21 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
     await _done();
   }
 
-  Future<void> _done() => ref
-      .read(settingsProvider.notifier)
-      .edit((s) => s.copyWith(onboarded: true, onboardedAt: DateTime.now().toUtc(), trialOfferShown: true));
+  Future<void> _done() async {
+    if (widget.preview) {
+      if (mounted) Navigator.of(context).maybePop();
+      return;
+    }
+    await ref
+        .read(settingsProvider.notifier)
+        .edit((s) => s.copyWith(onboarded: true, onboardedAt: DateTime.now().toUtc(), trialOfferShown: true));
+  }
 
   /// The offer's two ways out: a trial (through the paywall), or "Not now",
   /// which counts as a decline for the soft asks (domain/plus/nudges.dart).
   Future<void> _offer({required bool tryIt}) async {
+    // A preview never sells or counts a decline: either way out just ends it.
+    if (widget.preview) return _done();
     if (tryIt) {
       await showPaywall(context, headline: 'Every tap, for everything up there. Free for 7 days.');
       if (!mounted) return;
@@ -163,7 +185,36 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => switch (_step) {
+  Widget build(BuildContext context) {
+    final page = _page();
+    if (!widget.preview) return page;
+    // The preview says so, and can be left from any page.
+    return Stack(children: [
+      page,
+      Positioned(
+        top: MediaQuery.paddingOf(context).top + 8,
+        left: 16,
+        right: 12,
+        child: Row(children: [
+          const Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(fit: BoxFit.scaleDown, child: Pill('Preview · nothing is saved', color: LookUpColors.blue)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filledTonal(
+            key: const Key('intro-preview-close'),
+            tooltip: 'Close the preview',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ]),
+      ),
+    ]);
+  }
+
+  Widget _page() => switch (_step) {
         _Step.wake => _WakePage(onWake: () => _go(_Step.hello)),
         _Step.hello || _Step.noLocation => _HelloPage(
             busy: _busy,
@@ -285,7 +336,7 @@ class _HelloPage extends StatelessWidget {
             child: _FillOrScroll(
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 const Spacer(),
-                const Center(child: PipMark(key: Key('onboarding-pip'), size: 150, state: PipState.greet)),
+                const Center(child: PipMark(key: Key('onboarding-pip'), size: 150, state: PipState.greet, mood: PipMood.curious)),
                 const Spacer(),
                 const Rise(index: 0, child: Kicker('Pip', color: LookUpColors.good)),
                 const SizedBox(height: 8),
@@ -363,7 +414,7 @@ class _LookingPageState extends ConsumerState<_LookingPage> {
                   place: place,
                   onDone: widget.onDone,
                 )
-              : const SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching))),
+              : const SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching, mood: PipMood.focused))),
         ),
         SafeArea(
           child: Padding(
@@ -399,7 +450,7 @@ class _SkyPageState extends ConsumerState<_SkyPage> {
     final catalog = ref.watch(skyCatalogProvider).value;
     final lat = s?.latitude, lon = s?.longitude;
     if (lat == null || lon == null || look.isLoading) {
-      return const Scaffold(body: SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching))));
+      return const Scaffold(body: SkyBackdrop(child: Center(child: PipMark(size: 60, state: PipState.searching, mood: PipMood.focused))));
     }
     final things = look.value?.things ?? const <SkyThing>[];
     final when = firstLookTime(_opened, look.value?.window);
@@ -642,7 +693,7 @@ class _PickPage extends ConsumerWidget {
         child: SafeArea(
           child: _FillOrScroll(
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Center(child: PipMark(size: 72)),
+              const Center(child: PipMark(size: 72, mood: PipMood.happy)),
               const SizedBox(height: 4),
               const Kicker('Pip will watch for…', color: LookUpColors.good),
               const SizedBox(height: 8),
@@ -740,7 +791,7 @@ class _AskPage extends ConsumerWidget {
                   key: const Key('tap-preview'),
                   padding: const EdgeInsets.all(14),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const PipMark(key: Key('onboarding-pip-blink'), size: 34, blinking: true),
+                    const PipMark(key: Key('onboarding-pip-blink'), size: 34, blinking: true, mood: PipMood.shy),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1173,3 +1224,30 @@ class _OfferRow extends StatelessWidget {
         ]),
       );
 }
+
+/// Settings for the intro preview: a copy of theirs that takes the intro's
+/// choices and forgets them when it closes.
+class _PreviewSettings extends SettingsNotifier {
+  _PreviewSettings(this.start);
+  final LookUpSettings start;
+  @override
+  Future<LookUpSettings> build() async => start;
+  @override
+  Future<void> edit(LookUpSettings Function(LookUpSettings) f) async => state = AsyncData(f(state.value ?? start));
+}
+
+/// Replays the intro, as someone new would see it (the offer included),
+/// with nothing saved: their settings, Log and LookUp+ are left as they are.
+Future<void> openIntroPreview(BuildContext context, WidgetRef ref) async {
+  final real = await ref.read(settingsProvider.future).catchError((_) => const LookUpSettings());
+  if (!context.mounted) return;
+  final copy = real.copyWith(isPlus: false, trialOfferShown: false);
+  await Navigator.of(context).push(MaterialPageRoute<void>(
+    fullscreenDialog: true,
+    builder: (_) => ProviderScope(
+      overrides: [settingsProvider.overrideWith(() => _PreviewSettings(copy))],
+      child: const OnboardingScreen(preview: true),
+    ),
+  ));
+}
+

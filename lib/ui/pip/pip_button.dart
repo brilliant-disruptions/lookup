@@ -10,6 +10,10 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../domain/pip/pip_rest.dart';
+import '../../state/providers.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 
@@ -109,11 +113,18 @@ class _PipButtonState extends State<PipButton> {
               boxShadow: const [BoxShadow(color: Color(0x80000000), blurRadius: 30, offset: Offset(0, 10))],
             ),
             alignment: Alignment.center,
-            child: PipMark(
-              size: 60,
-              state: _state,
-              replay: _replay,
-              poke: _pokes,
+            // Sleepy by day and in their quiet hours; calm when there's sky to see.
+            child: Consumer(
+              builder: (context, ref, _) {
+                final s = ref.watch(settingsProvider).asData?.value;
+                return PipMark(
+                  size: 60,
+                  state: _state,
+                  replay: _replay,
+                  poke: _pokes,
+                  mood: s != null && pipSleepy(now: DateTime.now(), settings: s) ? PipMood.sleepy : PipMood.calm,
+                );
+              },
             ),
           ),
         ),

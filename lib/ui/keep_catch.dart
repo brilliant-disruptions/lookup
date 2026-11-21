@@ -142,7 +142,7 @@ class PhotosAccessSheet extends StatelessWidget {
           key: const Key('photos-access'),
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Center(child: PipMark(size: 64)),
+            const Center(child: PipMark(size: 64, mood: PipMood.shy)),
             const SizedBox(height: 10),
             Text('Your catches go in Photos', textAlign: TextAlign.center, style: display(26, weight: FontWeight.w700, height: 1.15)),
             const SizedBox(height: 8),

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +46,9 @@ class _Home extends HomeNotifier {
 }
 
 void main() {
+  // The Pip beside the tabs reads settings (sleepy by day).
+  setUp(() => SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty());
+
   final now = DateTime.utc(2026, 10, 25, 3);
   final saturn = SkyThing(
     id: 'planet:saturn',

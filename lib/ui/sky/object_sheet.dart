@@ -141,7 +141,7 @@ class _ObjectSheetState extends ConsumerState<ObjectSheet> {
               child: GestureDetector(
                 key: const Key('object-pip'),
                 onTapDown: (_) => setState(() => _pokes++),
-                child: PipMark(size: 112, poke: _pokes),
+                child: PipMark(size: 112, poke: _pokes, mood: PipMood.curious),
               ),
             ),
             const SizedBox(height: 10),

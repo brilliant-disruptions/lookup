@@ -40,7 +40,7 @@ void paintPipGreeting(Canvas canvas, Offset at, PipGreeting g, {double blink = 0
       at,
       r + 22 * scale,
       Paint()
-        ..color = fireflyGlow.withValues(alpha: 0.18 + 0.28 * blink)
+        ..color = fireflyGlow.withValues(alpha: ((0.18 + 0.28 * blink) * g.eyes.glow).clamp(0.0, 1.0))
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 * scale));
 
   // The body: round, or wobbling like water.
@@ -76,13 +76,30 @@ void paintPipGreeting(Canvas canvas, Offset at, PipGreeting g, {double blink = 0
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.2 * scale));
   }
 
-  // Two small eyes, nothing else. They look where Pip looks.
+  // Two small eyes, nothing else. They look where Pip looks, and their
+  // lids, size and glint say how it feels.
   if (g.open > 0) {
     final ink = Paint()..color = _ink.withValues(alpha: 0.88 * (g.open * 3).clamp(0.0, 1.0));
+    final e = g.eyes;
+    canvas.save();
+    canvas.translate(at.dx, at.dy);
+    canvas.rotate(e.tilt);
     for (final side in const [-1.0, 1.0]) {
-      final c = at + Offset(side * r * 0.3 + g.lookX * r * 0.18, -r * 0.05 + g.lookY * r * 0.15);
-      canvas.drawOval(Rect.fromCenter(center: c, width: 1.9 * scale, height: math.max(0.4, 3.0 * g.open) * scale), ink);
+      final left = side < 0;
+      final c = Offset(side * r * 0.3 + g.lookX * r * 0.18, -r * 0.05 + g.lookY * r * 0.15);
+      _paintEye(
+        canvas,
+        c,
+        w: 2.2 * scale * (left ? e.sizeL : e.sizeR),
+        h: math.max(0.4, 3.4 * g.open) * scale * (left ? e.sizeL : e.sizeR),
+        lid: e.lid,
+        slant: e.slant * side,
+        smile: left ? e.smileL : e.smileR,
+        glint: g.open > 0.6 ? e.glint : 0,
+        ink: ink,
+      );
     }
+    canvas.restore();
   }
 
   // The droplet lifted off the top.
@@ -98,3 +115,35 @@ void paintPipGreeting(Canvas canvas, Offset at, PipGreeting g, {double blink = 0
     canvas.drawOval(Rect.fromCenter(center: c, width: ds * 1.8, height: ds * 2.2), Paint()..color = fireflyCore);
   }
 }
+
+/// One eye at [c]: an oval [w] by [h], its top lid down by [lid] and tilted
+/// by [slant] (positive drops the outer corner), its lower lid pushed up
+/// into a smile by [smile], and a glint of light.
+void _paintEye(Canvas canvas, Offset c,
+    {required double w, required double h, required double lid, required double slant, required double smile, required double glint, required Paint ink}) {
+  final oval = Rect.fromCenter(center: c, width: w, height: h);
+  var eye = Path()..addOval(oval);
+  if (lid > 0.01 || slant.abs() > 0.01) {
+    // Keep what's below the lid line, which tilts with the slant.
+    final y = oval.top + h * lid;
+    final dy = slant * h * 0.45;
+    final below = Path()
+      ..moveTo(c.dx - w * 2, y - dy)
+      ..lineTo(c.dx + w * 2, y + dy)
+      ..lineTo(c.dx + w * 2, c.dy + h * 2)
+      ..lineTo(c.dx - w * 2, c.dy + h * 2)
+      ..close();
+    eye = Path.combine(PathOperation.intersect, eye, below);
+  }
+  if (smile > 0.02) {
+    // A circle rising from below takes the bottom away: a crescent, like smiling eyes.
+    final cr = w * 1.6;
+    final cy = c.dy + h / 2 * (2.4 - 2.0 * smile) + cr * 0.45;
+    eye = Path.combine(PathOperation.difference, eye, Path()..addOval(Rect.fromCircle(center: Offset(c.dx, cy), radius: cr)));
+  }
+  canvas.drawPath(eye, ink);
+  if (glint > 0.05) {
+    canvas.drawCircle(c + Offset(-w * 0.18, -h * 0.2), w * 0.19, Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9 * glint));
+  }
+}
+

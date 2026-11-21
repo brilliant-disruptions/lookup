@@ -205,7 +205,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
             if (!over && event.details['past'] != true)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: _PipShowsYou(live: live, onTap: () => openFinder(context, event)),
+                child: _PipShowsYou(live: live, cloudy: (event.cloudCoverPercent ?? 0) >= 70, onTap: () => openFinder(context, event)),
               ),
             // Seen near you: "Can you see it?" while an aurora could be out.
             if (!widget.demo &&
@@ -449,8 +449,12 @@ String _lookWord(SkyEvent e, {required bool isAurora, required bool isPass}) =>
 /// The way into the live sky camera: Pip itself, awake, on a card that
 /// says what it'll do. Pip squishes the moment you touch it.
 class _PipShowsYou extends StatefulWidget {
-  const _PipShowsYou({required this.live, required this.onTap});
+  const _PipShowsYou({required this.live, required this.onTap, this.cloudy = false});
   final bool live;
+
+  /// Clouds forecast over it: Pip looks sorry (it never looks happy about
+  /// a sky you can't see).
+  final bool cloudy;
   final VoidCallback onTap;
 
   @override
@@ -482,7 +486,7 @@ class _PipShowsYouState extends State<_PipShowsYou> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(4, 4, 16, 4),
           child: Row(children: [
-            ExcludeSemantics(child: PipMark(size: 76, poke: _pokes)),
+            ExcludeSemantics(child: PipMark(size: 76, poke: _pokes, mood: widget.cloudy ? PipMood.sorry : widget.live ? PipMood.amazed : PipMood.happy)),
             const SizedBox(width: 2),
             Expanded(
               child: ExcludeSemantics(
