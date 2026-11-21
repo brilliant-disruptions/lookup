@@ -51,6 +51,8 @@ class AlertPlanner {
     AlertTuning tuning = AlertTuning.neutral,
     Map<String, DateTime> alerted = const {},
   }) {
+    // Paused: nothing at all, whatever is switched on.
+    if (settings.alertsPaused) return const [];
     final nowUtc = now.toUtc();
     final limit = nowUtc.add(horizon);
     final candidates = events

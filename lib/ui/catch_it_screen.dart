@@ -608,7 +608,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
           // The camera's box in the phone's own frame: as wide as the
           // screen, at most 60% of its height.
           final aspect = _backend?.portraitAspect ?? 3 / 4;
-          final bw = math.min(area.maxWidth, area.maxHeight * 0.5 * aspect);
+          final bw = math.min(area.maxWidth, area.maxHeight * _pictureShare(area.maxHeight) * aspect);
           final device = Size(bw, bw / aspect);
           return Stack(children: [
             if (_deviceMode)
@@ -647,6 +647,11 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
     );
   }
 
+  /// How much of the height the picture takes. Half on a tall phone; less
+  /// on a short one, where half left the words and buttons under it
+  /// squeezed behind the shutter or cut off.
+  static double _pictureShare(double height) => height < 640 ? 0.36 : (height < 740 ? 0.43 : 0.5);
+
   /// The picture's box when it's drawn upright with the words: the
   /// practice sky, the streak building, the result.
   Size _holeFor(BoxConstraints c) {
@@ -656,7 +661,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
         : (_plan == null ? 3 / 4 : (_plan!.framing.widthFovDeg / _plan!.framing.heightFovDeg));
     final wide = c.maxWidth > c.maxHeight;
     final maxW = wide ? c.maxWidth * 0.62 : c.maxWidth - 24;
-    final maxH = wide ? c.maxHeight - 24 : c.maxHeight * 0.5;
+    final maxH = wide ? c.maxHeight - 24 : c.maxHeight * _pictureShare(c.maxHeight);
     var w = maxW, h = w / aspect;
     if (h > maxH) {
       h = maxH;
@@ -973,7 +978,7 @@ class _CatchItState extends ConsumerState<CatchItScreen> {
     final r = _r;
     if (r == null) return (plan.aimWords, null, false);
     final g = guide(cameraDirection(r, declinationDeg: _decl), plan.framing.center, toleranceDeg: 4);
-    if (!g.onTarget) return (g.words, 'Bring the firefly into the ring', false);
+    if (!g.onTarget) return (g.words, 'Bring Pip into the ring', false);
     final level = levelWords(tiltDeg(r, quarterTurns: _contentTurns));
     if (level != null) return (level, null, false);
     if (!isSteady(_recent)) return ('Hold it still', null, false);

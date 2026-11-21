@@ -52,20 +52,29 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
         border: const Border(bottom: BorderSide(color: Color(0x0FFFFFFF))),
         child: SafeArea(
           bottom: false,
-          child: SizedBox(
+          // The bar is one fixed line: its words grow a little with large
+          // text, not without limit (the page below scales fully).
+          child: MediaQuery.withClampedTextScaling(
+           maxScaleFactor: 1.2,
+           child: SizedBox(
             height: height,
             child: Row(children: [
               const SizedBox(width: 20),
-              // The title keeps its width; a long place name shrinks instead.
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: Semantics(
-                  header: true,
-                  child: DefaultTextStyle.merge(
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: display(28, weight: FontWeight.w700),
-                    child: title,
+              // The title keeps its width where it can; a long place name
+              // shrinks first. (Flexible, so a narrow phone with large text
+              // shortens the title instead of overflowing the bar.)
+              Flexible(
+                flex: 0,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: Semantics(
+                    header: true,
+                    child: DefaultTextStyle.merge(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: display(28, weight: FontWeight.w700),
+                      child: title,
+                    ),
                   ),
                 ),
               ),
@@ -78,6 +87,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
               for (final a in actions) ...[const SizedBox(width: 8), a],
               const SizedBox(width: 16),
             ]),
+           ),
           ),
         ),
       );
@@ -89,7 +99,30 @@ class _PlaceChip extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+        // With three buttons beside it (Explore) there's no room for a
+        // name: "Nas…" says nothing, so it becomes just the pin to tap.
+        if (box.maxWidth < 96) {
+          if (box.maxWidth < 40) return const SizedBox.shrink();
+          return Semantics(
+            button: onTap != null,
+            label: 'Place: $place',
+            child: Material(
+              color: LookUpColors.glass,
+              shape: const CircleBorder(side: BorderSide(color: LookUpColors.line)),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onTap,
+                child: const SizedBox(
+                    width: 38, height: 38, child: Icon(Icons.near_me_rounded, size: 16, color: LookUpColors.blue)),
+              ),
+            ),
+          );
+        }
+        return _chip();
+      });
+
+  Widget _chip() => ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 170),
         child: Material(
           color: LookUpColors.glass,
@@ -184,7 +217,11 @@ class PageScaffold extends StatelessWidget {
     final pad = MediaQuery.paddingOf(context);
     final header = PageHeader(title: title, subtitle: subtitle);
     final top = pad.top + header.preferredSize.height;
-    final list = ListView(padding: EdgeInsets.fromLTRB(16, top + 8, 16, pad.bottom + 32), children: children);
+    // Every row is built (these pages are short lists of settings), so a
+    // page can open scrolled to any section: a lazy list hasn't built what's
+    // far below yet, and there's then nothing to scroll to.
+    final list = ListView(
+        padding: EdgeInsets.fromLTRB(16, top + 8, 16, pad.bottom + 32), scrollCacheExtent: const ScrollCacheExtent.pixels(6000), children: children);
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: header,

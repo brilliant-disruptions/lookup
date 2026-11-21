@@ -27,6 +27,10 @@ class LogScreen extends ConsumerStatefulWidget {
 class _LogScreenState extends ConsumerState<LogScreen> {
   int _tab = 0;
 
+  /// How many catches are on screen; "Show more" adds a page. Every catch
+  /// is kept, so every catch can be reached.
+  int _shown = 50;
+
   @override
   Widget build(BuildContext context) {
     final log = ref.watch(skyLogProvider);
@@ -92,7 +96,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
               const SizedBox(height: 12),
               if (_tab == 0 && l.seen.isNotEmpty)
                 GroupedList(indent: 68, children: [
-                  for (final s in l.seen.take(50))
+                  for (final s in l.seen.take(_shown))
                     ListRow(
                       onTap: () => _showSighting(context, ref, s),
                       leading: _Thumb(s.photo, asset: s.photoAsset, type: s.inferredType),
@@ -106,6 +110,15 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                 ])
               else if (_tab == 1)
                 BadgeBoard(log: l),
+              if (_tab == 0 && l.seen.length > _shown)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: TextButton(
+                    key: const Key('log-more'),
+                    onPressed: () => setState(() => _shown += 50),
+                    child: Text('Show ${(l.seen.length - _shown).clamp(0, 50)} more'),
+                  ),
+                ),
             ],
           ),
         ),

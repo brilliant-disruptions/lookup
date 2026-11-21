@@ -276,22 +276,58 @@ class NotificationService {
     return keep;
   }
 
+  /// Android only: whether alerts may be scheduled to the minute. Null on
+  /// other platforms (iPhone's are always on time).
+  Future<bool?> exactTimingAllowed() async {
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (android == null) return null;
+      return await android.canScheduleExactNotifications();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Android only: opens the system's "Alarms & reminders" switch for LookUp.
+  Future<bool> requestExactTiming() async {
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.requestExactAlarmsPermission() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> schedule(PlannedAlert a) async {
     await ensureTimeZone();
+    // To the minute where Android allows it: "ten minutes before" that
+    // turns up after the pass is worse than no alert.
+    final exact = await exactTimingAllowed() ?? false;
     // The picture is a nice-to-have: any trouble and the alert goes as text.
     String? image;
     try {
       image = await _art(a);
     } catch (_) {}
-    Future<void> go(String? img) => _plugin.zonedSchedule(
+    Future<void> at(String? img, AndroidScheduleMode mode) => _plugin.zonedSchedule(
           id: a.notificationId,
           title: a.title,
           body: a.body,
           scheduledDate: tz.TZDateTime.from(a.fireAt, tz.local),
           notificationDetails: detailsForAlert(a, imagePath: img),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: mode,
           payload: a.event.id,
         );
+    Future<void> go(String? img) async {
+      if (!exact) return at(img, AndroidScheduleMode.inexactAllowWhileIdle);
+      try {
+        await at(img, AndroidScheduleMode.exactAllowWhileIdle);
+      } catch (_) {
+        // The permission went away between asking and scheduling: late is
+        // better than never.
+        await at(img, AndroidScheduleMode.inexactAllowWhileIdle);
+      }
+    }
+
     if (image == null) return go(null);
     try {
       await go(image);

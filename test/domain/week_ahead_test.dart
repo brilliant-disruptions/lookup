@@ -57,8 +57,25 @@ void main() {
     expect(plus.body.toLowerCase(), isNot(contains('lookup+')));
   });
 
+  // Passes are only worked out a week ahead: on a Wednesday the note can
+  // see a few days of the week it describes, so it can't call it quiet.
+  test('a quiet week is only called once the week is in view (from the day before)', () {
+    final far = [ev('iss:far', SkyEventType.iss, const Duration(days: 10))];
+    expect(WeekAhead.of(events: far, settings: on, now: now), isNull, reason: 'Wednesday: too early to know');
+    expect(WeekAhead.of(events: far, settings: on, now: sunday.subtract(const Duration(days: 2))), isNull);
+    expect(WeekAhead.of(events: far, settings: on, now: sunday.subtract(const Duration(hours: 20))), isNotNull);
+    // Something really in the week is said whenever it's known.
+    expect(WeekAhead.of(events: [ev('iss:1', SkyEventType.iss, const Duration(days: 1))], settings: on, now: now), isNotNull);
+  });
+
+  test('paused: no note', () {
+    final e = [ev('iss:1', SkyEventType.iss, const Duration(days: 1))];
+    expect(WeekAhead.of(events: e, settings: on.copyWith(alertsPaused: true), now: now), isNull);
+  });
+
   test('a quiet week says when the next thing is', () {
-    final n = WeekAhead.of(events: [ev('iss:far', SkyEventType.iss, const Duration(days: 10))], settings: on, now: now)!;
+    final saturday = sunday.subtract(const Duration(hours: 20));
+    final n = WeekAhead.of(events: [ev('iss:far', SkyEventType.iss, const Duration(days: 10))], settings: on, now: saturday)!;
     expect(n.title, 'A quiet week overhead');
     expect(n.body, startsWith('A space station pass is next, on '));
     expect(n.body, contains('Pip will tap you'));
