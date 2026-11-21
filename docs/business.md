@@ -34,13 +34,12 @@ after a catch), none in the first two days and none after two "Not now"s.
 ## Prices (set in App Store Connect and Play Console)
 
 Product ids are already in `PlusService`: `lookup_plus_yearly`,
-`lookup_plus_monthly`, `lookup_plus_lifetime`.
+`lookup_plus_monthly`. No lifetime purchase: LookUp+ is a subscription only.
 
 | Product | Price (US) | Notes |
 |---|---|---|
 | Yearly | **$29.99** | The default and the one the paywall selects (half the price of twelve months). 7-day free trial as an introductory offer, new subscribers only |
 | Monthly | $4.99 | Mostly an anchor that makes yearly look cheap, and for one aurora season or one eclipse; expect it to churn in quiet ISS weeks |
-| Lifetime | $79.99 | Non-consumable, ~2.7× yearly so it doesn't eat the subscription |
 
 Before LookUp+ goes on sale, move Open-Meteo to its paid API plan: the
 free API is non-commercial only, and a subscription makes LookUp commercial.

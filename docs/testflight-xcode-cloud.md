@@ -77,6 +77,6 @@ When the build finishes processing (another 5–15 minutes), internal testers ge
 
 ## Before external TestFlight or the App Store
 
-- Create the three IAP products (`lookup_plus_monthly`, `lookup_plus_yearly`, `lookup_plus_lifetime`) and a subscription group; sign the Paid Applications agreement.
+- Create the two subscriptions (`lookup_plus_monthly`, `lookup_plus_yearly`) in a subscription group; sign the Paid Applications agreement.
 - Add a privacy policy URL and the App Privacy answers (location: coarse, not linked to identity, not used for tracking).
 - External testers need a Beta App Review; internal testers (up to 100 team members) don't.

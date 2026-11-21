@@ -17,7 +17,7 @@ sealed class PlusNews {
 }
 
 /// The store vouches for LookUp+ right now. [until] is when the paid period
-/// ends: null for the lifetime purchase, or when the store gave no date.
+/// ends: null when the store gave no date.
 final class PlusOwned extends PlusNews {
   const PlusOwned({this.until});
   final DateTime? until;

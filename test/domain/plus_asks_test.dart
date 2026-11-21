@@ -131,7 +131,7 @@ void main() {
       expect(trialReminderAt(fresh, PlusOwned(until: until), now), until.subtract(const Duration(days: 2)));
     });
 
-    test('not a monthly, a lifetime, a renewal, or someone who had it before', () {
+    test('not a monthly, one with no end, a renewal, or someone who had it before', () {
       expect(trialReminderAt(fresh, PlusOwned(until: now.add(const Duration(days: 30))), now), isNull);
       expect(trialReminderAt(fresh, const PlusOwned(), now), isNull);
       expect(trialReminderAt(fresh.copyWith(isPlus: true), PlusOwned(until: now.add(const Duration(days: 7))), now), isNull);
