@@ -161,11 +161,6 @@ class PhotosAccessSheet extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const _Choice(
-              title: 'Allow Full Access',
-              line: 'Works too, but LookUp doesn\'t need it: it still only looks at its album.',
-            ),
-            const SizedBox(height: 8),
-            const _Choice(
               title: 'Don\'t Allow',
               line: 'Catches stay in your Log, not in Photos.',
             ),

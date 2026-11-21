@@ -137,6 +137,8 @@ void main() {
     expect(find.descendant(of: limited, matching: find.text('Recommended')), findsOneWidget);
     expect(find.textContaining('You don\'t need to pick any photos'), findsOneWidget);
     expect(find.text('Recommended'), findsOneWidget, reason: 'only Limited is recommended');
+    expect(find.textContaining('Full Access'), findsNothing, reason: 'no gain to them, so not offered');
+    expect(find.text('Don\'t Allow'), findsOneWidget);
     for (var i = 0; i < 4; i++) {
       await t.pump(const Duration(milliseconds: 200));
     }
