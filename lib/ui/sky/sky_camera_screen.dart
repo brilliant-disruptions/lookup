@@ -14,7 +14,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/local_store.dart';
 import '../../domain/finder/firefly.dart' show towardOnScreen;
 import '../../domain/finder/guide_target.dart';
 import '../../domain/finder/pointing.dart';
@@ -23,7 +22,7 @@ import '../../domain/plan/next_up.dart';
 import '../../domain/sky/direction.dart';
 import '../../domain/sky/wmm.dart';
 import '../../services/orientation.dart';
-import '../../services/photo_store.dart';
+import '../keep_catch.dart';
 import '../../domain/plus/free_plan.dart';
 import '../../state/providers.dart';
 import '../../state/sky_state.dart';
@@ -222,22 +221,19 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
       if (!mounted) return;
       if (png == null) return say('Couldn\'t take the picture.');
       final e = c?.event(now);
-      final saved = await ref.read(photoLibraryProvider).save(png, name: 'LookUp-${now.millisecondsSinceEpoch}');
-      if (!mounted) return;
       if (e == null) {
+        await askAboutPhotos(context, ref);
+        final saved = await ref.read(photoLibraryProvider).save(png, name: 'LookUp-${now.millisecondsSinceEpoch}');
+        if (!mounted) return;
         return say(
-          saved
+          saved.toPhotos
               ? 'Saved to Photos. Bring something to the middle to catch it for your Log.'
-              : 'Couldn\'t save to Photos. Allow LookUp to add photos in Settings.',
+              : 'Couldn\'t save to Photos. Allow Photos for LookUp in Settings.',
         );
       }
-      final store = ref.read(storeProvider);
-      final name = await const PhotoStore().saveBytes(e.id, png);
-      await store.addFeedback(SeenFeedback.forEvent(e, seen: true, place: place));
-      await store.setPhoto(e.id, name);
-      ref.invalidate(skyLogProvider);
+      final saved = await keepCatch(context, ref, event: e, png: png, title: c?.name ?? 'The night sky', at: now, place: place);
       if (!mounted) return;
-      if (!saved) say('In your Log. Allow LookUp to add photos in Settings to keep a copy in Photos too.');
+      if (!saved.toPhotos) say('In your Log. Allow Photos for LookUp in Settings to keep it in Photos too.');
       await showCaughtIt(context, e);
     } finally {
       if (mounted) setState(() => _catching = false);

@@ -80,10 +80,26 @@ Run on a device (⌘R) and try:
 - **Alert buttons.** Settings → *Preview an alert*. Long-press the
   notification: *Find it*, *Remind me in 5 min*, and on the go-now alert
   *Catch it*, which opens LookUp straight into the camera with Pip.
-- **Saving to Photos.** In the camera, point at the Moon or a planet until
-  Pip waves, tap Pip: iOS asks once to *add* photos (not read them), the
-  picture lands in Photos with its caption along the foot, and the Log
-  shows it. `gal` resolves through SPM with no remote packages.
+- **Saving to Photos (the LookUp album).** On a fresh install, catch the
+  Moon or a planet (point until Pip lands, tap Pip). LookUp's own sheet
+  should come first, recommending *Limit Access…*; then iOS asks. Check:
+  - Choose **Limit Access…** and pick **no photos**. If iOS won't let you
+    finish with none, change the sheet's line "You don't need to pick any
+    photos" (`ui/keep_catch.dart`) and `NSPhotoLibraryUsageDescription`.
+  - The picture lands in Photos in a **LookUp** album, with its caption,
+    the right date and a place on the Photos map.
+  - The Log shows it, and Settings › Photos says "Limited, as recommended".
+    This is the assumption the whole design rests on: under Limited access
+    LookUp can still read the pictures it saved (and its own album). If the
+    Log shows "isn't in your Photos any more" for a fresh catch, it can't:
+    `DevicePhotoLibrary.save` then keeps LookUp's full copy (it checks with
+    `AssetEntity.fromId` straight after saving), but tell me.
+  - Delete the picture in Photos: the Log keeps the catch and says so.
+  - Choose **Don't Allow** (reset with Settings › General › Transfer or
+    Reset › Reset Location & Privacy): catches still reach the Log; nothing
+    else prompts. `photo_manager` and `gal` resolve through SPM with no
+    remote packages.
+  - A Pro camera timelapse lands in the LookUp album too.
 - **Chime.** The preview alert should play the two-note LookUp chime, not
   the default tri-tone (`lookup_chime.wav` is already in *Copy Bundle
   Resources*).

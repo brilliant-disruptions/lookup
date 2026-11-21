@@ -27,7 +27,7 @@ import '../services/shortcut_summary.dart';
 final storeProvider = Provider<LocalStore>((_) => LocalStore());
 
 /// The phone's own Photos, for caught pictures; tests swap in a fake.
-final photoLibraryProvider = Provider<PhotoLibrary>((_) => const GalPhotoLibrary());
+final photoLibraryProvider = Provider<PhotoLibrary>((_) => DevicePhotoLibrary());
 final notificationServiceProvider =
     Provider<NotificationService>((_) => NotificationService());
 final locationServiceProvider =

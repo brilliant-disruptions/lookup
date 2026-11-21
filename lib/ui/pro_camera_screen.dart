@@ -24,7 +24,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../data/local_store.dart';
 import '../domain/finder/firefly.dart' show towardOnScreen;
 import '../domain/finder/pointing.dart';
 import '../domain/models/sky_event.dart';
@@ -46,7 +45,7 @@ import '../services/capture/plugin_capture.dart';
 import '../services/capture/timelapse_encoder.dart';
 import '../services/capture/timelapse_runner.dart';
 import '../services/orientation.dart';
-import '../services/photo_store.dart';
+import 'keep_catch.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
 import 'catch_it_screen.dart';
@@ -465,7 +464,11 @@ class _ProCameraState extends ConsumerState<ProCameraScreen> {
       return;
     }
     final library = ref.read(photoLibraryProvider);
-    final video = out.videoPath != null && await library.saveVideo(out.videoPath!);
+    if (out.videoPath != null && mounted) await askAboutPhotos(context, ref);
+    if (!mounted) return;
+    final s = ref.read(settingsProvider).value;
+    final video = out.videoPath != null &&
+        (await library.saveVideo(out.videoPath!, title: _title(widget.target.name), at: _now(), lat: s?.latitude, lon: s?.longitude)).toPhotos;
     final t = out.trail;
     final words = video
         ? 'The ${out.videoSeconds.round()}-second timelapse is in your Photos, with the trail picture. It\'s in your Log.'
@@ -492,17 +495,12 @@ class _ProCameraState extends ConsumerState<ProCameraScreen> {
         caption: FreePlan.caption(isPlus: s?.isPlus ?? false, wanted: s?.photoCaption ?? true));
     if (png == null || !mounted) return _fail('Couldn\'t make the picture.');
     final e = widget.target.asEvent(now, _lat, _lon);
-    final saved = await ref.read(photoLibraryProvider).save(png, name: 'LookUp-${now.millisecondsSinceEpoch}');
-    final store = ref.read(storeProvider);
-    final name = await const PhotoStore().saveBytes(e.id, png);
-    await store.addFeedback(SeenFeedback.forEvent(e, seen: true, place: place));
-    await store.setPhoto(e.id, name);
-    ref.invalidate(skyLogProvider);
+    final saved = await keepCatch(context, ref, event: e, png: png, title: _title(widget.target.name), at: now, place: place);
     if (!mounted) return;
     setState(() {
       _png = png;
       _phase = _Phase.done;
-      _resultWords = saved ? words : '$words (Allow LookUp to add photos in Settings to keep a copy in Photos.)';
+      _resultWords = saved.toPhotos ? words : '$words (Allow Photos for LookUp in Settings to keep it in Photos too.)';
     });
     HapticFeedback.heavyImpact();
   }

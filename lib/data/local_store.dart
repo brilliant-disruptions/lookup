@@ -367,6 +367,7 @@ class SeenFeedback {
     this.magnitude,
     this.place,
     this.photo,
+    this.photoAsset,
   });
   final String eventId;
   final bool seen;
@@ -382,7 +383,11 @@ class SeenFeedback {
   /// container moves between app updates).
   final String? photo;
 
-  SeenFeedback withPhoto(String? name) => SeenFeedback(
+  /// The picture's id in Photos, when the Log shows it from there (then
+  /// [photo] is only a small thumbnail).
+  final String? photoAsset;
+
+  SeenFeedback withPhoto(String? name, {String? asset}) => SeenFeedback(
         eventId: eventId,
         seen: seen,
         at: at,
@@ -393,6 +398,7 @@ class SeenFeedback {
         magnitude: magnitude,
         place: place,
         photo: name,
+        photoAsset: asset,
       );
 
   factory SeenFeedback.forEvent(SkyEvent e, {required bool seen, String? reason, String? place, DateTime? at}) => SeenFeedback(
@@ -418,6 +424,7 @@ class SeenFeedback {
         magnitude: magnitude,
         place: place,
         photo: photo,
+        photoAsset: photoAsset,
       );
 
   Map<String, Object?> toJson() => {
@@ -431,6 +438,7 @@ class SeenFeedback {
         if (magnitude != null) 'mg': magnitude,
         if (place != null) 'pl': place,
         if (photo != null) 'ph': photo,
+        if (photoAsset != null) 'pa': photoAsset,
       };
   factory SeenFeedback.fromJson(Map<String, Object?> j) => SeenFeedback(
         eventId: j['e'] as String,
@@ -443,6 +451,7 @@ class SeenFeedback {
         magnitude: (j['mg'] as num?)?.toDouble(),
         place: j['pl'] as String?,
         photo: j['ph'] as String?,
+        photoAsset: j['pa'] as String?,
       );
 }
 
@@ -460,7 +469,7 @@ extension FeedbackStore on LocalStore {
   Future<void> addFeedback(SeenFeedback f) async {
     final previous = (await loadFeedback()).where((x) => x.eventId == f.eventId).firstOrNull;
     // Answering again keeps a photo already attached.
-    if (f.photo == null && previous?.photo != null) f = f.withPhoto(previous!.photo);
+    if (f.photo == null && previous?.photo != null) f = f.withPhoto(previous!.photo, asset: previous.photoAsset);
     final all = (await loadFeedback()).where((x) => x.eventId != f.eventId).toList()..add(f);
     // Keep the last 200.
     final trimmed = all.length > 200 ? all.sublist(all.length - 200) : all;
@@ -468,11 +477,11 @@ extension FeedbackStore on LocalStore {
   }
 
   /// Attach (or with null, detach) a photo to the sighting for [eventId].
-  Future<void> setPhoto(String eventId, String? name) async {
+  Future<void> setPhoto(String eventId, String? name, {String? asset}) async {
     final all = await loadFeedback();
     final i = all.indexWhere((x) => x.eventId == eventId);
     if (i < 0) return;
-    final next = [...all]..[i] = all[i].withPhoto(name);
+    final next = [...all]..[i] = all[i].withPhoto(name, asset: asset);
     await _prefs.setString(LocalStore._kFeedback, jsonEncode([for (final x in next) x.toJson()]));
   }
 }

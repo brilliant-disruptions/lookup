@@ -8,6 +8,7 @@ import '../domain/models/sky_event.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
 import 'format.dart';
+import 'keep_catch.dart';
 import 'kit/kit.dart';
 import 'settings_screen.dart';
 import 'theme.dart';
@@ -88,7 +89,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                   for (final s in l.seen.take(50))
                     ListRow(
                       onTap: () => _showSighting(context, ref, s),
-                      leading: _Thumb(s.photo, type: s.inferredType),
+                      leading: _Thumb(s.photo, asset: s.photoAsset, type: s.inferredType),
                       title: _typeLabel(s.inferredType),
                       subtitle: [
                         fmtDay(s.eventTime ?? s.at),
@@ -219,24 +220,15 @@ class _BadgeTile extends StatelessWidget {
 
 /// A small square of the sighting's photo, or nothing.
 class _Thumb extends StatelessWidget {
-  const _Thumb(this.name, {this.type});
-  final String? name;
+  const _Thumb(this.name, {this.asset, this.type});
+  final String? name, asset;
   final SkyEventType? type;
   @override
   Widget build(BuildContext context) {
-    if (name == null) return EventGlyph.forType(type, size: 40);
-    return FutureBuilder(
-      future: const PhotoStore().fileFor(name),
-      builder: (context, snap) => ClipRRect(
-        borderRadius: BorderRadius.circular(Radii.sm),
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: snap.data == null
-              ? const ColoredBox(color: LookUpColors.panelRaised)
-              : Image.file(snap.data!, fit: BoxFit.cover, cacheWidth: 120),
-        ),
-      ),
+    if (name == null && asset == null) return EventGlyph.forType(type, size: 40);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(Radii.sm),
+      child: SizedBox(width: 40, height: 40, child: SightingPicture(photo: name, asset: asset)),
     );
   }
 }
@@ -251,6 +243,7 @@ class _SightingSheet extends ConsumerStatefulWidget {
 
 class _SightingSheetState extends ConsumerState<_SightingSheet> {
   late String? _photo = widget.s.photo;
+  late String? _asset = widget.s.photoAsset;
 
   Future<void> _pick() async {
     try {
@@ -260,7 +253,12 @@ class _SightingSheetState extends ConsumerState<_SightingSheet> {
       await ref.read(storeProvider).setPhoto(widget.s.eventId, name);
       if (old != null) await const PhotoStore().delete(old);
       ref.invalidate(skyLogProvider);
-      if (mounted) setState(() => _photo = name);
+      if (mounted) {
+        setState(() {
+          _photo = name;
+          _asset = null;
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -287,13 +285,7 @@ class _SightingSheetState extends ConsumerState<_SightingSheet> {
             if (s.place != null && s.place!.isNotEmpty) s.place!,
           ].join(' · '), style: numeric(size: 14, color: LookUpColors.grey)),
           const SizedBox(height: 16),
-          if (_photo != null)
-            FutureBuilder(
-              future: const PhotoStore().fileFor(_photo),
-              builder: (context, snap) => snap.data == null
-                  ? const SizedBox(height: 200)
-                  : ClipRRect(borderRadius: BorderRadius.circular(Radii.lg), child: Image.file(snap.data!, fit: BoxFit.cover)),
-            ),
+          if (_photo != null || _asset != null) SightingPicture(photo: _photo, asset: _asset, large: true),
           const SizedBox(height: 14),
           OutlinedButton.icon(
             onPressed: _pick,

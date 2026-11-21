@@ -15,6 +15,8 @@ import 'credits_screen.dart';
 import 'demo.dart';
 import 'night_vision_controls.dart';
 import '../domain/models/sky_event.dart';
+import '../services/photo_library.dart';
+import 'keep_catch.dart';
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
@@ -194,6 +196,7 @@ class SettingsScreen extends ConsumerWidget {
                 ? 'What, when and where along the foot of each picture'
                 : 'What, when and where, and "LookUp". LookUp+ can turn it off.',
           ),
+          const _PhotosRow(),
           _ScrollHere(
             when: focusNightVision,
             child: _Switch(
@@ -503,4 +506,41 @@ class _ScrollHereState extends State<_ScrollHere> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Where catches go, and the Photos access LookUp recommends (Limited).
+class _PhotosRow extends ConsumerWidget {
+  const _PhotosRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lib = ref.watch(photoLibraryProvider);
+    if (!lib.asks) {
+      return const ListRow(
+        key: Key('photos-access-row'),
+        leading: _Glyph(Icons.photo_library_rounded, LookUpColors.cyan),
+        title: 'Photos',
+        subtitle: 'Catches go in Pictures/LookUp, and your Log shows them from there',
+        subtitleLines: 3,
+      );
+    }
+    final a = ref.watch(photosAccessProvider).value;
+    final change = a == PhotosAccess.full || a == PhotosAccess.denied;
+    return ListRow(
+      key: const Key('photos-access-row'),
+      leading: const _Glyph(Icons.photo_library_rounded, LookUpColors.cyan),
+      title: 'Photos',
+      subtitle: a == null ? null : photosAccessLine(a),
+      subtitleLines: 4,
+      trailing: change
+          ? TextButton(
+              onPressed: () async {
+                await lib.openSettings();
+                ref.invalidate(photosAccessProvider);
+              },
+              child: Text(a == PhotosAccess.denied ? 'Turn on' : 'Change'),
+            )
+          : null,
+    );
+  }
 }
