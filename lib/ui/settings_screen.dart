@@ -18,6 +18,7 @@ import '../domain/models/sky_event.dart';
 import '../services/photo_library.dart';
 import 'help.dart';
 import 'keep_catch.dart';
+import 'onboarding_screen.dart' show openIntroPreview;
 import 'kit/kit.dart';
 import 'paywall_sheet.dart';
 import 'places_screen.dart';
@@ -288,6 +289,14 @@ class SettingsScreen extends ConsumerWidget {
         ]),
         const _Header('Help'),
         GroupedList(indent: 60, children: [
+          _Row(
+            key: const Key('replay-intro'),
+            icon: Icons.replay_rounded,
+            color: LookUpColors.good,
+            title: 'Replay the intro',
+            subtitle: 'See it as someone new would. Nothing you choose is saved.',
+            onTap: () => openIntroPreview(context, ref),
+          ),
           _Row(
             key: const Key('report-problem'),
             icon: Icons.mail_outline_rounded,
