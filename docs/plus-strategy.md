@@ -27,7 +27,7 @@ the way of the sky.
 | Planning past 3 nights, more than 1 saved place | When they reach for the 4th night / 2nd place | `FreePlan.canPlanNight`, `canAddPlace` |
 | ISS crossing the Sun or Moon | Its row | `PlusFeature.transits` |
 | The Pro camera and timelapses | Its buttons; one line after a catch | `PlusFeature.camera` |
-| The sky through history past a week either side of now; 4 of the 7 famous nights | Explore's Day steps and "Any night" (marked LookUp+). Not listed in the offer or the paywall's perks | `FreePlan.canVisit`, `canVisitFamous` |
+| *(Hidden for now: `skyThroughHistory` in `ui/sky/sky_screen.dart`.)* The sky through history past a week either side of now; 4 of the 7 famous nights | While hidden, Explore's Day steps stop at a week either way and there's no "Any night"; nothing asks for LookUp+. Not listed in the offer or the paywall's perks | `FreePlan.canVisit`, `canVisitFamous` |
 | Turning the photo caption off | Settings → Caption on photos | `PlusFeature.noCaption` |
 
 Reaching a limit someone chose to try (a later night, an old night, a second

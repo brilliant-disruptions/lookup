@@ -2,9 +2,8 @@
 /// offer can't drift apart. Keep in step with `domain/plus/free_plan.dart`
 /// and `docs/plus-strategy.md`.
 ///
-/// The sky through history is still LookUp+ past a week (Explore opens the
-/// paywall when someone reaches for it) but isn't sold here: it isn't
-/// what people buy LookUp+ for.
+/// The sky through history isn't here: it's hidden in the app for now
+/// (`skyThroughHistory` in `sky/sky_screen.dart`).
 library;
 
 import 'package:material_ui/material_ui.dart';

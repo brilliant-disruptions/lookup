@@ -172,7 +172,7 @@ void main() {
     await t.pump(const Duration(minutes: 1));
   });
 
-  testWidgets('Explore: a week either side is free; further, and the locked famous nights, ask for LookUp+', (t) async {
+  testWidgets('Explore: a day at a time, up to a week either way; the sky through history is hidden', (t) async {
     await pump(t);
     await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Explore')));
     await t.pump(const Duration(seconds: 1));
@@ -180,31 +180,15 @@ void main() {
     final forward = find.widgetWithIcon(TextButton, Icons.chevron_right_rounded);
     await t.scrollUntilVisible(forward, 200,
         scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+    expect(find.widgetWithText(TextButton, 'Any night'), findsNothing);
+    expect(find.textContaining('3000 BC'), findsNothing);
     // The strip moves as the night changes, so press the button itself.
-    void dayOn() => t.widget<TextButton>(forward).onPressed!();
     for (var i = 0; i < 7; i++) {
-      dayOn();
+      t.widget<TextButton>(forward).onPressed!();
       await t.pump(const Duration(milliseconds: 200));
     }
-    expect(find.byType(PaywallSheet), findsNothing, reason: 'a week ahead is free');
-    dayOn();
-    await t.pump();
-    await t.pump(const Duration(milliseconds: 600));
-    expect(find.byType(PaywallSheet), findsOneWidget, reason: 'the eighth day is LookUp+');
-    expect(find.textContaining('Go to any night from 3000 BC'), findsOneWidget);
-    Navigator.of(t.element(find.byType(PaywallSheet))).pop();
-    await t.pump(const Duration(milliseconds: 600));
-
-    t.widget<TextButton>(find.widgetWithText(TextButton, 'Any night')).onPressed!();
-    await t.pump(const Duration(milliseconds: 600));
-    final titanic = find.widgetWithText(ListRow, 'The night the Titanic struck');
-    expect(find.descendant(of: titanic, matching: find.text('LookUp+')), findsOneWidget);
-    expect(find.descendant(of: find.widgetWithText(ListRow, 'The first step on the Moon'), matching: find.text('LookUp+')), findsNothing,
-        reason: 'Apollo 11 is one of the free famous nights');
-    t.widget<ListRow>(titanic).onTap!();
-    await t.pump();
-    await t.pump(const Duration(milliseconds: 600));
-    expect(find.byType(PaywallSheet), findsOneWidget);
+    expect(t.widget<TextButton>(forward).onPressed, isNull, reason: 'a week ahead is as far as it goes');
+    expect(find.byType(PaywallSheet), findsNothing, reason: 'and it never asks for LookUp+');
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(minutes: 1));
   });

@@ -69,8 +69,8 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 > with a wake-me option, Starlink trains, Tiangong, rocket launches), where
 > to go tonight for a clear, dark sky, the whole fortnight ahead at any saved
 > place, as many places as you like, photo planning for the station
-> crossing the Sun or Moon, the Pro camera with timelapses that start and
-> stop by themselves, and the sky on any night from 3000 BC to 3000 AD.
+> crossing the Sun or Moon, and the Pro camera with timelapses that start
+> and stop by themselves.
 > 7 days free on the yearly plan.
 
 ## Keywords [100]
