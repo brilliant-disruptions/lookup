@@ -38,9 +38,14 @@ Product ids are already in `PlusService`: `lookup_plus_yearly`,
 
 | Product | Price (US) | Notes |
 |---|---|---|
-| Yearly | **$19.99–24.99** | The default and the one the paywall selects. 7-day free trial as an introductory offer, new subscribers only. Start at $24.99; test $19.99 later |
-| Monthly | $3.99 | Mostly an anchor that makes yearly look cheap; expect it to churn in quiet ISS weeks |
-| Lifetime | $59.99 | Non-consumable, ~2.5–3× yearly so it doesn't eat the subscription |
+| Yearly | **$29.99** | The default and the one the paywall selects (half the price of twelve months). 7-day free trial as an introductory offer, new subscribers only |
+| Monthly | $4.99 | Mostly an anchor that makes yearly look cheap, and for one aurora season or one eclipse; expect it to churn in quiet ISS weeks |
+| Lifetime | $79.99 | Non-consumable, ~2.7× yearly so it doesn't eat the subscription |
+
+Before LookUp+ goes on sale, move Open-Meteo to its paid API plan: the
+free API is non-commercial only, and a subscription makes LookUp commercial.
+Enrol in Apple's Small Business Program (15% instead of 30%) and turn on
+Family Sharing for the subscriptions.
 
 Benchmarks (Oct 2026): NASA Spot the Station is free; ISS Detector's extras
 are a few dollars once; Aurora Forecast's alerts tier is ~$13/yr and its top

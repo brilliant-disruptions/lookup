@@ -276,7 +276,7 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.auto_awesome_rounded,
             color: LookUpColors.gold,
             title: s.isPlus ? 'You have LookUp+' : 'Get LookUp+',
-            subtitle: s.isPlus ? 'Thank you' : 'Aurora now, Starlink trains, launches. From \$2.99/mo.',
+            subtitle: s.isPlus ? 'Thank you' : 'Aurora now, Starlink trains, launches and more.',
             onTap: () => showPaywall(context),
           ),
           _Row(
