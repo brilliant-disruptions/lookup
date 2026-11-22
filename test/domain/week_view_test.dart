@@ -19,17 +19,11 @@ void main() {
         setAzimuthDeg: 90,
       );
 
-  test('a night runs noon to noon: a dawn pass belongs to the night before', () {
-    expect(nightOf(DateTime(2026, 10, 30, 18, 41)), DateTime(2026, 10, 30));
-    expect(nightOf(DateTime(2026, 11, 4, 5, 40)), DateTime(2026, 11, 3));
-    expect(nightOf(DateTime(2026, 11, 4, 12, 30)), DateTime(2026, 11, 4));
-  });
-
-  test('along the bar: 0 at 5 PM, 1 at 7 AM, clamped', () {
-    expect(barPosition(DateTime(2026, 10, 30, 17)), 0);
-    expect(barPosition(DateTime(2026, 10, 31, 0)), closeTo(0.5, 1e-9));
-    expect(barPosition(DateTime(2026, 10, 31, 7)), 1);
-    expect(barPosition(DateTime(2026, 10, 30, 14)), 0); // a daytime launch sits at the start
+  test('a day is its own midnight-to-midnight: a dawn pass is on its own morning', () {
+    expect(dayOf(DateTime(2026, 10, 30, 18, 41)), DateTime(2026, 10, 30));
+    expect(dayOf(DateTime(2026, 11, 4, 5, 40)), DateTime(2026, 11, 4));
+    expect(dayOf(DateTime(2026, 11, 4, 0, 5)), DateTime(2026, 11, 4));
+    expect(dayOf(DateTime(2026, 11, 3, 23, 59)), DateTime(2026, 11, 3));
   });
 
   test('seven nights from tonight, each with its own sights in order', () {
@@ -48,7 +42,8 @@ void main() {
     expect(nights.first.events.map((e) => e.id), ['iss:a', 'iss:b', 'transit:a']);
     expect(nights.first.alerts.map((e) => e.id), ['iss:a', 'iss:b']);
     expect(nights.first.quiet.map((e) => e.id), ['transit:a']);
-    expect(nights[4].events.map((e) => e.id), ['tiangong:dawn']); // Tuesday night
+    expect(nights[5].events.map((e) => e.id), ['tiangong:dawn']); // Wednesday morning, its own line
+    expect(nights[4].events, isEmpty, reason: 'not on Tuesday');
     expect(nights.expand((n) => n.events).map((e) => e.id), isNot(contains('gone')));
     expect(nights.expand((n) => n.events).map((e) => e.id), isNot(contains('far')));
   });
@@ -65,7 +60,9 @@ void main() {
         );
     final cloudy = weekNights(const [], now, weather: forecast(90));
     expect(cloudy.first.cloudy, isTrue);
-    expect(cloudy.first.clouds.first, 90);
+    expect(cloudy.first.clouds, hasLength(24));
+    expect(cloudy.first.clouds[0], isNull, reason: 'before the forecast begins');
+    expect(cloudy.first.clouds[14], 90);
     expect(cloudy[3].hasForecast, isFalse); // past the 48 h of forecast
     expect(cloudy[3].cloudy, isFalse);
     expect(weekNights(const [], now, weather: forecast(10)).first.cloudy, isFalse);
@@ -77,7 +74,7 @@ void main() {
       [ev('iss:a', SkyEventType.iss, DateTime(2026, 10, 30, 18, 41))],
       [
         ev('iss:old', SkyEventType.iss, DateTime(2026, 10, 27, 19, 5)),
-        // A dawn pass on the 29th belongs to the night of the 28th.
+        // A dawn pass on the 29th is on the 29th's line.
         ev('iss:dawn', SkyEventType.iss, DateTime(2026, 10, 29, 5, 40)),
         ev('iss:too-old', SkyEventType.iss, DateTime(2026, 10, 20, 19)),
       ],
@@ -88,13 +85,13 @@ void main() {
     expect(nights.where((n) => n.past), hasLength(7));
     expect(nights.firstWhere((n) => !n.past).date, DateTime(2026, 10, 30), reason: 'tonight comes right after');
     expect(nights.singleWhere((n) => n.date == DateTime(2026, 10, 27)).events.single.id, 'iss:old');
-    expect(nights.singleWhere((n) => n.date == DateTime(2026, 10, 28)).events.single.id, 'iss:dawn');
+    expect(nights.singleWhere((n) => n.date == DateTime(2026, 10, 29)).events.single.id, 'iss:dawn');
     expect(nights.expand((n) => n.events).map((e) => e.id), isNot(contains('iss:too-old')));
     expect(nights.where((n) => n.past).every((n) => !n.hasForecast), isTrue);
     expect(nights.last.date, DateTime(2026, 11, 5));
     // Something further out (a meteor peak) takes the list to it, up to two weeks.
     final longer = glanceNights([ev('meteors', SkyEventType.meteorShower, DateTime(2026, 11, 9, 2))], const [], now);
-    expect(longer.last.date, DateTime(2026, 11, 8));
+    expect(longer.last.date, DateTime(2026, 11, 9));
     final far = glanceNights([ev('eclipse', SkyEventType.lunarEclipse, DateTime(2027, 2, 1, 22))], const [], now);
     expect(far.where((n) => !n.past), hasLength(14));
   });

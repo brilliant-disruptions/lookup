@@ -92,7 +92,7 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  // On a small phone the lazy list never built "Tonight and ahead" below a
+  // On a small phone the lazy list never built "Today and ahead" below a
   // tall last week, so the tab opened on last week instead.
   testWidgets('opens on tonight, with last week a scroll up, even on a small phone', (t) async {
     t.view.physicalSize = const Size(375 * 2, 667 * 2);
@@ -100,7 +100,7 @@ void main() {
     addTearDown(t.view.reset);
     await pump(t);
     final list = t.getRect(find.byKey(const Key('week-list')));
-    final tonight = t.getRect(find.text('Tonight and ahead'));
+    final tonight = t.getRect(find.text('Today and ahead'));
     expect(tonight.top, greaterThanOrEqualTo(list.top - 1));
     expect(tonight.top, lessThan(list.bottom), reason: 'the heading is in view');
     if (find.text('Last week').evaluate().isNotEmpty) {
@@ -124,7 +124,7 @@ void main() {
   testWidgets('at a glance: one list, opened on tonight, the first sight picked, tap another', (t) async {
     await pump(t);
     expect(find.text('Calendar'), findsNothing, reason: 'one view now, no calendar');
-    expect(find.text('Tonight and ahead'), findsOneWidget);
+    expect(find.text('Today and ahead'), findsOneWidget);
     // Each night a bar; the first sight still to come is shown below.
     expect(find.bySemanticsLabel(RegExp(r'^(Tonight|This morning|Tomorrow|[A-Z][a-z]+day)')), findsWidgets);
     expect(find.text('ISS flyover'), findsOneWidget);
@@ -146,7 +146,7 @@ void main() {
   testWidgets('last week is a scroll up: faded, with what went over', (t) async {
     await pump(t);
     // Opens on tonight; last week sits above it.
-    expect(find.text('Tonight and ahead'), findsOneWidget);
+    expect(find.text('Today and ahead'), findsOneWidget);
     await t.scrollUntilVisible(find.text('Last week'), -300, scrollable: find.byType(Scrollable).first);
     expect(find.text('Last week'), findsOneWidget);
     final old = find.bySemanticsLabel(RegExp(r'^ISS flyover, '));
