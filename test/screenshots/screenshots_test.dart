@@ -28,7 +28,7 @@ import 'package:lookup/ui/plus_card.dart';
 import 'package:lookup/ui/look_up_now_screen.dart';
 import 'package:lookup/services/alert_art.dart';
 import 'package:lookup/ui/starter_card.dart';
-import 'package:lookup/ui/kit/kit.dart' show FloatingTabBar, PipMark, PipMood, SkyBackdrop;
+import 'package:lookup/ui/kit/kit.dart' show FloatingTabBar, PipMark, PipMood, SegmentedTabs, SkyBackdrop;
 import 'package:lookup/ui/kit/firefly_mark.dart' show fireflyGlow;
 import 'package:lookup/ui/onboarding_screen.dart';
 import 'package:lookup/ui/paywall_sheet.dart';
@@ -878,9 +878,10 @@ void main() {
           settings: _london, tint: LookUpColors.gold),
       _StoreShot('05-patches', 'A patch for\neverything you catch.', 'Levels, collections, seasonal sights and a few secrets.', const LogScreen(),
           tint: LookUpColors.gold, act: (t) async {
-        await t.tap(find.text('Badges').last, warnIfMissed: false);
+        final tab = find.descendant(of: find.byType(SegmentedTabs), matching: find.text('Badges'));
+        await t.tap(tab.first);
         await t.pump(const Duration(milliseconds: 600));
-        await t.drag(find.byType(ListView).first, const Offset(0, -250));
+        await t.drag(find.byType(ListView).first, const Offset(0, -560));
         await t.pump(const Duration(milliseconds: 800));
       }),
       const _StoreShot('06-explore', 'Everything\nin your sky.', 'Planets, constellations and the Moon, with whether you\'ll see them.',
@@ -1197,7 +1198,7 @@ class _StoreSlice extends StatelessWidget {
                   ..rotateY(-0.30)
                   ..rotateZ(0.05)
                   ..scaleByDouble(0.9, 0.9, 1, 1),
-                child: _StorePhone(screen: screens[j]),
+                child: _StorePhone(screen: screens[j], clock: j != 0),
               ),
             ),
         // Pip, flying the pass from image to image, in the gap between phones.
@@ -1277,33 +1278,196 @@ class _PipTrail extends CustomPainter {
   bool shouldRepaint(_PipTrail o) => o.x0 != x0;
 }
 
-/// A phone: bezel, the captured screen, the Dynamic Island.
+/// A phone as it looks in the hand: the titanium band with its buttons, the
+/// black border under the glass, the captured screen under a status bar and
+/// the Dynamic Island, and a faint reflection across the glass. [clock] is
+/// off for the lock screen, which shows its own.
 class _StorePhone extends StatelessWidget {
-  const _StorePhone({required this.screen});
+  const _StorePhone({required this.screen, this.clock = true});
   final ui.Image screen;
+  final bool clock;
 
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 393 + 22,
-        height: 852 + 22,
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(64),
-          gradient: const LinearGradient(colors: [Color(0xFF5A6070), Color(0xFF262B38), Color(0xFF3B4150)], stops: [0, 0.5, 1]),
-          boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 60, offset: Offset(0, 30))],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(54),
-          child: Stack(children: [
-            RawImage(image: screen, width: 393, height: 852, fit: BoxFit.fill),
-            Positioned(
-              top: 12,
-              left: (393 - 124) / 2,
-              child: Container(width: 124, height: 36, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20))),
+  static const _sw = 393.0, _sh = 852.0, _band = 4.5, _border = 6.0;
+  static const _w = _sw + 2 * (_band + _border), _h = _sh + 2 * (_band + _border);
+  static const _r = 67.0;
+
+  static Widget _button(double left, double top, double h) => Positioned(
+        left: left,
+        top: top,
+        child: Container(
+          width: 4.2,
+          height: h,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2E3138), Color(0xFF8D929B), Color(0xFF4A4E56), Color(0xFF24272D)],
+              stops: [0, 0.35, 0.7, 1],
             ),
-          ]),
+          ),
         ),
       );
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: _w,
+        height: _h,
+        child: Stack(clipBehavior: Clip.none, children: [
+          // Action button and volume on the left; side button and Camera
+          // Control on the right.
+          _button(-3, 168, 32),
+          _button(-3, 226, 60),
+          _button(-3, 298, 60),
+          _button(_w - 1.2, 252, 96),
+          _button(_w - 1.2, 556, 56),
+          // The band: brushed titanium catching the light along its edges.
+          Container(
+            width: _w,
+            height: _h,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_r),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFA4A9B2), Color(0xFF4A4E57), Color(0xFF7D828B), Color(0xFF2C2F35), Color(0xFF8F949D)],
+                stops: [0, 0.22, 0.5, 0.78, 1],
+              ),
+              boxShadow: const [
+                BoxShadow(color: Color(0xA6000000), blurRadius: 70, offset: Offset(0, 36)),
+                BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 6)),
+              ],
+            ),
+          ),
+          // The band's polished inner lip.
+          Positioned.fill(
+            child: Container(
+              margin: const EdgeInsets.all(1.4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(_r - 1.4),
+                border: Border.all(color: const Color(0x33FFFFFF), width: 0.8),
+              ),
+            ),
+          ),
+          // The glass: black border, then the screen.
+          Positioned.fill(
+            child: Container(
+              margin: const EdgeInsets.all(_band),
+              decoration: BoxDecoration(color: const Color(0xFF020203), borderRadius: BorderRadius.circular(_r - _band)),
+              padding: const EdgeInsets.all(_border),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_r - _band - _border),
+                child: Stack(children: [
+                  RawImage(image: screen, width: _sw, height: _sh, fit: BoxFit.fill),
+                  // The status bar, either side of the island.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 54,
+                    child: Row(children: [
+                      SizedBox(
+                        width: (_sw - 126) / 2,
+                        child: clock
+                            ? const Padding(
+                                padding: EdgeInsets.only(top: 4, left: 14),
+                                child: Text('9:41',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+                              )
+                            : null,
+                      ),
+                      const Spacer(),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4, right: 30),
+                        child: CustomPaint(size: Size(76, 13), painter: _StatusIcons()),
+                      ),
+                    ]),
+                  ),
+                  // The Dynamic Island, its camera just showing.
+                  Positioned(
+                    top: 11,
+                    left: (_sw - 126) / 2,
+                    child: Container(
+                      width: 126,
+                      height: 37,
+                      decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(19)),
+                      alignment: const Alignment(0.72, 0),
+                      child: Container(
+                        width: 11,
+                        height: 11,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            center: Alignment(-0.3, -0.35),
+                            radius: 0.8,
+                            colors: [Color(0xFF2B3550), Color(0xFF0B0E18), Color(0xFF050608)],
+                            stops: [0, 0.45, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+          // Light on the glass: a soft sheen from the top left, and the
+          // glass's own rim.
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                margin: const EdgeInsets.all(_band),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(_r - _band),
+                  border: Border.all(color: const Color(0x1AFFFFFF), width: 0.8),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0x1CFFFFFF), Color(0x08FFFFFF), Color(0x00FFFFFF), Color(0x00FFFFFF), Color(0x06FFFFFF)],
+                    stops: [0, 0.28, 0.42, 0.85, 1],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ]),
+      );
+}
+
+/// Signal, Wi-Fi and a nearly full battery, as iOS draws them.
+class _StatusIcons extends CustomPainter {
+  const _StatusIcons();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final white = Paint()..color = Colors.white;
+    // Signal: four bars.
+    for (var k = 0; k < 4; k++) {
+      final h = 4.0 + k * 2.6;
+      canvas.drawRRect(RRect.fromLTRBR(k * 5.0, 12 - h, k * 5.0 + 3.3, 12, const Radius.circular(1)), white);
+    }
+    // Wi-Fi: a dot and two arcs.
+    const c = Offset(32, 12);
+    canvas.drawArc(Rect.fromCircle(center: c, radius: 3.6), -3 * math.pi / 4, math.pi / 2, true, white);
+    final arc = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.1
+      ..strokeCap = StrokeCap.round;
+    for (final r in const [7.0, 10.6]) {
+      canvas.drawArc(Rect.fromCircle(center: c, radius: r), -3 * math.pi / 4 + 0.08, math.pi / 2 - 0.16, false, arc);
+    }
+    // Battery.
+    final dim = Paint()
+      ..color = Colors.white.withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawRRect(RRect.fromLTRBR(47.5, 0.5, 72.5, 12.5, const Radius.circular(4)), dim);
+    canvas.drawRRect(RRect.fromLTRBR(49.5, 2.5, 49.5 + 19, 10.5, const Radius.circular(2.4)), white);
+    canvas.drawRRect(RRect.fromLTRBR(73.6, 4.4, 75.2, 8.6, const Radius.circular(1)), Paint()..color = Colors.white.withValues(alpha: 0.4));
+  }
+
+  @override
+  bool shouldRepaint(_StatusIcons old) => false;
 }
 
 /// The sky behind the whole panorama, drawn for the slice starting at [x0]:
