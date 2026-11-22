@@ -182,7 +182,7 @@ class _GlancePageState extends State<GlancePage> {
     super.dispose();
   }
 
-  Widget _row(WeekNight n, DayAxis axis) => Padding(
+  Widget _row(WeekNight n, DayAxis axis, int lanes) => Padding(
         padding: const EdgeInsets.only(bottom: _rowGap),
         child: Opacity(
           opacity: n.past ? 0.6 : 1,
@@ -192,6 +192,7 @@ class _GlancePageState extends State<GlancePage> {
             Expanded(
                 child: _NightBar(n,
                     axis: axis,
+                    lanes: lanes,
                     selected: n.date == widget.night,
                     pick: widget.pick,
                     hours: _hours,
@@ -207,6 +208,12 @@ class _GlancePageState extends State<GlancePage> {
     final ahead = widget.nights.where((n) => !n.past).toList();
     final pick = widget.pick;
     final axis = _axis;
+    final view = MediaQuery.sizeOf(context).width - 32 - _labelWidth - _labelGap - 2;
+    var lanes = 1;
+    for (final n in widget.nights) {
+      final slots = _NightBar.layout(context, n, axis, view).slots;
+      if (slots.isNotEmpty) lanes = math.max(lanes, slots.map((s) => s.lane).reduce(math.max) + 1);
+    }
     // The hours sit right above each run of bars and scroll with them, so
     // they never float over something else (last week's card, say).
     return Column(children: [
@@ -220,11 +227,11 @@ class _GlancePageState extends State<GlancePage> {
               const _Section('Last week'),
               if (widget.missed case final m?) Padding(padding: const EdgeInsets.only(bottom: 14), child: m),
               _Axis(_hours, axis),
-              for (final n in past) _row(n, axis),
+              for (final n in past) _row(n, axis, lanes),
             ],
             _Section('Today and ahead', key: _tonight),
             _Axis(_hours, axis),
-            for (final n in ahead) _row(n, axis),
+            for (final n in ahead) _row(n, axis, lanes),
             const SizedBox(height: 6),
             const Wrap(spacing: 14, runSpacing: 6, children: [
               _Key(icon: Icons.swap_horiz_rounded, label: 'Swipe the hours sideways'),
@@ -313,9 +320,12 @@ class _Key extends StatelessWidget {
 
 class _NightBar extends StatelessWidget {
   const _NightBar(this.n,
-      {required this.axis, required this.selected, required this.pick, required this.hours, required this.onNight, required this.onPick});
+      {required this.axis, required this.lanes, required this.selected, required this.pick, required this.hours, required this.onNight, required this.onPick});
   final WeekNight n;
   final DayAxis axis;
+
+  /// Lanes the tallest day needs; every bar is this tall so they match.
+  final int lanes;
   final ValueNotifier<double> hours;
   final bool selected;
   final SkyEvent? pick;
@@ -325,8 +335,10 @@ class _NightBar extends StatelessWidget {
   static const _size = 26.0;
   static const _laneStep = _size + 4;
 
-  /// The night's markers laid out for a bar this wide.
-  ({List<BarSlot> slots, List<double> labels}) _slots(BuildContext context, double w, double perHour) {
+  /// The day's markers laid out for a bar [view] wide.
+  static ({List<BarSlot> slots, List<double> labels}) layout(BuildContext context, WeekNight n, DayAxis axis, double view) {
+    final perHour = _perHour(view);
+    final w = math.max(view, axis.width(perHour, _breakPx));
     final style = DefaultTextStyle.of(context).style.merge(_Marker.labelStyle);
     final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.15);
     final labels = [
@@ -393,11 +405,9 @@ class _NightBar extends StatelessWidget {
           child: LayoutBuilder(builder: (context, box) {
             final view = box.maxWidth - 2; // inside the border
             final perHour = _perHour(view);
-            final w = math.max(view, axis.width(perHour, _breakPx)); // the whole day, wider than the screen
-            final laid = _slots(context, w, perHour);
+            final laid = layout(context, n, axis, view);
             final slots = laid.slots;
-            final lanes = slots.isEmpty ? 1 : slots.map((s) => s.lane).reduce(math.max) + 1;
-            final h = _barHeight + (lanes - 1) * _laneStep;
+            final h = _barHeight + (lanes - 1) * _laneStep; // the same for every day
             return Container(
               height: h,
               decoration: BoxDecoration(
@@ -410,7 +420,7 @@ class _NightBar extends StatelessWidget {
                 _SyncedH(
                   offset: hours,
                   child: SizedBox(
-                    width: w,
+                    width: math.max(view, axis.width(perHour, _breakPx)),
                     height: h - 2,
                     child: Stack(children: [
                   Positioned.fill(child: CustomPaint(painter: _BarPainter(n.clouds, axis, perHour))),
