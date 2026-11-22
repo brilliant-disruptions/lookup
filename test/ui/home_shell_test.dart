@@ -19,6 +19,7 @@ import 'package:lookup/ui/night_vision_controls.dart';
 import 'package:lookup/ui/now_screen.dart';
 import 'package:lookup/ui/settings_screen.dart';
 import 'package:lookup/ui/sky/sky_camera_screen.dart';
+import 'package:lookup/ui/sky/more_sky_screen.dart';
 import 'package:lookup/ui/sky/sky_screen.dart';
 import 'package:lookup/ui/year_card.dart';
 import 'package:lookup/services/notification_service.dart' show AlertAction;
@@ -75,6 +76,26 @@ class _Home extends HomeNotifier {
 
   @override
   Future<void> refresh({bool force = false, bool quick = false}) async {}
+}
+
+/// Explore's "More of the sky" row, to the page that asks what you'd like
+/// to do. The row can sit under the floating tab bar, so it's pressed directly.
+Future<void> openMoreSky(WidgetTester t) async {
+  final more = find.byKey(const Key('more-of-the-sky'));
+  await t.scrollUntilVisible(more, 300,
+      scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+  t.widget<ListRow>(more).onTap!();
+  await t.pump();
+  await t.pump(const Duration(seconds: 1));
+}
+
+/// One of its two jobs: 'sky-find' or 'sky-time'. Returns that page.
+Future<Finder> openSkyJob(WidgetTester t, String key, SkyMode mode) async {
+  await openMoreSky(t);
+  t.widget<ListRow>(find.byKey(Key(key))).onTap!();
+  await t.pump();
+  await t.pump(const Duration(seconds: 1));
+  return find.byWidgetPredicate((w) => w is SkyScreen && w.mode == mode);
 }
 
 void main() {
@@ -157,11 +178,32 @@ void main() {
     await t.tap(tab('Explore'));
     await t.pump(const Duration(seconds: 1));
     await t.pump();
-    expect(find.textContaining('tap anything'), findsOneWidget); // the dome map
-    await t.scrollUntilVisible(find.text('Saturn'), 300,
+    // Simple first: what to look for tonight, then the map, and none of the rest.
+    expect(find.byKey(const Key('up-tonight')), findsOneWidget);
+    expect(find.text('Planets'), findsNothing);
+    expect(find.text('Tonight\'s clouds'), findsNothing);
+    await t.scrollUntilVisible(find.textContaining('tap anything'), 300,
         scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+    expect(find.byKey(const ValueKey('day-forward')), findsNothing);
+    // The rest is one row away.
+    await openMoreSky(t);
+    expect(find.text('What would you like to do?'), findsOneWidget);
+    expect(find.text('Find something'), findsOneWidget);
+    expect(find.text('See another time'), findsOneWidget);
+    await t.pageBack();
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    final whole = await openSkyJob(t, 'sky-find', SkyMode.browse);
+    expect(find.byKey(const ValueKey('day-forward')), findsNothing, reason: 'one job to a page');
+    await t.scrollUntilVisible(find.text('Planets'), 300,
+        scrollable: find.descendant(of: whole, matching: find.byType(Scrollable)).first);
     expect(find.text('Planets'), findsOneWidget);
-    expect(find.text('Saturn'), findsOneWidget);
+    expect(find.descendant(of: whole, matching: find.text('Saturn')), findsWidgets);
+    for (var i = 0; i < 2; i++) {
+      await t.pageBack();
+      await t.pump();
+      await t.pump(const Duration(seconds: 1));
+    }
 
     await t.tap(tab('Home'));
     await t.pump(const Duration(seconds: 1));
@@ -177,9 +219,10 @@ void main() {
     await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Explore')));
     await t.pump(const Duration(seconds: 1));
     await t.pump();
+    final whole = await openSkyJob(t, 'sky-time', SkyMode.time);
+    expect(find.text('Planets'), findsNothing, reason: 'one job to a page');
     final forward = find.byKey(const ValueKey('day-forward'));
-    await t.scrollUntilVisible(forward, 200,
-        scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+    await t.scrollUntilVisible(forward, 200, scrollable: find.descendant(of: whole, matching: find.byType(Scrollable)).first);
     expect(find.widgetWithText(TextButton, 'Any night'), findsNothing);
     expect(find.textContaining('3000 BC'), findsNothing);
     // The strip moves as the night changes, so press the button itself.
@@ -294,8 +337,11 @@ void main() {
     expect(find.text('Tonight in 20 seconds'), findsNothing);
     await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Explore')));
     await t.pump(const Duration(seconds: 1));
+    // Not on Explore's first page either: with the rest of the sky.
+    expect(find.text('Your favourites'), findsNothing);
+    await openMoreSky(t);
     await t.scrollUntilVisible(find.text('Your favourites'), 300,
-        scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+        scrollable: find.descendant(of: find.byType(MoreSkyScreen), matching: find.byType(Scrollable)).first);
     expect(find.text('Your favourites'), findsOneWidget);
     expect(find.textContaining('Tap \u2665 on anything'), findsOneWidget);
     await t.pumpWidget(const SizedBox());

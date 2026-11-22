@@ -17,20 +17,37 @@ import '../kit/kit.dart';
 import '../places_screen.dart';
 import '../settings_screen.dart';
 import '../theme.dart';
-import 'night_strip.dart';
+import 'more_sky_screen.dart';
 import 'object_sheet.dart';
 import 'sky_camera_screen.dart';
 import 'sky_dome.dart';
 import 'sky_panorama.dart';
-import 'sky_shortcuts.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 import 'time_travel_sheet.dart';
+import 'up_tonight.dart';
 
-/// Everything above you: a live map, tonight's clouds, and what's worth
-/// finding (planets, constellations, showpieces), each with a verdict.
+/// Which of Explore's pages this is.
+enum SkyMode {
+  /// The tab: what to look for tonight, the live map, and a row to the rest.
+  simple,
+
+  /// "Find something": the Moon and everything worth finding (planets,
+  /// constellations, showpieces), each with tonight's verdict.
+  browse,
+
+  /// "See another time": the map with its time slider, day steps and
+  /// whole-sky view.
+  time,
+}
+
+/// Explore. The tab opens simple: the few things worth looking for tonight
+/// (`UpTonightCard`, "Show me" on whatever is up now), the live map, and one
+/// row, "More of the sky" (`MoreSkyScreen`), which asks what you'd like to do
+/// and sends you to one job at a time: [SkyMode.browse] or [SkyMode.time].
 class SkyScreen extends ConsumerStatefulWidget {
-  const SkyScreen({super.key});
+  const SkyScreen({super.key, this.mode = SkyMode.simple});
+  final SkyMode mode;
   @override
   ConsumerState<SkyScreen> createState() => _SkyScreenState();
 }
@@ -55,13 +72,13 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
   /// What the camera view would show, from the last build.
   ({List<SkyThing> things, List<SkyTrack> tracks, DateTime? time, double lat, double lon})? _camera;
 
-  void _openCamera() {
+  void _openCamera({String? guideId}) {
     final c = _camera;
     if (c == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set a location to see your sky.')));
       return;
     }
-    openSkyCamera(context, things: c.things, tracks: c.tracks, time: c.time, lat: c.lat, lon: c.lon);
+    openSkyCamera(context, things: c.things, tracks: c.tracks, time: c.time, lat: c.lat, lon: c.lon, guideId: guideId);
   }
 
   void _backToNow() => setState(() {
@@ -132,10 +149,19 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     final at = (_anchor ?? now.toUtc()).add(Duration(minutes: _minutes.round()));
     final offset = at.difference(now.toUtc());
     final later = _anchor != null || _minutes != 0;
-    final top = MediaQuery.paddingOf(context).top + AppHeader.height;
+    final mode = widget.mode;
+    final full = mode != SkyMode.simple;
+    final wholeToggle = CircleButton(
+      tooltip: _whole ? 'Horizon view' : 'Whole sky',
+      icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
+      onPressed: () => setState(() => _whole = !_whole),
+    );
+    final top = MediaQuery.paddingOf(context).top + (full ? 58 : AppHeader.height);
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppHeader(
+      appBar: full
+          ? PageHeader(title: mode == SkyMode.time ? 'Another time' : 'Find something', trailing: mode == SkyMode.time ? wholeToggle : null)
+          : AppHeader(
         title: const Text('Explore'),
         place: _night?.place ?? place,
         onPlaceTap: () => openPlaces(context),
@@ -144,11 +170,6 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
             tooltip: 'Sky through your camera',
             icon: Icons.photo_camera_rounded,
             onPressed: _openCamera,
-          ),
-          CircleButton(
-            tooltip: _whole ? 'Horizon view' : 'Whole sky',
-            icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
-            onPressed: () => setState(() => _whole = !_whole),
           ),
           const SettingsButton(),
         ],
@@ -199,9 +220,112 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
           _camera = (things: mapped, tracks: tracks, time: later ? at : null, lat: lat, lon: lon);
 
           final list = switch (_tab) { 0 => planets, 1 => cons, _ => shows };
+          if (!full) {
+            return ListView(
+              padding: EdgeInsets.fromLTRB(16, top + 8, 16, tabBarClearance(context)),
+              children: [
+                Rise(
+                  index: 0,
+                  child: UpTonightCard(
+                    things: tonightsBest(moon: moon, planets: planets, showpieces: shows, constellations: cons, now: now),
+                    now: now,
+                    clouds: t.outlook == null ? null : outlookWords(t.outlook!),
+                    onOpen: open,
+                    onShow: (x) => _openCamera(guideId: x.id),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Rise(
+                  index: 1,
+                  child: SkyPanorama(
+                    time: at,
+                    lat: lat,
+                    lon: lon,
+                    catalog: catalog,
+                    things: mapped,
+                    selectedId: _selected,
+                    onTap: open,
+                    tracks: tracks,
+                    trackTime: trackTime,
+                    onTrackTap: openPass,
+                    showFigures: settings?.skyFigures ?? true,
+                  ),
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Kicker('Live', color: LookUpColors.good, live: true),
+                      Flexible(
+                        child: Text('  ${fmtTime(now.toUtc())} · tap anything to open it',
+                            maxLines: 1, overflow: TextOverflow.ellipsis, style: numeric(size: 13, color: LookUpColors.grey)),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GroupedList(indent: 64, children: [
+                  ListRow(
+                    key: const Key('more-of-the-sky'),
+                    leading: const EventGlyph(icon: Icons.travel_explore_rounded, color: LookUpColors.blue),
+                    title: 'More of the sky',
+                    subtitle: 'Find a planet or constellation, see another time, check the clouds',
+                    chevron: true,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MoreSkyScreen())),
+                  ),
+                ]),
+              ],
+            );
+          }
+          if (mode == SkyMode.browse) {
+            return ListView(
+              padding: EdgeInsets.fromLTRB(16, top + 12, 16, tabBarClearance(context)),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+                  child: Text('Tap anything to see when and where to look. A coloured dot means you can see it tonight; grey means not tonight.',
+                      style: TextStyle(color: LookUpColors.grey, height: 1.4)),
+                ),
+                GroupedList(children: [_Row(moon, onTap: () => open(moon))]),
+                const SizedBox(height: 16),
+                SegmentedTabs(
+                  labels: const ['Planets', 'Constellations', 'Showpieces'],
+                  counts: [
+                    planets.where((p) => p.seeable).length,
+                    cons.where((c) => c.seeable).length,
+                    shows.where((s) => s.seeable).length,
+                  ],
+                  index: _tab,
+                  onSelect: (i) => setState(() => _tab = i),
+                ),
+                const SizedBox(height: 12),
+                if (list.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+                    child: Text('Nothing well placed tonight.', style: TextStyle(color: LookUpColors.grey)),
+                  )
+                else
+                  GroupedList(indent: 64, children: [for (final x in list) _Row(x, onTap: () => open(x))]),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
+                  child: Text(
+                    'Judged for a ${t.darkness.label.toLowerCase()} sky, tonight\'s forecast and the Moon. Change your sky in Settings. '
+                    'Tap the heart on anything to follow it.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
+                  ),
+                ),
+              ],
+            );
+          }
           return ListView(
-            padding: EdgeInsets.fromLTRB(16, top + 8, 16, tabBarClearance(context)),
+            padding: EdgeInsets.fromLTRB(16, top + 12, 16, tabBarClearance(context)),
             children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+                child: Text('Drag the slider under the map to move through tonight, or use its arrows to step a day at a time.',
+                    style: TextStyle(color: LookUpColors.grey, height: 1.4)),
+              ),
               Rise(
                 index: 0,
                 child: _whole
@@ -284,48 +408,6 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                       ? 'You\'re in the middle, looking straight up; the edge is the horizon all around you. '
                           'Hold it overhead with N to the north and it matches the real sky.'
                       : 'What you\'d see standing outside. The ground is at the bottom; higher up the screen is higher in the sky.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
-                ),
-              ),
-              if (t.outlook != null) ...[
-                const SizedBox(height: 20),
-                GlassCard(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    const Kicker('Tonight\'s clouds'),
-                    const SizedBox(height: 6),
-                    NightStrip(outlook: t.outlook!),
-                  ]),
-                ),
-              ],
-              const SizedBox(height: 12),
-              GroupedList(children: [_Row(moon, onTap: () => open(moon))]),
-              const SizedBox(height: 12),
-              const SkyShortcuts(),
-              const SizedBox(height: 24),
-              SegmentedTabs(
-                labels: const ['Planets', 'Constellations', 'Showpieces'],
-                counts: [
-                  planets.where((p) => p.seeable).length,
-                  cons.where((c) => c.seeable).length,
-                  shows.where((s) => s.seeable).length,
-                ],
-                index: _tab,
-                onSelect: (i) => setState(() => _tab = i),
-              ),
-              const SizedBox(height: 12),
-              if (list.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 4),
-                  child: Text('Nothing well placed tonight.', style: TextStyle(color: LookUpColors.grey)),
-                )
-              else
-                GroupedList(indent: 64, children: [for (final x in list) _Row(x, onTap: () => open(x))]),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
-                child: Text(
-                  'Judged for a ${t.darkness.label.toLowerCase()} sky, tonight\'s forecast and the Moon. Change your sky in Settings. '
-                  'Tap the heart on anything to follow it on Tonight.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
                 ),
