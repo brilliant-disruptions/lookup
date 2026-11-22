@@ -17,26 +17,37 @@ import '../kit/kit.dart';
 import '../places_screen.dart';
 import '../settings_screen.dart';
 import '../theme.dart';
-import 'night_strip.dart';
+import 'more_sky_screen.dart';
 import 'object_sheet.dart';
 import 'sky_camera_screen.dart';
 import 'sky_dome.dart';
 import 'sky_panorama.dart';
-import 'sky_shortcuts.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 import 'time_travel_sheet.dart';
 import 'up_tonight.dart';
 
+/// Which of Explore's pages this is.
+enum SkyMode {
+  /// The tab: what to look for tonight, the live map, and a row to the rest.
+  simple,
+
+  /// "Find something": the Moon and everything worth finding (planets,
+  /// constellations, showpieces), each with tonight's verdict.
+  browse,
+
+  /// "See another time": the map with its time slider, day steps and
+  /// whole-sky view.
+  time,
+}
+
 /// Explore. The tab opens simple: the few things worth looking for tonight
 /// (`UpTonightCard`, "Show me" on whatever is up now), the live map, and one
-/// row to the rest. [full] is that rest, pushed as "The whole sky": the map
-/// with its time slider and whole-sky view, tonight's clouds, and
-/// everything worth finding (planets, constellations, showpieces), each
-/// with a verdict.
+/// row, "More of the sky" (`MoreSkyScreen`), which asks what you'd like to do
+/// and sends you to one job at a time: [SkyMode.browse] or [SkyMode.time].
 class SkyScreen extends ConsumerStatefulWidget {
-  const SkyScreen({super.key, this.full = false});
-  final bool full;
+  const SkyScreen({super.key, this.mode = SkyMode.simple});
+  final SkyMode mode;
   @override
   ConsumerState<SkyScreen> createState() => _SkyScreenState();
 }
@@ -138,7 +149,8 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     final at = (_anchor ?? now.toUtc()).add(Duration(minutes: _minutes.round()));
     final offset = at.difference(now.toUtc());
     final later = _anchor != null || _minutes != 0;
-    final full = widget.full;
+    final mode = widget.mode;
+    final full = mode != SkyMode.simple;
     final wholeToggle = CircleButton(
       tooltip: _whole ? 'Horizon view' : 'Whole sky',
       icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
@@ -148,7 +160,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: full
-          ? PageHeader(title: 'The whole sky', trailing: wholeToggle)
+          ? PageHeader(title: mode == SkyMode.time ? 'Another time' : 'Find something', trailing: mode == SkyMode.time ? wholeToggle : null)
           : AppHeader(
         title: const Text('Explore'),
         place: _night?.place ?? place,
@@ -257,17 +269,63 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                     key: const Key('more-of-the-sky'),
                     leading: const EventGlyph(icon: Icons.travel_explore_rounded, color: LookUpColors.blue),
                     title: 'More of the sky',
-                    subtitle: 'Every planet and constellation, tonight\'s clouds, any hour this week',
+                    subtitle: 'Find a planet or constellation, see another time, check the clouds',
                     chevron: true,
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SkyScreen(full: true))),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MoreSkyScreen())),
                   ),
                 ]),
               ],
             );
           }
+          if (mode == SkyMode.browse) {
+            return ListView(
+              padding: EdgeInsets.fromLTRB(16, top + 12, 16, tabBarClearance(context)),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+                  child: Text('Tap anything to see when and where to look. A coloured dot means you can see it tonight; grey means not tonight.',
+                      style: TextStyle(color: LookUpColors.grey, height: 1.4)),
+                ),
+                GroupedList(children: [_Row(moon, onTap: () => open(moon))]),
+                const SizedBox(height: 16),
+                SegmentedTabs(
+                  labels: const ['Planets', 'Constellations', 'Showpieces'],
+                  counts: [
+                    planets.where((p) => p.seeable).length,
+                    cons.where((c) => c.seeable).length,
+                    shows.where((s) => s.seeable).length,
+                  ],
+                  index: _tab,
+                  onSelect: (i) => setState(() => _tab = i),
+                ),
+                const SizedBox(height: 12),
+                if (list.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+                    child: Text('Nothing well placed tonight.', style: TextStyle(color: LookUpColors.grey)),
+                  )
+                else
+                  GroupedList(indent: 64, children: [for (final x in list) _Row(x, onTap: () => open(x))]),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
+                  child: Text(
+                    'Judged for a ${t.darkness.label.toLowerCase()} sky, tonight\'s forecast and the Moon. Change your sky in Settings. '
+                    'Tap the heart on anything to follow it.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
+                  ),
+                ),
+              ],
+            );
+          }
           return ListView(
-            padding: EdgeInsets.fromLTRB(16, top + 8, 16, tabBarClearance(context)),
+            padding: EdgeInsets.fromLTRB(16, top + 12, 16, tabBarClearance(context)),
             children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+                child: Text('Drag the slider under the map to move through tonight, or use its arrows to step a day at a time.',
+                    style: TextStyle(color: LookUpColors.grey, height: 1.4)),
+              ),
               Rise(
                 index: 0,
                 child: _whole
@@ -350,48 +408,6 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                       ? 'You\'re in the middle, looking straight up; the edge is the horizon all around you. '
                           'Hold it overhead with N to the north and it matches the real sky.'
                       : 'What you\'d see standing outside. The ground is at the bottom; higher up the screen is higher in the sky.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
-                ),
-              ),
-              if (t.outlook != null) ...[
-                const SizedBox(height: 20),
-                GlassCard(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    const Kicker('Tonight\'s clouds'),
-                    const SizedBox(height: 6),
-                    NightStrip(outlook: t.outlook!),
-                  ]),
-                ),
-              ],
-              const SizedBox(height: 12),
-              GroupedList(children: [_Row(moon, onTap: () => open(moon))]),
-              const SizedBox(height: 12),
-              const SkyShortcuts(),
-              const SizedBox(height: 24),
-              SegmentedTabs(
-                labels: const ['Planets', 'Constellations', 'Showpieces'],
-                counts: [
-                  planets.where((p) => p.seeable).length,
-                  cons.where((c) => c.seeable).length,
-                  shows.where((s) => s.seeable).length,
-                ],
-                index: _tab,
-                onSelect: (i) => setState(() => _tab = i),
-              ),
-              const SizedBox(height: 12),
-              if (list.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 4),
-                  child: Text('Nothing well placed tonight.', style: TextStyle(color: LookUpColors.grey)),
-                )
-              else
-                GroupedList(indent: 64, children: [for (final x in list) _Row(x, onTap: () => open(x))]),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
-                child: Text(
-                  'Judged for a ${t.darkness.label.toLowerCase()} sky, tonight\'s forecast and the Moon. Change your sky in Settings. '
-                  'Tap the heart on anything to follow it on Tonight.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4),
                 ),
