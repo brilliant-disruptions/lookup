@@ -21,13 +21,18 @@ import 'paywall_sheet.dart';
 import 'theme.dart';
 import 'where_to_go_screen.dart';
 
+/// Temporary: which proposed tweaks are on, for side-by-side renders.
+abstract final class WeekLook {
+  static bool compact = false, breaks = false, oneLine = false, edges = false;
+}
+
 /// "Fri" over "30", the selected night in blue.
 class _NightLabel extends StatelessWidget {
   const _NightLabel(this.date, {required this.selected, this.past = false});
   final DateTime date;
   final bool selected, past;
   @override
-  Widget build(BuildContext context) => SizedBox(
+  Widget build(BuildContext context) => WeekLook.oneLine ? _oneLine() : SizedBox(
         width: _labelWidth,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Text(DateFormat.E().format(date),
@@ -39,18 +44,38 @@ class _NightLabel extends StatelessWidget {
           Text(DateFormat.MMMd().format(date), style: numeric(size: 11, color: LookUpColors.greyDim)),
         ]),
       );
+
+  /// "Sun 22" on one line: the weekday bold, the date beside it.
+  Widget _oneLine() => SizedBox(
+        width: _labelWidth,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text.rich(TextSpan(children: [
+            TextSpan(
+                text: DateFormat.E().format(date),
+                style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? LookUpColors.blue : (past ? LookUpColors.grey : LookUpColors.white))),
+            TextSpan(text: ' ${date.day}', style: numeric(size: 12.5, color: LookUpColors.greyDim)),
+          ])),
+        ),
+      );
 }
 
 /// The day column, and the gap between it and the bars.
 const _labelWidth = 48.0, _labelGap = 10.0;
 
 /// Each night's bar, and the room between one night and the next.
-const _barHeight = 40.0, _rowGap = 12.0;
+double get _barHeight => WeekLook.compact ? 30.0 : 40.0;
+double get _rowGap => WeekLook.compact ? 7.0 : 12.0;
 const _barDark = Color(0xFF0D1530);
 
 /// How many shown hours fit across the screen at once; swipe sideways for the
 /// rest, so sights close together come apart. A chopped stretch is [_breakPx].
-const _hoursInView = 6.0, _breakPx = 8.0;
+const _hoursInView = 6.0;
+double get _breakPx => WeekLook.breaks ? 18.0 : 8.0;
 
 /// The pixels one shown hour takes, for a bar [view] wide.
 double _perHour(double view) => view / _hoursInView;
@@ -179,7 +204,7 @@ class _GlancePageState extends State<GlancePage> {
   }
 
   Widget _row(WeekNight n, DayAxis axis, int lanes) => Padding(
-        padding: const EdgeInsets.only(bottom: _rowGap),
+        padding: EdgeInsets.only(bottom: _rowGap),
         child: Opacity(
           opacity: n.past ? 0.6 : 1,
           child: Row(children: [
@@ -272,7 +297,7 @@ class _Tabs extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: () => onChanged(past),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 9),
+              padding: EdgeInsets.symmetric(vertical: WeekLook.compact ? 6 : 9),
               decoration: BoxDecoration(
                 color: on ? LookUpColors.blue.withValues(alpha: 0.18) : Colors.transparent,
                 borderRadius: BorderRadius.circular(10),
@@ -290,7 +315,7 @@ class _Tabs extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
+      padding: WeekLook.compact ? const EdgeInsets.fromLTRB(0, 4, 0, 6) : const EdgeInsets.fromLTRB(0, 10, 0, 12),
       child: Row(children: [tab('Last week', true), const SizedBox(width: 6), tab('Today and ahead', false)]),
     );
   }
@@ -331,10 +356,21 @@ class _Axis extends StatelessWidget {
                   child: SizedBox(
                     width: axis.width(_perHour(view), _breakPx),
                     child: Stack(children: [
+                      // Where hours were cut out: a "⋯" in the hours row, over the dotted line.
+                      if (WeekLook.breaks)
+                        for (final (left, width) in axis.breaks(_perHour(view), _breakPx))
+                          Positioned(
+                            left: left,
+                            width: width,
+                            top: 0,
+                            child: Center(child: Text('···', style: style.copyWith(color: LookUpColors.grey, fontWeight: FontWeight.w800))),
+                          ),
                       // Every hour that's shown; the chopped ones aren't.
                       for (final r in axis.runs)
                         for (var k = r.from; k < r.to; k++)
-                          Positioned(left: axis.x(k.toDouble(), _perHour(view), _breakPx) + 3, child: Text(h(k), style: style)),
+                          Positioned(
+                              left: axis.x(k.toDouble(), _perHour(view), _breakPx) + 3,
+                              child: Text(WeekLook.breaks && k > r.from ? _hShort(k) : h(k), style: style)),
                     ]),
                   ),
                 ),
@@ -344,6 +380,13 @@ class _Axis extends StatelessWidget {
         ),
       ]));
 }
+
+/// "5:12" (or "5:12 AM"): short enough for an edge pill.
+String _timeShort(DateTime utc) => fmtTime(utc).replaceAll(RegExp(r'[\s\u202f]?[AP]M$'), '');
+
+/// "1", "2" … within a run of hours, with AM/PM only where a run starts: the
+/// row reads 12 AM · 1 · 2 · 3 · 4 ⋯ 10 AM.
+String _hShort(int k) => '${k % 12 == 0 ? 12 : k % 12}';
 
 class _Key extends StatelessWidget {
   const _Key({required this.icon, required this.label});
@@ -371,8 +414,8 @@ class _NightBar extends StatelessWidget {
   final ValueChanged<DateTime> onNight;
   final ValueChanged<SkyEvent> onPick;
 
-  static const _size = 26.0;
-  static const _laneStep = _size + 4;
+  static double get _size => WeekLook.compact ? 22.0 : 26.0;
+  static double get _laneStep => _size + (WeekLook.compact ? 2 : 4);
 
   /// The day's markers laid out for a bar [view] wide.
   static ({List<BarSlot> slots, List<double> labels}) layout(BuildContext context, WeekNight n, DayAxis axis, double view) {
@@ -403,7 +446,8 @@ class _NightBar extends StatelessWidget {
   /// Markers for the sights scrolled off either side: fanned in time order at
   /// that edge, nearest one on top. A tap names it and scrolls to its time.
   Widget _edgeMarkers(List<BarSlot> slots, double off, double view, double h) {
-    const small = 0.78, half = _size / 2;
+    const small = 0.78;
+    final half = _size / 2;
     final before = <int>[], after = <int>[];
     for (var i = 0; i < n.events.length; i++) {
       final x = slots[i].tick - off; // where its time is in view
@@ -423,6 +467,51 @@ class _NightBar extends StatelessWidget {
             }),
           ),
         );
+    if (WeekLook.edges) {
+      // One pill per edge: the nearest sight that way, its time, and how many more.
+      Widget pill(List<int> list, {required bool right}) {
+        final i = right ? list.first : list.last; // nearest to the view
+        final e = n.events[i];
+        final s = eventStyle(e.type, details: e.details);
+        final more = list.length - 1;
+        final arrow = Icon(right ? Icons.chevron_right_rounded : Icons.chevron_left_rounded, size: 14, color: LookUpColors.grey);
+        return Positioned(
+          left: right ? null : 2,
+          right: right ? 2 : null,
+          top: (h - 22) / 2,
+          child: GestureDetector(
+            onTap: () {
+              onPick(e);
+              hours.value = (slots[i].tick - view / 2).clamp(0.0, _maxScroll(axis, view));
+            },
+            child: Container(
+              height: 22,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(s.color.withValues(alpha: 0.22), _barDark),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: s.color.withValues(alpha: 0.45)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (!right) arrow,
+                s.icon == null
+                    ? SizedBox(width: 12, height: 12, child: PlanetMark(color: s.color))
+                    : Icon(s.icon, size: 12, color: s.color),
+                const SizedBox(width: 3),
+                Text('${_timeShort(e.start)}${more > 0 ? ' +$more' : ''}',
+                    style: numeric(size: 10.5, color: LookUpColors.white).copyWith(fontWeight: FontWeight.w600)),
+                if (right) arrow,
+              ]),
+            ),
+          ),
+        );
+      }
+
+      return Stack(children: [
+        if (before.isNotEmpty) pill(before, right: false),
+        if (after.isNotEmpty) pill(after, right: true),
+      ]);
+    }
     final beforeStep = step(before.length), afterStep = step(after.length);
     return Stack(children: [
       // Furthest first, so the nearest ends up on top.
@@ -480,7 +569,7 @@ class _NightBar extends StatelessWidget {
                   for (var i = 0; i < n.events.length; i++)
                     Positioned(
                       left: slots[i].left,
-                      top: 6 + slots[i].lane * _laneStep,
+                      top: (WeekLook.compact ? 4 : 6) + slots[i].lane * _laneStep,
                       child: _Marker(n.events[i],
                           selected: n.events[i].id == pick?.id,
                           onTap: onPick,
@@ -614,6 +703,21 @@ class _BarPainter extends CustomPainter {
       ..color = LookUpColors.white.withValues(alpha: 0.16)
       ..strokeWidth = 1;
     for (final (left, width) in axis.breaks(perHour, _breakPx)) {
+      if (WeekLook.breaks) {
+        // A darker strip with a zig-zag: plainly "time skipped here".
+        canvas.drawRect(Rect.fromLTWH(left, 0, width, size.height), Paint()..color = const Color(0xFF070B18));
+        final zig = Path();
+        final mid = left + width / 2;
+        for (var y = 0.0; y <= size.height; y += 6) {
+          final x = mid + ((y ~/ 6).isEven ? -3 : 3);
+          y == 0 ? zig.moveTo(x, y) : zig.lineTo(x, y);
+        }
+        canvas.drawPath(zig, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = LookUpColors.white.withValues(alpha: 0.22));
+        continue;
+      }
       final x = left + width / 2;
       for (var y = 4.0; y < size.height - 2; y += 5) {
         canvas.drawLine(Offset(x, y), Offset(x, y + 2), cut);
@@ -634,6 +738,26 @@ class _PickCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Last week's: what it was and how it went, not what to do.
     final past = e.end.isBefore(DateTime.now().toUtc());
+    if (WeekLook.compact) {
+      return GlassCard(
+        tint: eventStyle(e.type, details: e.details).color,
+        onTap: () => showLookSheet(context, e),
+        padding: const EdgeInsets.fromLTRB(12, 9, 10, 9),
+        child: Row(children: [
+          EventGlyph.of(e, size: 30),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(past ? pastTitle(e) : eventTitle(e),
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              Text('${fmtDay(e.start)}, ${fmtTime(e.start)}${!past && locked ? ' · LookUp+' : ''}',
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: numeric(size: 12.5, color: LookUpColors.grey)),
+            ]),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: LookUpColors.greyDim),
+        ]),
+      );
+    }
     return GlassCard(
         tint: eventStyle(e.type, details: e.details).color,
         onTap: () => showLookSheet(context, e),

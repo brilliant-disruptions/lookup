@@ -168,13 +168,20 @@ void main() {
 
   testWidgets('Restore purchases says what it found', (t) async {
     final plus = await open(t);
-    await t.tap(find.byKey(const Key('restore-purchases')));
+    // However long the sheet is (it lists what's coming, which varies), scroll to the button first.
+    Future<void> restore() async {
+      await t.ensureVisible(find.byKey(const Key('restore-purchases')));
+      await t.pump();
+      await t.tap(find.byKey(const Key('restore-purchases')));
+    }
+
+    await restore();
     await t.pump();
     await t.pump();
     expect(plus.restores, 1);
     expect(t.widget<Text>(find.byKey(const Key('paywall-note'))).data, contains('No LookUp+ found'));
     plus.reachable = false;
-    await t.tap(find.byKey(const Key('restore-purchases')));
+    await restore();
     await t.pump();
     await t.pump();
     expect(t.widget<Text>(find.byKey(const Key('paywall-note'))).data, contains('Couldn\'t reach the store'));
