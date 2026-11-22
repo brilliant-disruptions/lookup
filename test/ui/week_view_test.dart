@@ -92,20 +92,16 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  // On a small phone the lazy list never built "Today and ahead" below a
-  // tall last week, so the tab opened on last week instead.
-  testWidgets('opens on tonight, with last week a scroll up, even on a small phone', (t) async {
+  testWidgets('opens on Today and ahead, with Last week a tab away, even on a small phone', (t) async {
     t.view.physicalSize = const Size(375 * 2, 667 * 2);
     t.view.devicePixelRatio = 2;
     addTearDown(t.view.reset);
     await pump(t);
     final list = t.getRect(find.byKey(const Key('week-list')));
     final tonight = t.getRect(find.text('Today and ahead'));
-    expect(tonight.top, greaterThanOrEqualTo(list.top - 1));
-    expect(tonight.top, lessThan(list.bottom), reason: 'the heading is in view');
-    if (find.text('Last week').evaluate().isNotEmpty) {
-      expect(t.getRect(find.text('Last week')).top, lessThan(tonight.top));
-    }
+    expect(tonight.top, lessThan(list.bottom), reason: 'the tab is in view');
+    expect(find.text('Last week'), findsOneWidget);
+    expect(t.getRect(find.text('Last week')).left, lessThan(tonight.left));
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });
@@ -113,8 +109,7 @@ void main() {
   testWidgets('at a glance, each marker says what it is: which satellite, which planets', (t) async {
     await pump(t);
     for (final name in ['ISS', 'ISS × Moon', 'Starlink', 'Tiangong', 'Venus · Moon']) {
-      // Every night's row is built (last week's too), so a name can be there twice.
-      expect(find.text(name), findsAtLeastNWidgets(1), reason: name);
+        expect(find.text(name), findsAtLeastNWidgets(1), reason: name);
     }
     expect(eventStyle(SkyEventType.tiangong).color, isNot(eventStyle(SkyEventType.iss).color));
     expect(t.takeException(), isNull);
@@ -143,15 +138,17 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('last week is a scroll up: faded, with what went over', (t) async {
+  testWidgets('last week is a tab: faded, with what went over', (t) async {
     await pump(t);
-    // Opens on tonight; last week sits above it.
+    // Opens on Today and ahead; Last week is the other tab.
     expect(find.text('Today and ahead'), findsOneWidget);
-    await t.scrollUntilVisible(find.text('Last week'), -300, scrollable: find.byType(Scrollable).first);
-    expect(find.text('Last week'), findsOneWidget);
+    await t.tap(find.text('Last week'));
+    await t.pump();
     final old = find.bySemanticsLabel(RegExp(r'^ISS flyover, '));
     expect(old, findsWidgets);
     await t.ensureVisible(old.first);
+    await t.pump();
+    await t.tap(find.text('Today and ahead'));
     await t.pump();
     await t.tap(old.first);
     await t.pump();
