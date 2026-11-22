@@ -119,6 +119,7 @@ class FinderTarget {
       case SkyEventType.occultation:
       case SkyEventType.occultationNear:
       case SkyEventType.fullMoonRise:
+      case SkyEventType.moonPhase:
         final m = moonHorizontal(u, latDeg, lonDeg);
         return SkyDir(m.azimuthDeg, m.altitudeDeg);
       case SkyEventType.planetPairing:

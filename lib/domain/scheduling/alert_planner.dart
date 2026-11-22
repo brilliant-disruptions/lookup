@@ -186,6 +186,7 @@ class AlertPlanner {
         SkyEventType.occultation => s.occultationsEnabled,
         SkyEventType.comet || SkyEventType.nova => s.rareEventsEnabled,
         SkyEventType.fullMoonRise => s.moonriseEnabled,
+        SkyEventType.moonPhase => s.moonPhasesEnabled,
         // Listed for planning, never pushed.
         SkyEventType.issTransit || SkyEventType.satellitePass || SkyEventType.skyObject || SkyEventType.occultationNear => false,
       };
@@ -266,6 +267,7 @@ class AlertPlanner {
       SkyEventType.comet => (e.details['name'] as String?) ?? 'Bright comet',
       SkyEventType.nova => 'New star: ${e.details['name'] ?? 'a nova'}',
       SkyEventType.fullMoonRise => '${e.details['label'] ?? 'Full Moon'} rising',
+      SkyEventType.moonPhase => '${e.details['label'] ?? 'Half Moon'} Moon up',
     };
     if (e.type == SkyEventType.planetHighlight) return what;
     if (e.type == SkyEventType.meteorShower) return what;
@@ -327,6 +329,12 @@ class AlertPlanner {
         // trees, buildings and haze can hide it even on a clear night.
         final close = e.details['supermoon'] == true ? ' A supermoon: about as close as the Moon gets.' : '';
         return 'Coming up in the ${compassWord(e.riseAzimuthDeg)}, on the horizon. You\'ll need a clear view that way.$close ${_cloudNote(e)}'.trim();
+      case SkyEventType.moonPhase:
+        // Up for hours: say when it's clear of the horizon and where.
+        final evening = e.details['evening'] == true;
+        return 'Half lit and ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)} at its best, ${evening ? 'in the evening sky' : 'before dawn'}. Up in the dark from ${_hm(e.start)}. ${_cloudNote(e)}'
+            .replaceAll(RegExp(r' +'), ' ')
+            .trim();
       default:
         break;
     }
@@ -351,6 +359,7 @@ class AlertPlanner {
         SkyEventType.occultation =>
           'Look ${compassWord(e.riseAzimuthDeg)} at the Moon, ${elevationWord(e.peakElevationDeg)}. ${occultationTimes(e)}',
         SkyEventType.fullMoonRise => 'Look ${compassWord(e.riseAzimuthDeg)}, right on the horizon.',
+        SkyEventType.moonPhase => 'Look ${compassWord(e.peakAzimuthDeg)}. The Moon is half lit.',
         _ => 'Look ${compassWord(e.riseAzimuthDeg)}. ${_cap(elevationWord(e.peakElevationDeg))} at its best.',
       };
 

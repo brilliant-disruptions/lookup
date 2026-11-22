@@ -90,6 +90,7 @@ abstract final class WeekAhead {
       SkyEventType.rocketLaunch => count('a rocket launch you can see', 'rocket launches you can see'),
       SkyEventType.occultation => count('the Moon covering a star', 'Moon covers'),
       SkyEventType.fullMoonRise => 'the full Moon rising',
+      SkyEventType.moonPhase => 'a half Moon',
       SkyEventType.comet || SkyEventType.nova => 'a rare sight',
       _ => count('something to see', 'things to see'),
     };

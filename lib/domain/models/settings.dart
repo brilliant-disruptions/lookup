@@ -72,6 +72,7 @@ class LookUpSettings {
     this.rareEventsEnabled = true,
     this.launchesEnabled = true,
     this.moonriseEnabled = true,
+    this.moonPhasesEnabled = true,
     this.transitsEnabled = true,
     this.nightVision = true,
     this.nightVisionFollowsLight = true,
@@ -140,6 +141,9 @@ class LookUpSettings {
 
   /// Full-Moon moonrises (supermoons included).
   final bool moonriseEnabled;
+
+  /// First and last quarter Moons, on nights they can be seen.
+  final bool moonPhasesEnabled;
 
   /// List ISS transits of the Sun and Moon (never pushed).
   final bool transitsEnabled;
@@ -299,6 +303,7 @@ class LookUpSettings {
     bool? rareEventsEnabled,
     bool? launchesEnabled,
     bool? moonriseEnabled,
+    bool? moonPhasesEnabled,
     bool? transitsEnabled,
     bool? nightVision,
     bool? nightVisionFollowsLight,
@@ -360,6 +365,7 @@ class LookUpSettings {
         rareEventsEnabled: rareEventsEnabled ?? this.rareEventsEnabled,
         launchesEnabled: launchesEnabled ?? this.launchesEnabled,
         moonriseEnabled: moonriseEnabled ?? this.moonriseEnabled,
+        moonPhasesEnabled: moonPhasesEnabled ?? this.moonPhasesEnabled,
         transitsEnabled: transitsEnabled ?? this.transitsEnabled,
         nightVision: nightVision ?? this.nightVision,
         nightVisionFollowsLight: nightVisionFollowsLight ?? this.nightVisionFollowsLight,
@@ -422,6 +428,7 @@ class LookUpSettings {
         'rareEventsEnabled': rareEventsEnabled,
         'launchesEnabled': launchesEnabled,
         'moonriseEnabled': moonriseEnabled,
+        'moonPhasesEnabled': moonPhasesEnabled,
         'transitsEnabled': transitsEnabled,
         'nightVisionAfterSunset': nightVision,
         // New keys: the old 'nightVisionAuto' meant "red by itself outside".
@@ -486,6 +493,7 @@ class LookUpSettings {
       rareEventsEnabled: j['rareEventsEnabled'] as bool? ?? d.rareEventsEnabled,
       launchesEnabled: j['launchesEnabled'] as bool? ?? d.launchesEnabled,
       moonriseEnabled: j['moonriseEnabled'] as bool? ?? d.moonriseEnabled,
+      moonPhasesEnabled: j['moonPhasesEnabled'] as bool? ?? d.moonPhasesEnabled,
       transitsEnabled: j['transitsEnabled'] as bool? ?? d.transitsEnabled,
       // A new key: the old one-tap switch was off unless tapped, which says
       // nothing about wanting red after dark, so everyone starts with it on.

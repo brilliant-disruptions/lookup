@@ -10,6 +10,7 @@ import '../domain/events/launches.dart';
 import '../domain/events/rare_events.dart';
 import '../domain/events/meteors.dart';
 import '../domain/events/occultations.dart';
+import '../domain/events/moon_phases.dart';
 import '../domain/events/moonrise.dart';
 import '../domain/events/pairings.dart';
 import '../domain/events/planet_highlights.dart';
@@ -231,6 +232,9 @@ class EventPipeline {
     }
     if (s.moonriseEnabled) {
       out.addAll(fullMoonRiseEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
+    }
+    if (s.moonPhasesEnabled) {
+      out.addAll(moonPhaseEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
     }
     if (s.pairingsEnabled) {
       out.addAll(pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));

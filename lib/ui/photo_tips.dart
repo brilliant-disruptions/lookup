@@ -36,6 +36,10 @@ List<(String, String)> photoTips(SkyEventType t) => switch (t) {
           ('Camera', 'A long lens on a tripod. The eclipsed Moon is dim: ISO 800–1600, 1–2 s at totality; much faster before and after.'),
           ('Sequence', 'Shoot every 5 minutes from start to end and line them up for a classic eclipse sequence.'),
         ],
+      SkyEventType.moonPhase => const [
+          ('Phone', 'Zoom in and tap the Moon, then slide exposure down. A half Moon is best along the line between light and dark, where craters throw long shadows.'),
+          ('Camera', 'Tripod, 200 mm+, ISO 100–200, around 1/250 s. Focus on the dark-edge line.'),
+        ],
       SkyEventType.fullMoonRise => const [
           ('Phone', 'Zoom in and tap the Moon, then slide exposure down until the surface isn\'t a white blob. The orange colour lasts only a few minutes.'),
           ('Camera', 'The longer the lens the bigger the Moon looks against the skyline. Tripod, 200 mm+, ISO 200–400, around 1/125 s; brighten as it climbs.'),

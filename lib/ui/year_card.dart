@@ -42,6 +42,7 @@ String typePlural(SkyEventType t, int n) {
     SkyEventType.comet => one ? 'comet' : 'comets',
     SkyEventType.nova => one ? 'nova' : 'novae',
     SkyEventType.fullMoonRise => one ? 'full Moon rise' : 'full Moon rises',
+    SkyEventType.moonPhase => one ? 'half Moon' : 'half Moons',
   };
 }
 
