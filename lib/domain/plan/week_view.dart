@@ -101,6 +101,41 @@ List<WeekNight> glanceNights(
   ];
 }
 
+/// One page of the Week tab: seven days. [offset] is −1 for the week behind,
+/// 0 for the seven days from today, 1 for the seven after, and so on.
+class GlanceWeek {
+  const GlanceWeek({required this.offset, required this.nights});
+  final int offset;
+  final List<WeekNight> nights;
+
+  DateTime get first => nights.first.date;
+  DateTime get last => nights.last.date;
+  bool get past => offset < 0;
+  Iterable<SkyEvent> get events => nights.expand((n) => n.events);
+}
+
+/// The weeks to page through: the week behind (what went over, from
+/// [recent]), the seven days from today, and whole weeks after that as far
+/// as the last night with something on, up to [maxWeeks] ahead. Past that
+/// nothing has been worked out yet, and a page of empty bars would say "no
+/// sky".
+List<GlanceWeek> glanceWeeks(
+  Iterable<SkyEvent> events,
+  Iterable<SkyEvent> recent,
+  DateTime now, {
+  CloudForecast? weather,
+  int back = 7,
+  int maxWeeks = 9,
+}) {
+  final weeks = math.min(maxWeeks, math.max(1, (_lastNight(events, now) / 7).ceil()));
+  final behind = [for (final n in glanceNights(const [], recent, now, back: back)) if (n.past) n];
+  final ahead = weekNights(events, now, weather: weather, count: weeks * 7);
+  return [
+    if (behind.isNotEmpty) GlanceWeek(offset: -1, nights: behind),
+    for (var i = 0; i < weeks; i++) GlanceWeek(offset: i, nights: ahead.sublist(i * 7, i * 7 + 7)),
+  ];
+}
+
 /// How many nights from tonight reach the last one with something on.
 int _lastNight(Iterable<SkyEvent> events, DateTime now) {
   final tonight = dayOf(now);

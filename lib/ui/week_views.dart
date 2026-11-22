@@ -1,8 +1,9 @@
-/// Every day as one bar, midnight to midnight ("At a glance"): last week on
-/// one tab, today and the days ahead on the other. Hours with nothing on
-/// anywhere are chopped out (`DayAxis`), leaving a zig-zag break, and the
-/// rest fits the width: the whole week is in view at once, with no swiping
-/// sideways. Each sight sits on its real time (`layoutBar`); one that would
+/// Every day as one bar, midnight to midnight ("At a glance"), a week to a
+/// page: last week, this week, and on through the weeks ahead, by the
+/// arrows or a swipe sideways. Hours with nothing on that week are chopped
+/// out (`DayAxis`), leaving a zig-zag break, and the rest fits the width:
+/// the whole week is in view at once, and the hours themselves never
+/// scroll. Each sight sits on its real time (`layoutBar`); one that would
 /// overlap a neighbour drops a row, and only that day's bar grows.
 library;
 
@@ -65,14 +66,27 @@ const _breakPx = 12.0;
 double _perHour(DayAxis axis, double view) =>
     math.max(1.0, (view - axis.breakCount * _breakPx) / math.max(1, axis.keptHours));
 
-/// Every day as one bar, its hours with something on fitted to the width:
-/// cloud shaded in, a marker at each sight's time. "Today and ahead" opens;
-/// "Last week" (faded, what went over) is the other tab. Tap one for its
-/// details at the bottom.
+/// "Nov 22 – 28", or "Nov 29 – Dec 5" across a month's end.
+String weekRange(DateTime first, DateTime last) => first.month == last.month
+    ? '${DateFormat.MMMd().format(first)} – ${last.day}'
+    : '${DateFormat.MMMd().format(first)} – ${DateFormat.MMMd().format(last)}';
+
+/// "Last week", "This week", "Next week", then just the dates.
+String weekTitle(GlanceWeek w) => switch (w.offset) {
+      -1 => 'Last week',
+      0 => 'This week',
+      1 => 'Next week',
+      _ => weekRange(w.first, w.last),
+    };
+
+/// A week to a page, every day one bar with its hours fitted to the width:
+/// cloud shaded in, a marker at each sight's time. Opens on this week; the
+/// arrows or a swipe sideways go to last week (faded, what went over) and
+/// on through the weeks ahead. Tap a sight for its details at the bottom.
 class GlancePage extends StatefulWidget {
   const GlancePage({
     super.key,
-    required this.nights,
+    required this.weeks,
     required this.night,
     required this.pick,
     required this.isPlus,
@@ -81,7 +95,7 @@ class GlancePage extends StatefulWidget {
     required this.bottomPadding,
     this.missed,
   });
-  final List<WeekNight> nights;
+  final List<GlanceWeek> weeks;
   final DateTime night;
   final SkyEvent? pick;
   final bool isPlus;
@@ -98,21 +112,31 @@ class GlancePage extends StatefulWidget {
 }
 
 class _GlancePageState extends State<GlancePage> {
-  final _scroll = ScrollController();
+  /// Which week is showing, by its offset: the pages can grow as more is
+  /// worked out, and the one in view should stay put.
+  int _offset = 0;
+  late final PageController _pages = PageController(initialPage: _indexOf(0));
 
-  /// Opens on "Today and ahead"; "Last week" is the other tab.
-  bool _showPast = false;
-
-  /// One set of hours for every day, so the rows stay lined up on the clock.
-  DayAxis get _axis => DayAxis.forStarts([
-        for (final n in widget.nights)
-          for (final e in n.events) e.start,
-      ]);
+  int _indexOf(int offset) {
+    final i = widget.weeks.indexWhere((w) => w.offset == offset);
+    return i < 0 ? math.max(0, widget.weeks.indexWhere((w) => w.offset == 0)) : i;
+  }
 
   @override
   void dispose() {
-    _scroll.dispose();
+    _pages.dispose();
     super.dispose();
+  }
+
+  void _go(int index) =>
+      _pages.animateToPage(index, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+
+  /// A new week in view: its first sight is the one shown below.
+  void _onPage(int index) {
+    final week = widget.weeks[index];
+    setState(() => _offset = week.offset);
+    final first = week.nights.expand((n) => n.alerts).firstOrNull ?? week.events.firstOrNull;
+    if (first != null) widget.onPick(first);
   }
 
   Widget _row(WeekNight n, DayAxis axis) => Padding(
@@ -133,106 +157,116 @@ class _GlancePageState extends State<GlancePage> {
         ),
       );
 
+  Widget _week(GlanceWeek week) {
+    // One set of hours for the week's days, so its rows stay lined up on the clock.
+    final axis = DayAxis.forStarts([for (final e in week.events) e.start]);
+    // The hours sit right above the bars and scroll with them, so they
+    // never float over something else (last week's card, say).
+    return SingleChildScrollView(
+      key: Key('week-list-${week.offset}'),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (week.past)
+          if (widget.missed case final m?) Padding(padding: const EdgeInsets.only(bottom: 14), child: m),
+        _Axis(axis),
+        for (final n in week.nights) _row(n, axis),
+        if (week.offset > 0)
+          const Padding(
+            padding: EdgeInsets.only(top: 2, bottom: 8),
+            child: Text(
+              'This far out, only what can be worked out this early is here. More fills in as the week gets closer.',
+              style: TextStyle(fontSize: 12.5, height: 1.4, color: LookUpColors.greyDim),
+            ),
+          ),
+        const SizedBox(height: 6),
+        const Wrap(spacing: 14, runSpacing: 6, children: [
+          _Key(icon: Icons.more_vert_rounded, label: 'Zig-zag: hours with nothing on'),
+          _Key(icon: Icons.texture_rounded, label: 'Cloud'),
+          _Key(icon: Icons.circle_outlined, label: 'Faded: no alert'),
+        ]),
+        const SizedBox(height: 18),
+        const WeekTools(),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final past = widget.nights.where((n) => n.past).toList();
-    final ahead = widget.nights.where((n) => !n.past).toList();
+    final weeks = widget.weeks;
+    final index = _indexOf(_offset);
+    final week = weeks[index];
     final pick = widget.pick;
-    final axis = _axis;
-    // The hours sit right above each run of bars and scroll with them, so
-    // they never float over something else (last week's card, say).
+    final pickHere = pick != null && week.events.any((e) => e.id == pick.id);
     return Column(children: [
+      _WeekSwitch(
+        week: week,
+        onPrev: index > 0 ? () => _go(index - 1) : null,
+        onNext: index < weeks.length - 1 ? () => _go(index + 1) : null,
+      ),
       Expanded(
-        child: SingleChildScrollView(
-          key: const Key('week-list'),
-          controller: _scroll,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (past.isNotEmpty)
-              _Tabs(showPast: _showPast, onChanged: (v) => setState(() => _showPast = v)),
-            if (_showPast && past.isNotEmpty) ...[
-              if (widget.missed case final m?) Padding(padding: const EdgeInsets.only(bottom: 14), child: m),
-              _Axis(axis),
-              for (final n in past) _row(n, axis),
-            ] else ...[
-              if (past.isEmpty) const _Section('Today and ahead'),
-              _Axis(axis),
-              for (final n in ahead) _row(n, axis),
-            ],
-            const SizedBox(height: 6),
-            const Wrap(spacing: 14, runSpacing: 6, children: [
-              _Key(icon: Icons.more_vert_rounded, label: 'Zig-zag: hours with nothing on'),
-              _Key(icon: Icons.texture_rounded, label: 'Cloud'),
-              _Key(icon: Icons.circle_outlined, label: 'Faded: no alert'),
-            ]),
-            const SizedBox(height: 18),
-            const WeekTools(),
-          ]),
+        child: PageView.builder(
+          key: const Key('week-pages'),
+          controller: _pages,
+          itemCount: weeks.length,
+          onPageChanged: _onPage,
+          itemBuilder: (_, i) => _week(weeks[i]),
         ),
       ),
       Padding(
         padding: EdgeInsets.fromLTRB(16, 8, 16, widget.bottomPadding),
-        child: pick != null
+        child: pickHere
             ? _PickCard(pick, locked: lockedOnFree(pick, isPlus: widget.isPlus))
-            : const GlassCard(
-                child: Text('Nothing worth stepping out for yet. We\'ll tap you when there is.',
-                    style: TextStyle(color: LookUpColors.grey, height: 1.45)),
+            : GlassCard(
+                child: Text(
+                    week.past
+                        ? 'Nothing went over that week that LookUp watches for.'
+                        : week.offset == 0
+                            ? 'Nothing worth stepping out for yet. We\'ll tap you when there is.'
+                            : 'Nothing worked out for this week yet. We\'ll tap you when there is.',
+                    style: const TextStyle(color: LookUpColors.grey, height: 1.45)),
               ),
       ),
     ]);
   }
 }
 
-/// "Last week" | "Today and ahead": which half of the list is showing.
-class _Tabs extends StatelessWidget {
-  const _Tabs({required this.showPast, required this.onChanged});
-  final bool showPast;
-  final ValueChanged<bool> onChanged;
+/// "‹  This week · Nov 22 – 28  ›": which week is showing, and the way to
+/// the ones either side (a swipe does the same).
+class _WeekSwitch extends StatelessWidget {
+  const _WeekSwitch({required this.week, required this.onPrev, required this.onNext});
+  final GlanceWeek week;
+  final VoidCallback? onPrev, onNext;
   @override
   Widget build(BuildContext context) {
-    Widget tab(String label, bool past) {
-      final on = showPast == past;
-      return Expanded(
-        child: Semantics(
-          button: true,
-          selected: on,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onChanged(past),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              decoration: BoxDecoration(
-                color: on ? LookUpColors.blue.withValues(alpha: 0.18) : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              alignment: Alignment.center,
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: on ? LookUpColors.blue : LookUpColors.grey)),
-            ),
+    final title = weekTitle(week);
+    final range = weekRange(week.first, week.last);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+      child: Row(children: [
+        IconButton(
+          key: const Key('week-prev'),
+          tooltip: 'The week before',
+          onPressed: onPrev,
+          icon: const Icon(Icons.chevron_left_rounded),
+        ),
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(title, key: const Key('week-title'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              if (title != range) Text(range, style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
+            ]),
           ),
         ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
-      child: Row(children: [tab('Last week', true), const SizedBox(width: 6), tab('Today and ahead', false)]),
+        IconButton(
+          key: const Key('week-next'),
+          tooltip: 'The week after',
+          onPressed: onNext,
+          icon: const Icon(Icons.chevron_right_rounded),
+        ),
+      ]),
     );
   }
-}
-
-/// A heading when there's no tab to choose.
-class _Section extends StatelessWidget {
-  const _Section(this.title);
-  final String title;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
-        child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: LookUpColors.grey)),
-      );
 }
 
 /// The hours across the top of the bars: as many as fit without crowding.

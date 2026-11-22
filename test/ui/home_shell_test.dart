@@ -141,7 +141,7 @@ void main() {
     expect(find.text('Settings'), findsNothing);
     expect(find.text('Nashville'), findsWidgets);
 
-    expect(find.text('Today and ahead'), findsNothing, reason: 'the week is its own tab');
+    expect(find.byKey(const Key('week-title')), findsNothing, reason: 'the week is its own tab');
     expect(find.text('Coming up'), findsOneWidget);
     // "See every night" on Home goes to the Week tab.
     await t.scrollUntilVisible(find.text('See every night'), 300,
@@ -151,7 +151,7 @@ void main() {
     await t.tap(find.text('See every night'));
     await t.pump(const Duration(seconds: 1));
     expect(container.read(homeTabProvider), HomeTab.week);
-    expect(find.text('Today and ahead'), findsOneWidget);
+    expect(find.text('This week'), findsOneWidget);
     expect(find.byTooltip('Back'), findsNothing, reason: 'a tab, not a pushed screen');
 
     await t.tap(tab('Explore'));
