@@ -48,7 +48,7 @@ enum StackKind {
 /// pointed (the Sun) or there's nothing to aim at.
 ShotSubject? subjectForEvent(SkyEventType t) => switch (t) {
       SkyEventType.iss || SkyEventType.tiangong || SkyEventType.starlinkTrain || SkyEventType.satellitePass => ShotSubject.pass,
-      SkyEventType.lunarEclipse || SkyEventType.fullMoonRise || SkyEventType.occultation || SkyEventType.occultationNear =>
+      SkyEventType.lunarEclipse || SkyEventType.fullMoonRise || SkyEventType.moonPhase || SkyEventType.occultation || SkyEventType.occultationNear =>
         ShotSubject.moon,
       SkyEventType.planetPairing || SkyEventType.planetHighlight => ShotSubject.planet,
       SkyEventType.meteorShower => ShotSubject.meteors,

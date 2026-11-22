@@ -39,6 +39,10 @@ enum SkyEventType {
   /// the closest ones. Free: it's the easiest sky event there is.
   fullMoonRise('Full Moon rising', plusOnly: false),
 
+  /// A first or last quarter Moon on a night it's up in a dark sky
+  /// (`details['quarter']`: first or last). Free.
+  moonPhase('Moon phase', plusOnly: false),
+
   /// A planet, star, constellation or showpiece opened from the Sky tab:
   /// not an event, but the finder and sheets speak [SkyEvent].
   skyObject('Sky object', plusOnly: false, pushes: false),

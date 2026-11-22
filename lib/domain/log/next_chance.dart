@@ -17,7 +17,8 @@ SkyEvent? nextChance(Badge b, Iterable<SkyEvent> upcoming, DateTime now) {
         'station-spotter' => e.type == SkyEventType.iss,
         'planet-set' => e.type == SkyEventType.planetHighlight &&
             (b.slots ?? const []).any((s) => !s.got && e.id.startsWith('planet-${s.label.toLowerCase()}')),
-        'moon-phases' => e.type == SkyEventType.fullMoonRise && (b.slots ?? const []).any((s) => s.label == 'Full' && !s.got),
+        'moon-phases' => (e.type == SkyEventType.fullMoonRise && (b.slots ?? const []).any((s) => s.label == 'Full' && !s.got)) ||
+            (e.type == SkyEventType.moonPhase && (b.slots ?? const []).any((s) => s.label == 'Half' && !s.got)),
         'overhead' => pass(e) && e.peakElevationDeg >= 75,
         'venus-bright' => ((e.details['magnitude'] as num?)?.toDouble() ?? 99) <= -3.5,
         'train-spotter' => e.type == SkyEventType.starlinkTrain,

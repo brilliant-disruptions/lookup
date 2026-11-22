@@ -67,3 +67,44 @@ List<({DateTime at, double azimuthDeg})> moonrisesBetween(DateTime from, DateTim
       for (final c in moonHorizonCrossings(from, to, lat, lon))
         if (c.rising) (at: c.t, azimuthDeg: moonHorizontal(c.t, lat, lon).azimuthDeg),
     ];
+
+/// The Moon's first and last quarter: half lit, a quarter of the way round
+/// its orbit from the Sun (90° and 270° ahead of it).
+enum MoonQuarter {
+  first('First quarter', 90),
+  last('Last quarter', 270);
+
+  const MoonQuarter(this.label, this.sunAngleDeg);
+  final String label;
+  final double sunAngleDeg;
+}
+
+/// Every instant in [from, to) when the Moon is exactly at [quarter].
+List<DateTime> moonQuartersBetween(MoonQuarter quarter, DateTime from, DateTime to) {
+  // −180…180, rising through 0 at the quarter; the wrap from +180 to −180
+  // is the opposite phase, not a crossing.
+  double gap(DateTime t) => ((moonLongitudeFromSunDeg(t) - quarter.sunAngleDeg + 540) % 360) - 180;
+  const step = Duration(hours: 6);
+  final out = <DateTime>[];
+  var t0 = from.toUtc();
+  var g0 = gap(t0);
+  while (t0.isBefore(to)) {
+    final t1 = t0.add(step);
+    final g1 = gap(t1);
+    if (g0 < 0 && g1 >= 0 && g1 - g0 < 90) {
+      var lo = t0, hi = t1;
+      while (hi.difference(lo) > const Duration(seconds: 1)) {
+        final mid = lo.add(Duration(microseconds: hi.difference(lo).inMicroseconds ~/ 2));
+        if (gap(mid) < 0) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
+      }
+      if (!lo.isBefore(from.toUtc()) && lo.isBefore(to.toUtc())) out.add(lo);
+    }
+    t0 = t1;
+    g0 = g1;
+  }
+  return out;
+}

@@ -313,6 +313,7 @@ String? planetOf(Sighting s) {
 String? moonLookOf(Sighting s) {
   final t = s.inferredType;
   if (t == SkyEventType.fullMoonRise || t == SkyEventType.lunarEclipse) return 'Full';
+  if (t == SkyEventType.moonPhase) return 'Half'; // a quarter Moon is always half lit
   if (!s.eventId.startsWith('obj:moon')) return null;
   return switch (moonPhase((s.eventTime ?? s.at).toUtc())) {
     MoonPhase.newMoon => null, // can't be seen
