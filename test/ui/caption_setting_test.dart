@@ -91,4 +91,12 @@ void main() {
     expect(find.textContaining('hello@brilliantdisruptions.com', skipOffstage: false), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
+
+  // The App Store review notes send the reviewer here: Home only offers it on a quiet night.
+  testWidgets('Settings always has Preview an alert', (t) async {
+    await _mount(t, plus: false);
+    expect(find.byKey(const Key('preview-alert'), skipOffstage: false), findsOneWidget);
+    expect(find.text('Preview an alert', skipOffstage: false), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+  });
 }

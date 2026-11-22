@@ -128,8 +128,7 @@ recording of *Preview an alert* → finder works well).
 ## Review notes (for Apple)
 
 > Sky events depend on location and date, so there may be nothing to see
-> during review. On a night with nothing coming up, Home shows "Preview an
-> alert", which plays a complete pass in fast
+> during review. Settings → "Preview an alert" plays a complete pass in fast
 > forward, including the real notification and its buttons. Location is used
 > on the device to predict passes; a version rounded to about a kilometre is
 > sent to fetch a cloud forecast.
