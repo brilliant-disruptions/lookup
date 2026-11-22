@@ -90,9 +90,10 @@ void main() {
     await t.pump();
     expect(find.text('Alert with LookUp+'), findsOneWidget);
 
-    // Last week is a scroll up, with what was missed at its top. The
+    // Last week is a tab, with what was missed at its top. The
     // clouded-out Tiangong pass doesn't count.
-    await t.scrollUntilVisible(find.text('You missed 2'), -300, scrollable: find.byType(Scrollable).first);
+    await t.tap(find.text('Last week'));
+    await t.pump();
     expect(find.text('You missed 2'), findsOneWidget);
     await t.ensureVisible(find.text('Don\'t miss the next one'));
     await t.pump();
