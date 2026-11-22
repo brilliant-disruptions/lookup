@@ -1,5 +1,5 @@
 /// "More of the sky": asks what you'd like to do, and each answer is one
-/// page with one job. Tonight's clouds and the things you follow sit under
+/// page with one job. Tonight's clouds, the story and favourites sit under
 /// the two jobs, since they're read rather than done.
 library;
 

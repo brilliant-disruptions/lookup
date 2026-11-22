@@ -17,7 +17,7 @@ import 'sky/object_sheet.dart';
 import 'sky/sky_thing.dart';
 import 'theme.dart';
 
-/// "Your first three" on Tonight, for new users: a pass, a planet and a star
+/// "Your first three" at the top of the Log, for new users: a pass, a planet and a star
 /// pattern from their own sky, each on its first easy night. Gives a new
 /// install something to do tonight instead of a countdown to wait out.
 /// Gone once all three are seen (or for anyone with a long log already).

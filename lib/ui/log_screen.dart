@@ -11,6 +11,7 @@ import 'badges/badge_board.dart';
 import 'keep_catch.dart';
 import 'kit/kit.dart';
 import 'settings_screen.dart';
+import 'starter_card.dart';
 import 'theme.dart';
 import 'year_card.dart';
 
@@ -72,6 +73,8 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                 ),
               ),
               ..._yearCard(context, ref),
+              // Something to go and catch while the Log is empty; gone once all three are seen.
+              const StarterSkyCard(padding: EdgeInsets.only(top: 16)),
               if (l.total == 0)
                 const Padding(
                   padding: EdgeInsets.fromLTRB(4, 20, 4, 0),

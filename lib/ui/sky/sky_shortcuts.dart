@@ -6,20 +6,17 @@ import '../../state/sky_state.dart';
 import '../favourites_screen.dart';
 import '../format.dart';
 import '../kit/kit.dart';
-import '../starter_card.dart';
 import '../theme.dart';
 import '../tonight_story.dart';
 import 'sky_thing.dart';
 
-/// What used to crowd the home screen, now where you go looking: the
-/// first-week starter sights, the night as a short story, and favourites.
+/// What used to crowd the home screen, now where you go looking: the night
+/// as a short story, and favourites. (The starter sights are on the Log.)
 class SkyShortcuts extends ConsumerWidget {
   const SkyShortcuts({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const StarterSkyCard(),
-        const SizedBox(height: 12),
         GroupedList(indent: 64, children: [
           ListRow(
             leading: const EventGlyph(icon: Icons.play_arrow_rounded, color: LookUpColors.blue),

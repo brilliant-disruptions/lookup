@@ -13,6 +13,7 @@ import 'package:lookup/domain/sky/visibility.dart';
 import 'package:lookup/state/plan_state.dart';
 import 'package:lookup/state/providers.dart';
 import 'package:lookup/state/sky_state.dart';
+import 'package:lookup/ui/log_screen.dart';
 import 'package:lookup/ui/starter_card.dart';
 import 'package:lookup/ui/theme.dart';
 
@@ -70,7 +71,7 @@ final _night = NightPlan(
   darkness: SkyDarkness.suburbs,
 );
 
-Future<void> _mount(WidgetTester t, List<Sighting> log) async {
+Future<void> _mount(WidgetTester t, List<Sighting> log, {Widget? home}) async {
   t.view.physicalSize = const Size(1179, 3000);
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
@@ -86,7 +87,7 @@ Future<void> _mount(WidgetTester t, List<Sighting> log) async {
       ],
       child: MaterialApp(
         theme: buildLookUpTheme(),
-        home: const Scaffold(body: Column(children: [StarterSkyCard()])),
+        home: home ?? const Scaffold(body: Column(children: [StarterSkyCard()])),
       ),
     ),
   );
@@ -95,6 +96,17 @@ Future<void> _mount(WidgetTester t, List<Sighting> log) async {
 }
 
 void main() {
+  // An empty Log is where a new user asks "what now?": the three sights answer it.
+  testWidgets('the Log leads with the three sights while there is nothing caught', (t) async {
+    await _mount(t, const [], home: const LogScreen());
+    expect(find.text('Three sights to start with'), findsOneWidget);
+    expect(find.textContaining('Nothing caught yet'), findsOneWidget);
+    expect(t.getTopLeft(find.text('Three sights to start with')).dy,
+        lessThan(t.getTopLeft(find.textContaining('Nothing caught yet')).dy));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('a new user gets three things to find, with tonight\'s flagged', (t) async {
     await _mount(t, const []);
     expect(find.text('Three sights to start with'), findsOneWidget);
