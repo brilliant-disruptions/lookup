@@ -11,7 +11,7 @@ import 'package:material_ui/material_ui.dart';
 import 'kit/kit.dart';
 import 'theme.dart';
 
-typedef PlusPerk = ({String key, IconData icon, Color color, String short, String line});
+typedef PlusPerk = ({String key, IconData icon, Color color, String short, String detail, String line});
 
 const plusPerks = <PlusPerk>[
   (
@@ -19,6 +19,7 @@ const plusPerks = <PlusPerk>[
     icon: Icons.notifications_active_rounded,
     color: LookUpColors.good,
     short: 'Every alert',
+    detail: 'Aurora, Starlink, Tiangong, launches',
     line: 'Every alert: live aurora with a wake-me option, Starlink trains, Tiangong, rocket launches and comets',
   ),
   (
@@ -26,6 +27,7 @@ const plusPerks = <PlusPerk>[
     icon: Icons.camera_rounded,
     color: LookUpColors.violet,
     short: 'The Pro camera',
+    detail: 'Best settings for Moon, stars, aurora',
     line: 'The Pro camera: the right lens, shutter and ISO for the Moon, planets, stars, meteors and aurora',
   ),
   (
@@ -33,6 +35,7 @@ const plusPerks = <PlusPerk>[
     icon: Icons.timelapse_rounded,
     color: LookUpColors.cyan,
     short: 'Self-starting timelapses',
+    detail: 'Capture each event from beginning to end',
     line: 'Timelapses that start when it rises and stop when it sets',
   ),
   (
@@ -40,6 +43,7 @@ const plusPerks = <PlusPerk>[
     icon: Icons.near_me_rounded,
     color: LookUpColors.blue,
     short: 'Where to go tonight',
+    detail: 'Clearer, darker skies within a drive',
     line: 'Where to go tonight: clearer, darker skies within a drive',
   ),
   (
@@ -47,13 +51,15 @@ const plusPerks = <PlusPerk>[
     icon: Icons.calendar_month_rounded,
     color: LookUpColors.blue,
     short: '14 nights ahead',
+    detail: 'See 14 nights, not just 3',
     line: 'Plan any of the next 14 nights, not just three',
   ),
   (
     key: 'places',
     icon: Icons.place_rounded,
     color: LookUpColors.gold,
-    short: 'Every place you like',
+    short: 'Save multiple locations',
+    detail: 'Home, the cabin, the trip',
     line: 'As many saved places as you like: home, the cabin, the trip',
   ),
   (
@@ -61,6 +67,7 @@ const plusPerks = <PlusPerk>[
     icon: Icons.brightness_5_rounded,
     color: LookUpColors.orange,
     short: 'Station across the Sun',
+    detail: 'Photo planning, and where to stand',
     line: 'Photo planning: the station crossing the Sun or Moon, and where to stand',
   ),
   (
@@ -68,6 +75,7 @@ const plusPerks = <PlusPerk>[
     icon: Icons.closed_caption_disabled_rounded,
     color: LookUpColors.grey,
     short: 'Photos without our caption',
+    detail: 'Just the sky, if you like',
     line: 'Your photos without the LookUp caption, if you like',
   ),
 ];
@@ -92,8 +100,11 @@ class PlusPerkList extends StatelessWidget {
 /// The rest of LookUp+ as a small grid (the onboarding offer), leaving out
 /// [except] (what the page has already said).
 class PlusPerkGrid extends StatelessWidget {
-  const PlusPerkGrid({super.key, this.except = const {}});
+  const PlusPerkGrid({super.key, this.except = const {}, this.detailed = false});
   final Set<String> except;
+
+  /// A line under each name saying what it gives you (the paywall).
+  final bool detailed;
   @override
   Widget build(BuildContext context) {
     final perks = [for (final p in plusPerks) if (!except.contains(p.key)) p];
@@ -104,7 +115,15 @@ class PlusPerkGrid extends StatelessWidget {
           child: Row(children: [
             EventGlyph(icon: p.icon, color: p.color, size: 28),
             const SizedBox(width: 9),
-            Expanded(child: Text(p.short, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.2))),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.short, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.2)),
+                if (detailed) ...[
+                  const SizedBox(height: 2),
+                  Text(p.detail, style: const TextStyle(fontSize: 11.5, height: 1.25, color: LookUpColors.grey)),
+                ],
+              ]),
+            ),
           ]),
         );
     // Rows of two (no LayoutBuilder: pages around it measure their content).

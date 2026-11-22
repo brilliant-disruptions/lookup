@@ -52,6 +52,17 @@ class PlusAlertTag extends StatelessWidget {
       );
 }
 
+/// "Starlink trains are LookUp+.": the one thing that brought them here.
+String? _lockedHeadline(SkyEvent e) => switch (e.type) {
+      SkyEventType.tiangong => 'Tiangong alerts are LookUp+.',
+      SkyEventType.starlinkTrain => 'Starlink train alerts are LookUp+.',
+      SkyEventType.auroraNow => 'Live aurora alerts are LookUp+.',
+      SkyEventType.rocketLaunch => 'Launch alerts are LookUp+.',
+      SkyEventType.occultation => 'Moon cover alerts are LookUp+.',
+      SkyEventType.comet || SkyEventType.nova => 'Rare sky alerts are LookUp+.',
+      _ => null,
+    };
+
 /// Sells the tap, not a feature list: the top of the sheet is the exact
 /// notification LookUp+ would send for something really coming over this
 /// user, then what else is coming in the next fortnight, then one plan
@@ -121,99 +132,118 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
     final lead = settings?.leadMinutes ?? 10;
     final events = ref.watch(homeProvider).value?.events ?? const <SkyEvent>[];
     final ahead = AlertPlanner.plusOnlyAhead(events, DateTime.now());
-    final r = widget.reason;
     // The notification to show: the one that brought them here, else the
     // next Plus-only thing really coming over them.
-    final preview = r ?? ahead.firstOrNull;
-    final rest = ahead.where((e) => e.id != preview?.id).toList();
+    final preview = widget.reason ?? ahead.firstOrNull;
+    final rest = ahead.where((e) => e.id != preview?.id).take(1).toList();
     final offers = _offers;
     final chosen = offers?.where((o) => o.id == _chosen).firstOrNull;
     final store = Theme.of(context).platform == TargetPlatform.iOS ? 'App Store' : 'Google Play';
-    return SafeArea(
-      child: Starfield(
-        density: 0.00012,
-        maxOpacity: 0.45,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(children: [
-                Text('LookUp', style: display(32, weight: FontWeight.w800)),
-                Text('+', style: display(32, weight: FontWeight.w800, color: LookUpColors.blue)),
-              ]),
-              const SizedBox(height: 6),
-              Text(
-                widget.headline ?? switch (widget.feature) {
-                  PlusFeature.whereToGo => 'Find the clear, dark sky near you tonight, and go.',
-                  PlusFeature.planAhead => 'Plan any of the next 14 nights, here or at any saved place.',
-                  PlusFeature.places => 'Save the cabin, the coast and next month\'s trip, as many as you like.',
-                  PlusFeature.transits => 'Catch the station crossing the Sun or Moon, with where to stand.',
-                  PlusFeature.camera =>
-                    'The Pro camera: the right settings for the Moon, stars, meteors and aurora, and timelapses that start by themselves.',
-                  PlusFeature.history => 'Go to any night from 3000 BC to 3000 AD: the Star of Bethlehem, Columbus\' eclipse, the Titanic\'s last night.',
-                  PlusFeature.noCaption => 'Your photos, just the sky: turn off the LookUp caption.',
-                  _ => preview == null ? 'Never miss anything up there.' : 'Don\'t find out tomorrow that it went over.',
-                },
-                style: t.bodyLarge?.copyWith(color: LookUpColors.grey, fontSize: 17),
-              ),
-              const SizedBox(height: 18),
-              _NotificationPreview(event: preview, leadMinutes: lead),
-              const SizedBox(height: 8),
-              Text(
-                preview == null
-                    ? 'An example. LookUp+ sends these for auroras, Starlink trains and Tiangong.'
-                    : 'The tap you\'d get. ${fmtDay(preview.start)}, ${fmtTime(preview.start.subtract(Duration(minutes: lead)))}.',
-                textAlign: TextAlign.center,
-                style: t.bodySmall?.copyWith(color: LookUpColors.greyDim),
-              ),
-              if (rest.isNotEmpty) ...[
-                const SizedBox(height: 22),
-                const Kicker('Also coming over you'),
-                const SizedBox(height: 8),
-                GroupedList(indent: 60, children: [for (final e in rest) _AheadRow(e)]),
-              ],
-              const SizedBox(height: 22),
-              const PlusPerkList(),
-              const SizedBox(height: 22),
-              if (isPlus) ...[
-                const Text('You have LookUp+. Thank you.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey)),
-                // Where to change or cancel it: the store's own page.
-                TextButton(
-                  key: const Key('manage-subscription'),
-                  onPressed: () => openLink(context, manageSubscriptionUri),
-                  child: const Text('Manage or cancel'),
-                ),
-              ] else if (offers == null)
+    // Opened from a locked alert: say it's this one that needs LookUp+.
+    final locked = widget.reason != null && widget.feature == null && widget.headline == null ? widget.reason : null;
+    final headline = widget.headline ??
+        (locked == null ? null : _lockedHeadline(locked)) ??
+        switch (widget.feature) {
+          PlusFeature.whereToGo => 'Clear, dark skies near you. Go.',
+          PlusFeature.planAhead => 'Plan any of the next 14 nights.',
+          PlusFeature.places => 'Save every place you love.',
+          PlusFeature.transits => 'The station across the Sun or Moon.',
+          PlusFeature.camera => 'The Pro camera. Sky settings, solved.',
+          PlusFeature.history => 'Any night, 3000 BC to 3000 AD.',
+          PlusFeature.noCaption => 'Photos with just the sky.',
+          _ => 'Never miss the next event.',
+        };
+    // 1 Hook and proof (scrolls) · 2 Plan and the one button (pinned) · 3 Reassurance (under the button).
+    final proof = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Text('LookUp', style: display(32, weight: FontWeight.w800)),
+            Text('+', style: display(32, weight: FontWeight.w800, color: LookUpColors.blue)),
+          ]),
+          const SizedBox(height: 4),
+          Text(headline, style: t.bodyLarge?.copyWith(color: LookUpColors.grey, fontSize: 17)),
+          const SizedBox(height: 16),
+          _NotificationPreview(event: preview, leadMinutes: lead),
+          const SizedBox(height: 8),
+          Text(
+            preview == null
+                ? 'Example alert'
+                : locked != null
+                    ? 'Free won\'t alert you to this one. ${fmtDay(preview.start)}.'
+                    : 'Your next one: ${fmtDay(preview.start)}, ${fmtTime(preview.start.subtract(Duration(minutes: lead)))}',
+            textAlign: TextAlign.center,
+            style: t.bodySmall?.copyWith(color: LookUpColors.greyDim),
+          ),
+          const SizedBox(height: 16),
+          PlusPerkGrid(detailed: true, except: {'alerts', widget.feature == PlusFeature.noCaption ? 'transits' : 'noCaption'}),
+          if (rest.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const Kicker('Also coming over you'),
+            const SizedBox(height: 8),
+            GroupedList(indent: 60, children: [for (final e in rest) _AheadRow(e)]),
+          ],
+          if (isPlus) ...[
+            const SizedBox(height: 18),
+            const Text('You have LookUp+. Thank you.', textAlign: TextAlign.center, style: TextStyle(color: LookUpColors.grey)),
+            // Where to change or cancel it: the store's own page.
+            TextButton(
+              key: const Key('manage-subscription'),
+              onPressed: () => openLink(context, manageSubscriptionUri),
+              child: const Text('Manage or cancel'),
+            ),
+          ] else
+            TextButton(
+              key: const Key('restore-purchases'),
+              onPressed: _busy ? null : _restore,
+              child: const Text('Restore purchases'),
+            ),
+          const LegalLinks(),
+        ],
+      ),
+    );
+
+    final Widget buy = isPlus
+        ? const SizedBox.shrink()
+        : Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+            decoration: const BoxDecoration(
+              color: LookUpColors.panel,
+              border: Border(top: BorderSide(color: LookUpColors.line)),
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (offers == null)
                 const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
               else if (offers.isEmpty) ...[
                 Text(
-                  'Can\'t reach the $store right now. Check your connection and try again in a moment.',
+                  'Can\'t reach the $store right now.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: LookUpColors.grey),
                 ),
                 TextButton(key: const Key('offers-retry'), onPressed: _loadOffers, child: const Text('Try again')),
               ] else ...[
-                for (final o in offers)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _PlanCard(
-                      offer: o,
-                      selected: o.id == _chosen,
-                      monthly: offers.where((x) => x.id == PlusProducts.monthly).firstOrNull,
-                      onTap: _busy ? null : () => setState(() => _chosen = o.id),
-                    ),
-                  ),
-                if (chosen?.id == PlusProducts.yearly) ...[
-                  const SizedBox(height: 6),
-                  _TrialTimeline(price: chosen!.price, store: store),
-                ],
-                const SizedBox(height: 16),
+                IntrinsicHeight(
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    for (final (i, o) in offers.indexed) ...[
+                      if (i > 0) const SizedBox(width: 10),
+                      Expanded(
+                        child: _PlanCard(
+                          offer: o,
+                          selected: o.id == _chosen,
+                          monthly: offers.where((x) => x.id == PlusProducts.monthly).firstOrNull,
+                          onTap: _busy ? null : () => setState(() => _chosen = o.id),
+                        ),
+                      ),
+                    ],
+                  ]),
+                ),
+                const SizedBox(height: 12),
                 FilledButton(
                   key: const Key('paywall-buy'),
                   onPressed: _busy || chosen == null ? null : () => _buy(chosen),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
                   child: Text(
                     switch (chosen?.id) {
                       PlusProducts.yearly => 'Try 7 days free',
@@ -222,31 +252,34 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
                     style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  chosen?.id == PlusProducts.yearly
+                      ? 'Then ${chosen!.price} a year. We\'ll remind you on day 5. Cancel any time in your $store account.'
+                      : 'Renews monthly. Cancel any time in your $store account.',
+                  textAlign: TextAlign.center,
+                  style: t.bodySmall?.copyWith(color: LookUpColors.greyDim),
+                ),
               ],
-              if (_note != null && !isPlus)
+              if (_note != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Semantics(
                     liveRegion: true,
                     child: Text(_note!, key: const Key('paywall-note'), textAlign: TextAlign.center, style: const TextStyle(color: LookUpColors.warn, height: 1.35)),
                   ),
                 ),
-              if (!isPlus)
-                TextButton(
-                  key: const Key('restore-purchases'),
-                  onPressed: _busy ? null : _restore,
-                  child: const Text('Restore purchases'),
-                ),
-              Text(
-                'Subscriptions renew automatically and can be cancelled any time in your $store account. '
-                '7-day free trial on yearly, for new subscribers.',
-                textAlign: TextAlign.center,
-                style: t.bodySmall?.copyWith(color: LookUpColors.greyDim),
-              ),
-              const LegalLinks(),
-            ],
-          ),
-        ),
+            ]),
+          );
+
+    return SafeArea(
+      child: Starfield(
+        density: 0.00012,
+        maxOpacity: 0.45,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Flexible(child: proof),
+          buy,
+        ]),
       ),
     );
   }
@@ -395,11 +428,9 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, note) = switch (offer.id) {
-      PlusProducts.yearly => ('Yearly', _perMonth(offer)),
-      _ => ('Monthly', null),
-    };
-    final save = offer.id == PlusProducts.yearly ? _saving(offer, monthly) : null;
+    final yearly = offer.id == PlusProducts.yearly;
+    final note = yearly ? _perMonth(offer) : null;
+    final save = yearly ? _saving(offer, monthly) : null;
     return Semantics(
       selected: selected,
       button: true,
@@ -413,29 +444,15 @@ class _PlanCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.md),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
-            child: Row(children: [
-              Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                  color: selected ? LookUpColors.blue : LookUpColors.greyDim, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                    Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    if (offer.id == PlusProducts.yearly) const Pill('7 days free', color: LookUpColors.good),
-                    if (save != null) Pill(save, color: LookUpColors.blue),
-                  ]),
-                  if (note != null) ...[
-                    const SizedBox(height: 3),
-                    Text(note, style: const TextStyle(fontSize: 13, color: LookUpColors.grey)),
-                  ],
-                ]),
-              ),
-              const SizedBox(width: 10),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(offer.price, style: numeric(size: 16, weight: FontWeight.w700)),
-                Text(offer.cadence, style: const TextStyle(fontSize: 12, color: LookUpColors.grey)),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(yearly ? 'Yearly' : 'Monthly', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
+                if (save != null) Pill(save, color: LookUpColors.blue),
               ]),
+              const SizedBox(height: 4),
+              Text(offer.price, style: numeric(size: 18, weight: FontWeight.w700)),
+              Text(note ?? offer.cadence, style: const TextStyle(fontSize: 12.5, color: LookUpColors.grey)),
             ]),
           ),
         ),
@@ -458,42 +475,5 @@ class _PlanCard extends StatelessWidget {
     if (full <= 0) return null;
     final pct = ((1 - yearly.details.rawPrice / full) * 100).floor();
     return pct >= 10 ? 'Save $pct%' : null;
-  }
-}
-
-/// What happens when, so starting a trial isn't a leap of faith.
-class _TrialTimeline extends StatelessWidget {
-  const _TrialTimeline({required this.price, required this.store});
-  final String price;
-  final String store;
-
-  @override
-  Widget build(BuildContext context) {
-    final steps = [
-      (Icons.notifications_active_rounded, 'Today', 'Every alert is on, starting tonight.'),
-      (Icons.notifications_rounded, 'Day 5', 'LookUp reminds you the trial ends in 2 days.'),
-      (Icons.event_rounded, 'Day 7', 'Your trial ends and $price a year begins.'),
-      (Icons.cancel_outlined, 'Before then', 'Cancel in your $store account and you won\'t be charged.'),
-    ];
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(color: LookUpColors.glass, borderRadius: BorderRadius.circular(Radii.md)),
-      child: Column(children: [
-        for (final (i, (icon, step, what)) in steps.indexed)
-          Padding(
-            padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(icon, size: 18, color: i == 0 ? LookUpColors.good : LookUpColors.grey),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text.rich(TextSpan(children: [
-                  TextSpan(text: '$step  ', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  TextSpan(text: what, style: const TextStyle(color: LookUpColors.grey)),
-                ]), style: const TextStyle(fontSize: 13.5, height: 1.35)),
-              ),
-            ]),
-          ),
-      ]),
-    );
   }
 }
