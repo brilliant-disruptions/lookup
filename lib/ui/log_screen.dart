@@ -84,9 +84,8 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                       style: TextStyle(color: LookUpColors.grey, height: 1.45),
                     ),
                     SizedBox(height: 12),
-                    Text('New phone? Your catches are still in your LookUp album.', style: TextStyle(color: LookUpColors.grey, fontSize: 13.5)),
-                    SizedBox(height: 8),
-                    BringBackCatches(),
+                    // The button itself is in Settings › Photos; here, just where to find it.
+                    Text('New phone? Bring your catches back from Photos in Settings.', style: TextStyle(color: LookUpColors.grey, fontSize: 13.5)),
                   ]),
                 ),
               const SizedBox(height: 24),

@@ -105,7 +105,7 @@ Run on a device (⌘R) and try:
     Settings › Alerts cancels it.
   - **Bring back my catches:** on a second iPhone signed in to the same
     iCloud Photos, install, choose Limit Access, and tap *Bring back my
-    catches from Photos* on the empty Log. **Check whether the LookUp
+    catches from Photos* in Settings › Photos. **Check whether the LookUp
     album made on the first phone is visible under Limited access** (Apple
     lets an app read albums it made; on a new install it may count as a
     different app's album). If it isn't, the sheet should suggest choosing
