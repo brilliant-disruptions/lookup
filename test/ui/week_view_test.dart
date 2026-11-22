@@ -50,6 +50,8 @@ class _Home extends HomeNotifier {
           _ev('tiangong:a', SkyEventType.tiangong, const Duration(days: 3)),
           _ev('pair:a', SkyEventType.planetPairing, const Duration(days: 4),
               const {'bodies': ['Venus', 'the Moon'], 'label': 'Venus and the Moon'}),
+          // Nine nights out: next week's page.
+          _ev('iss:far', SkyEventType.iss, const Duration(days: 9)),
         ],
         // Went over three nights ago: last week, above tonight.
         recent: [_ev('iss:old', SkyEventType.iss, const Duration(days: -3))],
@@ -92,35 +94,38 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('opens on Today and ahead, with Last week a tab away, even on a small phone', (t) async {
+  testWidgets('opens on This week, with the weeks either side an arrow away, even on a small phone', (t) async {
     t.view.physicalSize = const Size(375 * 2, 667 * 2);
     t.view.devicePixelRatio = 2;
     addTearDown(t.view.reset);
     await pump(t);
-    final list = t.getRect(find.byKey(const Key('week-list')));
-    final tonight = t.getRect(find.text('Today and ahead'));
-    expect(tonight.top, lessThan(list.bottom), reason: 'the tab is in view');
-    expect(find.text('Last week'), findsOneWidget);
-    expect(t.getRect(find.text('Last week')).left, lessThan(tonight.left));
+    expect(find.byKey(const Key('week-list-0')), findsOneWidget);
+    expect(t.widget<Text>(find.byKey(const Key('week-title'))).data, 'This week');
+    expect(t.widget<IconButton>(find.byKey(const Key('week-prev'))).onPressed, isNotNull, reason: 'last week');
+    expect(t.widget<IconButton>(find.byKey(const Key('week-next'))).onPressed, isNotNull, reason: 'next week');
+    expect(t.getRect(find.byKey(const Key('week-title'))).bottom, lessThan(t.getRect(find.byKey(const Key('week-list-0'))).top + 1));
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });
 
   // The whole week at a glance, as before: every day's hours fit the width
   // (empty ones cut out), so nothing has to be swiped into view.
-  testWidgets('the whole week fits on a small phone, and nothing scrolls sideways', (t) async {
+  testWidgets('the whole week fits on a small phone, and its hours never scroll sideways', (t) async {
     t.view.physicalSize = const Size(375 * 2, 667 * 2);
     t.view.devicePixelRatio = 2;
     addTearDown(t.view.reset);
     await pump(t);
-    final list = t.getRect(find.byKey(const Key('week-list')));
+    final list = t.getRect(find.byKey(const Key('week-list-0')));
     final days = find.byWidgetPredicate((w) => w is RichText && RegExp(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+$').hasMatch(w.text.toPlainText()));
     final shown = days.evaluate().where((e) {
       final r = t.getRect(find.byWidget(e.widget));
       return r.top >= list.top - 1 && r.bottom <= list.bottom + 1;
     });
     expect(shown.length, greaterThanOrEqualTo(7), reason: 'a week of days in view without scrolling');
-    final sideways = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.right);
+    // Sideways turns the week; within a week nothing does.
+    final sideways = find.descendant(
+        of: find.byKey(const Key('week-list-0')),
+        matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.right));
     expect(sideways, findsNothing, reason: 'no swiping the hours');
     // Every sight is on screen, inside its bar.
     for (final name in ['ISS', 'Starlink', 'Tiangong']) {
@@ -142,10 +147,10 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('at a glance: one list, opened on tonight, the first sight picked, tap another', (t) async {
+  testWidgets('at a glance: this week, opened on tonight, the first sight picked, tap another', (t) async {
     await pump(t);
     expect(find.text('Calendar'), findsNothing, reason: 'one view now, no calendar');
-    expect(find.text('Today and ahead'), findsOneWidget);
+    expect(find.text('This week'), findsOneWidget);
     // Each night a bar; the first sight still to come is shown below.
     expect(find.bySemanticsLabel(RegExp(r'^(Tonight|This morning|Tomorrow|[A-Z][a-z]+day)')), findsWidgets);
     expect(find.text('ISS flyover'), findsOneWidget);
@@ -158,18 +163,24 @@ void main() {
     expect(find.text('Alert with LookUp+'), findsOneWidget);
     expect(find.textContaining('°'), findsNothing);
     // The tools are at the end of the list.
-    await t.scrollUntilVisible(find.text('Plan a night'), 300, scrollable: find.byType(Scrollable).first);
+    await t.scrollUntilVisible(find.text('Plan a night'), 300,
+        scrollable: find.descendant(of: find.byKey(const Key('week-list-0')), matching: find.byType(Scrollable)).first);
     expect(find.text('Plan a night'), findsOneWidget);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('last week is a tab: faded, with what went over', (t) async {
-    await pump(t);
-    // Opens on Today and ahead; Last week is the other tab.
-    expect(find.text('Today and ahead'), findsOneWidget);
-    await t.tap(find.text('Last week'));
+  Future<void> turn(WidgetTester t) async {
     await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+  }
+
+  testWidgets('last week is a page back: faded, with what went over', (t) async {
+    await pump(t);
+    await t.tap(find.byKey(const Key('week-prev')));
+    await turn(t);
+    expect(t.widget<Text>(find.byKey(const Key('week-title'))).data, 'Last week');
+    expect(t.widget<IconButton>(find.byKey(const Key('week-prev'))).onPressed, isNull, reason: 'nothing further back');
     final old = find.bySemanticsLabel(RegExp(r'^ISS flyover, '));
     expect(old, findsWidgets);
     await t.ensureVisible(old.first);
@@ -178,9 +189,30 @@ void main() {
     await t.pump();
     expect(find.text('Visible if it was clear'), findsOneWidget, reason: 'how it went, not what to do');
     // And back to what's coming.
-    await t.tap(find.text('Today and ahead'));
-    await t.pump();
-    expect(find.text('Last week'), findsOneWidget);
+    await t.tap(find.byKey(const Key('week-next')));
+    await turn(t);
+    expect(t.widget<Text>(find.byKey(const Key('week-title'))).data, 'This week');
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('week over week: the arrow or a swipe goes on to the weeks ahead, as far as anything is worked out', (t) async {
+    await pump(t);
+    // A swipe sideways turns to next week, and its first sight is the one shown.
+    await t.fling(find.byKey(const Key('week-pages')), const Offset(-300, 0), 1200);
+    await turn(t);
+    await t.pump(const Duration(milliseconds: 400));
+    expect(t.widget<Text>(find.byKey(const Key('week-title'))).data, 'Next week');
+    expect(find.byKey(const Key('week-list-1')), findsOneWidget);
+    expect(find.text('ISS flyover'), findsOneWidget, reason: 'the pass nine nights out');
+    expect(find.textContaining('This far out'), findsOneWidget, reason: 'says why a far week looks thin');
+    // Nothing is worked out past it, so there is no week after.
+    expect(t.widget<IconButton>(find.byKey(const Key('week-next'))).onPressed, isNull);
+    // The arrow goes back.
+    await t.tap(find.byKey(const Key('week-prev')));
+    await turn(t);
+    expect(t.widget<Text>(find.byKey(const Key('week-title'))).data, 'This week');
+    expect(find.textContaining('This far out'), findsNothing);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });

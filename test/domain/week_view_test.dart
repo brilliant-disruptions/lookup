@@ -95,4 +95,29 @@ void main() {
     final far = glanceNights([ev('eclipse', SkyEventType.lunarEclipse, DateTime(2027, 2, 1, 22))], const [], now);
     expect(far.where((n) => !n.past), hasLength(14));
   });
+
+  test('week by week: last week, the seven days from today, then whole weeks to the last sight', () {
+    final quiet = glanceWeeks(
+      [ev('iss:a', SkyEventType.iss, DateTime(2026, 10, 30, 18, 41))],
+      [ev('iss:old', SkyEventType.iss, DateTime(2026, 10, 27, 19, 5))],
+      now,
+    );
+    expect(quiet.map((w) => w.offset), [-1, 0], reason: 'no empty weeks past the last sight');
+    expect(quiet.first.past, isTrue);
+    expect(quiet.first.events.single.id, 'iss:old');
+    expect(quiet.last.first, DateTime(2026, 10, 30));
+    expect(quiet.last.last, DateTime(2026, 11, 5));
+    expect(quiet.every((w) => w.nights.length == 7), isTrue);
+
+    // A pass three weeks out: every week up to it, and it is on its own week's page.
+    final longer = glanceWeeks([ev('iss:far', SkyEventType.iss, DateTime(2026, 11, 20, 18))], const [], now);
+    expect(longer.map((w) => w.offset), [-1, 0, 1, 2, 3]);
+    expect(longer.last.first, DateTime(2026, 11, 20));
+    expect(longer.last.events.single.id, 'iss:far');
+    expect(longer[2].events, isEmpty);
+
+    // Never further than is worked out.
+    final far = glanceWeeks([ev('eclipse', SkyEventType.lunarEclipse, DateTime(2027, 6, 1, 22))], const [], now);
+    expect(far.where((w) => !w.past), hasLength(9));
+  });
 }

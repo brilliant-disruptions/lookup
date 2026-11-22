@@ -14,8 +14,8 @@ import 'settings_screen.dart';
 import 'theme.dart';
 import 'week_views.dart';
 
-/// The Week tab: every night at a glance, in one list: last week above,
-/// tonight in view, the nights ahead below.
+/// The Week tab: every night at a glance, a week to a page: last week, this
+/// week, and the weeks ahead.
 class UpcomingScreen extends ConsumerStatefulWidget {
   const UpcomingScreen({super.key});
 
@@ -51,7 +51,8 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
           error: (_, _) => LoadTrouble(what: 'Your week didn\'t load.', onRetry: () => ref.invalidate(homeProvider)),
           data: (d) {
             final now = DateTime.now();
-            final nights = glanceNights(d.events, d.recent, now, weather: weather);
+            final weeks = glanceWeeks(d.events, d.recent, now, weather: weather);
+            final nights = [for (final w in weeks) ...w.nights];
             final showing = [for (final n in nights) ...n.events];
             final pick = showing.where((e) => e.id == _pick).firstOrNull ??
                 nights.where((n) => !n.past).expand((n) => n.alerts).firstOrNull ??
@@ -81,7 +82,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                 ),
               Expanded(
                 child: GlancePage(
-                  nights: nights,
+                  weeks: weeks,
                   night: night,
                   pick: pick,
                   isPlus: isPlus,

@@ -90,10 +90,11 @@ void main() {
     await t.pump();
     expect(find.text('Alert with LookUp+'), findsOneWidget);
 
-    // Last week is a tab, with what was missed at its top. The
+    // Last week is a page back, with what was missed at its top. The
     // clouded-out Tiangong pass doesn't count.
-    await t.tap(find.text('Last week'));
+    await t.tap(find.byKey(const Key('week-prev')));
     await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
     expect(find.text('You missed 2'), findsOneWidget);
     await t.ensureVisible(find.text('Don\'t miss the next one'));
     await t.pump();
