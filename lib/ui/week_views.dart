@@ -50,7 +50,7 @@ const _barDark = Color(0xFF0D1530);
 
 /// How many shown hours fit across the screen at once; swipe sideways for the
 /// rest, so sights close together come apart. A chopped stretch is [_breakPx].
-const _hoursInView = 6.0, _breakPx = 14.0;
+const _hoursInView = 6.0, _breakPx = 8.0;
 
 /// The pixels one shown hour takes, for a bar [view] wide.
 double _perHour(double view) => view / _hoursInView;
@@ -537,7 +537,7 @@ class _BarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF05080F));
+    canvas.drawRect(Offset.zero & size, Paint()..color = _barDark);
     final stripe = Paint()..strokeWidth = 1.4;
     for (final r in axis.runs) {
       for (var hour = r.from; hour < r.to; hour++) {
@@ -560,13 +560,15 @@ class _BarPainter extends CustomPainter {
         canvas.restore();
       }
     }
-    // Where time was cut: a slim diagonal-slashed gap.
+    // Where time was cut: just a faint dotted line, no gap to speak of.
     final cut = Paint()
-      ..color = LookUpColors.greyDim.withValues(alpha: 0.5)
-      ..strokeWidth = 1.2;
+      ..color = LookUpColors.white.withValues(alpha: 0.16)
+      ..strokeWidth = 1;
     for (final (left, width) in axis.breaks(perHour, _breakPx)) {
-      final mid = left + width / 2;
-      canvas.drawLine(Offset(mid - 2, size.height * 0.62), Offset(mid + 2, size.height * 0.38), cut);
+      final x = left + width / 2;
+      for (var y = 4.0; y < size.height - 2; y += 5) {
+        canvas.drawLine(Offset(x, y), Offset(x, y + 2), cut);
+      }
     }
   }
 
