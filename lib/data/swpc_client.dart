@@ -51,7 +51,7 @@ class SwpcClient {
 
   Future<T> _getJsonOnce<T>(String url, T Function(Object? json) then) async {
     final res = await _client
-        .get(Uri.parse(url), headers: const {'User-Agent': 'LookUp/0.1'})
+        .get(Uri.parse(url), headers: const {'User-Agent': 'LookUp/1.0'})
         .timeout(const Duration(seconds: 45));
     if (res.statusCode != 200) {
       throw http.ClientException('SWPC ${res.statusCode}', Uri.parse(url));

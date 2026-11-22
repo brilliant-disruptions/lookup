@@ -21,7 +21,7 @@ class RareEventsClient {
   /// The decoded `{now, events: [...]}`; parse with `parseRareEvents`.
   Future<Object?> fetchRaw() => withRetry(() async {
         final uri = Uri.parse('$_base/v1/rare-events');
-        final res = await _client.get(uri, headers: const {'User-Agent': 'LookUp/0.1'}).timeout(const Duration(seconds: 20));
+        final res = await _client.get(uri, headers: const {'User-Agent': 'LookUp/1.0'}).timeout(const Duration(seconds: 20));
         if (res.statusCode != 200) throw http.ClientException('Relay ${res.statusCode}', uri);
         return jsonDecode(res.body);
       });

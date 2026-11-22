@@ -27,7 +27,7 @@ class InviteClient {
     try {
       final res = await _client
           .post(Uri.parse('$_base/v1/invites'),
-              headers: const {'content-type': 'application/json', 'User-Agent': 'LookUp/0.1'},
+              headers: const {'content-type': 'application/json', 'User-Agent': 'LookUp/1.0'},
               body: jsonEncode({
                 for (final MapEntry(:key, :value) in fields.entries) key: ?value,
                 'image': ?(image == null ? null : base64Encode(image)),
