@@ -33,7 +33,7 @@ enum PlusFeature {
   camera,
 
   /// The sky through history: free goes a week either side of now and to a
-  /// few famous nights; LookUp+ goes anywhere from 3000 BC to 3000 AD.
+  /// few famous nights; LookUp+ goes further. Hidden in the app for now.
   history,
 
   /// Photos without the "LookUp" caption along the foot. Free keeps it:

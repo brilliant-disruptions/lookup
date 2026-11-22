@@ -70,17 +70,17 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('Photograph it, Calendar and Invite sit in one row of tiles', (t) async {
+  testWidgets('Photograph it and Invite sit in one row of tiles, with no Calendar', (t) async {
     await _mount(t, isPlus: false);
     final photo = find.byKey(const Key('photograph-it'));
-    final cal = find.byKey(const Key('add-to-calendar'));
     final invite = find.byKey(const Key('invite'));
-    for (final f in [photo, cal, invite]) {
+    for (final f in [photo, invite]) {
       expect(f, findsOneWidget);
     }
-    expect(t.getCenter(photo).dy, closeTo(t.getCenter(cal).dy, 0.5));
-    expect(t.getCenter(cal).dy, closeTo(t.getCenter(invite).dy, 0.5));
-    expect(t.getSize(photo).height, closeTo(t.getSize(cal).height, 0.5), reason: 'the same size');
+    expect(t.getCenter(photo).dy, closeTo(t.getCenter(invite).dy, 0.5));
+    expect(find.byKey(const Key('add-to-calendar')), findsNothing, reason: 'a calendar entry stands in for the alert');
+    expect(find.text('Calendar'), findsNothing);
+    expect(t.getSize(photo).height, closeTo(t.getSize(invite).height, 0.5), reason: 'the same size');
     expect(find.descendant(of: photo, matching: find.text('LookUp+')), findsNothing,
         reason: 'pictures are free (Pip\'s catch); a paid tag here reads as "you can\'t take pictures"');
     expect(find.byType(OutlinedButton), findsNothing, reason: 'no plain outlined buttons left');

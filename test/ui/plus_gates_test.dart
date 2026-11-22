@@ -41,6 +41,19 @@ final _transit = SkyEvent(
   details: const {'body': 'Moon', 'crossingMs': 800},
 );
 
+final _tiangong = SkyEvent(
+  id: 'tiangong:a',
+  type: SkyEventType.tiangong,
+  start: DateTime.now().toUtc().add(const Duration(days: 3)),
+  peak: DateTime.now().toUtc().add(const Duration(days: 3, minutes: 2)),
+  end: DateTime.now().toUtc().add(const Duration(days: 3, minutes: 5)),
+  peakElevationDeg: 55,
+  riseAzimuthDeg: 300,
+  peakAzimuthDeg: 20,
+  setAzimuthDeg: 110,
+  details: const {'brightness': 'as bright as the brightest stars'},
+);
+
 Future<void> mount(WidgetTester t, {required bool isPlus, required void Function(BuildContext) onTap}) async {
   t.view.physicalSize = const Size(1179, 3000);
   t.view.devicePixelRatio = 3;
@@ -90,6 +103,23 @@ void main() {
     await mount(t, isPlus: true, onTap: (c) => showLookSheet(c, _transit));
     expect(find.byType(PaywallSheet), findsNothing);
     expect(find.byType(LookSheet), findsOneWidget);
+  });
+
+  testWidgets('free: a LookUp+ alert\'s Look sheet offers LookUp+; on Plus it doesn\'t', (t) async {
+    await mount(t, isPlus: false, onTap: (c) => showLookSheet(c, _tiangong));
+    expect(find.byType(LookSheet), findsOneWidget);
+    expect(find.byKey(const Key('plus-alert-cta')), findsOneWidget);
+    await t.tap(find.byKey(const Key('plus-alert-cta-button')));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 500));
+    expect(find.byType(PaywallSheet), findsOneWidget);
+    expect(find.text('Tiangong alerts are LookUp+.'), findsOneWidget);
+  });
+
+  testWidgets('LookUp+: no ask on the Look sheet', (t) async {
+    await mount(t, isPlus: true, onTap: (c) => showLookSheet(c, _tiangong));
+    expect(find.byType(LookSheet), findsOneWidget);
+    expect(find.byKey(const Key('plus-alert-cta')), findsNothing);
   });
 
   test('list rows lock Plus-only alerts and transits on free, nothing on Plus', () {

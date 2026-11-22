@@ -149,7 +149,6 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
           PlusFeature.places => 'Save every place you love.',
           PlusFeature.transits => 'The station across the Sun or Moon.',
           PlusFeature.camera => 'The Pro camera. Sky settings, solved.',
-          PlusFeature.history => 'Any night, 3000 BC to 3000 AD.',
           PlusFeature.noCaption => 'Photos with just the sky.',
           _ => 'Never miss the next event.',
         };

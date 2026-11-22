@@ -84,10 +84,6 @@
 	<string>LookUp keeps your catches in a LookUp album and shows them in your Log. Limit Access is enough: you don't need to pick any photos.</string>
 	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
 	<true/>
-	<key>NSCalendarsUsageDescription</key>
-	<string>Add meteor showers, eclipses and flyovers to your calendar.</string>
-	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
-	<string>Add meteor showers, eclipses and flyovers to your calendar.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>Apple's calendar screen can suggest places from your contacts. LookUp never reads them.</string>
 	<key>UIBackgroundModes</key>

@@ -21,7 +21,7 @@ and finder, the log and share cards.
 | As many saved places as you like | One (following the phone is always free) |
 | Photo planning: the station crossing the Sun or Moon | — |
 | The Pro camera: lens, shutter and ISO per subject, stacking, self-starting timelapses | Pip's quick catch (to Photos and the Log) |
-| *(Hidden for now)* The sky through history, 3000 BC – 3000 AD, and every famous night | Explore steps a week either side of now |
+| *(Hidden for now)* The sky through history and every famous night | Explore steps a week either side of now |
 | Photos without the "LookUp" caption | Caption on (every shared catch says where it came from) |
 
 Where people meet it, and the one budget that keeps it from nagging, is in

@@ -96,7 +96,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     return to.difference(now.toUtc()).abs() <= const Duration(days: FreePlan.historyDays, hours: 1);
   }
 
-  /// A day either way, staying inside 3000 BC – 3000 AD.
+  /// A day either way, staying inside the map's years.
   void _step(DateTime now, int days) {
     final to = (_anchor ?? now.toUtc()).add(Duration(days: days));
     if (to.isBefore(skyTimeFirst) || to.isAfter(skyTimeLast)) return;
@@ -478,7 +478,7 @@ class _LiveButton extends StatelessWidget {
 
 /// Move the map through time: the slider for tonight ("cloudy now, but
 /// clear at 3 AM: will Saturn be up then?"), a day at a time either way, or
-/// any night from 3000 BC to 3000 AD, famous ones included. Says the
+/// any night, famous ones included. Says the
 /// forecast sky when there is one.
 class _TimeTravel extends StatelessWidget {
   const _TimeTravel({
@@ -556,7 +556,7 @@ class _TimeTravel extends StatelessWidget {
             skyThen == null
                 ? (onPickDate == null
                     ? 'Slide through tonight, or step a day at a time, up to a week either way.'
-                    : 'Slide through tonight, or go to any night from 3000 BC to 3000 AD.')
+                    : 'Slide through tonight, or go to any night.')
                 : 'Sky at $when: ${skyThen!.toLowerCase()}. Tap anything to see if you could spot it then.',
             if (rough) 'This long ago the Moon can be a degree or two out; the stars and planets hold.',
           ].join(' '),
