@@ -71,13 +71,13 @@ void main() {
   testWidgets('free: Where to go tonight opens the paywall on that feature', (t) async {
     await mount(t, isPlus: false, onTap: openWhereToGo);
     expect(find.byType(PaywallSheet), findsOneWidget);
-    expect(find.text('Find the clear, dark sky near you tonight, and go.'), findsOneWidget);
+    expect(find.text('Clear, dark skies near you. Go.'), findsOneWidget);
   });
 
   testWidgets('free: tonight and the next two nights plan; the fourth night is LookUp+', (t) async {
     await mount(t, isPlus: false, onTap: (c) => openPlan(c, night: 3));
     expect(find.byType(PaywallSheet), findsOneWidget);
-    expect(find.text('Plan any of the next 14 nights, here or at any saved place.'), findsOneWidget);
+    expect(find.text('Plan any of the next 14 nights.'), findsOneWidget);
   });
 
   testWidgets('free: a transit is photo planning, on LookUp+', (t) async {

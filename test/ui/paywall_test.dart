@@ -107,7 +107,7 @@ void main() {
     expect(find.text('No alert on free'), findsOneWidget);
 
     // Everything LookUp+ adds, from the one list the onboarding offer uses too.
-    for (final line in ['The Pro camera', 'Timelapses that start', 'Where to go tonight']) {
+    for (final line in ['The Pro camera', 'Self-starting timelapses', 'Where to go tonight']) {
       expect(find.textContaining(line), findsOneWidget, reason: line);
     }
     expect(find.textContaining('3000 BC'), findsNothing, reason: 'the sky through history isn\'t what LookUp+ is sold on');
@@ -117,14 +117,14 @@ void main() {
     // Yearly is picked, priced per month and against monthly, trial spelled out.
     expect(find.text(r'≈ $2.50 a month'), findsOneWidget);
     expect(find.text('Save 58%'), findsOneWidget);
-    expect(find.textContaining(r'$29.99 a year begins'), findsOneWidget);
+    expect(find.textContaining(r'Then $29.99 a year'), findsOneWidget);
     expect(find.text('Try 7 days free'), findsOneWidget);
 
     // Picking monthly changes the one button, and drops the trial timeline.
     await t.tap(find.text('Monthly'));
     await t.pump();
     expect(find.text(r'Continue · $5.99 a month'), findsOneWidget);
-    expect(find.textContaining('a year begins'), findsNothing);
+    expect(find.textContaining('Then'), findsNothing);
 
     await t.tap(find.text(r'Continue · $5.99 a month'));
     await t.pump();
@@ -192,6 +192,27 @@ void main() {
     await open(t, isPlus: true);
     expect(find.byKey(const Key('manage-subscription')), findsOneWidget);
     expect(find.byKey(const Key('restore-purchases')), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('opened from a locked alert, it says that alert is LookUp+', (t) async {
+    t.view.physicalSize = const Size(1179, 6000);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(_Settings.new),
+        homeProvider.overrideWith(_Home.new),
+        plusServiceProvider.overrideWithValue(_FakePlus()),
+      ],
+      child: MaterialApp(theme: buildLookUpTheme(), home: Scaffold(body: PaywallSheet(reason: _events[2]))),
+    ));
+    for (var i = 0; i < 5; i++) {
+      await t.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('Tiangong alerts are LookUp+.'), findsOneWidget);
+    expect(find.textContaining('Free won\'t alert you to this one'), findsOneWidget);
+    expect(find.text('Never miss the next event.'), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
 }
