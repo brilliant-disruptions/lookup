@@ -106,6 +106,32 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
+  // The whole week at a glance, as before: every day's hours fit the width
+  // (empty ones cut out), so nothing has to be swiped into view.
+  testWidgets('the whole week fits on a small phone, and nothing scrolls sideways', (t) async {
+    t.view.physicalSize = const Size(375 * 2, 667 * 2);
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    await pump(t);
+    final list = t.getRect(find.byKey(const Key('week-list')));
+    final days = find.byWidgetPredicate((w) => w is RichText && RegExp(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+$').hasMatch(w.text.toPlainText()));
+    final shown = days.evaluate().where((e) {
+      final r = t.getRect(find.byWidget(e.widget));
+      return r.top >= list.top - 1 && r.bottom <= list.bottom + 1;
+    });
+    expect(shown.length, greaterThanOrEqualTo(7), reason: 'a week of days in view without scrolling');
+    final sideways = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.right);
+    expect(sideways, findsNothing, reason: 'no swiping the hours');
+    // Every sight is on screen, inside its bar.
+    for (final name in ['ISS', 'Starlink', 'Tiangong']) {
+      final r = t.getRect(find.text(name).first);
+      expect(r.right, lessThanOrEqualTo(375), reason: name);
+      expect(r.left, greaterThanOrEqualTo(0), reason: name);
+    }
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('at a glance, each marker says what it is: which satellite, which planets', (t) async {
     await pump(t);
     for (final name in ['ISS', 'ISS × Moon', 'Starlink', 'Tiangong', 'Venus · Moon']) {
@@ -148,11 +174,13 @@ void main() {
     expect(old, findsWidgets);
     await t.ensureVisible(old.first);
     await t.pump();
-    await t.tap(find.text('Today and ahead'));
-    await t.pump();
     await t.tap(old.first);
     await t.pump();
-    expect(find.text('Visible if it was clear'), findsOneWidget);
+    expect(find.text('Visible if it was clear'), findsOneWidget, reason: 'how it went, not what to do');
+    // And back to what's coming.
+    await t.tap(find.text('Today and ahead'));
+    await t.pump();
+    expect(find.text('Last week'), findsOneWidget);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });
