@@ -55,17 +55,27 @@ void main() {
     await t.pumpWidget(MaterialApp(
       theme: buildLookUpTheme(),
       home: Scaffold(
-        body: UpTonightCard(
-          things: things,
-          now: _now,
-          clouds: 'Clear until 6:00 AM',
-          onOpen: (x) => opened.add(x.id),
-          onShow: (x) => shown.add(x.id),
-        ),
+        body: ListView(children: [
+          UpTonightCard(
+            things: things,
+            now: _now,
+            clouds: 'Clear until 6:00 AM',
+            onOpen: (x) => opened.add(x.id),
+            onShow: (x) => shown.add(x.id),
+          ),
+        ]),
       ),
     ));
-    expect(find.text('Look for these'), findsOneWidget);
+    // Closed to start with: one line, so the sky stays in view.
+    expect(find.text('Jupiter and the Moon'), findsOneWidget);
+    expect(find.text('1 up now'), findsOneWidget);
     expect(find.text('Clear until 6:00 AM'), findsOneWidget);
+    expect(find.text('Show me'), findsNothing);
+    final closed = t.getSize(find.byKey(const Key('up-tonight'))).height;
+    expect(closed, lessThan(110));
+    await t.tap(find.byKey(const Key('up-tonight-toggle')));
+    await t.pumpAndSettle();
+    expect(t.getSize(find.byKey(const Key('up-tonight'))).height, greaterThan(closed));
     expect(find.text('Show me'), findsOneWidget);
     expect(find.text('Up now, in the west'), findsOneWidget);
     expect(find.textContaining('°'), findsNothing, reason: 'words, never degrees');
@@ -73,6 +83,18 @@ void main() {
     expect(shown, ['planet:jupiter']);
     await t.tap(find.text('The Moon'));
     expect(opened, ['moon']);
+    // And it closes again.
+    await t.tap(find.byKey(const Key('up-tonight-toggle')));
+    await t.pumpAndSettle();
+    expect(find.text('Show me'), findsNothing);
+  });
+
+  test('the closed card in a line', () {
+    final j = _thing('planet:jupiter', 'Jupiter'), m = _thing('moon', 'The Moon', kind: 'Moon'), s = _thing('planet:saturn', 'Saturn');
+    expect(UpTonightCard.summary(const []), 'Nothing well placed tonight');
+    expect(UpTonightCard.summary([m]), 'The Moon');
+    expect(UpTonightCard.summary([j, m]), 'Jupiter and the Moon');
+    expect(UpTonightCard.summary([s, m, j, j, j]), 'Saturn, the Moon and 3 more');
   });
 
   testWidgets('a night with nothing well placed says so, and sells nothing', (t) async {

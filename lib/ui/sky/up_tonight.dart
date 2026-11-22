@@ -1,6 +1,8 @@
 /// Explore's opening card: the few things most worth looking for tonight,
-/// each a tap from being found. Anything up right now gets "Show me", which
-/// hands over to Pip in the camera; the rest say when they're best.
+/// each a tap from being found. It starts closed, a line saying what's up
+/// ("Saturn, the Moon and 3 more"), so the sky map stays at the top; a tap
+/// opens the list. Anything up right now gets "Show me", which hands over to
+/// Pip in the camera; the rest say when they're best.
 library;
 
 import 'package:material_ui/material_ui.dart';
@@ -49,7 +51,7 @@ List<SkyThing> tonightsBest({
   ];
 }
 
-class UpTonightCard extends StatelessWidget {
+class UpTonightCard extends StatefulWidget {
   const UpTonightCard({
     super.key,
     required this.things,
@@ -57,6 +59,7 @@ class UpTonightCard extends StatelessWidget {
     required this.onOpen,
     required this.onShow,
     this.clouds,
+    this.initiallyOpen = false,
   });
   final List<SkyThing> things;
   final DateTime now;
@@ -70,28 +73,101 @@ class UpTonightCard extends StatelessWidget {
   /// Pip leads the way to it in the camera.
   final ValueChanged<SkyThing> onShow;
 
+  /// Closed to start with, so the sky map stays at the top of Explore.
+  final bool initiallyOpen;
+
+  /// "Saturn, the Moon and 3 more": the closed card in a line.
+  static String summary(List<SkyThing> things) {
+    String name(SkyThing x) => x.name.startsWith('The ') ? 'the ${x.name.substring(4)}' : x.name;
+    return switch (things.length) {
+      0 => 'Nothing well placed tonight',
+      1 => things.first.name,
+      2 => '${things.first.name} and ${name(things[1])}',
+      _ => '${things.first.name}, ${name(things[1])} and ${things.length - 2} more',
+    };
+  }
+
   @override
-  Widget build(BuildContext context) => GlassCard(
-        key: const Key('up-tonight'),
-        padding: const EdgeInsets.fromLTRB(18, 16, 12, 8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Kicker('Up tonight', color: LookUpColors.blue),
-          const SizedBox(height: 4),
-          Text(things.isEmpty ? 'Nothing well placed tonight' : 'Look for these', style: display(22, weight: FontWeight.w700)),
-          if (clouds case final c?) ...[
-            const SizedBox(height: 2),
-            Text(c, style: const TextStyle(color: LookUpColors.grey)),
-          ],
-          const SizedBox(height: 8),
-          if (things.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 10, right: 6),
-              child: Text('The map below still shows what\'s over you. LookUp will tap you when something is worth stepping out for.',
-                  style: TextStyle(color: LookUpColors.grey, height: 1.45)),
+  State<UpTonightCard> createState() => _UpTonightCardState();
+}
+
+class _UpTonightCardState extends State<UpTonightCard> {
+  late bool _open = widget.initiallyOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final things = widget.things;
+    final upCount = things.where((x) => upNow(x, widget.now)).length;
+    return GlassCard(
+      key: const Key('up-tonight'),
+      padding: EdgeInsets.zero,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Semantics(
+          button: true,
+          expanded: _open,
+          child: InkWell(
+            key: const Key('up-tonight-toggle'),
+            borderRadius: BorderRadius.circular(Radii.lg),
+            onTap: () => setState(() => _open = !_open),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const Kicker('Up tonight', color: LookUpColors.blue),
+                      if (upCount > 0) ...[
+                        const SizedBox(width: 10),
+                        Kicker('$upCount up now', color: LookUpColors.good, live: true),
+                      ],
+                    ]),
+                    const SizedBox(height: 4),
+                    Text(UpTonightCard.summary(things),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: display(18, weight: FontWeight.w700)),
+                    if (widget.clouds case final c?) ...[
+                      const SizedBox(height: 2),
+                      Text(c, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: LookUpColors.grey)),
+                    ],
+                  ]),
+                ),
+                AnimatedRotation(
+                  turns: _open ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: const Icon(Icons.expand_more_rounded, color: LookUpColors.grey),
+                ),
+                const SizedBox(width: 4),
+              ]),
             ),
-          for (final x in things) _Pick(x, now: now, up: upNow(x, now), onOpen: () => onOpen(x), onShow: () => onShow(x)),
-        ]),
-      );
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: !_open
+              ? const SizedBox(width: double.infinity)
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 12, 8),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    if (things.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 10, right: 6),
+                        child: Text(
+                            'The map below still shows what\'s over you. LookUp will tap you when something is worth stepping out for.',
+                            style: TextStyle(color: LookUpColors.grey, height: 1.45)),
+                      ),
+                    for (final x in things)
+                      _Pick(x,
+                          now: widget.now,
+                          up: upNow(x, widget.now),
+                          onOpen: () => widget.onOpen(x),
+                          onShow: () => widget.onShow(x)),
+                  ]),
+                ),
+        ),
+      ]),
+    );
+  }
 }
 
 class _Pick extends StatelessWidget {
