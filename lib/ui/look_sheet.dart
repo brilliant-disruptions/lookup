@@ -18,7 +18,6 @@ import '../domain/sky/landmarks.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
 import '../state/sky_state.dart';
-import 'calendar.dart';
 import 'caught_it_screen.dart';
 import 'finder_screen.dart';
 import 'paywall_sheet.dart';
@@ -193,7 +192,11 @@ class _LookSheetState extends ConsumerState<LookSheet> {
                         ])
                       : CountdownText('in ${fmtCountdown(event.start.difference(nowUtc))}', size: 52),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
+            // On free, the alert for this one is LookUp+: say so, and offer it.
+            if (!widget.demo && !over && event.details['past'] != true && lockedOnFree(event, isPlus: ref.watch(settingsProvider).value?.isPlus ?? false))
+              Padding(padding: const EdgeInsets.only(bottom: 18), child: _PlusAlertCta(event: event)),
+            const SizedBox(height: 4),
             _PipGuide(
               event: event,
               progress: event.details['past'] == true ? null : ringProgress(event, now),
@@ -238,7 +241,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
               const SeenItRow(),
             // The Pro camera (LookUp+): Catch it for a pass, the right settings
             // and a timelapse for everything else. Never for the Sun. Before
-            // it starts, Calendar and Invite sit beside it as tiles.
+            // it starts, Invite sits beside it as a tile.
             ..._actionTiles(context, place,
                 live: live,
                 over: over,
@@ -270,7 +273,7 @@ class _LookSheetState extends ConsumerState<LookSheet> {
       ]);
 
   /// The things you can do besides look: photograph it (LookUp+), and
-  /// before it starts, put it in the calendar or invite someone. One row of
+  /// before it starts, invite someone. One row of
   /// tiles that sink when pressed.
   List<Widget> _actionTiles(BuildContext context, String? place, {required bool live, required bool over, required bool photo}) {
     final plain = !widget.demo && !live && !over;
@@ -296,13 +299,6 @@ class _LookSheetState extends ConsumerState<LookSheet> {
           },
         ),
       if (plain) ...[
-        _ActionTile(
-          key: const Key('add-to-calendar'),
-          icon: Icons.event_rounded,
-          label: 'Calendar',
-          color: LookUpColors.blue,
-          onTap: () => addToCalendar(event, place: place),
-        ),
         _ActionTile(
           key: const Key('invite'),
           icon: Icons.person_add_alt_rounded,
@@ -868,4 +864,43 @@ bool _photographable(SkyEvent e, {LookUpSettings? settings}) {
   final s = subjectForEvent(e.type);
   if (s == null) return false;
   return s != ShotSubject.pass || offerCatchIt(e.type);
+}
+
+/// "Free won't tell you when this one's coming": the way to LookUp+ from a
+/// sight whose alert is LookUp+ only (its row says "Alert with LookUp+").
+class _PlusAlertCta extends StatelessWidget {
+  const _PlusAlertCta({required this.event});
+  final SkyEvent event;
+  @override
+  Widget build(BuildContext context) => Padding(
+        key: const Key('plus-alert-cta'),
+        padding: EdgeInsets.zero,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: LookUpColors.blue.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(Radii.md),
+            border: Border.all(color: LookUpColors.blue.withValues(alpha: 0.4)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: const [
+              Icon(Icons.notifications_active_rounded, size: 20, color: LookUpColors.blue),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text('Get an alert for this one',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            const Text('Free won\'t tell you when it\'s coming. LookUp+ taps you 10 minutes before.',
+                style: TextStyle(fontSize: 13, height: 1.35, color: LookUpColors.grey)),
+            const SizedBox(height: 12),
+            FilledButton(
+              key: const Key('plus-alert-cta-button'),
+              onPressed: () => showPaywall(context, reason: event),
+              child: const Text('Get LookUp+'),
+            ),
+          ]),
+        ),
+      );
 }

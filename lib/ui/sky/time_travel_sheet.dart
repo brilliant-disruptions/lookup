@@ -1,4 +1,4 @@
-/// Go to any night from 3000 BC to 3000 AD: a famous one, or a date typed
+/// Go to any night: a famous one, or a date typed
 /// the way it was written at the time (Julian before 1582, BC years).
 library;
 
@@ -72,7 +72,7 @@ class _TimeTravelSheetState extends State<_TimeTravelSheet> {
   String? get _problem {
     final y = _astroYear;
     if (y == null) return 'Type a year';
-    if (y < -2999 || y > 3000) return 'The map goes from 3000 BC to 3000 AD';
+    if (y < -2999 || y > 3000) return 'That year is outside the map';
     if (isMissingDate(y, _month, _day)) return 'Oct 5–14, 1582 never happened: the calendar skipped them';
     return null;
   }
@@ -135,12 +135,6 @@ class _TimeTravelSheetState extends State<_TimeTravelSheet> {
             ]),
             const SizedBox(height: 24),
             const Kicker('Or pick a date'),
-            if (!widget.isPlus)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: Text('Free goes a week either side of tonight. LookUp+ goes anywhere from 3000 BC to 3000 AD.',
-                    style: TextStyle(color: LookUpColors.greyDim, fontSize: 12.5, height: 1.4)),
-              ),
             const SizedBox(height: 10),
             Row(children: [
               Expanded(
