@@ -27,7 +27,7 @@ class AuroraReportsClient {
 
   final http.Client _client;
   final String _base;
-  static const _headers = {'content-type': 'application/json', 'User-Agent': 'LookUp/0.1'};
+  static const _headers = {'content-type': 'application/json', 'User-Agent': 'LookUp/1.0'};
 
   Uri _u(String path, [Map<String, String>? query]) => Uri.parse('$_base$path').replace(queryParameters: query);
 

@@ -37,7 +37,7 @@ class CelestrakClient {
 
   Future<List<OmmRecord>> _getOnce(String url) async {
     final res = await _client
-        .get(Uri.parse(url), headers: const {'User-Agent': 'LookUp/0.1'})
+        .get(Uri.parse(url), headers: const {'User-Agent': 'LookUp/1.0'})
         .timeout(const Duration(seconds: 60));
     if (res.statusCode >= 400 && res.statusCode < 500) throw CelestrakRefused(res.statusCode, Uri.parse(url));
     if (res.statusCode != 200) {

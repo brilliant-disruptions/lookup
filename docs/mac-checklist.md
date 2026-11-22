@@ -80,6 +80,19 @@ Run on a device (⌘R) and try:
 - **Alert buttons.** Settings → *Preview an alert*. Long-press the
   notification: *Find it*, *Remind me in 5 min*, and on the go-now alert
   *Catch it*, which opens LookUp straight into the camera with Pip.
+- **From the review fixes, check on a phone:**
+  - The app stays upright when the phone is turned on its side.
+  - The screen doesn't dim or lock while Pip is guiding in the camera or
+    waiting for a pass in the finder.
+  - Deny camera access, then open the camera: the message offers
+    *Open Settings*, and it goes to LookUp's page in Settings.
+  - *Pause all alerts* (Settings › Alerts) takes every planned alert off,
+    and turning it off puts them back.
+  - The paywall's *Restore purchases* says what it found ("No LookUp+
+    found…" on an account without it).
+  - The Week tab shows the whole week with no swiping on a small iPhone.
+  - Leaving Catch it after a finished picture (Done, ✕ or a swipe back)
+    asks before throwing it away.
 - **New in this round, check on a phone:**
   - *Report a problem* (Settings › Help) opens Mail with the version filled
     in; *Privacy Policy* and *Terms of Use* open in Safari, also from the
@@ -208,10 +221,11 @@ In order, before the first submission:
     `lookup_chime.wav`, and never opened in Xcode: if it shows red in the
     navigator or isn't under *Copy Bundle Resources*, remove the reference
     and drag the file in again with **Runner** ticked). It declares *User
-    Defaults* with reason **CA92.1** (the app's own settings), no tracking,
-    and one kind of data collected: coarse location, for app functionality,
-    not linked to the user. That last part must say the same as the App
-    Privacy answers above; change both together.
+    Defaults* with reasons **CA92.1** (the app's own settings) and
+    **1C8F.1** (the app group), no tracking, and two kinds of data
+    collected, both for app functionality and not linked to the user:
+    coarse location and the device ID (the push address). That must say
+    the same as the App Privacy answers above; change both together.
   - When the widget extension exists, drag
     `ios/LookUpWidgets/PrivacyInfo.xcprivacy` into it and tick the
     extension under *Target Membership* (*User Defaults*, reason
