@@ -103,6 +103,10 @@ void main() {
     expect(find.textContaining('Nothing caught yet'), findsOneWidget);
     expect(t.getTopLeft(find.text('Three sights to start with')).dy,
         lessThan(t.getTopLeft(find.textContaining('Nothing caught yet')).dy));
+    // And under Seen, every kind of sight is listed, greyed until it's caught.
+    expect(find.text('0 of 24 kinds of sight', skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const Key('checklist-moon'), skipOffstage: false), findsOneWidget);
+    expect(t.widget<Opacity>(find.byKey(const Key('checklist-moon'), skipOffstage: false)).opacity, lessThan(1));
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 1));
   });

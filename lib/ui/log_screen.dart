@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
 import '../domain/log/sighting.dart';
+import '../domain/log/sky_log.dart';
 import '../domain/models/sky_event.dart';
 import '../services/photo_store.dart';
 import '../state/providers.dart';
@@ -12,6 +13,8 @@ import 'keep_catch.dart';
 import 'kit/kit.dart';
 import 'settings_screen.dart';
 import 'starter_card.dart';
+import '../domain/log/checklist.dart';
+import 'sky/sky_thing.dart' show glyphForId;
 import 'theme.dart';
 import 'year_card.dart';
 
@@ -96,6 +99,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                 onSelect: (i) => setState(() => _tab = i),
               ),
               const SizedBox(height: 12),
+              if (_tab == 0) ..._checklist(context, ref, l),
               if (_tab == 0 && l.seen.isNotEmpty)
                 GroupedList(indent: 68, children: [
                   for (final s in l.seen.take(_shown))
@@ -126,6 +130,45 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         ),
       ),
     );
+  }
+
+  /// Every kind of sight, greyed until it's caught: a list to work through.
+  List<Widget> _checklist(BuildContext context, WidgetRef ref, SkyLog l) {
+    final items = skyChecklist(l.seen);
+    final got = items.where((i) => i.seen).length;
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+        child: Kicker('$got of ${items.length} kinds of sight', color: LookUpColors.blue),
+      ),
+      GroupedList(key: const Key('sky-checklist'), indent: 64, children: [
+        for (final i in items)
+          Opacity(
+            key: Key('checklist-${i.key}'),
+            opacity: i.seen ? 1 : 0.6,
+            child: ListRow(
+              leading: i.type != null
+                  ? EventGlyph.forType(i.type, dim: !i.seen)
+                  : glyphForId(i.skyId!, dim: !i.seen),
+              title: i.name,
+              titleColor: i.seen ? LookUpColors.white : LookUpColors.grey,
+              subtitle: !i.seen
+                  ? 'Not yet'
+                  : i.count == 1
+                      ? 'Caught ${fmtDay(i.latest!.eventTime ?? i.latest!.at)}'
+                      : 'Caught ${i.count} times · last ${fmtDay(i.latest!.eventTime ?? i.latest!.at)}',
+              subtitleLines: 1,
+              trailing: i.seen ? const Icon(Icons.check_circle_rounded, color: LookUpColors.good, size: 20) : null,
+              onTap: i.seen ? () => _showSighting(context, ref, i.latest!) : null,
+            ),
+          ),
+      ]),
+      if (l.seen.isNotEmpty)
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 22, 4, 8),
+          child: Kicker('Every catch'),
+        ),
+    ];
   }
 
   List<Widget> _yearCard(BuildContext context, WidgetRef ref) {
