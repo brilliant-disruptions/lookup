@@ -77,6 +77,18 @@ class _Home extends HomeNotifier {
   Future<void> refresh({bool force = false, bool quick = false}) async {}
 }
 
+/// Explore's "More of the sky" row, to the whole-sky page. The row can sit
+/// under the floating tab bar, so it's pressed directly.
+Future<Finder> openWholeSky(WidgetTester t) async {
+  final more = find.byKey(const Key('more-of-the-sky'));
+  await t.scrollUntilVisible(more, 300,
+      scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+  t.widget<ListRow>(more).onTap!();
+  await t.pump();
+  await t.pump(const Duration(seconds: 1));
+  return find.byWidgetPredicate((w) => w is SkyScreen && w.full);
+}
+
 void main() {
   late SkyCatalog catalog;
   setUpAll(() {
@@ -157,11 +169,23 @@ void main() {
     await t.tap(tab('Explore'));
     await t.pump(const Duration(seconds: 1));
     await t.pump();
-    expect(find.textContaining('tap anything'), findsOneWidget); // the dome map
-    await t.scrollUntilVisible(find.text('Saturn'), 300,
+    // Simple first: what to look for tonight, then the map, and none of the rest.
+    expect(find.byKey(const Key('up-tonight')), findsOneWidget);
+    expect(find.text('Planets'), findsNothing);
+    expect(find.text('Tonight\'s clouds'), findsNothing);
+    await t.scrollUntilVisible(find.textContaining('tap anything'), 300,
         scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+    expect(find.byKey(const ValueKey('day-forward')), findsNothing);
+    // The rest is one row away.
+    final whole = await openWholeSky(t);
+    expect(find.text('The whole sky'), findsOneWidget);
+    await t.scrollUntilVisible(find.text('Planets'), 300,
+        scrollable: find.descendant(of: whole, matching: find.byType(Scrollable)).first);
     expect(find.text('Planets'), findsOneWidget);
-    expect(find.text('Saturn'), findsOneWidget);
+    expect(find.descendant(of: whole, matching: find.text('Saturn')), findsWidgets);
+    await t.pageBack();
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
 
     await t.tap(tab('Home'));
     await t.pump(const Duration(seconds: 1));
@@ -177,9 +201,9 @@ void main() {
     await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Explore')));
     await t.pump(const Duration(seconds: 1));
     await t.pump();
+    final whole = await openWholeSky(t);
     final forward = find.byKey(const ValueKey('day-forward'));
-    await t.scrollUntilVisible(forward, 200,
-        scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+    await t.scrollUntilVisible(forward, 200, scrollable: find.descendant(of: whole, matching: find.byType(Scrollable)).first);
     expect(find.widgetWithText(TextButton, 'Any night'), findsNothing);
     expect(find.textContaining('3000 BC'), findsNothing);
     // The strip moves as the night changes, so press the button itself.
@@ -294,8 +318,11 @@ void main() {
     expect(find.text('Tonight in 20 seconds'), findsNothing);
     await t.tap(find.descendant(of: find.byType(FloatingTabBar), matching: find.text('Explore')));
     await t.pump(const Duration(seconds: 1));
+    // Not on Explore's first page either: with the rest of the sky.
+    expect(find.text('Your favourites'), findsNothing);
+    final whole = await openWholeSky(t);
     await t.scrollUntilVisible(find.text('Your favourites'), 300,
-        scrollable: find.descendant(of: find.byType(SkyScreen), matching: find.byType(Scrollable)).first);
+        scrollable: find.descendant(of: whole, matching: find.byType(Scrollable)).first);
     expect(find.text('Your favourites'), findsOneWidget);
     expect(find.textContaining('Tap \u2665 on anything'), findsOneWidget);
     await t.pumpWidget(const SizedBox());

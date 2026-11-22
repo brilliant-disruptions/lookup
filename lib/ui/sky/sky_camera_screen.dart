@@ -49,11 +49,12 @@ Future<void> openSkyCamera(
   DateTime? time,
   double? lat,
   double? lon,
+  String? guideId,
 }) => Navigator.of(context).push(
   PageRouteBuilder<void>(
     transitionDuration: const Duration(milliseconds: 280),
     reverseTransitionDuration: const Duration(milliseconds: 280),
-    pageBuilder: (_, _, _) => SkyCameraScreen(things: things, tracks: tracks, time: time, lat: lat, lon: lon),
+    pageBuilder: (_, _, _) => SkyCameraScreen(things: things, tracks: tracks, time: time, lat: lat, lon: lon, guideId: guideId),
     transitionsBuilder: (_, a, _, child) => FadeTransition(opacity: a, child: child),
   ),
 );
@@ -106,7 +107,11 @@ class SkyCameraScreen extends ConsumerStatefulWidget {
     this.lon,
     this.orientationStream,
     this.camera = true,
+    this.guideId,
   });
+
+  /// What Pip should lead to first ("Show me" on Explore); null lets Pip choose.
+  final String? guideId;
   final List<SkyThing> things;
   final List<SkyTrack> tracks;
 
@@ -174,7 +179,7 @@ class _SkyCameraState extends ConsumerState<SkyCameraScreen> with SingleTickerPr
   static const _lockDeg = 10.0;
 
   /// What you asked Pip to find ("Find something else"); null is Pip's pick.
-  String? _guideId;
+  late String? _guideId = widget.guideId;
 
   /// Closing: Pip is flying back down to its button; then the screen goes.
   bool _leaving = false, _left = false;

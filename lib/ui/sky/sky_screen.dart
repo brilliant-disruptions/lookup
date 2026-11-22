@@ -26,11 +26,17 @@ import 'sky_shortcuts.dart';
 import 'sky_thing.dart';
 import 'sky_track.dart';
 import 'time_travel_sheet.dart';
+import 'up_tonight.dart';
 
-/// Everything above you: a live map, tonight's clouds, and what's worth
-/// finding (planets, constellations, showpieces), each with a verdict.
+/// Explore. The tab opens simple: the few things worth looking for tonight
+/// (`UpTonightCard`, "Show me" on whatever is up now), the live map, and one
+/// row to the rest. [full] is that rest, pushed as "The whole sky": the map
+/// with its time slider and whole-sky view, tonight's clouds, and
+/// everything worth finding (planets, constellations, showpieces), each
+/// with a verdict.
 class SkyScreen extends ConsumerStatefulWidget {
-  const SkyScreen({super.key});
+  const SkyScreen({super.key, this.full = false});
+  final bool full;
   @override
   ConsumerState<SkyScreen> createState() => _SkyScreenState();
 }
@@ -55,13 +61,13 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
   /// What the camera view would show, from the last build.
   ({List<SkyThing> things, List<SkyTrack> tracks, DateTime? time, double lat, double lon})? _camera;
 
-  void _openCamera() {
+  void _openCamera({String? guideId}) {
     final c = _camera;
     if (c == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set a location to see your sky.')));
       return;
     }
-    openSkyCamera(context, things: c.things, tracks: c.tracks, time: c.time, lat: c.lat, lon: c.lon);
+    openSkyCamera(context, things: c.things, tracks: c.tracks, time: c.time, lat: c.lat, lon: c.lon, guideId: guideId);
   }
 
   void _backToNow() => setState(() {
@@ -132,10 +138,18 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     final at = (_anchor ?? now.toUtc()).add(Duration(minutes: _minutes.round()));
     final offset = at.difference(now.toUtc());
     final later = _anchor != null || _minutes != 0;
-    final top = MediaQuery.paddingOf(context).top + AppHeader.height;
+    final full = widget.full;
+    final wholeToggle = CircleButton(
+      tooltip: _whole ? 'Horizon view' : 'Whole sky',
+      icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
+      onPressed: () => setState(() => _whole = !_whole),
+    );
+    final top = MediaQuery.paddingOf(context).top + (full ? 58 : AppHeader.height);
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppHeader(
+      appBar: full
+          ? PageHeader(title: 'The whole sky', trailing: wholeToggle)
+          : AppHeader(
         title: const Text('Explore'),
         place: _night?.place ?? place,
         onPlaceTap: () => openPlaces(context),
@@ -144,11 +158,6 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
             tooltip: 'Sky through your camera',
             icon: Icons.photo_camera_rounded,
             onPressed: _openCamera,
-          ),
-          CircleButton(
-            tooltip: _whole ? 'Horizon view' : 'Whole sky',
-            icon: _whole ? Icons.panorama_horizontal_rounded : Icons.blur_circular_rounded,
-            onPressed: () => setState(() => _whole = !_whole),
           ),
           const SettingsButton(),
         ],
@@ -199,6 +208,63 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
           _camera = (things: mapped, tracks: tracks, time: later ? at : null, lat: lat, lon: lon);
 
           final list = switch (_tab) { 0 => planets, 1 => cons, _ => shows };
+          if (!full) {
+            return ListView(
+              padding: EdgeInsets.fromLTRB(16, top + 8, 16, tabBarClearance(context)),
+              children: [
+                Rise(
+                  index: 0,
+                  child: UpTonightCard(
+                    things: tonightsBest(moon: moon, planets: planets, showpieces: shows, constellations: cons, now: now),
+                    now: now,
+                    clouds: t.outlook == null ? null : outlookWords(t.outlook!),
+                    onOpen: open,
+                    onShow: (x) => _openCamera(guideId: x.id),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Rise(
+                  index: 1,
+                  child: SkyPanorama(
+                    time: at,
+                    lat: lat,
+                    lon: lon,
+                    catalog: catalog,
+                    things: mapped,
+                    selectedId: _selected,
+                    onTap: open,
+                    tracks: tracks,
+                    trackTime: trackTime,
+                    onTrackTap: openPass,
+                    showFigures: settings?.skyFigures ?? true,
+                  ),
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Kicker('Live', color: LookUpColors.good, live: true),
+                      Flexible(
+                        child: Text('  ${fmtTime(now.toUtc())} · tap anything to open it',
+                            maxLines: 1, overflow: TextOverflow.ellipsis, style: numeric(size: 13, color: LookUpColors.grey)),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GroupedList(indent: 64, children: [
+                  ListRow(
+                    key: const Key('more-of-the-sky'),
+                    leading: const EventGlyph(icon: Icons.travel_explore_rounded, color: LookUpColors.blue),
+                    title: 'More of the sky',
+                    subtitle: 'Every planet and constellation, tonight\'s clouds, any hour this week',
+                    chevron: true,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SkyScreen(full: true))),
+                  ),
+                ]),
+              ],
+            );
+          }
           return ListView(
             padding: EdgeInsets.fromLTRB(16, top + 8, 16, tabBarClearance(context)),
             children: [
