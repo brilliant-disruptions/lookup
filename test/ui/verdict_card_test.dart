@@ -125,6 +125,25 @@ void main() {
     expect(find.text('Where to look'), findsNothing); // never sends them out into cloud
   });
 
+  testWidgets('clouded out, and the sight is a name: no "the" before it', (t) async {
+    final pair = SkyEvent(
+      id: 'pair:1',
+      type: SkyEventType.planetPairing,
+      start: now.add(const Duration(hours: 3)),
+      peak: now.add(const Duration(hours: 3)),
+      end: now.add(const Duration(hours: 4)),
+      peakElevationDeg: 62,
+      riseAzimuthDeg: 176,
+      peakAzimuthDeg: 176,
+      setAzimuthDeg: 176,
+      cloudCoverPercent: 95,
+      details: const {'label': 'Mars and Jupiter'},
+    );
+    await mount(t, [pair], night(List.filled(10, 95)));
+    expect(find.text('Stay in tonight.'), findsOneWidget);
+    expect(find.textContaining('Cloud is forecast over Mars and Jupiter at'), findsOneWidget);
+  });
+
   testWidgets('nothing passes over but Saturn is up on a clear night', (t) async {
     await mount(t, [ev('iss:2', const Duration(days: 2), clouds: 10)], night(List.filled(10, 5), saturn: true));
     expect(find.text('A clear night for Saturn.'), findsOneWidget);

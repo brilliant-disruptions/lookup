@@ -77,7 +77,8 @@ from what the app last worked out, so open LookUp once after installing.
 
 Run on a device (⌘R) and try:
 
-- **Alert buttons.** Settings → *Preview an alert*. Long-press the
+- **Alert buttons.** Home → *Preview an alert* (it's on the quiet-sky card, so
+  only on a night with nothing coming up; it is no longer in Settings). Long-press the
   notification: *Find it*, *Remind me in 5 min*, and on the go-now alert
   *Catch it*, which opens LookUp straight into the camera with Pip.
 - **From the review fixes, check on a phone:**
@@ -145,7 +146,7 @@ Run on a device (⌘R) and try:
   invite poster with "…in 10 minutes" in the text.
 - **Red after sunset:** open the app after sunset: every screen should be red, with a one-line
   note; Settings › Night vision off brings the colours back; by day it's never red.
-- **Alert picture:** Settings → *Preview an alert*. Long-press the
+- **Alert picture:** Home → *Preview an alert* (quiet nights only). Long-press the
   notification (iOS) or expand it (Android): the "where to look" picture should
   show the path and "appears here". If it's missing, the alert text must still
   arrive (that fallback is tested, the picture itself only on a device).

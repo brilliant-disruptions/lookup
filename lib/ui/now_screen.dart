@@ -252,7 +252,7 @@ class _LocationCard extends ConsumerWidget {
           const SizedBox(height: 8),
           const Text(
             'Everything overhead depends on where you stand. LookUp needs a rough location, a town is plenty, '
-            'and it never leaves your phone.',
+            'and only a rounded one is sent, to fetch your weather.',
             style: TextStyle(color: LookUpColors.grey, height: 1.45),
           ),
           const SizedBox(height: 18),

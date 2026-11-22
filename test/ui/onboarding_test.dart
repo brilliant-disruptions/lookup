@@ -227,7 +227,7 @@ void main() {
     expect(t.widget<PipMark>(find.byKey(const Key('onboarding-pip'))).asDot, isFalse, reason: 'Pip, awake');
     expect(find.text('Hi. I find things in the sky for you.'), findsOneWidget);
     expect(find.text('Show me my sky'), findsOneWidget);
-    expect(find.textContaining('never leaves your phone'), findsOneWidget);
+    expect(find.textContaining('sent just to fetch your weather'), findsOneWidget);
     expect(notifications.asked, 0);
     await t.pumpWidget(const SizedBox());
   });
