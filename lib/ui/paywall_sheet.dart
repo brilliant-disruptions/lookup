@@ -431,6 +431,7 @@ class _PlanCard extends StatelessWidget {
                   ],
                 ]),
               ),
+              const SizedBox(width: 10),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Text(offer.price, style: numeric(size: 16, weight: FontWeight.w700)),
                 Text(offer.cadence, style: const TextStyle(fontSize: 12, color: LookUpColors.grey)),

@@ -87,7 +87,7 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
     final line = switch (v.kind) {
       VerdictKind.go || VerdictKind.live => _quickLine(e!),
       VerdictKind.maybe => '${eventTitle(e!)}. Some cloud is forecast, so look for the gaps. ${_sentence(eventSubtitle(e))}',
-      VerdictKind.stayIn when e != null => 'Cloud is forecast over the ${eventTitle(e)} at ${fmtTime(e.start)}.',
+      VerdictKind.stayIn when e != null => 'Cloud is forecast over ${_named(e)} at ${fmtTime(e.start)}.',
       VerdictKind.stayIn => 'Cloud all night, and nothing bright passes over.',
       VerdictKind.clearNight => _planetLine(planet!),
       VerdictKind.quiet => 'Nothing bright passes over tonight.',
@@ -217,6 +217,22 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
 
   /// What and which way, in as few words as a kid can take in: a pass is
   /// just "Look to the west-southwest."; the rest keep their one sentence.
+  /// "the ISS flyover", but "Mars and Jupiter": titles that are names take no article.
+  static String _named(SkyEvent e) => switch (e.type) {
+        SkyEventType.planetPairing ||
+        SkyEventType.planetHighlight ||
+        SkyEventType.skyObject ||
+        SkyEventType.comet ||
+        SkyEventType.nova ||
+        SkyEventType.satellitePass ||
+        SkyEventType.occultation ||
+        SkyEventType.occultationNear ||
+        SkyEventType.issTransit ||
+        SkyEventType.auroraOutlook =>
+          eventTitle(e),
+        _ => 'the ${eventTitle(e)}',
+      };
+
   static String _quickLine(SkyEvent e) => switch (e.type) {
         SkyEventType.iss || SkyEventType.tiangong || SkyEventType.starlinkTrain || SkyEventType.satellitePass =>
           '${eventTitle(e)}. Look to the ${compassWord(e.riseAzimuthDeg)}.',

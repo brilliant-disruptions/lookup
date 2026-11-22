@@ -93,6 +93,9 @@ void main() {
     expect(find.text('Share it'), findsOneWidget);
     expect(find.text('Tiangong flyover'), findsOneWidget);
 
+    // On a longer screen the button starts under the pinned bar (seen in US Central time), so scroll to it first.
+    await t.ensureVisible(find.text('Get the tap with LookUp+'));
+    await t.pump();
     await t.tap(find.text('Get the tap with LookUp+'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 600));

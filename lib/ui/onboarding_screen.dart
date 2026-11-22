@@ -195,7 +195,10 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
         top: MediaQuery.paddingOf(context).top + 8,
         left: 16,
         right: 12,
-        child: Row(children: [
+        // Outside the page's Scaffold, so it brings its own Material for the text style.
+        child: Material(
+          type: MaterialType.transparency,
+          child: Row(children: [
           const Expanded(
             child: Align(
               alignment: Alignment.centerLeft,
@@ -210,6 +213,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
             icon: const Icon(Icons.close_rounded),
           ),
         ]),
+        ),
       ),
     ]);
   }
@@ -262,7 +266,10 @@ class _CaughtCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Rise(
         index: 0,
-        child: GlassCard(
+        // A solid backing: the sky's labels would show through the words.
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: LookUpColors.night.withValues(alpha: 0.92), borderRadius: BorderRadius.circular(Radii.lg)),
+          child: GlassCard(
           key: const Key('first-look-caught'),
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -274,6 +281,7 @@ class _CaughtCard extends StatelessWidget {
             const SizedBox(height: 14),
             FilledButton(onPressed: onNext, child: const Text('Next')),
           ]),
+        ),
         ),
       );
 }
@@ -363,7 +371,7 @@ class _HelloPage extends StatelessWidget {
                 const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.lock_rounded, size: 14, color: LookUpColors.greyDim),
                   SizedBox(width: 6),
-                  Flexible(child: Text('A rough location only, and it never leaves your phone.', style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim))),
+                  Flexible(child: Text('A rough location only, sent just to fetch your weather.', style: TextStyle(fontSize: 12.5, color: LookUpColors.greyDim))),
                 ]),
               ]),
             ),
