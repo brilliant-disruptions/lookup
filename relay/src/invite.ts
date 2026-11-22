@@ -58,7 +58,7 @@ export const INVITE_RULES = {
 const TYPES = new Set([
   'iss', 'tiangong', 'starlinkTrain', 'auroraNow', 'auroraOutlook', 'meteorShower', 'lunarEclipse', 'solarEclipse',
   'planetPairing', 'rocketLaunch', 'issTransit', 'planetHighlight', 'skyObject', 'satellitePass',
-  'occultation', 'occultationNear', 'comet', 'nova', 'fullMoonRise',
+  'occultation', 'occultationNear', 'comet', 'nova', 'fullMoonRise', 'moonPhase',
 ]);
 // Letters and decimal digits only: no circled, superscript or other
 // number-like signs, which read as digits but aren't counted as them.
@@ -224,7 +224,7 @@ const TINT: Record<string, string> = {
   iss: '#5AA2FF', tiangong: '#5AA2FF', satellitePass: '#5AA2FF', starlinkTrain: '#A78BFA', auroraNow: '#3DD68C',
   auroraOutlook: '#3DD68C', meteorShower: '#FF9F5A', lunarEclipse: '#FF7A6B', solarEclipse: '#FF7A6B',
   rocketLaunch: '#FF7A6B', planetPairing: '#F5C76B', planetHighlight: '#F5C76B', skyObject: '#F5C76B', issTransit: '#52D1E8',
-  occultation: '#F4F6FA', occultationNear: '#F4F6FA', fullMoonRise: '#F4F6FA', comet: '#52D1E8', nova: '#F5C76B',
+  occultation: '#F4F6FA', occultationNear: '#F4F6FA', fullMoonRise: '#F4F6FA', moonPhase: '#F4F6FA', comet: '#52D1E8', nova: '#F5C76B',
 };
 
 export function invitePage(code: string, inv: Invite, base: string, deps: Pick<InviteDeps, 'now' | 'appStoreId' | 'pass'>): string {
