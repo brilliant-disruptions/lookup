@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../domain/events/gatherings.dart' show gatheringFitWords;
 import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
 import '../domain/sky/calendar.dart';
@@ -83,7 +84,7 @@ String eventTitle(SkyEvent e) => switch (e.type) {
       SkyEventType.starlinkTrain => (e.details['label'] as String?) ?? e.type.label,
       SkyEventType.auroraOutlook => (e.details['headline'] as String?) ?? e.type.label,
       SkyEventType.meteorShower => '${e.details['shower'] ?? 'Meteor'} peak',
-      SkyEventType.lunarEclipse || SkyEventType.planetPairing || SkyEventType.rocketLaunch =>
+      SkyEventType.lunarEclipse || SkyEventType.planetPairing || SkyEventType.gathering || SkyEventType.rocketLaunch =>
         (e.details['label'] as String?) ?? e.type.label,
       SkyEventType.issTransit => 'ISS crosses the ${e.details['body'] ?? 'Sun'}',
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? e.type.label,
@@ -108,6 +109,10 @@ String eventShortName(SkyEvent e) => switch (e.type) {
       SkyEventType.planetPairing => switch (e.details['bodies']) {
           [final Object a, final Object b] => '${_bare(a)} · ${_bare(b)}',
           _ => 'Planets',
+        },
+      SkyEventType.gathering => switch (e.details['bodies']) {
+          final List<Object?> l when l.isNotEmpty => l.map((x) => _bare('$x')).join(' · '),
+          _ => 'Gathering',
         },
       SkyEventType.rocketLaunch => 'Launch',
       SkyEventType.issTransit => 'ISS × ${e.details['body'] ?? 'Sun'}',
@@ -149,6 +154,8 @@ String eventSubtitle(SkyEvent e) {
       return '${solarEclipseHeadline(e)}, deepest at ${fmtTime(e.peak)}. Eclipse glasses only';
     case SkyEventType.planetPairing:
       return '${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)} (${e.details['when']})';
+    case SkyEventType.gathering:
+      return '${gatheringFitWords(e)}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)} (${e.details['when']})';
     case SkyEventType.rocketLaunch:
       return '${e.details['name']} · ${fmtDistance((e.details['distanceKm'] as num).toDouble())} away, low in the ${compassWord(e.peakAzimuthDeg)}';
     case SkyEventType.issTransit:
@@ -195,6 +202,7 @@ String eventEmoji(SkyEvent e) => switch (e.type) {
       SkyEventType.lunarEclipse => '🌕',
       SkyEventType.solarEclipse => '🌑',
       SkyEventType.planetPairing => '🪐',
+      SkyEventType.gathering => '✨',
       SkyEventType.rocketLaunch => '🚀',
       SkyEventType.issTransit => e.details['body'] == 'Moon' ? '🌕' : '☀️',
       SkyEventType.satellitePass => '🛰️',
@@ -220,6 +228,7 @@ String shareText(SkyEvent e, String? place) {
         ? 'Stood in the Moon\'s shadow$where 🌑 Totality, with LookUp.'
         : 'Watched the solar eclipse$where 🌑 (through eclipse glasses) with LookUp.',
     SkyEventType.planetPairing => '${e.details['label']} side by side$where 🪐 Spotted with LookUp.',
+    SkyEventType.gathering => '${e.details['label']} together$where ✨ Spotted with LookUp.',
     SkyEventType.rocketLaunch => 'Just watched a rocket launch$where 🚀 LookUp told me where to look.',
     SkyEventType.issTransit => 'Caught the space station crossing the ${e.details['body'] ?? 'Sun'}$where. It took ${fmtSeconds(transitCrossing(e))}.',
     SkyEventType.satellitePass => 'Watched ${e.details['name'] ?? 'a satellite'} cross the sky$where 🛰️ Spotted with LookUp.',

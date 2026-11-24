@@ -215,6 +215,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         SkyEventType.moonPhase => 'Half Moon',
         SkyEventType.solarEclipse => 'Solar eclipse',
         SkyEventType.planetPairing => 'Planet pairing',
+        SkyEventType.gathering => 'Memorable moment',
         SkyEventType.occultation || SkyEventType.occultationNear => 'Occultation',
         SkyEventType.rocketLaunch => 'Rocket launch',
         SkyEventType.issTransit => 'Station transit',

@@ -220,6 +220,7 @@ class _VerdictCardState extends ConsumerState<VerdictCard> {
   /// "the ISS flyover", but "Mars and Jupiter": titles that are names take no article.
   static String _named(SkyEvent e) => switch (e.type) {
         SkyEventType.planetPairing ||
+        SkyEventType.gathering ||
         SkyEventType.planetHighlight ||
         SkyEventType.skyObject ||
         SkyEventType.comet ||

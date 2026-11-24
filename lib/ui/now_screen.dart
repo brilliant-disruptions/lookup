@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/aurora_reports_client.dart' show relayConfigured;
 import '../domain/aurora/seen_nearby.dart' show seenNearYouLine;
+import '../domain/events/gatherings.dart' show dontMiss;
 import '../domain/models/sky_event.dart';
 import '../services/location_service.dart';
 import '../state/providers.dart';
@@ -95,10 +96,14 @@ class NowScreen extends ConsumerWidget {
     final horizon = now.add(const Duration(days: 7));
     final seen = seenNearYouLine(d.events, DateTime.now(), relayConfigured: relayConfigured);
     final outlook = seen == null ? d.auroraOutlook : null;
+    // A memorable moment (LookUp+) leads the list as one not to miss,
+    // unless it's already the hero. Still three rows in all.
+    final special = dontMiss(d.events, now, isPlus: ref.watch(settingsProvider).value?.isPlus ?? false);
+    final pinned = special != null && special.id != d.next?.id ? special : null;
     // The outlook has its own row at the top; don't list it twice.
     final rest = d.events
-        .where((e) => e.id != d.next?.id && e.id != outlook?.id && e.end.isAfter(now) && e.start.isBefore(horizon))
-        .take(3)
+        .where((e) => e.id != d.next?.id && e.id != outlook?.id && e.id != pinned?.id && e.end.isAfter(now) && e.start.isBefore(horizon))
+        .take(pinned == null ? 3 : 2)
         .toList();
     return [
       const SectionHeader('Coming up'),
@@ -106,6 +111,7 @@ class NowScreen extends ConsumerWidget {
         index: 3,
         child: GroupedList(indent: 64, children: [
           if (seen != null) _row(context, seen, kicker: 'Seen near you'),
+          if (pinned != null) KeyedSubtree(key: const ValueKey('dont-miss'), child: _row(context, pinned, kicker: 'Don\'t miss', withDay: true)),
           if (outlook != null && outlook.id != d.next?.id) _row(context, outlook),
           for (final e in rest) _row(context, e),
           if (rest.isEmpty && seen == null && outlook == null)
@@ -127,7 +133,7 @@ class NowScreen extends ConsumerWidget {
     ];
   }
 
-  Widget _row(BuildContext context, SkyEvent e, {String? kicker}) {
+  Widget _row(BuildContext context, SkyEvent e, {String? kicker, bool withDay = false}) {
     final quiet = !e.type.pushes;
     final cloudy = (e.cloudCoverPercent ?? 0) >= 80;
     return Opacity(
@@ -138,7 +144,9 @@ class NowScreen extends ConsumerWidget {
         leading: EventGlyph.of(e, dim: quiet || cloudy),
         title: kicker ?? eventTitle(e),
         subtitle: kicker != null
-            ? eventTitle(e)
+            ? withDay
+                ? '${eventTitle(e)} · ${fmtDay(e.start)}'
+                : eventTitle(e)
             : '${fmtDay(e.start)}, ${fmtTime(e.start)}${quiet ? ' · No alert' : cloudy ? ' · Cloudy' : ''}',
         subtitleLines: 1,
         trailing: cloudy && !quiet ? const Icon(Icons.cloud_rounded, size: 18, color: LookUpColors.greyDim) : null,

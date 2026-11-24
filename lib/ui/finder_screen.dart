@@ -123,6 +123,8 @@ class FinderTarget {
         final m = moonHorizontal(u, latDeg, lonDeg);
         return SkyDir(m.azimuthDeg, m.altitudeDeg);
       case SkyEventType.planetPairing:
+      case SkyEventType.gathering:
+        // The movers' middle: the stars in a gathering sit within a few degrees of it.
         final bodies = (event.details['bodies'] as List?)?.cast<String>() ?? const [];
         final dirs = [
           for (final b in bodies)

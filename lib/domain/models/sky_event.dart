@@ -17,6 +17,11 @@ enum SkyEventType {
   /// Free on purpose: the sky event most people will ever go out for.
   solarEclipse('Solar eclipse', plusOnly: false),
   planetPairing('Planet pairing', plusOnly: false),
+
+  /// A memorable moment: three or more of the Moon, planets and bright
+  /// stars gathered in one look (domain/events/gatherings.dart). Listed for
+  /// everyone; the tap and Home's "Don't miss" row are LookUp+.
+  gathering('Memorable moment', plusOnly: true),
   rocketLaunch('Rocket launch', plusOnly: true),
   issTransit('ISS transit', plusOnly: false, pushes: false),
   planetHighlight('Planet highlight', plusOnly: false),

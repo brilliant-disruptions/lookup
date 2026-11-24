@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/local_store.dart';
+import '../domain/events/gatherings.dart' show gatheringFitWords, gatheringNightsWords;
 import '../domain/events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../domain/models/sky_event.dart';
 import '../domain/models/settings.dart';
@@ -683,6 +684,8 @@ String lookLine(SkyEvent e) => switch (e.type) {
         'Face ${compassWord(e.riseAzimuthDeg)} and find a low, open horizon: a field, a shore, a high floor. It comes up big and orange and whitens as it climbs.${e.details['supermoon'] == true ? ' A supermoon: about as close as the Moon gets.' : ''}',
       SkyEventType.planetPairing =>
         '${e.details['label']}: two bright points ${e.details['separation']}° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Hold your thumb out at arm\'s length: they fit behind it.',
+      SkyEventType.gathering =>
+        '${e.details['label']}, gathered together ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. ${gatheringFitWords(e)}. ${gatheringNightsWords(e)} Binoculars show them all at once.',
       SkyEventType.occultation =>
         'Find the Moon, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}, and the bright point beside it. ${AlertPlanner.occultationTimes(e)} '
         '${e.details['isPlanet'] == true ? 'A planet slides behind the Moon\'s edge over a few seconds.' : 'A star goes out in an instant, like a switch.'} Binoculars help against the Moon\'s glare.',
@@ -726,6 +729,11 @@ List<(String, String)> statsFor(SkyEvent e) => switch (e.type) {
           ('Apart', '${e.details['separation']}°'),
           ('Look', compassAbbrev(e.peakAzimuthDeg)),
           ('Height', '${e.peakElevationDeg.round()}°'),
+        ],
+      SkyEventType.gathering => [
+          ('Best', fmtTime(e.peak)),
+          ('Look', compassAbbrev(e.peakAzimuthDeg)),
+          ('Nights', '${e.details['nightsLeft'] ?? 1}'),
         ],
       SkyEventType.occultation => [
           ('Behind', e.details['disappears'] is String ? fmtTime(DateTime.parse(e.details['disappears'] as String)) : '–'),

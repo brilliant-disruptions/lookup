@@ -50,7 +50,7 @@ ShotSubject? subjectForEvent(SkyEventType t) => switch (t) {
       SkyEventType.iss || SkyEventType.tiangong || SkyEventType.starlinkTrain || SkyEventType.satellitePass => ShotSubject.pass,
       SkyEventType.lunarEclipse || SkyEventType.fullMoonRise || SkyEventType.moonPhase || SkyEventType.occultation || SkyEventType.occultationNear =>
         ShotSubject.moon,
-      SkyEventType.planetPairing || SkyEventType.planetHighlight => ShotSubject.planet,
+      SkyEventType.planetPairing || SkyEventType.gathering || SkyEventType.planetHighlight => ShotSubject.planet,
       SkyEventType.meteorShower => ShotSubject.meteors,
       SkyEventType.auroraNow || SkyEventType.auroraOutlook => ShotSubject.aurora,
       SkyEventType.rocketLaunch => ShotSubject.trails,
