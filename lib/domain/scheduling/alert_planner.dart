@@ -7,6 +7,7 @@ library;
 
 import '../models/settings.dart';
 import '../units.dart';
+import '../events/gatherings.dart' show gatheringFitWords, gatheringNightsWords;
 import '../events/solar_eclipses.dart' show solarEclipseHeadline;
 import '../models/sky_event.dart';
 import '../sky/direction.dart';
@@ -181,7 +182,7 @@ class AlertPlanner {
         SkyEventType.auroraOutlook => false, // outlook is never pushed
         SkyEventType.meteorShower => s.meteorsEnabled,
         SkyEventType.lunarEclipse || SkyEventType.solarEclipse => s.eclipsesEnabled,
-        SkyEventType.planetPairing || SkyEventType.planetHighlight => s.pairingsEnabled,
+        SkyEventType.planetPairing || SkyEventType.gathering || SkyEventType.planetHighlight => s.pairingsEnabled,
         SkyEventType.rocketLaunch => s.launchesEnabled,
         SkyEventType.occultation => s.occultationsEnabled,
         SkyEventType.comet || SkyEventType.nova => s.rareEventsEnabled,
@@ -257,6 +258,7 @@ class AlertPlanner {
       SkyEventType.lunarEclipse => (e.details['label'] as String?) ?? 'Lunar eclipse',
       SkyEventType.solarEclipse => e.details['kind'] == 'total' ? 'Total solar eclipse' : 'Solar eclipse',
       SkyEventType.planetPairing => (e.details['label'] as String?) ?? 'Planet pairing',
+      SkyEventType.gathering => '${e.details['label'] ?? 'Planets'} together',
       SkyEventType.rocketLaunch => 'Rocket launch',
       SkyEventType.issTransit => 'ISS crosses the ${e.details['body'] ?? 'Sun'}',
       SkyEventType.satellitePass => (e.details['name'] as String?) ?? 'Satellite pass',
@@ -307,6 +309,10 @@ class AlertPlanner {
       case SkyEventType.planetPairing:
         final sep = e.details['separation'];
         return '$sep° apart, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. Two bright points side by side. ${_cloudNote(e)}'.trim();
+      case SkyEventType.gathering:
+        return '${gatheringFitWords(e)}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. ${gatheringNightsWords(e)} ${_cloudNote(e)}'
+            .replaceAll(RegExp(r' +'), ' ')
+            .trim();
       case SkyEventType.planetHighlight:
         final b = e.details['brightness'] as String?;
         return '${e.details['planet']} is ${b ?? 'bright'}, ${elevationWord(e.peakElevationDeg)} in the ${compassWord(e.peakAzimuthDeg)}. ${_cloudNote(e)}'.trim();

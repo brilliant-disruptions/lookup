@@ -33,6 +33,7 @@ String typePlural(SkyEventType t, int n) {
     SkyEventType.lunarEclipse => one ? 'lunar eclipse' : 'lunar eclipses',
     SkyEventType.solarEclipse => one ? 'solar eclipse' : 'solar eclipses',
     SkyEventType.planetPairing => one ? 'planet pairing' : 'planet pairings',
+    SkyEventType.gathering => one ? 'memorable moment' : 'memorable moments',
     SkyEventType.rocketLaunch => one ? 'rocket launch' : 'rocket launches',
     SkyEventType.issTransit => one ? 'station transit' : 'station transits',
     SkyEventType.satellitePass => one ? 'satellite' : 'satellites',

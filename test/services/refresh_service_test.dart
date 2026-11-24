@@ -426,20 +426,28 @@ void main() {
     });
 
     // Phones that all downloaded after one event shouldn't all come back
-    // at the same moment the next day.
-    test('a cache is due between 24 and 25 h old, at a moment each install picks', () async {
-      final at30 = <bool>{};
+    // at the same moment the next day, and nobody downloads at dusk.
+    test('the background downloads in each install\'s own slot; opening the app only when overdue', () async {
+      final slots = <int>{};
       for (var i = 0; i < 24; i++) {
         SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
         final store = LocalStore();
-        expect(await store.celestrakDue('iss', aged(const Duration(hours: 23, minutes: 59)), now), isFalse);
-        expect(await store.celestrakDue('iss', aged(const Duration(hours: 25, minutes: 1)), now), isTrue);
-        final mid = await store.celestrakDue('iss', aged(const Duration(hours: 24, minutes: 30)), now);
-        expect(await store.celestrakDue('iss', aged(const Duration(hours: 24, minutes: 30)), now), mid,
-            reason: 'an install keeps its moment');
-        at30.add(mid);
+        final slot = await store.refreshSlot();
+        expect(await store.refreshSlot(), slot, reason: 'an install keeps its slot');
+        slots.add(slot);
+        // now (12:00 UTC) as local time, offset so we're 1 h into the slot.
+        final inSlot = Duration(minutes: slot + 60 - 12 * 60);
+        final outOfSlot = inSlot + const Duration(hours: 8);
+        Future<bool> due(Duration age, {required bool bg, required Duration off}) =>
+            store.celestrakDue('iss', aged(age), now, background: bg, utcOffset: off);
+        expect(await due(const Duration(hours: 21), bg: true, off: inSlot), isTrue);
+        expect(await due(const Duration(hours: 19), bg: true, off: inSlot), isFalse, reason: 'never twice in 20 h');
+        expect(await due(const Duration(hours: 30), bg: true, off: outOfSlot), isFalse);
+        expect(await due(const Duration(hours: 30), bg: false, off: inSlot), isFalse, reason: 'opening the app waits');
+        expect(await due(const Duration(hours: 37), bg: false, off: outOfSlot), isTrue, reason: 'overdue');
+        expect(await store.celestrakDue('iss', null, now), isTrue, reason: 'nothing cached yet');
       }
-      expect(at30, {true, false}, reason: 'installs differ (fails 1 time in ~8 million by chance)');
+      expect(slots.length, greaterThan(12), reason: 'installs differ');
     });
   });
 }

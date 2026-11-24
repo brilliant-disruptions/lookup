@@ -15,7 +15,7 @@ class _SlowRefresh extends RefreshService {
   final done = Completer<RefreshReport>();
   final forced = <bool>[];
   @override
-  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false, bool quick = false}) {
+  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false, bool quick = false, bool background = false}) {
     forced.add(force);
     return done.future;
   }

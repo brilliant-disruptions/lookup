@@ -48,6 +48,7 @@ class Sighting {
     if (id.startsWith('eclipse:')) return SkyEventType.lunarEclipse;
     if (id.startsWith('solar:')) return SkyEventType.solarEclipse;
     if (id.startsWith('pair:')) return SkyEventType.planetPairing;
+    if (id.startsWith('gather:')) return SkyEventType.gathering;
     if (id.startsWith('occ:')) return SkyEventType.occultation;
     if (id.startsWith('occnear:')) return SkyEventType.occultationNear;
     if (id.startsWith('comet:')) return SkyEventType.comet;

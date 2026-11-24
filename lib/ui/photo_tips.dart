@@ -50,7 +50,7 @@ List<(String, String)> photoTips(SkyEventType t) => switch (t) {
           ('Phone', 'Hold eclipse glasses over the phone lens, lock focus and exposure on the Sun, and zoom in.'),
           ('Totality', 'Only while the Sun is fully covered: filter off, shoot the corona at several exposures, filter back on as the first bead of light returns.'),
         ],
-      SkyEventType.planetPairing || SkyEventType.planetHighlight || SkyEventType.skyObject => const [
+      SkyEventType.planetPairing || SkyEventType.gathering || SkyEventType.planetHighlight || SkyEventType.skyObject => const [
           ('Phone', 'Use 2–3× zoom and frame some landscape; the pair reads best low over a skyline at dusk.'),
           ('Camera', 'Tripod, 50–200 mm, ISO 400, 1–2 s. Shoot in twilight, not full dark, for a deep-blue sky.'),
         ],

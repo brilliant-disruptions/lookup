@@ -4,6 +4,8 @@ library;
 
 import 'package:workmanager/workmanager.dart';
 
+import '../domain/scheduling/refresh_slot.dart' show backgroundEvery;
+
 import '../data/local_store.dart';
 import 'lock_screen_catches.dart';
 import 'notification_service.dart';
@@ -49,7 +51,7 @@ Future<void> runBackgroundRefresh() async {
       await importLockScreenCatchesFromAppGroup(store, notifications);
     },
   );
-  await service.run();
+  await service.run(background: true);
   await PushService.sync(await store.loadSettings(), store: store);
 }
 
@@ -59,10 +61,12 @@ class BackgroundScheduler {
     await Workmanager().registerPeriodicTask(
       backgroundTaskId,
       backgroundTaskId,
-      frequency: const Duration(hours: 6),
+      // Often enough that a run lands in this install's download window.
+      frequency: backgroundEvery,
       initialDelay: const Duration(hours: 1),
       constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      // Update, so phones on the old 6-hour period pick up the new one.
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
     );
   }
 }

@@ -154,9 +154,9 @@ class RefreshService {
   /// Celestrak gets hammered. [limit] caps the wait without stopping the
   /// download: whoever asks next gets it.
   Future<List<OmmRecord>?> _elements(String key, Future<List<OmmRecord>> Function() fetch,
-      {required DateTime now, required List<String> errors, bool cacheOnly = false, Duration? limit}) async {
+      {required DateTime now, required List<String> errors, bool cacheOnly = false, Duration? limit, bool background = false}) async {
     final cached = await store.loadElements(key);
-    if (cacheOnly || !await store.celestrakDue(key, cached, now)) return cached?.records;
+    if (cacheOnly || !await store.celestrakDue(key, cached, now, background: background)) return cached?.records;
     try {
       var got = _shared(key, () async {
         final List<OmmRecord> recs;
@@ -223,7 +223,11 @@ class RefreshService {
   /// shipped copy can stand in, else [quickLimit]). Everything else is whatever is cached: clouds, aurora,
   /// launches and Starlink fill in with the full refresh that must follow.
   /// It schedules nothing and doesn't mark the refresh done.
-  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false, bool quick = false}) async {
+  ///
+  /// [background] is the scheduled run with nobody looking: it's the one
+  /// that downloads the once-a-day feeds, in this install's slot
+  /// (`domain/scheduling/refresh_slot.dart`).
+  Future<RefreshReport> run({bool force = false, bool allowLocationPrompt = false, bool quick = false, bool background = false}) async {
     final errors = <String>[];
     final now = DateTime.now().toUtc();
     var settings = await store.loadSettings();
@@ -305,12 +309,13 @@ class RefreshService {
     // The sources don't depend on each other, so they download together:
     // the wait is the slowest one, not the sum of them all.
     var (iss, tiangong, starlink, clouds, aurora, launchesRaw, sky) = await (
-      _elements('iss', _fetchIss, now: now, errors: errors, limit: quick ? (seed != null ? seedLimit : quickLimit) : null),
+      _elements('iss', _fetchIss,
+          now: now, errors: errors, background: background, limit: quick ? (seed != null ? seedLimit : quickLimit) : null),
       settings.tiangongEnabled
-          ? _elements('tiangong', _fetchTiangong, now: now, errors: errors, cacheOnly: quick)
+          ? _elements('tiangong', _fetchTiangong, now: now, errors: errors, cacheOnly: quick, background: background)
           : Future<List<OmmRecord>?>.value(),
       settings.starlinkEnabled
-          ? _elements('starlink', _fetchStarlink, now: now, errors: errors, cacheOnly: quick)
+          ? _elements('starlink', _fetchStarlink, now: now, errors: errors, cacheOnly: quick, background: background)
           : Future<List<OmmRecord>?>.value(),
       fetchClouds(),
       fetchAurora(),

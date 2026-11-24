@@ -117,7 +117,7 @@ Alignment _pipSpot(SkyEventType t) => switch (t) {
       SkyEventType.fullMoonRise || SkyEventType.moonPhase => const Alignment(0.74, -0.2),
       SkyEventType.lunarEclipse => const Alignment(0, -0.62),
       SkyEventType.solarEclipse => const Alignment(0.74, -0.66),
-      SkyEventType.planetPairing || SkyEventType.planetHighlight => const Alignment(0, -0.62),
+      SkyEventType.planetPairing || SkyEventType.gathering || SkyEventType.planetHighlight => const Alignment(0, -0.62),
       SkyEventType.occultation || SkyEventType.occultationNear => const Alignment(0.36, -0.66),
       SkyEventType.rocketLaunch => const Alignment(-0.74, 0.48),
       SkyEventType.comet => const Alignment(-0.55, -0.35),
@@ -175,6 +175,7 @@ class _ScenePainter extends CustomPainter {
         _stars(canvas, s, 17, 30, 0.6);
         _solar(canvas, s);
       case SkyEventType.planetPairing:
+      case SkyEventType.gathering:
         _sky(canvas, s, _dusk, 21, 34);
         _planets(canvas, s, 2);
         _hills(canvas, s, 8, const Color(0xFF080B14));

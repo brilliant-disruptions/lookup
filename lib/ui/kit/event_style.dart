@@ -20,6 +20,7 @@ import '../theme.dart';
       SkyEventType.moonPhase => (icon: Icons.contrast_rounded, color: LookUpColors.white),
       SkyEventType.solarEclipse => (icon: Icons.brightness_3_rounded, color: LookUpColors.orange),
       SkyEventType.planetPairing => (icon: Icons.workspaces_rounded, color: LookUpColors.gold),
+      SkyEventType.gathering => (icon: Icons.auto_awesome_rounded, color: LookUpColors.gold),
       SkyEventType.planetHighlight => (icon: null, color: LookUpColors.gold),
       SkyEventType.skyObject => (icon: Icons.star_rounded, color: LookUpColors.gold),
       SkyEventType.occultation || SkyEventType.occultationNear => (icon: Icons.nightlight_round, color: LookUpColors.white),

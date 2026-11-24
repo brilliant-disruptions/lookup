@@ -15,6 +15,7 @@ import '../domain/models/settings.dart';
 import '../domain/models/sky_event.dart';
 import '../domain/orbit/omm.dart';
 import '../domain/plus/plus_grant.dart';
+import '../domain/scheduling/refresh_slot.dart';
 import '../domain/weather/cloud_forecast.dart';
 
 class CachedElements {
@@ -108,7 +109,7 @@ class LocalStore {
   static const _kPush = 'aurora_push';
   static String _kElements(String key) => 'elements_$key';
   static String _kCelestrakFailed(String key) => 'celestrak_failed_$key';
-  static const _kCelestrakOffset = 'celestrak_offset_min';
+  static const _kRefreshSlot = 'refresh_slot_min';
   static const _kFinderStats = 'finder_stats';
 
   Future<LookUpSettings> loadSettings() async {
@@ -150,18 +151,25 @@ class LocalStore {
             'records': [for (final r in records) r.json],
           }));
 
-  /// Celestrak's etiquette: each feed at most once a day. [key]'s cache is
-  /// due a download once it is a day old plus this install's own offset (so
-  /// phones don't all come back at the same moment), and never while it is
-  /// resting after a failure. Nothing forces it sooner.
-  Future<bool> celestrakDue(String key, CachedElements? cached, DateTime now) async {
+  /// Celestrak's etiquette: each feed at most once a day, and phones spread
+  /// out over the day ([feedDue] in `domain/scheduling/refresh_slot.dart`):
+  /// [background] runs download in this install's own slot; with the app
+  /// open, only a cache that's overdue (or missing) is fetched. Never while
+  /// the feed is resting after a failure. Nothing forces it sooner.
+  /// [utcOffset] is the phone's (tests pass one).
+  Future<bool> celestrakDue(String key, CachedElements? cached, DateTime now,
+      {bool background = false, Duration? utcOffset}) async {
     final failed = await _celestrakFailures(key);
     if (failed != null && now.toUtc().isBefore(failed.until)) return false;
-    if (cached == null) return true;
-    return cached.isOlderThan(celestrakMaxAge + Duration(minutes: await _celestrakOffset()), now);
+    final local = now.toUtc().add(utcOffset ?? now.toLocal().timeZoneOffset);
+    return feedDue(
+      fetchedAt: cached?.fetchedAt,
+      now: now,
+      localMinute: local.hour * 60 + local.minute,
+      slotMinute: await refreshSlot(),
+      background: background,
+    );
   }
-
-  static const celestrakMaxAge = Duration(hours: 24);
 
   /// How long a feed rests after each failure in a row; a refusal rests the longest.
   static const celestrakBackoff = [Duration(hours: 1), Duration(hours: 4), Duration(hours: 24)];
@@ -187,12 +195,13 @@ class LocalStore {
     }
   }
 
-  /// 0–59 minutes, picked once per install.
-  Future<int> _celestrakOffset() async {
-    final have = await _prefs.getInt(_kCelestrakOffset);
+  /// This install's daily download slot, a local minute of the day picked
+  /// once ([pickRefreshSlot]).
+  Future<int> refreshSlot() async {
+    final have = await _prefs.getInt(_kRefreshSlot);
     if (have != null) return have;
-    final pick = Random.secure().nextInt(60);
-    await _prefs.setInt(_kCelestrakOffset, pick);
+    final pick = pickRefreshSlot(Random.secure());
+    await _prefs.setInt(_kRefreshSlot, pick);
     return pick;
   }
 

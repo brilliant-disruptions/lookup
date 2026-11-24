@@ -12,6 +12,7 @@ import '../domain/events/meteors.dart';
 import '../domain/events/occultations.dart';
 import '../domain/events/moon_phases.dart';
 import '../domain/events/moonrise.dart';
+import '../domain/events/gatherings.dart';
 import '../domain/events/pairings.dart';
 import '../domain/events/planet_highlights.dart';
 import '../domain/models/settings.dart';
@@ -237,7 +238,13 @@ class EventPipeline {
       out.addAll(moonPhaseEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
     }
     if (s.pairingsEnabled) {
-      out.addAll(pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
+      final gatherings = gatheringEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds).toList();
+      out.addAll(gatherings);
+      out.addAll(withoutGathered(
+        pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds),
+        gatherings,
+        isPlus: s.isPlus,
+      ));
       out.addAll(planetHighlightEvents(now: now, to: to, latDeg: lat, lonDeg: lon).map(withClouds));
     }
     final issRecord = i.iss?.where((r) => r.meanMotion > 0).firstOrNull;
