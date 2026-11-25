@@ -263,7 +263,10 @@ Iterable<SkyEvent> withoutGathered(Iterable<SkyEvent> pairings, List<SkyEvent> g
   bool inside(SkyEvent p, SkyEvent g) {
     final pb = (p.details['bodies'] as List?) ?? const [];
     final gb = (g.details['bodies'] as List?) ?? const [];
-    if (!pb.every(gb.contains)) return false;
+    // Any body in the group, that night: Moon and Jupiter, or the Moon
+    // beside a planet just outside it, is the same patch of sky they'll
+    // already be looking at, so the memorable moment says it all.
+    if (!pb.any(gb.contains)) return false;
     final from = DateTime.tryParse('${g.details['from']}'), to = DateTime.tryParse('${g.details['to']}');
     if (from == null || to == null) return false;
     return !p.start.isBefore(from.subtract(const Duration(hours: 18))) && !p.start.isAfter(to.add(const Duration(hours: 18)));
