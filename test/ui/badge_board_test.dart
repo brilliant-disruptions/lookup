@@ -9,7 +9,9 @@ import 'package:lookup/ui/badges/badge_board.dart';
 import 'package:lookup/ui/theme.dart';
 import 'package:material_ui/material_ui.dart' hide Badge;
 
-final _now = DateTime.now().toUtc();
+// Noon today, so the catches below never fall in the 3 AM hour (that earns
+// the secret "Up past three" and the test would fail between 3 and 4 AM).
+final _now = () { final n = DateTime.now().toUtc(); return DateTime.utc(n.year, n.month, n.day, 12); }();
 
 SkyEvent _ev(String id, SkyEventType type, Duration inFuture, {double el = 40}) => SkyEvent(
       id: id,

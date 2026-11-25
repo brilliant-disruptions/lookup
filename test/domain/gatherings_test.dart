@@ -87,6 +87,19 @@ void main() {
     expect(withoutGathered(pairs, g, isPlus: false).length, pairs.length, reason: 'free keeps its pairing tap');
   });
 
+  test('the Moon beside the gathering that night is part of the moment, not its own tap', () {
+    // 30 Nov 2026: the Moon joins Jupiter and Regulus at dawn, with Mars
+    // just outside. Moon–Jupiter and Moon–Mars are both left to the moment.
+    final at = DateTime.utc(2026, 11, 25, 18);
+    final g = gatheringEvents(now: at, latDeg: lat, lonDeg: lon, days: 14).toList();
+    expect(g.map((e) => e.id), contains('gather:Moon+Jupiter+Regulus:2026-11-30'));
+    final pairs = pairingEvents(now: at, latDeg: lat, lonDeg: lon, days: 14).toList();
+    expect(pairs.map((e) => e.id), containsAll(['pair:Moon-Jupiter-2026-11-30-morning', 'pair:Moon-Mars-2026-11-30-morning']));
+    final kept = withoutGathered(pairs, g, isPlus: true).map((e) => e.id);
+    expect(kept, isNot(contains('pair:Moon-Jupiter-2026-11-30-morning')));
+    expect(kept, isNot(contains('pair:Moon-Mars-2026-11-30-morning')));
+  });
+
   test('stars alone never gather, and nothing far apart does', () {
     // Mid-December: Mars has moved on (9° from Jupiter).
     final later = found(DateTime.utc(2026, 12, 14));

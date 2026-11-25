@@ -65,12 +65,19 @@ class PipelineInputs {
 class EventPipeline {
   const EventPipeline({
     this.horizon = const Duration(days: 7),
+    this.calendarHorizon = const Duration(days: 14),
     this.maxTrains = 3,
     this.issLookahead = const Duration(days: 30),
     this.recentWindow = const Duration(days: 7),
   });
 
   final Duration horizon;
+
+  /// How far ahead the sky calendar (Moon, planets, gatherings,
+  /// occultations) is worked out: on the phone from fixed maths, so it
+  /// doesn't go stale like orbital elements do and the Week tab can show
+  /// next week too. Alerts still only look [AlertPlanner]'s 48 hours ahead.
+  final Duration calendarHorizon;
   final int maxTrains;
 
   /// When the [horizon] holds no ISS pass, look this far ahead for the next
@@ -228,24 +235,24 @@ class EventPipeline {
       out.addAll(solarEclipseEvents(now: now, latDeg: lat, lonDeg: lon).map(withClouds));
     }
     if (s.occultationsEnabled) {
-      out.addAll(occultationEvents(now: now, latDeg: lat, lonDeg: lon, stars: i.catalog?.stars ?? const [], days: horizon.inDays)
+      out.addAll(occultationEvents(now: now, latDeg: lat, lonDeg: lon, stars: i.catalog?.stars ?? const [], days: calendarHorizon.inDays)
           .map(withClouds));
     }
     if (s.moonriseEnabled) {
-      out.addAll(fullMoonRiseEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
+      out.addAll(fullMoonRiseEvents(now: now, latDeg: lat, lonDeg: lon, days: calendarHorizon.inDays).map(withClouds));
     }
     if (s.moonPhasesEnabled) {
-      out.addAll(moonPhaseEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds));
+      out.addAll(moonPhaseEvents(now: now, latDeg: lat, lonDeg: lon, days: calendarHorizon.inDays).map(withClouds));
     }
     if (s.pairingsEnabled) {
-      final gatherings = gatheringEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds).toList();
+      final gatherings = gatheringEvents(now: now, latDeg: lat, lonDeg: lon, days: calendarHorizon.inDays).map(withClouds).toList();
       out.addAll(gatherings);
       out.addAll(withoutGathered(
-        pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: horizon.inDays).map(withClouds),
+        pairingEvents(now: now, latDeg: lat, lonDeg: lon, days: calendarHorizon.inDays).map(withClouds),
         gatherings,
         isPlus: s.isPlus,
       ));
-      out.addAll(planetHighlightEvents(now: now, to: to, latDeg: lat, lonDeg: lon).map(withClouds));
+      out.addAll(planetHighlightEvents(now: now, to: now.add(calendarHorizon), latDeg: lat, lonDeg: lon).map(withClouds));
     }
     final issRecord = i.iss?.where((r) => r.meanMotion > 0).firstOrNull;
     if (s.transitsEnabled && issRecord != null) {

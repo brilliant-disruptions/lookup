@@ -1,7 +1,7 @@
 name: lookup
 description: "LookUp — a push-only 'step outside right now' app. ISS overhead in 8 minutes, aurora possible tonight, a Starlink train in 4."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.13.5
