@@ -15,7 +15,7 @@ import 'theme.dart';
 const supportEmail = 'hello@brilliantdisruptions.com';
 
 /// Keep in step with `version:` in pubspec.yaml (a test checks).
-const appVersion = '1.0.0';
+const appVersion = '1.0.1';
 
 /// Where the public pages live: the relay this build talks to, or the
 /// deployed one.
