@@ -13,6 +13,8 @@
     "flutter-app-shipping@bd-plugins": true,
     "superpowers@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
-    "claude-security@claude-plugins-official": true
+    "claude-security@claude-plugins-official": true,
+    "design@bd-plugins": true,
+    "product-gates@bd-plugins": true
   }
 }
