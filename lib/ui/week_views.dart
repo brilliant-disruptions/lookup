@@ -22,15 +22,17 @@ import 'look_sheet.dart';
 import 'plan_screen.dart';
 import 'satellites_screen.dart';
 import 'paywall_sheet.dart';
+import '../domain/sky/seasons.dart';
 import 'theme.dart';
 import 'where_to_go_screen.dart';
 
 /// "Fri 30" on one line (it never wraps, even with large text), the
 /// selected day in blue.
 class _NightLabel extends StatelessWidget {
-  const _NightLabel(this.date, {required this.selected, this.past = false});
+  const _NightLabel(this.date, {required this.selected, this.past = false, this.season});
   final DateTime date;
   final bool selected, past;
+  final SeasonMark? season;
   @override
   Widget build(BuildContext context) => SizedBox(
         width: _labelWidth,
@@ -45,10 +47,21 @@ class _NightLabel extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: selected ? LookUpColors.blue : (past ? LookUpColors.grey : LookUpColors.white))),
             TextSpan(text: ' ${date.day}', style: numeric(size: 12.5, color: LookUpColors.greyDim)),
+            if (season case final m?)
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: Icon(seasonIcon(m), key: Key('season-mark-${m.name}'), size: 11, color: seasonColor(m)),
+                ),
+              ),
           ])),
         ),
       );
 }
+
+IconData seasonIcon(SeasonMark m) => m.equinox ? Icons.brightness_6_rounded : Icons.wb_sunny_rounded;
+Color seasonColor(SeasonMark m) => m.equinox ? LookUpColors.cyan : LookUpColors.orange;
 
 /// The day column, and the gap between it and the bars.
 const _labelWidth = 48.0, _labelGap = 10.0;
@@ -94,7 +107,12 @@ class GlancePage extends StatefulWidget {
     required this.onPick,
     required this.bottomPadding,
     this.missed,
+    this.latDeg = 0,
   });
+
+  /// Where they are, north or south: names the season (December's solstice
+  /// is winter in the north, summer in the south).
+  final double latDeg;
   final List<GlanceWeek> weeks;
   final DateTime night;
   final SkyEvent? pick;
@@ -144,7 +162,7 @@ class _GlancePageState extends State<GlancePage> {
         child: Opacity(
           opacity: n.past ? 0.6 : 1,
           child: Row(children: [
-            _NightLabel(n.date, selected: n.date == widget.night, past: n.past),
+            _NightLabel(n.date, selected: n.date == widget.night, past: n.past, season: n.season?.mark),
             const SizedBox(width: _labelGap),
             Expanded(
                 child: _NightBar(n,
@@ -170,6 +188,28 @@ class _GlancePageState extends State<GlancePage> {
           if (widget.missed case final m?) Padding(padding: const EdgeInsets.only(bottom: 14), child: m),
         _Axis(axis),
         for (final n in week.nights) _row(n, axis),
+        // Equinoxes and solstices: in the daytime, so a line under the
+        // bars rather than a marker on them.
+        for (final n in week.nights)
+          if (n.season case final s?)
+            Padding(
+              key: Key('season-${s.mark.name}'),
+              padding: const EdgeInsets.only(top: 2, bottom: 8),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1, right: 8),
+                  child: Icon(seasonIcon(s.mark), size: 16, color: seasonColor(s.mark)),
+                ),
+                Expanded(
+                  child: Text.rich(TextSpan(children: [
+                    TextSpan(
+                        text: '${seasonName(s.mark, latDeg: widget.latDeg)}, ${DateFormat.E().format(n.date)} ${fmtTime(s.at)}. ',
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: LookUpColors.white)),
+                    TextSpan(text: seasonLine(s.mark, latDeg: widget.latDeg)),
+                  ]), style: const TextStyle(fontSize: 12.5, height: 1.4, color: LookUpColors.grey)),
+                ),
+              ]),
+            ),
         if (week.offset > 0)
           const Padding(
             padding: EdgeInsets.only(top: 2, bottom: 8),

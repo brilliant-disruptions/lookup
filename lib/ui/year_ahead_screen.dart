@@ -15,6 +15,7 @@ import 'format.dart';
 import 'kit/kit.dart';
 import 'look_sheet.dart';
 import 'theme.dart';
+import 'week_views.dart' show seasonColor, seasonIcon;
 
 /// The year from today at the saved place; empty without one.
 final yearAheadProvider = FutureProvider<List<YearEntry>>((ref) async {
@@ -94,9 +95,7 @@ class YearAheadScreen extends ConsumerWidget {
     final s = y.season!;
     return ListRow(
       key: Key('year-season-${s.mark.name}-${s.at.year}'),
-      leading: EventGlyph(
-          icon: s.mark.equinox ? Icons.brightness_6_rounded : Icons.wb_sunny_rounded,
-          color: s.mark.equinox ? LookUpColors.cyan : LookUpColors.orange),
+      leading: EventGlyph(icon: seasonIcon(s.mark), color: seasonColor(s.mark)),
       title: seasonName(s.mark, latDeg: lat),
       subtitle: '$day, ${fmtTime(s.at)} · ${seasonLine(s.mark, latDeg: lat)}',
     );

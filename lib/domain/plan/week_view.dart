@@ -7,6 +7,7 @@ library;
 import 'dart:math' as math;
 
 import '../models/sky_event.dart';
+import '../sky/seasons.dart';
 import '../weather/cloud_forecast.dart';
 
 /// A day is 24 hourly cloud readings from midnight.
@@ -19,7 +20,7 @@ DateTime dayOf(DateTime t) {
 }
 
 class WeekNight {
-  const WeekNight({required this.date, required this.events, required this.clouds, this.past = false});
+  const WeekNight({required this.date, required this.events, required this.clouds, this.past = false, this.season});
 
   /// Local midnight at the start of the day.
   final DateTime date;
@@ -33,6 +34,10 @@ class WeekNight {
 
   /// Already over: a night before tonight.
   final bool past;
+
+  /// An equinox or solstice falling on this day (local), if any: a date,
+  /// not a sight, so it's never one of [events].
+  final SeasonStart? season;
 
   /// The things LookUp would tap you for.
   List<SkyEvent> get alerts => [for (final e in events) if (e.type.pushes) e];
@@ -55,6 +60,7 @@ WeekNight _night(DateTime date, Iterable<SkyEvent> events, DateTime now, CloudFo
     WeekNight(
       date: date,
       past: past,
+      season: seasonOn(date),
       events: [
         for (final e in events)
           if (!past && e.end.isAfter(now.toUtc()) && dayOf(e.start) == date) e,
@@ -63,6 +69,12 @@ WeekNight _night(DateTime date, Iterable<SkyEvent> events, DateTime now, CloudFo
         for (var h = 0; h < dayHours; h++) weather?.coverAt(DateTime(date.year, date.month, date.day, h).toUtc()),
       ],
     );
+
+/// The equinox or solstice on the local day starting at [date], if any.
+SeasonStart? seasonOn(DateTime date) {
+  final from = date.toUtc(), to = DateTime(date.year, date.month, date.day + 1).toUtc();
+  return seasonsBetween(from, to).firstOrNull;
+}
 
 /// Today and the next [count] − 1 days.
 List<WeekNight> weekNights(Iterable<SkyEvent> events, DateTime now, {CloudForecast? weather, int count = 7}) {

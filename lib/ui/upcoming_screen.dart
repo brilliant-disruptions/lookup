@@ -90,6 +90,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                   onNight: pickNight,
                   onPick: pickEvent,
                   bottomPadding: MediaQuery.paddingOf(context).bottom + 12,
+                  latDeg: settings?.latitude ?? 0,
                   // Only with something Plus-only really coming: the paywall
                   // never opens without one (spec §7).
                   missed: nextPlus == null || missed.isEmpty
