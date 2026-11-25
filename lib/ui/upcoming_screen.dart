@@ -13,6 +13,7 @@ import 'places_screen.dart';
 import 'settings_screen.dart';
 import 'theme.dart';
 import 'week_views.dart';
+import 'year_ahead_screen.dart';
 
 /// The Week tab: every night at a glance, a week to a page: last week, this
 /// week, and the weeks ahead.
@@ -42,7 +43,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
         title: const Text('Week'),
         place: (place?.isNotEmpty ?? false) ? place! : 'Near you',
         onPlaceTap: () => openPlaces(context),
-        actions: const [SettingsButton()],
+        actions: const [YearAheadButton(), SettingsButton()],
       ),
       body: SkyBackdrop(
         stars: false,
@@ -89,6 +90,7 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
                   onNight: pickNight,
                   onPick: pickEvent,
                   bottomPadding: MediaQuery.paddingOf(context).bottom + 12,
+                  latDeg: settings?.latitude ?? 0,
                   // Only with something Plus-only really coming: the paywall
                   // never opens without one (spec §7).
                   missed: nextPlus == null || missed.isEmpty
