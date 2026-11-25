@@ -40,11 +40,11 @@ void main() {
       }
     });
 
-    test('supermoons are only the two inside 360,000 km', () {
-      // 2026-11-24 is 360,766 km: often called a supermoon elsewhere, but
-      // outside our line, and it must not flip.
+    test('supermoons are the ones the almanacs name, inside 362,000 km', () {
+      // 2026-11-24 (360,766 km) is one, as the almanacs say; 2027-02-20
+      // (363,307 km) is not.
       final supers = found.where((f) => f.supermoon).map((f) => f.at.toIso8601String().substring(0, 10));
-      expect(supers, ['2026-12-24', '2027-01-22']);
+      expect(supers, ['2026-11-24', '2026-12-24', '2027-01-22']);
     });
   });
 

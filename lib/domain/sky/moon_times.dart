@@ -7,9 +7,11 @@ library;
 import 'astro.dart';
 import 'tonight.dart' show horizonCrossings;
 
-/// A full Moon closer than this (km) is called a supermoon. Roughly the
-/// closest tenth of full Moons; there's no official line.
-const supermoonMaxKm = 360000.0;
+/// A full Moon closer than this (km) is called a supermoon. There's no
+/// official line; this is about where the almanacs (Old Farmer's Almanac,
+/// Sea and Sky, after Nolle's "within 90% of perigee") draw it, so LookUp
+/// says supermoon when they do: usually three or four a year.
+const supermoonMaxKm = 362000.0;
 
 class FullMoon {
   const FullMoon(this.at, this.distanceKm);

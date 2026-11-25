@@ -33,9 +33,9 @@ void main() {
       expect(nov.peakElevationDeg, inInclusiveRange(0, 10));
     });
 
-    test('only the close one is a supermoon', () {
-      expect(nov.details['supermoon'], false);
-      expect(nov.details['label'], 'Full Moon');
+    test('November and December 2026 are both supermoons', () {
+      expect(nov.details['supermoon'], true);
+      expect(nov.details['label'], 'Supermoon');
       expect(dec.details['supermoon'], true);
       expect(dec.details['label'], 'Supermoon');
     });
@@ -59,9 +59,11 @@ void main() {
           events: [nov.copyWith(cloudCoverPercent: 10)], settings: free, now: now,
           horizon: const Duration(days: 7), utcOffsetMinutes: cst);
       expect(plan.map((a) => a.kind), [AlertKind.headsUp, AlertKind.goNow]);
-      expect(plan[0].title, 'Full Moon rising in 10 min');
-      expect(plan[0].body,
-          'Coming up in the ${compassWord(nov.riseAzimuthDeg)}, on the horizon. You\'ll need a clear view that way. Clear skies.');
+      // November 2026 is a supermoon, as the almanacs say.
+      expect(plan[0].title, 'Supermoon rising in 10 min');
+      expect(plan[0].body, startsWith('Coming up in the ${compassWord(nov.riseAzimuthDeg)}, on the horizon. You\'ll need a clear view that way.'));
+      expect(plan[0].body, contains('A supermoon'));
+      expect(plan[0].body, endsWith('Clear skies.'));
       expect(plan[1].body, 'Look ${compassWord(nov.riseAzimuthDeg)}, right on the horizon.');
       // No azimuth or elevation numbers on the main path.
       for (final a in plan) {
