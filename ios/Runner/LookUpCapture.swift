@@ -110,6 +110,19 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
     return min(frame, CMTimeGetSeconds(f.maxExposureDuration))
   }
 
+  /// A frame duration the format will accept: between its shortest and
+  /// longest supported frame.
+  private func frameDuration(for wanted: CMTime, on f: AVCaptureDevice.Format) -> CMTime {
+    let ranges = f.videoSupportedFrameRateRanges
+    guard let shortest = ranges.map({ $0.minFrameDuration }).min(by: { CMTimeCompare($0, $1) < 0 }),
+          let longest = ranges.map({ $0.maxFrameDuration }).max(by: { CMTimeCompare($0, $1) < 0 }) else {
+      return CMTime(value: 1, timescale: 30)
+    }
+    if CMTimeCompare(wanted, shortest) < 0 { return shortest }
+    if CMTimeCompare(wanted, longest) > 0 { return longest }
+    return wanted
+  }
+
   private func capabilities() -> [String: Any] {
     let cams = backCameras()
     let lenses: [[String: Any]] = cams.map { d in
@@ -206,13 +219,19 @@ final class LookUpCapture: NSObject, FlutterStreamHandler, FlutterTexture, AVCap
         let f = d.activeFormat
         let seconds = min(max(shutterS, CMTimeGetSeconds(f.minExposureDuration)), longestFrameS(d))
         let duration = CMTime(seconds: seconds, preferredTimescale: 1_000_000)
-        // Frames as long as the exposure, back to back.
-        d.activeVideoMaxFrameDuration = duration
-        d.activeVideoMinFrameDuration = duration
+        // Frames as long as the exposure, back to back, but never outside what
+        // the format allows: a quick exposure (the Moon) is shorter than the
+        // shortest frame, and AVFoundation raises an exception we can't catch.
+        let frame = frameDuration(for: duration, on: f)
+        d.activeVideoMaxFrameDuration = .invalid
+        d.activeVideoMinFrameDuration = .invalid
+        d.activeVideoMinFrameDuration = frame
+        d.activeVideoMaxFrameDuration = frame
         d.setExposureModeCustom(duration: duration, iso: min(max(iso, f.minISO), f.maxISO), completionHandler: nil)
         if d.isWhiteBalanceModeSupported(.locked) { d.whiteBalanceMode = .locked }
         d.unlockForConfiguration()
       } catch {
+        d.unlockForConfiguration()
         result(FlutterError(code: "capture", message: "Couldn't set the exposure", details: nil))
         return
       }
