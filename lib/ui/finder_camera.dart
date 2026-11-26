@@ -72,6 +72,8 @@ class CameraBackdropState extends State<CameraBackdrop> with WidgetsBindingObser
   }
 
   Future<void> _start() async {
+    if (_starting) return;
+    _starting = true;
     try {
       final cams = await availableCameras();
       final back = cams.where((c) => c.lensDirection == CameraLensDirection.back).firstOrNull;
@@ -90,20 +92,26 @@ class CameraBackdropState extends State<CameraBackdrop> with WidgetsBindingObser
       widget.onError(e.code.contains('Denied') ? cameraOffMessage : 'The camera didn\'t start.');
     } catch (_) {
       widget.onError('The camera didn\'t start.');
+    } finally {
+      _starting = false;
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final c = _c;
-    if (c == null) return;
     if (state == AppLifecycleState.inactive) {
+      final c = _c;
+      if (c == null) return;
       _c = null;
       unawaited(c.dispose());
     } else if (state == AppLifecycleState.resumed) {
-      unawaited(_start());
+      // _c is null after an inactive, so don't bail on it; and never start
+      // a second controller while one is already coming up.
+      if (_c == null && !_starting) unawaited(_start());
     }
   }
+
+  bool _starting = false;
 
   @override
   void dispose() {
