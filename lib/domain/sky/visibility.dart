@@ -31,6 +31,8 @@ class SkyConditions {
     this.cloudPercent,
     this.visibilityM,
     this.precipProbability,
+    this.fogPercent,
+    this.precipMm,
   });
   final double sunAltDeg;
   final double moonAltDeg;
@@ -38,6 +40,14 @@ class SkyConditions {
   final int? cloudPercent;
   final int? visibilityM;
   final int? precipProbability;
+  final int? fogPercent;
+  final double? precipMm;
+
+  /// Rain or snow likely ([CloudSample.wet]'s rule).
+  bool get wet => (precipProbability ?? 0) >= 60 || (precipMm ?? 0) >= 0.5;
+
+  /// Fog or poor visibility ([CloudSample.foggy]'s rule).
+  bool get foggy => (fogPercent ?? 0) >= 50 || (visibilityM != null && visibilityM! < 4000);
 
   static SkyConditions at(DateTime utc, double lat, double lon, {CloudForecast? weather}) {
     final s = weather?.sampleAt(utc);
@@ -48,6 +58,8 @@ class SkyConditions {
       cloudPercent: s?.coverPercent,
       visibilityM: s?.visibilityM,
       precipProbability: s?.precipProbability,
+      fogPercent: s?.fogPercent,
+      precipMm: s?.precipMm,
     );
   }
 
@@ -120,12 +132,10 @@ Seeability canSee({
     if (c.moonAltDeg > 0 && effective + extinction <= moonless) return Seeability.moonlit;
     return Seeability.tooFaint;
   }
-  final p = c.precipProbability;
-  if (p != null && p >= 60) return Seeability.rain;
+  if (c.wet) return Seeability.rain;
   final cloud = c.cloudPercent;
   if (cloud != null && cloud >= 75) return Seeability.cloudy;
-  final vis = c.visibilityM;
-  if (vis != null && vis < 4000) return Seeability.foggy;
+  if (c.foggy) return Seeability.foggy;
   if (cloud != null && cloud > 40) return Seeability.patchy;
   if (altDeg < 12) return Seeability.low;
   // Nobody knows the clouds: up and bright enough, but not a promise.
@@ -139,13 +149,11 @@ Seeability canSee({
 String skyWords(SkyConditions c) {
   if (c.sunAltDeg > 0) return 'Daylight';
   if (c.sunAltDeg > -6) return 'Twilight';
-  final p = c.precipProbability;
-  if (p != null && p >= 60) return 'Rain likely';
+  if (c.wet) return 'Rain likely';
   final cloud = c.cloudPercent;
   if (cloud == null) return 'No cloud forecast for then';
   if (cloud >= 75) return 'Cloudy';
-  final vis = c.visibilityM;
-  if (vis != null && vis < 4000) return 'Hazy';
+  if (c.foggy) return 'Hazy';
   if (cloud > 40) return 'Some cloud';
   if (c.sunAltDeg > -12) return 'Clear, not fully dark';
   return 'Clear';
@@ -164,7 +172,8 @@ class NightOutlook {
 
   bool get hasForecast => hours.isNotEmpty;
 
-  static bool _clear(CloudSample s) => s.coverPercent <= 30 && (s.precipProbability ?? 0) < 40;
+  static bool _clear(CloudSample s) =>
+      s.coverPercent <= 30 && (s.precipProbability ?? 0) < 40 && (s.precipMm ?? 0) < 0.2 && !s.foggy;
 
   static NightOutlook from({required DateTime start, required DateTime end, CloudForecast? weather}) {
     final hours = <CloudSample>[];

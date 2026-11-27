@@ -291,7 +291,7 @@ class EventPipeline {
   /// What already happened over the user in the last [recentWindow]: real
   /// ISS/Tiangong/Starlink passes (SGP4 propagates backwards just as well)
   /// and nights when observed Kp reached aurora strength here. Cloud cover
-  /// comes from Open-Meteo's past hours, so each event can say whether it was
+  /// comes from the past hours each fetch keeps (domain/weather/cloud_history.dart), so each event can say whether it was
   /// actually visible. Newest first.
   List<SkyEvent> buildRecent(PipelineInputs i) {
     final s = i.settings;

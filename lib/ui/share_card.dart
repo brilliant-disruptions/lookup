@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../data/aurora_reports_client.dart' show relayConfigured;
 import '../data/invite_client.dart';
 import '../domain/plan/invite_calendar.dart';
 import '../services/alert_art.dart';
@@ -27,6 +26,7 @@ import 'kit/kit.dart';
 import 'sky/sky_track.dart';
 import 'sky_snapshot.dart';
 import 'theme.dart';
+import '../data/relay_config.dart';
 
 enum ShareMode { sawIt, invite }
 

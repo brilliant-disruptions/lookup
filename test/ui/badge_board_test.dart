@@ -13,12 +13,16 @@ import 'package:material_ui/material_ui.dart' hide Badge;
 // the secret "Up past three" and the test would fail between 3 and 4 AM).
 final _now = () { final n = DateTime.now().toUtc(); return DateTime.utc(n.year, n.month, n.day, 12); }();
 
+// Coming events count from the real clock: from noon, a pass "in 3 hours"
+// would already be over after 15:00 UTC.
+final _clock = DateTime.now().toUtc();
+
 SkyEvent _ev(String id, SkyEventType type, Duration inFuture, {double el = 40}) => SkyEvent(
       id: id,
       type: type,
-      start: _now.add(inFuture),
-      peak: _now.add(inFuture),
-      end: _now.add(inFuture + const Duration(minutes: 5)),
+      start: _clock.add(inFuture),
+      peak: _clock.add(inFuture),
+      end: _clock.add(inFuture + const Duration(minutes: 5)),
       peakElevationDeg: el,
       riseAzimuthDeg: 200,
       peakAzimuthDeg: 180,

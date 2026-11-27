@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/aurora_reports_client.dart' show relayConfigured;
 import '../domain/aurora/seen_nearby.dart' show seenNearYouLine;
 import '../domain/events/gatherings.dart' show dontMiss;
 import '../domain/models/sky_event.dart';
@@ -17,6 +16,7 @@ import 'soft_asks.dart';
 import 'theme.dart';
 import 'tour.dart';
 import 'verdict_card.dart';
+import '../data/relay_config.dart';
 
 class NowScreen extends ConsumerWidget {
   const NowScreen({super.key});

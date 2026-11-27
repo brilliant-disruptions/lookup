@@ -58,7 +58,15 @@ jobs:
           else
             echo "::warning::No release key set: this APK is signed with the debug key. For testing only, never for Google Play."
           fi
-      - run: flutter build apk --release
+      # The relay (relay/README.md): clouds, rare events, invites, Seen near
+      # you. A release without it has no clouds, so the check refuses one.
+      # Set the repository variable LOOKUP_RELAY_URL to point somewhere else.
+      - name: Release APK
+        env:
+          LOOKUP_RELAY_URL: ${{ vars.LOOKUP_RELAY_URL || 'https://lookup-relay.brilliant-disruptions.workers.dev' }}
+        run: |
+          tool/check_release_env.sh
+          flutter build apk --release --dart-define=LOOKUP_RELAY_URL="$LOOKUP_RELAY_URL"
       - uses: actions/upload-artifact@v4
         with:
           name: lookup-release-apk

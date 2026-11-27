@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lookup/data/geocoding_client.dart';
+import 'package:lookup/domain/places/town_search.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/sky/visibility.dart';
 
@@ -27,17 +27,13 @@ void main() {
     expect(LookUpSettings.fromJson(const {}).places, isEmpty);
   });
 
-  test('geocoding results parse to places with a region line', () {
-    final r = GeocodingClient.parse({
-      'results': [
-        {'name': 'Nashville', 'latitude': 36.16589, 'longitude': -86.78444, 'admin1': 'Tennessee', 'country': 'United States'},
-        {'name': 'Broken'},
-      ],
-    });
-    expect(r, hasLength(1));
-    expect(r.single.place.name, 'Nashville');
-    expect(r.single.detail, 'Tennessee, United States');
-    expect(GeocodingClient.parse({'generationtime_ms': 0.5}), isEmpty);
+  test('a town row becomes a place with a region line', () {
+    final t = Town.fromRow(['Nashville', '', 36.17, -86.78, 689447, 'Tennessee', 'United States'])!;
+    expect(t.place.name, 'Nashville');
+    expect(t.place.latitude, 36.17);
+    expect(t.detail, 'Tennessee, United States');
+    expect(Town.fromRow(['Broken']), isNull);
+    expect(Town.fromRow(const {'name': 'x'}), isNull);
   });
 
   test('a place can say how dark its sky is, and keeps it through JSON and use', () {

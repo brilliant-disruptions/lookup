@@ -17,9 +17,11 @@ flutter pub get
 # Generated.xcconfig with a unique, increasing build number per Xcode Cloud run
 # (TestFlight rejects duplicate build numbers). Marketing version comes from
 # pubspec.yaml.
-# The relay (relay/README.md): Seen near you and invite links. Not a secret;
-# set LOOKUP_RELAY_URL in the Xcode Cloud workflow to point somewhere else.
+# The relay (relay/README.md): clouds, rare events, invites and Seen near
+# you. Not a secret; set LOOKUP_RELAY_URL in the Xcode Cloud workflow to point
+# somewhere else. A release without it has no clouds: the check refuses one.
 RELAY_URL="${LOOKUP_RELAY_URL:-https://lookup-relay.brilliant-disruptions.workers.dev}"
+LOOKUP_RELAY_URL="$RELAY_URL" sh tool/check_release_env.sh
 flutter build ios --config-only --release --no-codesign --build-number="${CI_BUILD_NUMBER:-1}" \
   --dart-define=LOOKUP_RELAY_URL="$RELAY_URL"
 

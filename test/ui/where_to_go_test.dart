@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lookup/data/open_meteo_client.dart';
+import 'package:lookup/data/clouds_client.dart';
 import 'package:lookup/domain/models/settings.dart';
 import 'package:lookup/domain/plan/where_to_go.dart';
 import 'package:lookup/domain/sky/skyglow.dart';
@@ -35,9 +35,9 @@ CloudForecast _forecast(double lat, double lon, int cover) {
   ]);
 }
 
-class _Meteo extends OpenMeteoClient {
+class _Meteo extends CloudsClient {
   @override
-  Future<CloudForecast> fetchCloudForecast(double lat, double lon, {int days = 7, int pastDays = 7}) async =>
+  Future<CloudForecast> fetch(double lat, double lon) async =>
       _forecast(lat, lon, 0);
 }
 
@@ -109,7 +109,7 @@ void main() {
       final c = ProviderContainer(overrides: [
         settingsProvider.overrideWith(() => _Settings(s)),
         weatherProvider.overrideWith((_) async => _forecast(36.17, -86.78, 100)),
-        openMeteoProvider.overrideWithValue(_Meteo()),
+        cloudsProvider.overrideWithValue(_Meteo()),
       ]);
       addTearDown(c.dispose);
       return c;

@@ -11,7 +11,7 @@ Spec and strategy live in the ideas repo: [`app-ideas/look_up_now/spec.md`](http
 | Layer | Status |
 |---|---|
 | `lib/domain/` — pure Dart: ISS/Starlink pass prediction, Starlink train detection, aurora rules (Kp vs. geomagnetic latitude, Ovation sampling), sun/darkness, direction-in-words, alert planner (lead time, go-now nudge, cloud gating, quiet hours, nightly cap, stable ids) | ✅ unit-tested (`flutter test`) |
-| `lib/data/` — Celestrak (OMM JSON), NOAA SWPC (Kp 1-min, 3-day forecast, Ovation), Open-Meteo cloud cover, on-device store | ✅ |
+| `lib/data/` — Celestrak (OMM JSON), NOAA SWPC (Kp 1-min, 3-day forecast, Ovation), MET Norway clouds via the relay, on-device store | ✅ |
 | `lib/services/` — refresh orchestration (fetch → compute → plan → schedule), local notifications, location, WorkManager background refresh | ✅ written, needs device testing |
 | `lib/ui/` — onboarding, Now, Upcoming, Settings, Look sheet (compass + timeline + share) | ✅ written, needs device testing |
 | Billing (LookUp+) | ✅ `in_app_purchase` (StoreKit 2 / Play Billing), paywall sheet, restore; products `lookup_plus_monthly`, `lookup_plus_yearly`, `lookup_plus_lifetime` must be created in App Store Connect and Play Console (prices and setup in [`docs/business.md`](docs/business.md)). The store is asked again on every launch and LookUp+ ends when the subscription does (`domain/plus/plus_grant.dart`); no server-side receipt validation yet |
@@ -125,7 +125,7 @@ Before the first device build:
 - **ISS transits** of the Sun and Moon: time to the second, how long, and how far to drive to stand on the centre line (with Directions). Listed, never pushed.
 - **Satellites tonight**: the brightest objects from Celestrak's visual group (Hubble, BlueBirds, Zenit stages), fetched on demand.
 - **Who's up there**: the current station crews (Launch Library) and speed/height from SGP4 on the ISS and Tiangong sheets.
-- **Places**: follow the phone or switch between saved places (search via Open-Meteo geocoding). **Add to calendar** on any event.
+- **Places**: follow the phone or switch between saved places (search on the phone from GeoNames towns). **Add to calendar** on any event.
 - **Sky log** with badges, a hit rate and your own photos; **poster share cards** ("I saw it", "Look up with me", "Your sky year"). **Photo tips** per event type.
 - **Siri / Shortcuts**: "When's the next pass in LookUp?" (`ios/Runner/LookUpIntents.swift`, added to the target on a Mac).
 - **Quiet weeks** explain themselves, show the next pass and the last 7 nights; **Preview an alert** plays a full pass in fast-forward.
@@ -143,10 +143,10 @@ Before the first device build:
 | Launches | `ll.thespacedevs.com/2.3.0/launches/upcoming` | 6 h |
 | Station crews | `ll.thespacedevs.com/2.3.0/expeditions/?is_active=true` | daily, only when a station sheet opens |
 | Bright satellites | `celestrak.org/NORAD/elements/gp.php?GROUP=visual&FORMAT=json` | daily, only when *Satellites tonight* opens |
-| Place search | `geocoding-api.open-meteo.com/v1/search` | on demand |
+| Place search | on the phone (`assets/sky/towns.json.gz`, GeoNames) | never fetched |
 | Stars and constellation figures | d3-celestial (Hipparcos / Yale BSC), BSD-3-Clause, bundled in `assets/sky/` | offline |
 | Magnetic declination | WMM2025 coefficients, bundled | offline |
-| Cloud cover | `api.open-meteo.com/v1/forecast?hourly=cloud_cover` | 6 h — **non-commercial tier**; move to the paid plan when the app charges |
+| Clouds, fog, rain | relay `/v1/clouds` → MET Norway Locationforecast 2.0 | phone ≥ 6 h; relay obeys MET's Expires (≥ 30 min Nordic, 3 h elsewhere) |
 
 ## How an alert happens
 

@@ -1,6 +1,6 @@
 /// Credits: who made the data and pictures LookUp shows. Several sources
 /// ask to be acknowledged where they're used (NASA's Universe of Learning,
-/// Open-Meteo, Stellarium); the full notes live in assets/sky/SOURCES-*.txt.
+/// MET Norway, GeoNames, Stellarium); the full notes live in assets/sky/SOURCES-*.txt.
 library;
 
 import 'package:material_ui/material_ui.dart';
@@ -25,7 +25,12 @@ const credits = <Credit>[
   ),
   (what: 'Satellite orbits', who: 'CelesTrak.'),
   (what: 'Aurora and space weather', who: 'NOAA Space Weather Prediction Center.'),
-  (what: 'Clouds and place search', who: 'Open-Meteo (CC BY 4.0).'),
+  (
+    what: 'Clouds, fog and rain',
+    who: 'Based on data from MET Norway (Locationforecast, CC BY 4.0; changed: trimmed to clouds, fog and rain, '
+        'and spread across the hours between its steps). Licence: creativecommons.org/licenses/by/4.0',
+  ),
+  (what: 'Place search', who: 'GeoNames (CC BY 4.0, creativecommons.org/licenses/by/4.0), on your phone.'),
   (what: 'Rocket launches and station crews', who: 'The Space Devs\' Launch Library.'),
   (what: 'How dark the sky is', who: 'NASA Black Marble night lights and Natural Earth.'),
   (what: 'Towns under a pass', who: 'Natural Earth (public domain).'),

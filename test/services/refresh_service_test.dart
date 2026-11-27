@@ -8,7 +8,7 @@ import 'package:http/testing.dart';
 import 'package:lookup/data/celestrak_client.dart';
 import 'package:lookup/data/launch_library_client.dart';
 import 'package:lookup/data/local_store.dart';
-import 'package:lookup/data/open_meteo_client.dart';
+import 'package:lookup/data/clouds_client.dart';
 import 'package:lookup/data/swpc_client.dart';
 import 'package:lookup/domain/scheduling/alert_planner.dart';
 import 'package:lookup/domain/scheduling/alert_tuning.dart';
@@ -95,7 +95,7 @@ class _Network {
         notifications: _Notes(),
         celestrak: CelestrakClient(client: client),
         swpc: SwpcClient(client: client),
-        meteo: OpenMeteoClient(client: client),
+        clouds: CloudsClient(client: client, base: 'https://relay.test'),
         launchLibrary: LaunchLibraryClient(client: client),
         location: _Here(),
         catalog: () async => throw 'no sky in this test',
@@ -127,7 +127,7 @@ void main() {
     await t.pump(const Duration(milliseconds: 100));
     // Nothing has answered yet, yet every source has been asked.
     final hosts = {for (final u in net.asked) Uri.parse(u).host};
-    expect(hosts, containsAll(['celestrak.org', 'api.open-meteo.com', 'services.swpc.noaa.gov', 'll.thespacedevs.com']));
+    expect(hosts, containsAll(['celestrak.org', 'relay.test', 'services.swpc.noaa.gov', 'll.thespacedevs.com']));
     expect(net.asked.where((u) => u.contains('CATNR=25544')), hasLength(1));
     expect(net.asked.where((u) => u.contains('GROUP=starlink')), hasLength(1));
     // The aurora's forecast, Kp now and map together, not one after another.
@@ -169,7 +169,7 @@ void main() {
       notifications: _Notes(),
       celestrak: CelestrakClient(client: silent),
       swpc: SwpcClient(client: silent),
-      meteo: OpenMeteoClient(client: silent),
+      clouds: CloudsClient(client: silent, base: 'https://relay.test'),
       launchLibrary: LaunchLibraryClient(client: silent),
       location: _Here(),
       catalog: () async => throw 'no sky in this test',
@@ -222,7 +222,7 @@ void main() {
       notifications: _Notes(),
       celestrak: CelestrakClient(client: client),
       swpc: SwpcClient(client: client),
-      meteo: OpenMeteoClient(client: client),
+      clouds: CloudsClient(client: client, base: 'https://relay.test'),
       launchLibrary: LaunchLibraryClient(client: client),
       location: here,
       catalog: () async => throw 'no sky in this test',
@@ -255,7 +255,7 @@ void main() {
         notifications: notes,
         celestrak: CelestrakClient(client: down),
         swpc: SwpcClient(client: down),
-        meteo: OpenMeteoClient(client: down),
+        clouds: CloudsClient(client: down, base: 'https://relay.test'),
         launchLibrary: LaunchLibraryClient(client: down),
         location: _Here(),
         catalog: () async => throw 'no sky in this test',
@@ -301,7 +301,7 @@ void main() {
         notifications: _Notes(),
         celestrak: CelestrakClient(client: silent),
         swpc: SwpcClient(client: silent),
-        meteo: OpenMeteoClient(client: silent),
+        clouds: CloudsClient(client: silent, base: 'https://relay.test'),
         launchLibrary: LaunchLibraryClient(client: silent),
         location: _Here(),
         catalog: () async => throw 'no sky in this test',
@@ -346,7 +346,7 @@ void main() {
           notifications: _Notes(),
           celestrak: CelestrakClient(client: client),
           swpc: SwpcClient(client: client),
-          meteo: OpenMeteoClient(client: client),
+          clouds: CloudsClient(client: client, base: 'https://relay.test'),
           launchLibrary: LaunchLibraryClient(client: client),
           location: _Here(),
           catalog: () async => throw 'no sky in this test',
@@ -376,7 +376,7 @@ void main() {
       final forced = world(store, 200);
       await settle(t, forced.service.run(force: true));
       expect(forced.asked.where(celestrak), isEmpty);
-      expect(forced.asked.where((u) => u.contains('open-meteo')), isNotEmpty, reason: 'force still means something');
+      expect(forced.asked.where((u) => u.contains('relay.test/v1/clouds')), isNotEmpty, reason: 'force still means something');
     });
 
     testWidgets('a feed that failed rests instead of being asked on every open', (t) async {

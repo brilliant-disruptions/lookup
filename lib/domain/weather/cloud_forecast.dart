@@ -2,15 +2,37 @@
 library;
 
 class CloudSample {
-  const CloudSample({required this.time, required this.coverPercent, this.visibilityM, this.precipProbability});
+  const CloudSample({
+    required this.time,
+    required this.coverPercent,
+    this.visibilityM,
+    this.precipProbability,
+    this.fogPercent,
+    this.precipMm,
+  });
   final DateTime time; // UTC, top of hour
   final int coverPercent; // 0–100
 
-  /// Horizontal visibility (fog, haze), metres. Null when not forecast.
+  /// Horizontal visibility (fog, haze), metres. Null when not forecast
+  /// (MET Norway doesn't give it; only forecasts saved before it do).
   final int? visibilityM;
 
-  /// Chance of rain or snow this hour, 0–100.
+  /// Chance of rain or snow this hour, 0–100. Not forecast everywhere.
   final int? precipProbability;
+
+  /// How much of the area is in fog, 0–100. MET gives it for the first
+  /// two and a half days only.
+  final int? fogPercent;
+
+  /// Rain or snow expected this hour, mm.
+  final double? precipMm;
+
+  /// Rain or snow is likely enough that nobody should be sent out:
+  /// a 60% chance, or half a millimetre in the hour.
+  bool get wet => (precipProbability ?? 0) >= 60 || (precipMm ?? 0) >= 0.5;
+
+  /// Fog over half the area, or under 4 km of visibility.
+  bool get foggy => (fogPercent ?? 0) >= 50 || (visibilityM != null && visibilityM! < 4000);
 }
 
 class CloudForecast {
@@ -56,7 +78,7 @@ class CloudForecast {
         'fetchedAt': fetchedAt.toIso8601String(),
         'hourly': [
           for (final s in hourly)
-            [s.time.millisecondsSinceEpoch ~/ 1000, s.coverPercent, s.visibilityM, s.precipProbability],
+            [s.time.millisecondsSinceEpoch ~/ 1000, s.coverPercent, s.visibilityM, s.precipProbability, s.fogPercent, s.precipMm],
         ],
       };
 
@@ -73,6 +95,8 @@ class CloudForecast {
               coverPercent: e[1] as int,
               visibilityM: e.length > 2 ? (e[2] as num?)?.toInt() : null,
               precipProbability: e.length > 3 ? (e[3] as num?)?.toInt() : null,
+              fogPercent: e.length > 4 ? (e[4] as num?)?.toInt() : null,
+              precipMm: e.length > 5 ? (e[5] as num?)?.toDouble() : null,
             ),
         ],
       );

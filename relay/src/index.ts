@@ -3,6 +3,7 @@
 import { defaultCard, passImages } from './assets';
 import type { PassConfig } from './pass';
 import { ApnsPusher, FcmPusher, type Pusher } from './push';
+import { sweepClouds } from './met';
 import { handle, sweep } from './relay';
 import { SqlStore } from './store';
 import type { Platform } from './store';
@@ -88,6 +89,7 @@ export default {
       pushers: pushersFor(env),
       now: Date.now,
       later: (p) => ctx.waitUntil(p),
+      clouds: { db: env.DB, fetch: (input, init) => fetch(input, init) },
       invites: {
         site: env.SITE_URL?.replace(/\/$/, ''),
         appStoreId: env.APP_STORE_ID,
@@ -100,6 +102,7 @@ export default {
   },
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(sweep(new SqlStore(env.DB), Date.now()));
+    const now = Date.now();
+    ctx.waitUntil(Promise.all([sweep(new SqlStore(env.DB), now), sweepClouds(env.DB, now)]));
   },
 } satisfies ExportedHandler<Env>;

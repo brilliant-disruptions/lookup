@@ -41,8 +41,10 @@ Product ids are already in `PlusService`: `lookup_plus_yearly`,
 | Yearly | **$29.99** | The default and the one the paywall selects (half the price of twelve months). 7-day free trial as an introductory offer, new subscribers only |
 | Monthly | $4.99 | Mostly an anchor that makes yearly look cheap, and for one aurora season or one eclipse; expect it to churn in quiet ISS weeks |
 
-Before LookUp+ goes on sale, move Open-Meteo to its paid API plan: the
-free API is non-commercial only, and a subscription makes LookUp commercial.
+Clouds come from MET Norway's Locationforecast (CC BY 4.0, commercial use
+allowed) through our relay, which keeps to MET's terms (one identifying
+User-Agent, Expires and If-Modified-Since honoured, a pause on 429/403);
+place search is on the phone (GeoNames). Neither needs a paid plan.
 Enrol in Apple's Small Business Program (15% instead of 30%) and turn on
 Family Sharing for the subscriptions.
 

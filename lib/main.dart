@@ -1,9 +1,12 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'data/relay_config.dart';
 import 'services/alert_actions.dart';
 import 'services/background.dart';
 import 'services/push_service.dart';
@@ -12,6 +15,12 @@ import 'state/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (relayMissingInRelease) {
+    // tool/check_release_env.sh should have stopped this build. The app still
+    // runs: with no clouds it says "No forecast", never "clear".
+    developer.log('LOOKUP_RELAY_URL missing in a release build: no clouds, rare events or invites',
+        name: 'lookup.relay', level: 1000);
+  }
   final container = ProviderContainer();
   final notifications = container.read(notificationServiceProvider);
   void onAlert(NotificationResponse? r) {
