@@ -269,24 +269,13 @@ On the first Mac or TestFlight build:
 
 `ios/Runner/LookUpTimelapse.swift` encodes a timelapse's kept frames into an
 H.264 .mp4 (AVAssetWriter) on the `lookup/timelapse` channel, the same
-contract as `android/.../LookUpTimelapse.kt` (which CI compiles). It was
-written on Linux and only syntax-checked (`swiftc -parse`), so it is **not in
-the Runner target**. Until it is, an iPhone timelapse saves its trail picture
-(every frame's brightest) instead of a video.
+contract as `android/.../LookUpTimelapse.kt`. It is in the Runner target and
+registered in `AppDelegate.swift` next to `LookUpCapture` (compiled on a Mac,
+2026-11-27). Still to check on a device:
 
-On a Mac:
-
-1. Add `LookUpTimelapse.swift` to the Runner target and build (⌘B).
-2. Register it in `AppDelegate.swift`'s `didInitializeImplicitFlutterEngine`,
-   next to `LookUpCapture`:
-   ```swift
-   if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpTimelapse") {
-     LookUpTimelapse.register(with: registrar)
-   }
-   ```
-3. On a device: Explore → the Moon → *Photograph it* → *Timelapse* →
-   *Start the timelapse* → *Start now*, wait a minute, *Stop*. Check a clip
-   lands in Photos, upright, with the dark sky not crushed to black.
+- Explore → the Moon → *Photograph it* → *Timelapse* → *Start the timelapse*
+  → *Start now*, wait a minute, *Stop*. Check a clip lands in Photos,
+  upright, with the dark sky not crushed to black.
 
 ## Pro camera: first checks on a phone
 

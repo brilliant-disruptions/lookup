@@ -43,6 +43,10 @@ import ActivityKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpCapture") {
       LookUpCapture.register(with: registrar)
     }
+    // Pro camera: timelapse video (ios/Runner/LookUpTimelapse.swift).
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpTimelapse") {
+      LookUpTimelapse.register(with: registrar)
+    }
     // Seen near you wake-ups (lib/services/push_service.dart).
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LookUpPush") {
       LookUpPush.shared.attach(registrar.messenger())

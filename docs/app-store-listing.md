@@ -51,7 +51,6 @@ Paste-ready copy for App Store Connect. Character limits in brackets.
 > • Buttons right on the alert: Find it, Tell a friend, Remind me in 5 min
 > • Quiet hours, a nightly limit and "only when it's clear"
 > • Saved places: home, the cabin, next week's trip
-> • Add any event to your calendar
 > • Night-vision red mode to keep your eyes dark-adapted
 >
 > REMEMBER WHAT YOU SAW
@@ -132,8 +131,8 @@ recording of *Preview an alert* → finder works well).
 > forward, including the real notification and its buttons. Location is used
 > on the device to predict passes; a version rounded to about a kilometre is
 > sent to fetch a cloud forecast.
-> Camera, Photos and Calendar are only requested when the user taps the
-> camera view, Add your photo, or Add to calendar.
+> Camera and Photos are only requested when the user opens the sky camera
+> or catches something; LookUp only reads its own "LookUp" album in Photos.
 
 ## Links
 
