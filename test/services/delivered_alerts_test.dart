@@ -9,7 +9,7 @@ import 'package:http/testing.dart';
 import 'package:lookup/data/celestrak_client.dart';
 import 'package:lookup/data/launch_library_client.dart';
 import 'package:lookup/data/local_store.dart';
-import 'package:lookup/data/open_meteo_client.dart';
+import 'package:lookup/data/clouds_client.dart';
 import 'package:lookup/data/swpc_client.dart';
 import 'package:lookup/domain/aurora/aurora_rules.dart';
 import 'package:lookup/domain/models/settings.dart';
@@ -51,7 +51,7 @@ void main() {
       final client = MockClient((req) async {
         final u = req.url.toString();
         if (u.contains('CATNR=25544')) return http.Response(File('test/fixtures/iss_omm.json').readAsStringSync(), 200);
-        if (u.contains('open-meteo')) return http.Response('{"hourly":{"time":[],"cloud_cover":[]}}', 200);
+        if (u.contains('/v1/clouds')) return http.Response('{"steps":[]}', 200);
         if (u.contains('planetary_k_index_1m')) return http.Response('[{"estimated_kp": 9}]', 200);
         if (u.contains('k-index-forecast')) return http.Response('[]', 200);
         if (u.contains('ovation')) return http.Response('{"coordinates": [[$gridLon, 50, 90]]}', 200);
@@ -75,7 +75,7 @@ void main() {
         notifications: NotificationService(plugin, (_) async => null),
         celestrak: CelestrakClient(client: client),
         swpc: SwpcClient(client: client),
-        meteo: OpenMeteoClient(client: client),
+        clouds: CloudsClient(client: client, base: 'https://relay.test'),
         launchLibrary: LaunchLibraryClient(client: client),
         catalog: () async => throw 'none',
         issSeed: () async => const [],

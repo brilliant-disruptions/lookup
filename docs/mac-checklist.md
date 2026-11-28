@@ -197,7 +197,7 @@ In order, before the first submission:
 5. **App Privacy:** two answers, both used for *App Functionality*,
    **not** linked to the user, **not** used for tracking:
    - *Location → Coarse Location* (coordinates rounded to about a kilometre
-     go to Open-Meteo for the cloud forecast; Seen near you sends only
+     go to our relay, which asks MET Norway for the cloud forecast; Seen near you sends only
      half-degree squares);
    - *Identifiers → Device ID* (the push address, sent to the relay only if
      aurora wake-ups are on).

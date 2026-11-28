@@ -18,6 +18,7 @@ import '../data/aurora_reports_client.dart';
 import '../data/local_store.dart';
 import '../domain/aurora/push_plan.dart';
 import '../domain/models/settings.dart';
+import '../data/relay_config.dart';
 
 class PushService {
   static const _channel = MethodChannel('lookup/push');

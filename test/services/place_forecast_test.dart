@@ -1,19 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/data/local_store.dart';
-import 'package:lookup/data/open_meteo_client.dart';
+import 'package:lookup/data/clouds_client.dart';
 import 'package:lookup/domain/weather/cloud_forecast.dart';
 import 'package:lookup/state/plan_state.dart';
 import 'package:lookup/state/sky_state.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-class _Meteo extends OpenMeteoClient {
+class _Meteo extends CloudsClient {
   int calls = 0;
   bool offline = false;
 
   @override
-  Future<CloudForecast> fetchCloudForecast(double lat, double lon, {int days = 7, int pastDays = 7}) async {
+  Future<CloudForecast> fetch(double lat, double lon) async {
     calls++;
     if (offline) throw Exception('offline');
     return CloudForecast(latitude: lat, longitude: lon, fetchedAt: DateTime.now().toUtc(), hourly: const []);
@@ -28,7 +28,7 @@ void main() {
   ProviderContainer container() {
     final c = ProviderContainer(overrides: [
       weatherProvider.overrideWith((_) async => home),
-      openMeteoProvider.overrideWithValue(meteo),
+      cloudsProvider.overrideWithValue(meteo),
     ]);
     addTearDown(c.dispose);
     return c;

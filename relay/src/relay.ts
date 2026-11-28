@@ -14,6 +14,7 @@ import { cellKey, cellsNear, distanceKm, isCell, type Cell } from './cells';
 import { servePage } from './pages';
 import type { Pusher } from './push';
 import { createInvite, serveInvite, type InviteDeps } from './invite';
+import { serveClouds, type CloudsDeps } from './met';
 import { CURATED, live, type RareEvent } from './rare_events';
 import type { How, Platform, Store, StoredReport } from './store';
 
@@ -44,6 +45,8 @@ export const RULES = {
   /** An invite carries its card picture. */
   maxInviteBody: 1_100_000,
   inviteLimit: { n: 30, ms: 60 * 60 * 1000 },
+  /** Cloud forecasts read per network per hour. Generous: a carrier's NAT can put many phones behind one address. MET itself is guarded in met.ts. */
+  cloudsLimit: { n: 600, ms: 60 * 60 * 1000 },
   subsDays: 30,
 };
 
@@ -59,6 +62,8 @@ export type Deps = {
   invites?: Omit<InviteDeps, 'store' | 'now'>;
   /** The curated comets and novae; [CURATED] unless a test says otherwise. */
   rareEvents?: RareEvent[];
+  /** Clouds from MET Norway (src/met.ts); absent, the route 404s. */
+  clouds?: CloudsDeps;
 };
 
 const json = (status: number, body: unknown) =>
@@ -187,6 +192,12 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     return new Response(JSON.stringify({ now: new Date(now).toISOString(), events }), {
       headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600' },
     });
+  }
+
+  // Clouds, through our cache, so phones never call MET Norway themselves.
+  if (url.pathname === '/v1/clouds' && req.method === 'GET' && deps.clouds) {
+    if (!(await deps.store.allow(`clouds:${net}`, now, RULES.cloudsLimit.ms, RULES.cloudsLimit.n))) return json(429, { error: 'slow down' });
+    return serveClouds(url, deps.clouds, now);
   }
 
   // "Look up with me" links.

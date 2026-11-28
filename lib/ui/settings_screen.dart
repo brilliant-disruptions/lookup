@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
-import '../data/aurora_reports_client.dart' show relayConfigured;
 import '../domain/aurora/seen_nearby.dart' show seenNearbyOffered;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,6 +26,7 @@ import 'paywall_sheet.dart';
 import 'places_screen.dart';
 import 'theme.dart';
 import 'pip/pip_intro.dart';
+import '../data/relay_config.dart';
 
 /// [nightVision]: open scrolled to the Night vision section (from the card
 /// that pressing and holding Settings shows).

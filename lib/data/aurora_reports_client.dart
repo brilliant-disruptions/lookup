@@ -11,12 +11,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../domain/aurora/seen_nearby.dart';
+import 'relay_config.dart';
 import 'retry.dart';
 
-const relayUrl = String.fromEnvironment('LOOKUP_RELAY_URL');
-
-/// Whether this build knows a relay at all.
-bool get relayConfigured => relayUrl.isNotEmpty;
 
 typedef ReportCell = ({double lat, double lon});
 

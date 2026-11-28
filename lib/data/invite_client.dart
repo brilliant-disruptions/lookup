@@ -10,7 +10,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'aurora_reports_client.dart' show relayUrl;
+import 'relay_config.dart';
 
 class InviteClient {
   InviteClient({http.Client? client, String base = relayUrl})

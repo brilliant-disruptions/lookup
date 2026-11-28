@@ -14,6 +14,7 @@ import '../../domain/sky/sun.dart';
 import '../../state/providers.dart';
 import '../format.dart' show fmtDistance;
 import '../theme.dart';
+import '../../data/relay_config.dart';
 
 /// Whether to offer "Can you see it?" for [e] at [lat], [lon] right now.
 bool showSeenItRow(SkyEvent e, {required double? lat, required double? lon, required DateTime now, bool? configured}) {

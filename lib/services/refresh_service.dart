@@ -8,7 +8,7 @@ import '../data/launch_library_client.dart';
 import '../domain/scheduling/alert_ledger.dart';
 import '../domain/scheduling/alert_tuning.dart';
 import '../data/local_store.dart';
-import '../data/open_meteo_client.dart';
+import '../data/clouds_client.dart';
 import '../data/rare_events_client.dart';
 import '../data/swpc_client.dart';
 import '../domain/aurora/aurora_rules.dart';
@@ -21,11 +21,13 @@ import '../domain/scheduling/alert_planner.dart';
 import '../domain/scheduling/week_ahead.dart';
 import '../domain/sky/catalog.dart';
 import '../domain/sky/sun.dart';
+import '../domain/weather/cloud_history.dart';
 import '../domain/weather/cloud_forecast.dart';
 import 'event_pipeline.dart';
 import 'location_service.dart';
 import 'notification_service.dart';
 import 'sky_catalog_loader.dart';
+import '../data/relay_config.dart';
 
 class RefreshReport {
   RefreshReport(
@@ -47,7 +49,7 @@ class RefreshService {
     required this.notifications,
     CelestrakClient? celestrak,
     SwpcClient? swpc,
-    OpenMeteoClient? meteo,
+    CloudsClient? clouds,
     LaunchLibraryClient? launchLibrary,
     LocationService? location,
     AuroraReportsClient? auroraReports,
@@ -59,7 +61,7 @@ class RefreshService {
     this.issSeed = loadIssSeed,
   })  : celestrak = celestrak ?? CelestrakClient(),
         swpc = swpc ?? SwpcClient(),
-        meteo = meteo ?? OpenMeteoClient(),
+        clouds = clouds ?? CloudsClient(),
         launchLibrary = launchLibrary ?? LaunchLibraryClient(),
         location = location ?? const LocationService(),
         auroraReports = auroraReports ?? (relayConfigured ? AuroraReportsClient() : null),
@@ -69,7 +71,7 @@ class RefreshService {
   final NotificationService notifications;
   final CelestrakClient celestrak;
   final SwpcClient swpc;
-  final OpenMeteoClient meteo;
+  final CloudsClient clouds;
   final LaunchLibraryClient launchLibrary;
   final LocationService location;
 
@@ -255,7 +257,9 @@ class RefreshService {
               (clouds.longitude - fix.lon).abs() > 0.2);
       if (force || clouds == null || cloudsMoved || clouds.isStale(now, maxAge: cloudsMaxAge)) {
         try {
-          clouds = await meteo.fetchCloudForecast(fix.lat, fix.lon);
+          // MET has no past: the last week's hours come forward from the
+          // copy this replaces (cloud_history.dart), for the same place only.
+          clouds = withPast(await this.clouds.fetch(fix.lat, fix.lon), clouds, now: now);
           await store.saveClouds(clouds);
         } catch (e) {
           errors.add('clouds: $e');

@@ -55,3 +55,24 @@ CREATE TABLE IF NOT EXISTS invite_tally (
   n INTEGER NOT NULL,
   PRIMARY KEY (day, what)
 );
+
+-- Clouds from MET Norway (src/met.ts), one row per rough place (two
+-- decimals, "36.17,-86.78"): the trimmed forecast and what MET said about
+-- when to ask again. Nothing about who asked. Swept two days after the
+-- last fetch.
+CREATE TABLE IF NOT EXISTS met_cache (
+  cell TEXT PRIMARY KEY,
+  body TEXT NOT NULL,           -- JSON: {issued, fetched, steps}
+  expires INTEGER NOT NULL,     -- ms: don't ask MET again before this
+  last_modified TEXT,           -- MET's Last-Modified, sent back as If-Modified-Since
+  fetched_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS met_cache_fetched ON met_cache (fetched_at);
+
+-- The proxy's own state: 'pause' (after a 429/403), 's:<second>' (calls to
+-- MET this second) and 'lock:<cell>' (one call per place at a time).
+CREATE TABLE IF NOT EXISTS met_state (
+  key TEXT PRIMARY KEY,
+  value INTEGER NOT NULL,
+  until INTEGER NOT NULL        -- ms: swept after this
+);

@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lookup/data/local_store.dart';
-import 'package:lookup/data/open_meteo_client.dart';
 import 'package:lookup/domain/aurora/aurora_rules.dart';
 import 'package:lookup/domain/aurora/seen_nearby.dart';
 import 'package:lookup/domain/events/rare_events.dart';
@@ -195,22 +194,6 @@ void main() {
           auroraReports: crowd));
       expect(quiet.where((e) => e.type == SkyEventType.auroraNow), isEmpty);
     });
-  });
-
-  test('Open-Meteo payload parses to a forecast with nearest-hour lookup', () {
-    final f = OpenMeteoClient.parseCloudForecast({
-      'hourly': {
-        'time': [1760918400, 1760922000, 1760925600],
-        'cloud_cover': [10, 55, 90],
-      },
-    }, latitude: 1, longitude: 2, fetchedAt: now);
-    expect(f.hourly.length, 3);
-    final t0 = DateTime.fromMillisecondsSinceEpoch(1760918400 * 1000, isUtc: true);
-    expect(f.coverAt(t0), 10);
-    expect(f.coverAt(t0.add(const Duration(minutes: 50))), 55);
-    expect(f.coverAt(t0.add(const Duration(hours: 5))), isNull);
-    final rt = f.toJson();
-    expect(rt['hourly'], hasLength(3));
   });
 
   test('aurora snapshot round-trips', () {

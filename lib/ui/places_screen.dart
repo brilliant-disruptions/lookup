@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/plus/free_plan.dart';
 import 'paywall_sheet.dart';
 
-import '../data/geocoding_client.dart';
+import '../data/towns_asset.dart';
 import '../domain/models/settings.dart';
 import '../domain/plan/near_town.dart';
 import '../domain/sky/skyglow.dart';
@@ -222,34 +222,30 @@ class _SearchDialog extends StatefulWidget {
 }
 
 class _SearchDialogState extends State<_SearchDialog> {
-  final _client = GeocodingClient();
-  Timer? _debounce;
-  List<({SavedPlace place, String detail})> _results = const [];
-  bool _busy = false;
-  String? _error;
-
-  void _onChanged(String q) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () async {
-      setState(() {
-        _busy = true;
-        _error = null;
-      });
-      try {
-        final r = await _client.search(q);
-        if (mounted) setState(() => _results = r);
-      } catch (_) {
-        if (mounted) setState(() => _error = 'Search needs a connection.');
-      } finally {
-        if (mounted) setState(() => _busy = false);
-      }
-    });
+  // All on the phone: nothing typed here leaves it. Start reading the
+  // list as the dialog opens so the first letters don't wait.
+  @override
+  void initState() {
+    super.initState();
+    loadTowns().ignore();
   }
 
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    super.dispose();
+  List<({SavedPlace place, String detail})> _results = const [];
+  String? _error;
+  int _asked = 0;
+
+  Future<void> _onChanged(String q) async {
+    final n = ++_asked;
+    try {
+      final r = (await loadTowns()).search(q);
+      if (!mounted || n != _asked) return;
+      setState(() {
+        _results = r;
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted && n == _asked) setState(() => _error = "Search isn't working just now. Try again in a moment.");
+    }
   }
 
   @override
@@ -266,7 +262,6 @@ class _SearchDialogState extends State<_SearchDialog> {
               decoration: InputDecoration(
                 hintText: 'Nashville, Joshua Tree…',
                 prefixIcon: const Icon(Icons.search_rounded, color: LookUpColors.greyDim),
-                suffixIcon: _busy ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))) : null,
               ),
             ),
             const SizedBox(height: 8),

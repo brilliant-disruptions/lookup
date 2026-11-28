@@ -9,8 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../data/aurora_reports_client.dart' show relayUrl;
 import 'theme.dart';
+import '../data/relay_config.dart';
 
 const supportEmail = 'hello@brilliantdisruptions.com';
 

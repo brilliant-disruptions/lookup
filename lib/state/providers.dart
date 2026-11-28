@@ -148,7 +148,7 @@ class HomeNotifier extends AsyncNotifier<HomeData> {
   /// Pull-to-refresh: like [refresh], but done waiting after [pullLimit].
   /// Not forced: a pull re-plans from what's fresh and only fetches what's
   /// stale, so pulling can't break the feeds' data etiquette (Celestrak once
-  /// a day, Open-Meteo 6 h, SWPC 30 min). Settings has "Refresh everything".
+  /// a day, clouds 6 h, SWPC 30 min). Settings has "Refresh everything".
   Future<void> pull() => refresh().timeout(pullLimit, onTimeout: () {});
 
   /// The refresh in progress. Refreshes queue behind it: two at once would

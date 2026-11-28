@@ -5,7 +5,7 @@
 
 export const SUPPORT_EMAIL = 'hello@brilliantdisruptions.com';
 export const APPLE_EULA = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
-const UPDATED = '21 November 2026';
+const UPDATED = '27 November 2026';
 
 const page = (title: string, body: string) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -31,7 +31,7 @@ export function privacyPage(): string {
 <p>LookUp works out your sky on your phone. There are no accounts, no ads, no analytics and no tracking, and no third-party SDKs. We don't sell or share anything about you.</p>
 
 <h2>Your location</h2>
-<p>LookUp asks for your location (or a town you pick) to work out what's over you. Your exact position stays on your phone. To fetch the weather, LookUp sends a rough version of it, rounded to about a kilometre, to <a href="https://open-meteo.com">Open-Meteo</a>, the weather service, with nothing that identifies you. The same goes for other places you save, and for the darker spots LookUp suggests nearby. Searching for a town sends the words you type to Open-Meteo's place search.</p>
+<p>LookUp asks for your location (or a town you pick) to work out what's over you. Your exact position stays on your phone. To fetch the weather, LookUp sends a rough version of it, rounded to about a kilometre, to our small server, with nothing that identifies you. Our server asks <a href="https://api.met.no/">MET Norway</a>, the Norwegian Meteorological Institute, for the forecast for that rough place; your phone never contacts MET Norway, so it never sees your IP address. Our server keeps each place's forecast for up to two days so it isn't asked twice, not linked to you or anyone. The same goes for other places you save, and for the darker spots LookUp suggests nearby. Searching for a town happens on your phone: what you type never leaves it.</p>
 
 <h2>Photos</h2>
 <p>Pictures you catch are saved to a LookUp album in your Photos. LookUp only reads its own album, and we recommend giving it Limited access. Each picture is saved with what it shows, when, the name of your place and a rough location (to about a kilometre), as any photo is; if you share a picture, those can go with it. Your pictures never leave your phone unless you share them.</p>

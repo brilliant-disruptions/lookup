@@ -106,8 +106,8 @@ void main() {
   });
 
   group('can I see it', () {
-    SkyConditions sky({double sun = -20, double moonAlt = -10, double illum = 0, int? cloud, int? vis, int? rain}) =>
-        SkyConditions(sunAltDeg: sun, moonAltDeg: moonAlt, moonIllumination: illum, cloudPercent: cloud, visibilityM: vis, precipProbability: rain);
+    SkyConditions sky({double sun = -20, double moonAlt = -10, double illum = 0, int? cloud, int? vis, int? rain, int? fog, double? mm}) =>
+        SkyConditions(sunAltDeg: sun, moonAltDeg: moonAlt, moonIllumination: illum, cloudPercent: cloud, visibilityM: vis, precipProbability: rain, fogPercent: fog, precipMm: mm);
 
     test('basics: below horizon, clear, low', () {
       expect(canSee(altDeg: -5, mag: -2, c: sky(cloud: 5), darkness: SkyDarkness.city), Seeability.belowHorizon);
@@ -131,6 +131,22 @@ void main() {
       expect(canSee(altDeg: 50, mag: -2, c: sky(cloud: 55), darkness: SkyDarkness.dark), Seeability.patchy);
       expect(canSee(altDeg: 50, mag: -2, c: sky(rain: 80), darkness: SkyDarkness.dark), Seeability.rain);
       expect(canSee(altDeg: 50, mag: -2, c: sky(vis: 800), darkness: SkyDarkness.dark), Seeability.foggy);
+    });
+
+    // MET Norway gives fog as a share of the area and rain in millimetres,
+    // often with no chance of rain and never a visibility. Either alone,
+    // under a clear cloud figure, must stop "Easy to see".
+    test('fog alone or a rain amount alone: never "Easy to see"', () {
+      final fog = canSee(altDeg: 50, mag: -2, c: sky(cloud: 5, fog: 70), darkness: SkyDarkness.dark);
+      expect(fog, Seeability.foggy);
+      expect(fog.words, isNot('Easy to see'));
+      final rain = canSee(altDeg: 50, mag: -2, c: sky(cloud: 5, mm: 1.2), darkness: SkyDarkness.dark);
+      expect(rain, Seeability.rain);
+      expect(rain.words, isNot('Easy to see'));
+      expect(skyWords(sky(cloud: 5, fog: 70)), 'Hazy');
+      expect(skyWords(sky(cloud: 5, mm: 1.2)), 'Rain likely');
+      // A trace of fog or drizzle doesn't spoil a clear night.
+      expect(canSee(altDeg: 50, mag: -2, c: sky(cloud: 5, fog: 10, mm: 0.1), darkness: SkyDarkness.dark), Seeability.great);
     });
 
     test('the Andromeda Galaxy: dark sky yes, city no, full Moon no', () {
@@ -177,5 +193,21 @@ void main() {
     expect(NightOutlook.from(start: start, end: end, weather: f(List.filled(11, 95))).shape, 'cloudy');
     expect(NightOutlook.from(start: start, end: end, weather: f([90, 90, 90, 80, 40, 20, 10, 5, 5, 5, 5])).shape, 'clearing');
     expect(NightOutlook.from(start: start, end: end).shape, 'unknown');
+  });
+
+  test('night outlook: a foggy or rainy hour is never clear, whatever the cloud', () {
+    final start = DateTime.utc(2026, 10, 21, 0), end = DateTime.utc(2026, 10, 21, 11);
+    CloudForecast f({int? fog, double? mm}) => CloudForecast(
+          latitude: lat,
+          longitude: lon,
+          fetchedAt: start,
+          hourly: [
+            for (var i = 0; i < 11; i++)
+              CloudSample(time: start.add(Duration(hours: i)), coverPercent: 5, fogPercent: fog, precipMm: mm),
+          ],
+        );
+    expect(NightOutlook.from(start: start, end: end, weather: f()).shape, 'clear');
+    expect(NightOutlook.from(start: start, end: end, weather: f(fog: 60)).shape, isNot('clear'));
+    expect(NightOutlook.from(start: start, end: end, weather: f(mm: 0.3)).shape, isNot('clear'));
   });
 }

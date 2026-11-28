@@ -6,7 +6,7 @@ import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/open_meteo_client.dart';
+import '../data/clouds_client.dart';
 import '../domain/models/settings.dart';
 import '../domain/plan/night_plan.dart';
 import '../domain/plan/where_to_go.dart';
@@ -80,11 +80,11 @@ List<Spot> planSpots(LookUpSettings s) => [
           (name: p.name, lat: p.latitude, lon: p.longitude, darkness: p.skyDarkness, here: false),
     ];
 
-final openMeteoProvider = Provider<OpenMeteoClient>((_) => OpenMeteoClient());
+final cloudsProvider = Provider<CloudsClient>((_) => CloudsClient());
 
 /// Hourly clouds for a place: the main forecast when it's where they are,
 /// otherwise the place's own copy, fetched only when looked at and at most
-/// every 6 hours (Open-Meteo etiquette, see CLAUDE.md).
+/// every 6 hours (data etiquette, see CLAUDE.md).
 final placeForecastProvider = FutureProvider.family<CloudForecast?, ({double lat, double lon})>((ref, at) async {
   final main = await ref.watch(weatherProvider.future);
   if (main != null && (main.latitude - at.lat).abs() < 0.2 && (main.longitude - at.lon).abs() < 0.2) return main;
@@ -92,7 +92,7 @@ final placeForecastProvider = FutureProvider.family<CloudForecast?, ({double lat
   final cached = await store.loadPlaceClouds(at.lat, at.lon);
   if (cached != null && !cached.isStale(DateTime.now(), maxAge: placeCloudsMaxAge)) return cached;
   try {
-    final fresh = await ref.read(openMeteoProvider).fetchCloudForecast(at.lat, at.lon, pastDays: 0);
+    final fresh = await ref.read(cloudsProvider).fetch(at.lat, at.lon);
     await store.savePlaceClouds(fresh);
     return fresh;
   } catch (_) {

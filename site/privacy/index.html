@@ -12,15 +12,15 @@
 <main>
   <header><img src="/icon.png" alt=""><a href="/">LookUp</a></header>
   <h1>Privacy Policy</h1>
-  <p class="muted">Effective October 28, 2026</p>
+  <p class="muted">Effective November 27, 2026</p>
 
   <div class="card">
-    <p><strong>The short version:</strong> LookUp has no account, no analytics, no advertising and no tracking. It works out what's in the sky on your phone. To check for clouds, it sends your location to a weather service, and nothing else about you leaves your phone.</p>
+    <p><strong>The short version:</strong> LookUp has no account, no analytics, no advertising and no tracking. It works out what's in the sky on your phone. To check for clouds, it sends a rough location (to about a kilometre) to our server, which asks a weather service, and nothing else about you leaves your phone.</p>
   </div>
 
   <h2>Your location</h2>
   <p>LookUp uses your location to predict when the space station and satellites pass over you, whether aurora might reach you, and how dark your sky is. Those predictions run on your phone.</p>
-  <p>To know whether clouds will hide an event, the app sends your latitude and longitude to <a href="https://open-meteo.com/en/terms">Open-Meteo</a>, a weather service, and gets back a cloud forecast. If you search for a place by name instead of using your phone's location, the name you type is sent to Open-Meteo's place search. Nothing else is sent with these requests, and they aren't linked to you.</p>
+  <p>To know whether clouds will hide an event, the app sends a rough version of your location, rounded to about a kilometre, to our server, which asks <a href="https://api.met.no/">MET Norway</a>, the Norwegian Meteorological Institute, for a cloud forecast. Your phone never contacts MET Norway, so it never sees your IP address. Our server keeps each place's forecast for up to two days, not linked to you. Searching for a place by name happens on your phone; what you type is never sent anywhere. Nothing else is sent with these requests, and they aren't linked to you.</p>
 
   <h2>Sky data the app downloads</h2>
   <p>LookUp regularly downloads public data: satellite orbits from CelesTrak, space weather from NOAA's Space Weather Prediction Center and launch schedules from The Space Devs. These downloads contain nothing about you. As with any internet request, these services can see your device's IP address.</p>

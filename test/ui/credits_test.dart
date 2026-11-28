@@ -11,9 +11,18 @@ void main() {
 
   test('every outside source in the README is credited', () {
     final all = credits.map((c) => c.who).join(' ');
-    for (final source in ['CelesTrak', 'NOAA Space Weather', 'Open-Meteo', 'Launch Library', 'd3-celestial', 'Natural Earth', 'Black Marble']) {
+    for (final source in ['CelesTrak', 'NOAA Space Weather', 'MET Norway', 'GeoNames', 'Launch Library', 'd3-celestial', 'Natural Earth', 'Black Marble']) {
       expect(all, contains(source));
     }
+  });
+
+  // CC BY 4.0: credit, a link to the licence, and say what was changed.
+  test('MET Norway and GeoNames carry their licence link; MET says what changed', () {
+    String who(String what) => credits.firstWhere((c) => c.what == what).who;
+    for (final w in ['Clouds, fog and rain', 'Place search']) {
+      expect(who(w), contains('creativecommons.org/licenses/by/4.0'));
+    }
+    expect(who('Clouds, fog and rain'), contains('changed:'));
   });
 
   testWidgets('the page lists them all', (t) async {

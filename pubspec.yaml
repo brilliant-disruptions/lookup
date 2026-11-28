@@ -58,6 +58,7 @@ flutter:
     - assets/sky/proper_motion.json
     - assets/sky/skyglow.bin.gz
     - assets/sky/places.json
+    - assets/sky/towns.json.gz
     - assets/sky/figures.json
     - assets/sky/figures/
   fonts:

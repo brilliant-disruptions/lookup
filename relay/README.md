@@ -1,12 +1,14 @@
 # LookUp relay
 
-The one server LookUp has. It does two things:
+The one server LookUp has. It does three things:
 
 - **Seen near you:** anonymous "I can see the aurora" reports, kept for an
   hour, and wake-up pushes to phones nearby.
 - **"Look up with me" links:** invites that unfurl into a card in Messages,
   with **Get reminders** (on to the App Store / Google Play) and **Add to Apple Wallet**. See
   [Invite links](#invite-links) below.
+- **Clouds:** the cloud forecast, from MET Norway, cached by rough place so
+  phones never call MET themselves. See [Clouds](#clouds) below.
 
 For Seen near you: Why and what it may hold:
 [`docs/seen-near-you.md`](../docs/seen-near-you.md). The rules that decide
@@ -21,6 +23,7 @@ dependencies at runtime.
 | `src/relay.ts` | Routes, validation, rate limits, the wake-up rule |
 | `src/store.ts` | The SQL (D1) |
 | `src/push.ts` | APNs (token auth, ES256) and FCM HTTP v1 (service account, RS256) |
+| `src/met.ts` | Clouds: the MET Norway proxy and its cache |
 | `src/cells.ts` | Half-degree cells, same as the app's `reportCell` / `cellsNear` |
 | `src/invite.ts` | Invite links: create, the page, the card picture |
 | `src/ics.ts`, `src/pass.ts`, `src/zip.ts` | The calendar file; the Wallet pass (signed with node-forge, zipped) |
@@ -35,6 +38,7 @@ GET    /v1/reports?cells=la,lo;la,lo…                                       �
 POST   /v1/subscribe  {token, platform: "apns"|"fcm", sandbox?, cells: […]} → 204
 DELETE /v1/subscribe  {token}                                               → 204
 GET    /v1/rare-events                                                      → {now, events: [{id, kind, name, magnitude, validUntil, note, ephemeris}]}
+GET    /v1/clouds?lat=36.17&lon=-86.78                                      → {issued, fetched, stale?, steps: [{t, hours, cloud, low, mid, high, fog, precipMm, precipProb}]}
 GET    /v1/health
 ```
 
@@ -221,3 +225,36 @@ app still checks for reports whenever it refreshes.
 Under 100 people reporting at a time and a few thousand subscribers, this
 fits Cloudflare's free tier. Worker requests, D1 reads and writes, and the
 cron run are all well inside its daily limits.
+
+## Clouds
+
+`GET /v1/clouds` is a caching proxy for MET Norway's
+[Locationforecast 2.0](https://api.met.no/weatherapi/locationforecast/2.0/documentation)
+(`complete`), because MET asks that phones never call it directly. Its
+[Terms of Service](https://api.met.no/doc/TermsOfService) are kept in
+`src/met.ts`, and `test/met.test.ts` pins each one:
+
+- Every request carries one fixed User-Agent:
+  `LookUpRelay/1.0 (+https://brilliantdisruptions.com; hello@brilliantdisruptions.com)`.
+  Change it only to another real contact.
+- Places are rounded to two decimals (MET refuses five or more) and cached
+  under that key in D1 (`met_cache`).
+- MET isn't asked again for a place before its `Expires`, nor within half
+  MET's update interval there (FAQ): 30 minutes in the Nordic area, 3 hours
+  elsewhere, plus a fixed 0–10 minutes per place so places don't all come
+  due at once. After that the request is conditional (`If-Modified-Since`),
+  and a 304 keeps the copy.
+- At most 10 calls to MET a second, everyone's together (MET allows 20 a
+  second for all installs). Past that, and for 30 minutes after any 429 or 403, phones get
+  the copy we have (`stale: true`) or a 503. One call per place at a time;
+  after a 5xx the place waits 5 minutes.
+- Nothing is fetched ahead: only when a phone asks, and phones ask from
+  their own refresh slot, so there's no burst on the hour.
+- A 203 (deprecated or beta product) is logged: watch for it, and for
+  MET's api-users list, before they turn a version off.
+- Forecasts not fetched for two days are swept by the cron.
+
+The data is CC BY 4.0 from MET Norway; the app's credits say "Based on data
+from MET Norway" and that we trimmed it. New tables: run `npm run db:init`
+again after deploying (every statement is `IF NOT EXISTS`).
+

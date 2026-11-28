@@ -2,7 +2,7 @@
 /// user under a clear sky, one honest line on Home. Only ever said when it's
 /// true: the event really happened over them (recent passes are propagated
 /// backwards; aurora nights are observed Kp that met the bar here in the
-/// dark), and the sky really was clear (Open-Meteo's past hours). Unknown
+/// dark), and the sky really was clear (the past hours kept from earlier forecasts). Unknown
 /// cloud is never "clear". Pure.
 library;
 

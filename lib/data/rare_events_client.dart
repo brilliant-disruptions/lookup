@@ -7,8 +7,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'aurora_reports_client.dart' show relayUrl;
 import 'retry.dart';
+import 'relay_config.dart';
 
 class RareEventsClient {
   RareEventsClient({http.Client? client, String base = relayUrl})
