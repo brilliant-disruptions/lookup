@@ -127,6 +127,13 @@ class _PaywallState extends ConsumerState<PaywallSheet> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    // Once they've bought it (or Restore found it), take them back to where
+    // they were. Only on the change: a subscriber who opened this to manage
+    // their plan keeps it open.
+    ref.listen(settingsProvider, (prev, next) {
+      if (prev?.value == null) return; // settings still loading: not a change
+      if (!prev!.value!.isPlus && (next.value?.isPlus ?? false)) Navigator.of(context).maybePop();
+    });
     final settings = ref.watch(settingsProvider).value;
     final isPlus = settings?.isPlus ?? false;
     final lead = settings?.leadMinutes ?? 10;

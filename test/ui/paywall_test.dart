@@ -21,6 +21,13 @@ class _PlusSettings extends SettingsNotifier {
   Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true, isPlus: true);
 }
 
+/// Free, until the store says they've bought it.
+class _FlipSettings extends SettingsNotifier {
+  @override
+  Future<LookUpSettings> build() async => const LookUpSettings(latitude: 36.17, longitude: -86.78, onboarded: true);
+  void becomePlus() => state = AsyncData(state.requireValue.copyWith(isPlus: true));
+}
+
 final _now = DateTime.now().toUtc();
 
 SkyEvent _ev(String id, SkyEventType type, Duration inFuture, Map<String, Object?> details) => SkyEvent(
@@ -185,6 +192,40 @@ void main() {
     await t.pump();
     await t.pump();
     expect(t.widget<Text>(find.byKey(const Key('paywall-note'))).data, contains('Couldn\'t reach the store'));
+    await t.pumpWidget(const SizedBox());
+  });
+
+  // Subscribing used to leave the sheet up, saying "Thank you", over the
+  // screen they came from: it should take them back there.
+  testWidgets('becoming a subscriber closes the sheet and goes back', (t) async {
+    t.view.physicalSize = const Size(1179, 6000);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final settings = _FlipSettings();
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        settingsProvider.overrideWith(() => settings),
+        homeProvider.overrideWith(_Home.new),
+        plusServiceProvider.overrideWithValue(_FakePlus()),
+      ],
+      child: MaterialApp(
+        theme: buildLookUpTheme(),
+        home: Scaffold(
+          body: Builder(
+            builder: (c) => TextButton(onPressed: () => showPaywall(c), child: const Text('where they were')),
+          ),
+        ),
+      ),
+    ));
+    await t.pump();
+    await t.tap(find.text('where they were'));
+    await t.pumpAndSettle();
+    expect(find.byType(PaywallSheet), findsOneWidget);
+
+    settings.becomePlus();
+    await t.pumpAndSettle();
+    expect(find.byType(PaywallSheet), findsNothing);
+    expect(find.text('where they were'), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
 
